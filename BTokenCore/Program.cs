@@ -1,12 +1,18 @@
 ﻿using System;
+using System.Threading.Tasks;
 
 namespace BTokenCore
 {
   class Program
   {
-    static void Main(string[] args)
+    public static Node Node;
+
+    static async Task Main(string[] args)
     {
-      Console.WriteLine("Hello World!");
+      Node = new Node();
+      Node.Start();
+
+      await Task.Delay(-1).ConfigureAwait(false);
     }
   }
 }
