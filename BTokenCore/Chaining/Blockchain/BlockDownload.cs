@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Diagnostics;
+
 
 namespace BTokenCore.Chaining
 {
@@ -43,7 +44,7 @@ namespace BTokenCore.Chaining
 
         public void InsertBlock(Block block)
         {
-          Console.WriteLine(
+          Debug.WriteLine(
             "Insert block {0} into download {1}",
             block.Header.Hash.ToHexString(),
             Index);

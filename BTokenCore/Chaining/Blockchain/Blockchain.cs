@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Threading.Tasks.Dataflow;
+using System.Diagnostics;
 
 
 
@@ -40,9 +41,7 @@ namespace BTokenCore.Chaining
     
     long UTCTimeStartMerger = 
       DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-         
-
+    
     public int IndexBlockArchive;
 
     byte[] HashRootFork;
@@ -93,7 +92,16 @@ namespace BTokenCore.Chaining
       Network.Start();
     }
 
-
+    public string GetStatus()
+    {
+      return string.Format(
+        "Height: {0}\n" +
+        "Block tip: {1}\n" +
+        "UTXO: {2}\n",
+        Height,
+        HeaderTip.Hash.ToHexString(),
+        UTXOTable.GetStatus());
+    }
 
     async Task LoadImage()
     {
@@ -409,12 +417,12 @@ namespace BTokenCore.Chaining
 
         InsertHeader(block.Header);
 
-        Console.WriteLine(
+        Debug.WriteLine(
           "{0},{1},{2},{3}",
           Height,
           IndexBlockArchive,
           DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger,
-          UTXOTable.GetMetricsCSV());
+          UTXOTable.GetStatus());
 
         return true;
       }

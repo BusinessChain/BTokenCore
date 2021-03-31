@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using System.Text;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace BTokenCore
@@ -55,7 +55,7 @@ namespace BTokenCore
 
       logFile.WriteLine(logString);
 
-      Console.WriteLine(logString);
+      Debug.WriteLine(logString);
 
       logFile.Flush();
     }

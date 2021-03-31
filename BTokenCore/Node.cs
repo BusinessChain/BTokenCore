@@ -34,5 +34,32 @@ namespace BTokenCore
     {
       Blockchain.Start();
     }
+
+
+
+    public void RunConsole()
+    {
+      Console.WriteLine("Start console.");
+
+      while (true)
+      {
+        string inputCommand = Console.ReadLine();
+
+        switch(inputCommand)
+        {
+          case "status":
+            Console.WriteLine(Blockchain.GetStatus());
+            break;
+
+          case "sendToken":
+            Console.WriteLine(inputCommand);
+            break;
+
+          default:
+            Console.WriteLine("Unknown command {0}", inputCommand);
+            break;
+        }
+      }
+    }
   }
 }

@@ -665,7 +665,7 @@ namespace BTokenCore.Chaining
 
                 case "notfound":
 
-                  Console.WriteLine(
+                  Debug.WriteLine(
                     "Command notfound not implemented yet.");
 
                   break;
@@ -941,9 +941,9 @@ namespace BTokenCore.Chaining
 
         public void Dispose()
         {
-          Console.WriteLine(
+          Debug.WriteLine(string.Format(
             "Dispose peer {0}.",
-            GetID());
+            GetID()));
 
           Cancellation.Cancel();
 

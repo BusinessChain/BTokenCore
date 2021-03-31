@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using System.Threading.Tasks;
+using System.Text;
 using System.Numerics;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -46,6 +46,20 @@ namespace BTokenCore.Chaining
 
         //SendAnchorToken(
         //  "AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
+      }
+
+      public string GetStatus()
+      {
+        string outputsSpendable = "Wallet:\n";
+
+        foreach(var output in TXOutputsSpendable)
+        {
+          outputsSpendable += "TXID: " + output.TXID.ToHexString() + "\n";
+          outputsSpendable += "Output Index: " + output.OutputIndex + "\n";
+          outputsSpendable += "Value: " + output.Value + "\n";
+        }
+
+        return outputsSpendable;
       }
 
       public void LoadImage(string pathImage)
@@ -305,7 +319,6 @@ namespace BTokenCore.Chaining
 
         var txArray = tXRaw.ToArray();
         txArray = txArray.Reverse().ToArray();
-        Console.WriteLine(txArray.ToHexString());
         
         //byte[] script = PREFIX_OP_RETURN.Concat(data).ToArray();
         //var tXOutputOPReturn =

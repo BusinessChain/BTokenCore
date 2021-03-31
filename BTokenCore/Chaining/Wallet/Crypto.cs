@@ -4,6 +4,7 @@ using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
 using System.Security.Cryptography;
+using System.Diagnostics;
 
 
 namespace BTokenCore.Chaining
@@ -55,7 +56,7 @@ namespace BTokenCore.Chaining
         publicKey,
         signature);
 
-      Console.WriteLine(
+      Debug.WriteLine(
         "signature {0} \n is {1}",
         signature.ToHexString(),
         isvalid ? "valid" : "invalid");

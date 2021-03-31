@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Net;
 using System.Net.Sockets;
+using System.Diagnostics;
 
 namespace BTokenCore.Chaining
 {
@@ -547,7 +548,7 @@ namespace BTokenCore.Chaining
             }
             else if (peer.FlagDispose)
             {
-              Console.WriteLine(
+              Debug.WriteLine(
                 "Release peer {0} on line 524",
                 peer.GetID());
 
@@ -576,7 +577,7 @@ namespace BTokenCore.Chaining
               }
               else
               {
-                Console.WriteLine(
+                Debug.WriteLine(
                   "Release peer {0} on line 318",
                   peer.GetID());
 
@@ -630,7 +631,7 @@ namespace BTokenCore.Chaining
       {
         foreach (Block block in blockDownload.Blocks)
         {
-          Console.WriteLine(
+          Debug.WriteLine(
             "Insert block {0} from download {1}",
             block.Header.Hash.ToHexString(),
             blockDownload.Index);
@@ -696,7 +697,10 @@ namespace BTokenCore.Chaining
 
           if (peer != null)
           {
-            Console.WriteLine("Get peer {0}", peer.GetID());
+            Debug.WriteLine(string.Format(
+              "Get peer {0}", 
+              peer.GetID()));
+
             peer.IsBusy = true;
             return true;
           }
@@ -715,10 +719,6 @@ namespace BTokenCore.Chaining
       void EnqueueBlockDownloadInvalid(
         BlockDownload download)
       {
-        Console.WriteLine(
-          "Enqueue block download {0}",
-          download.Index);
-
         download.IndexHeaderExpected = 0;
         download.Blocks.Clear();
 
