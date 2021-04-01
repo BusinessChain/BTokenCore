@@ -447,11 +447,11 @@ namespace BTokenCore.Chaining
             {
               await ReadMessage(Cancellation.Token);
 
-              string.Format(
-                "{0} received message {1}",
-                GetID(),
-                Command)
-                .Log(LogFile);
+              //string.Format(
+              //  "{0} received message {1}",
+              //  GetID(),
+              //  Command)
+              //  .Log(LogFile);
 
               switch (Command)
               {

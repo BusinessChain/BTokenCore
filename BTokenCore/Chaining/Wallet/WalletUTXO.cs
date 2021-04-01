@@ -3,22 +3,18 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Text;
-using System.Numerics;
-using System.Globalization;
 using System.Security.Cryptography;
 using Org.BouncyCastle.Crypto.Digests;
-
-using BTokenCore.Hashing;
 
 namespace BTokenCore.Chaining
 {
   partial class UTXOTable
   {
-    partial class WalletUTXO
+    public partial class WalletUTXO
     {
       Crypto Crypto = new Crypto();
 
-      string PrivKeyDec = "46345897603189110989398136884057307203509669786386043766866535737189931384120";
+      string PrivKeyDec;
       
       List<TXOutputWallet> TXOutputsSpendable =
         new List<TXOutputWallet>();
@@ -41,8 +37,16 @@ namespace BTokenCore.Chaining
 
       public WalletUTXO()
       {
-        GeneratePublicKey(
-          "6676D9347D20FEB2E5EA94DE0E6B5AFC3953DFB4C6598FEE0067645980DB7D38");
+        PrivKeyDec = File.ReadAllText("wallet");
+
+        byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
+
+        Console.WriteLine(publicKey.ToHexString());
+
+        GeneratePublicKeyHash160(publicKey);
+
+        Console.WriteLine("RIPEMD160.DoFinal");
+        Console.WriteLine(PublicKeyHash160.ToHexString());
 
         //SendAnchorToken(
         //  "AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
@@ -50,7 +54,8 @@ namespace BTokenCore.Chaining
 
       public string GetStatus()
       {
-        string outputsSpendable = "Wallet:\n";
+        string outputsSpendable = 
+          TXOutputsSpendable.Any() ? "" : "Wallet empty.";
 
         foreach(var output in TXOutputsSpendable)
         {
@@ -337,21 +342,9 @@ namespace BTokenCore.Chaining
       readonly RipeMD160Digest RIPEMD160 = new RipeMD160Digest();
       byte[] PublicKeyHash160 = new byte[20];
 
-      void GeneratePublicKey(string privKey)
+      void GeneratePublicKeyHash160(byte[] publicKey)
       {
-        var secret = BigInteger.Parse(
-          privKey,
-          NumberStyles.HexNumber);
-
-        SECP256K1.ECPoint publicKey =
-          SECP256K1.GeneratePublicKey(secret);
-
-        var publicKeyX = publicKey.X.ToByteArray().Take(32).Reverse().ToArray();
-        var publicKeyY = publicKey.Y.ToByteArray().Take(32).Reverse().ToArray();
-
-        var p = SHA256.ComputeHash(
-          new byte[1] { 0x04 }.Concat(
-            publicKeyX.Concat(publicKeyY)).ToArray());
+        var p = SHA256.ComputeHash(publicKey);
 
         RIPEMD160.BlockUpdate(p, 0, p.Length);
         RIPEMD160.DoFinal(PublicKeyHash160, 0);

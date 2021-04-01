@@ -32,7 +32,7 @@ namespace BTokenCore.Chaining
     
     StreamWriter LogFile;
 
-    WalletUTXO Wallet;
+    public WalletUTXO Wallet;
 
 
 
@@ -258,8 +258,7 @@ namespace BTokenCore.Chaining
       return
         Tables[0].GetStatus() + "," +
         Tables[1].GetStatus() + "," +
-        Tables[2].GetStatus() + "\n" +
-        Wallet.GetStatus();
+        Tables[2].GetStatus();
     }
   }
 }

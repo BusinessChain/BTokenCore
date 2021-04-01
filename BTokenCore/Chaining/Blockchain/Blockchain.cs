@@ -24,7 +24,7 @@ namespace BTokenCore.Chaining
     readonly object HeaderIndexLOCK = new object();
     Dictionary<int, List<Header>> HeaderIndex;
     
-    UTXOTable UTXOTable;
+    public UTXOTable UTXOTable;
 
     BlockchainNetwork Network;
     
@@ -47,7 +47,7 @@ namespace BTokenCore.Chaining
     byte[] HashRootFork;
     public const int COUNT_LOADER_TASKS = 4;
     int SIZE_BLOCK_ARCHIVE = 20000;
-    const int UTXOIMAGE_INTERVAL_LOADER = 500;
+    const int UTXOIMAGE_INTERVAL_LOADER = 400;
 
     readonly object LOCK_IndexBlockArchiveQueue = new object();
     int IndexBlockArchiveQueue;
@@ -96,11 +96,9 @@ namespace BTokenCore.Chaining
     {
       return string.Format(
         "Height: {0}\n" +
-        "Block tip: {1}\n" +
-        "UTXO: {2}\n",
+        "Block tip: {1}",
         Height,
-        HeaderTip.Hash.ToHexString(),
-        UTXOTable.GetStatus());
+        HeaderTip.Hash.ToHexString());
     }
 
     async Task LoadImage()
@@ -417,13 +415,6 @@ namespace BTokenCore.Chaining
 
         InsertHeader(block.Header);
 
-        Debug.WriteLine(
-          "{0},{1},{2},{3}",
-          Height,
-          IndexBlockArchive,
-          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger,
-          UTXOTable.GetStatus());
-
         return true;
       }
       catch(Exception ex)
@@ -653,6 +644,7 @@ namespace BTokenCore.Chaining
 
         if (
           blockLoad.IsInvalid ||
+          !blockLoad.Blocks.Any() ||
           !HeaderTip.Hash.IsEqual(
             blockLoad.Blocks.First().Header.HashPrevious))
         {
@@ -692,6 +684,12 @@ namespace BTokenCore.Chaining
             }
           }
         }
+        Debug.WriteLine(
+          "{0},{1},{2},{3}",
+          Height,
+          blockLoad.Index,
+          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger,
+          UTXOTable.GetStatus());
 
         if (blockLoad.CountTX < SIZE_BLOCK_ARCHIVE)
         {

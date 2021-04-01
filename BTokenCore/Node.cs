@@ -47,8 +47,17 @@ namespace BTokenCore
 
         switch(inputCommand)
         {
-          case "status":
+          case "blockchain":
             Console.WriteLine(Blockchain.GetStatus());
+            break;
+
+          case "utxo":
+            Console.WriteLine(Blockchain.UTXOTable.GetStatus());
+            break;
+
+          case "wallet":
+            Console.WriteLine(
+              Blockchain.UTXOTable.Wallet.GetStatus());
             break;
 
           case "sendToken":
