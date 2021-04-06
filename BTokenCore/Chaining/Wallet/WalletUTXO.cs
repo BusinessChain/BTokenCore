@@ -33,6 +33,10 @@ namespace BTokenCore.Chaining
 
       const int LENGTH_P2PKH = 25;
 
+      SHA256 SHA256 = SHA256.Create();
+      readonly RipeMD160Digest RIPEMD160 = new RipeMD160Digest();
+      byte[] PublicKeyHash160 = new byte[20];
+
 
 
       public WalletUTXO()
@@ -41,15 +45,15 @@ namespace BTokenCore.Chaining
 
         byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
 
-        Console.WriteLine(publicKey.ToHexString());
-
         GeneratePublicKeyHash160(publicKey);
+      }
 
-        Console.WriteLine("RIPEMD160.DoFinal");
-        Console.WriteLine(PublicKeyHash160.ToHexString());
+      void GeneratePublicKeyHash160(byte[] publicKey)
+      {
+        var p = SHA256.ComputeHash(publicKey);
 
-        //SendAnchorToken(
-        //  "AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
+        RIPEMD160.BlockUpdate(p, 0, p.Length);
+        RIPEMD160.DoFinal(PublicKeyHash160, 0);
       }
 
       public string GetStatus()
@@ -226,21 +230,13 @@ namespace BTokenCore.Chaining
         return true;
       }
       
-      public void SendAnchorToken(
+      public TX CreateAnchorToken(
         byte[] dataOPReturn)
       {
-        ulong fee = 49400;
+        ulong fee = 28000;
 
         TXOutputWallet outputSpendable =
           TXOutputsSpendable.Find(t => t.Value > fee);
-
-        outputSpendable = new TXOutputWallet
-        {
-          TXID = "391196f04bbf34ee921a6cbc93cfa198729281bd369e486d0377fabbf86c8c2f".ToBinary().ToArray(),
-          OutputIndex = 0,
-          ScriptPubKey = "76a914d4dc5e7b47130caae480d11a325856029f2cd87388ac".ToBinary().Reverse().ToArray(),
-          Value = 50000
-        };
 
         if (outputSpendable == null)
         {
@@ -290,7 +286,7 @@ namespace BTokenCore.Chaining
         tXRaw.Add((byte)dataOPReturn.Length);
         tXRaw.AddRange(dataOPReturn);
 
-        byte[] lockTime = new byte[4];
+        var lockTime = new byte[4];
         tXRaw.AddRange(lockTime);
 
         byte[] sigHashType = { 0x01, 0x00, 0x00, 0x00 };
@@ -300,13 +296,12 @@ namespace BTokenCore.Chaining
         PrivKeyDec,
         tXRaw.ToArray());
 
-        List<byte> scriptSig = new List<byte>();
+        var scriptSig = new List<byte>();
         scriptSig.Add((byte)(signature.Length + 1));
         scriptSig.AddRange(signature);
         scriptSig.Add(0x01);
 
-        byte[] publicKey = Crypto.GetPubKeyFromPrivKey(
-          PrivKeyDec);
+        byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
         
         scriptSig.Add((byte)publicKey.Length);
         scriptSig.AddRange(publicKey);
@@ -322,33 +317,20 @@ namespace BTokenCore.Chaining
 
         tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
-        var txArray = tXRaw.ToArray();
-        txArray = txArray.Reverse().ToArray();
-        
-        //byte[] script = PREFIX_OP_RETURN.Concat(data).ToArray();
-        //var tXOutputOPReturn =
-        //  new TXOutput
-        //  {
-        //    Value = 0,
-        //    Buffer = script,
-        //    StartIndexScript = 0,
-        //    LengthScript = script.Length
-        //  };
+        var parser = new BlockParser();
+        int indexTXRaw = 0;
+        byte[] tXRawArray = tXRaw.ToArray();
+
+        TX tX = parser.ParseTX(
+          false,
+          tXRawArray,
+          ref indexTXRaw);
+
+        tX.TXRaw = tXRawArray;
+
+        return tX;        
       }
 
-
-
-      SHA256 SHA256 = SHA256.Create();
-      readonly RipeMD160Digest RIPEMD160 = new RipeMD160Digest();
-      byte[] PublicKeyHash160 = new byte[20];
-
-      void GeneratePublicKeyHash160(byte[] publicKey)
-      {
-        var p = SHA256.ComputeHash(publicKey);
-
-        RIPEMD160.BlockUpdate(p, 0, p.Length);
-        RIPEMD160.DoFinal(PublicKeyHash160, 0);
-      }
     }
   }
 }

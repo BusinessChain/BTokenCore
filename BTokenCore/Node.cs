@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Linq;
 
@@ -60,12 +60,17 @@ namespace BTokenCore
               Blockchain.UTXOTable.Wallet.GetStatus());
             break;
 
-          case "sendToken":
+          case "sendtoken":
             Console.WriteLine(inputCommand);
+
+            UTXOTable.TX tXAnchorToken = Blockchain.UTXOTable.Wallet.CreateAnchorToken(
+              "AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
+            
+            Blockchain.Network.SendTX(tXAnchorToken);
             break;
 
           default:
-            Console.WriteLine("Unknown command {0}", inputCommand);
+            Debug.WriteLine("Unknown command {0}", inputCommand);
             break;
         }
       }

@@ -13,7 +13,7 @@ namespace BTokenCore.Chaining
 {
   partial class Blockchain
   {
-    partial class BlockchainNetwork
+    public partial class BlockchainNetwork
     {
       Blockchain Blockchain;
 
@@ -26,7 +26,7 @@ namespace BTokenCore.Chaining
 
       const UInt16 Port = 8333;
 
-      const int COUNT_PEERS_MAX = 4;
+      const int COUNT_PEERS_MAX = 1;
 
       object LOCK_Peers = new object();
       List<Peer> Peers = new List<Peer>();
@@ -64,6 +64,20 @@ namespace BTokenCore.Chaining
         //"Start listener for inbound connection requests."
         //  .Log(LogFile);
       }
+
+      public async Task SendTX(UTXOTable.TX tX)
+      {
+        Peer peer;
+        while (!TryGetPeer(out peer))
+        {
+          await Task.Delay(3000);
+        }
+
+        await peer.SendTX(tX);
+
+        ReleasePeer(peer);
+      }
+
 
       async Task StartConnector()
       {

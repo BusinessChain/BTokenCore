@@ -26,7 +26,7 @@ namespace BTokenCore.Chaining
     
     public UTXOTable UTXOTable;
 
-    BlockchainNetwork Network;
+    public BlockchainNetwork Network;
     
     string NameFork = "Fork";
     string NameImage = "Image";
@@ -96,9 +96,13 @@ namespace BTokenCore.Chaining
     {
       return string.Format(
         "Height: {0}\n" +
-        "Block tip: {1}",
+        "Block tip: {1}\n" +
+        "Timestamp: {2}\n" +
+        "Age: {3}",
         Height,
-        HeaderTip.Hash.ToHexString());
+        HeaderTip.Hash.ToHexString(),
+        DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds),
+        TimeSpan.FromSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - HeaderTip.UnixTimeSeconds));
     }
 
     async Task LoadImage()

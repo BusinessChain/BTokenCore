@@ -21,11 +21,6 @@ namespace BTokenCore.Chaining
     {
       partial class Peer
       {
-        public enum RelayOptionFlags : byte
-        {
-          NoTxUntilFilter = 0x00,
-          SendTxStandard = 0x01
-        }
         public enum ServiceFlags : UInt64
         {
           // Nothing
@@ -69,8 +64,7 @@ namespace BTokenCore.Chaining
         public bool FlagDispose;
         public bool IsSynchronized;
 
-        const int TIMEOUT_BLOCKDOWNLOAD_MILLISECONDS = 5000;
-        const int TIMEOUT_GETHEADERS_MILLISECONDS = 3000;
+        const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
         const int COUNT_BLOCKS_DOWNLOADBATCH_INIT = 1;
         Stopwatch StopwatchDownload = new Stopwatch();
@@ -78,12 +72,11 @@ namespace BTokenCore.Chaining
 
         public HeaderDownload HeaderDownload;
         public BlockDownload BlockDownload;
+        UTXOTable.TX TX;
 
         public UTXOTable.BlockParser BlockParser =
           new UTXOTable.BlockParser();
         
-        BufferBlock<NetworkMessage> MessageInboundBuffer =
-          new BufferBlock<NetworkMessage>();
 
         ulong FeeFilterValue;
 
@@ -94,7 +87,7 @@ namespace BTokenCore.Chaining
           ServiceFlags.NODE_NETWORK;
 
         const string UserAgent = "/BTokenCore:0.0.0/";
-        const Byte RelayOption = 0x00;
+        const Byte RelayOption = 0x01;
         readonly static ulong Nonce = CreateNonce();
         static ulong CreateNonce()
         {
@@ -139,6 +132,8 @@ namespace BTokenCore.Chaining
           TcpClient tcpClient,
           Blockchain blockchain)
         {
+          Blockchain = blockchain;
+
           TcpClient = tcpClient;
 
           NetworkStream = tcpClient.GetStream();
@@ -301,7 +296,7 @@ namespace BTokenCore.Chaining
           }
         }
 
-        async Task SendMessage(NetworkMessage message)
+        public async Task SendMessage(NetworkMessage message)
         {
           string.Format(
             "{0} Send message {1}",
@@ -432,7 +427,8 @@ namespace BTokenCore.Chaining
         {
           IDLE = 0,
           AwaitingBlock,
-          AwaitingHeader
+          AwaitingHeader,
+          AwaitingGetData
         }
 
         StateProtocol State;
@@ -508,7 +504,7 @@ namespace BTokenCore.Chaining
                     }
 
                     Cancellation.CancelAfter(
-                      TIMEOUT_BLOCKDOWNLOAD_MILLISECONDS);
+                      TIMEOUT_RESPONSE_MILLISECONDS);
                   }
 
                   break;
@@ -547,6 +543,8 @@ namespace BTokenCore.Chaining
                         "Received unsolicited header {0}",
                         header.Hash.ToHexString())
                         .Log(LogFile);
+
+                      Console.Beep();
 
                       if (Blockchain.ContainsHeader(header.Hash))
                       {
@@ -657,8 +655,6 @@ namespace BTokenCore.Chaining
                     SignalProtocolTaskCompleted.Post(true);
 
                     Cancellation = new CancellationTokenSource();
-
-                    break;
                   }
                   
                   break;
@@ -673,17 +669,50 @@ namespace BTokenCore.Chaining
                 case "inv":
 
                   var invMessage = new InvMessage(Payload);
-                  if (invMessage.Inventories.First().IsTX())
+
+                  var getDataMessage = new GetDataMessage(
+                    invMessage.Inventories);
+          
+                  break;
+
+                case "getdata":
+
+                  getDataMessage = new GetDataMessage(Payload);
+
+                  if (IsStateIdle())
                   {
-                    throw new ProtocolException(
-                      "Received TX inv message despite TX-disable signaled.");
+
+                  }
+                  else if (IsStateAwaitingGetDataTX())
+                  {
+                    if(getDataMessage.Inventories[0].Hash.IsEqual(TX.Hash))
+                    {
+                      TXMessage tXMessage = new TXMessage(TX.TXRaw);
+                      SendMessage(tXMessage);
+
+                      Debug.WriteLine(string.Format(
+                        "Received getData {0} and sent tXMessage {1}.",
+                        getDataMessage.Inventories[0].Hash.ToHexString(),
+                        TX.Hash.ToHexString()));
+                    }
+
+                    string.Format(
+                      "{0}: Signal getdata task complete.",
+                      GetID())
+                      .Log(LogFile);
+
+                    SignalProtocolTaskCompleted.Post(true);
+
+                    Cancellation = new CancellationTokenSource();
                   }
 
                   break;
 
-
                 default:
-                  // Send message unknown
+                  Debug.WriteLine(
+                    "{0} received unknown message {1}",
+                    GetID(),
+                    Command);
                   break;
               }
             }
@@ -704,7 +733,40 @@ namespace BTokenCore.Chaining
           }
         }
         
-        
+        public async Task SendTX(UTXOTable.TX tX)
+        {
+          TX = tX;
+
+          Debug.WriteLine(TX.Hash.ToHexString());
+
+          var inventoryTX = new Inventory(
+            InventoryType.MSG_TX,
+            TX.Hash);
+
+          var invMessage = new InvMessage(
+            new List<Inventory> { inventoryTX });
+
+          await SendMessage(invMessage);
+
+          lock (LOCK_StateProtocol)
+          {
+            State = StateProtocol.AwaitingGetData;
+          }
+
+          Cancellation.CancelAfter(
+              TIMEOUT_RESPONSE_MILLISECONDS);
+
+          await SignalProtocolTaskCompleted
+            .ReceiveAsync(Cancellation.Token)
+            .ConfigureAwait(false);
+
+          lock (LOCK_StateProtocol)
+          {
+            State = StateProtocol.IDLE;
+          }
+        }
+
+
         async Task<Header> GetHeaders(Header header)
         {
           HeaderDownload.Locator.Clear();
@@ -735,7 +797,7 @@ namespace BTokenCore.Chaining
           }
           
           Cancellation.CancelAfter(
-              TIMEOUT_GETHEADERS_MILLISECONDS);
+              TIMEOUT_RESPONSE_MILLISECONDS);
 
           await SignalProtocolTaskCompleted
             .ReceiveAsync(Cancellation.Token)
@@ -843,7 +905,7 @@ namespace BTokenCore.Chaining
             }
 
             Cancellation.CancelAfter(
-                TIMEOUT_BLOCKDOWNLOAD_MILLISECONDS);
+                TIMEOUT_RESPONSE_MILLISECONDS);
 
             await SignalProtocolTaskCompleted
               .ReceiveAsync(Cancellation.Token)
@@ -881,7 +943,7 @@ namespace BTokenCore.Chaining
         
         void AdjustCountBlocksLoad()
         {
-          var ratio = TIMEOUT_BLOCKDOWNLOAD_MILLISECONDS /
+          var ratio = TIMEOUT_RESPONSE_MILLISECONDS /
             (double)StopwatchDownload.ElapsedMilliseconds - 1;
 
           int correctionTerm = (int)(CountBlocksLoad * ratio);
@@ -918,6 +980,14 @@ namespace BTokenCore.Chaining
           lock (LOCK_StateProtocol)
           {
             return State == StateProtocol.AwaitingHeader;
+          }
+        }
+
+        bool IsStateAwaitingGetDataTX()
+        {
+          lock (LOCK_StateProtocol)
+          {
+            return State == StateProtocol.AwaitingGetData;
           }
         }
 

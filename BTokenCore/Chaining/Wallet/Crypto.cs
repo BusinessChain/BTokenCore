@@ -35,33 +35,6 @@ namespace BTokenCore.Chaining
       return signer.VerifySignature(signature);
     }
 
-    public void SignTX(
-      string privKey,
-      byte[] tX)
-    {
-      byte[] message = SHA256.ComputeHash(
-        tX,
-        0,
-        tX.Length);
-
-      byte[] signature = GetSignature(
-        privKey,
-        message);
-
-      byte[] publicKey = GetPubKeyFromPrivKey(
-        privKey);
-
-      var isvalid = VerifySignature(
-        message,
-        publicKey,
-        signature);
-
-      Debug.WriteLine(
-        "signature {0} \n is {1}",
-        signature.ToHexString(),
-        isvalid ? "valid" : "invalid");
-    }
-
     public byte[] GetSignature(
       string privateKey, 
       byte[] message)

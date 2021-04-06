@@ -14,8 +14,8 @@ namespace BTokenCore.Chaining
        
 
 
-    public GetDataMessage(NetworkMessage message)
-      : base("getdata", message.Payload)
+    public GetDataMessage(byte[] buffer)
+      : base("getdata", buffer)
     {
       int startIndex = 0;
 
@@ -48,7 +48,7 @@ namespace BTokenCore.Chaining
 
       for (int i = 0; i < Inventories.Count(); i++)
       {
-        payload.AddRange(Inventories.ElementAt(i).GetBytes());
+        payload.AddRange(Inventories[i].GetBytes());
       }
 
       Payload = payload.ToArray();
