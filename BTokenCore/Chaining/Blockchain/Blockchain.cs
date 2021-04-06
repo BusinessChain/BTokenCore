@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Threading.Tasks.Dataflow;
+using System.Diagnostics;
 
 
 
@@ -23,9 +24,9 @@ namespace BTokenCore.Chaining
     readonly object HeaderIndexLOCK = new object();
     Dictionary<int, List<Header>> HeaderIndex;
     
-    UTXOTable UTXOTable;
+    public UTXOTable UTXOTable;
 
-    BlockchainNetwork Network;
+    public BlockchainNetwork Network;
     
     string NameFork = "Fork";
     string NameImage = "Image";
@@ -40,15 +41,13 @@ namespace BTokenCore.Chaining
     
     long UTCTimeStartMerger = 
       DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-         
-
+    
     public int IndexBlockArchive;
 
     byte[] HashRootFork;
     public const int COUNT_LOADER_TASKS = 4;
     int SIZE_BLOCK_ARCHIVE = 20000;
-    const int UTXOIMAGE_INTERVAL_LOADER = 500;
+    const int UTXOIMAGE_INTERVAL_LOADER = 400;
 
     readonly object LOCK_IndexBlockArchiveQueue = new object();
     int IndexBlockArchiveQueue;
@@ -93,7 +92,18 @@ namespace BTokenCore.Chaining
       Network.Start();
     }
 
-
+    public string GetStatus()
+    {
+      return string.Format(
+        "Height: {0}\n" +
+        "Block tip: {1}\n" +
+        "Timestamp: {2}\n" +
+        "Age: {3}",
+        Height,
+        HeaderTip.Hash.ToHexString(),
+        DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds),
+        TimeSpan.FromSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - HeaderTip.UnixTimeSeconds));
+    }
 
     async Task LoadImage()
     {
@@ -409,13 +419,6 @@ namespace BTokenCore.Chaining
 
         InsertHeader(block.Header);
 
-        Console.WriteLine(
-          "{0},{1},{2},{3}",
-          Height,
-          IndexBlockArchive,
-          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger,
-          UTXOTable.GetMetricsCSV());
-
         return true;
       }
       catch(Exception ex)
@@ -645,6 +648,7 @@ namespace BTokenCore.Chaining
 
         if (
           blockLoad.IsInvalid ||
+          !blockLoad.Blocks.Any() ||
           !HeaderTip.Hash.IsEqual(
             blockLoad.Blocks.First().Header.HashPrevious))
         {
@@ -684,6 +688,12 @@ namespace BTokenCore.Chaining
             }
           }
         }
+        Debug.WriteLine(
+          "{0},{1},{2},{3}",
+          Height,
+          blockLoad.Index,
+          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger,
+          UTXOTable.GetStatus());
 
         if (blockLoad.CountTX < SIZE_BLOCK_ARCHIVE)
         {

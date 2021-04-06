@@ -134,7 +134,10 @@ namespace BTokenCore.Chaining
         { }
         else if (tXCount == 1)
         {
-          TX tX = ParseTX(isCoinbase: true);
+          TX tX = ParseTX(
+            isCoinbase: true,
+            Buffer, 
+            ref IndexBuffer);
 
           tXs.Add(tX);
 
@@ -149,14 +152,22 @@ namespace BTokenCore.Chaining
           int tXsLengthMod2 = tXCount & 1;
           var merkleList = new byte[tXCount + tXsLengthMod2][];
 
-          TX tX = ParseTX(true);
+          TX tX = ParseTX(
+            isCoinbase: true,
+            Buffer,
+            ref IndexBuffer);
+
           tXs.Add(tX);
 
           merkleList[0] = tX.Hash;
 
           for (int t = 1; t < tXCount; t += 1)
           {
-            tX = ParseTX(false);
+            tX = ParseTX(
+            isCoinbase: false,
+            Buffer,
+            ref IndexBuffer);
+
             tXs.Add(tX);
 
             merkleList[t] = tX.Hash;
@@ -177,17 +188,20 @@ namespace BTokenCore.Chaining
         return tXs;
       }
 
-      TX ParseTX(bool isCoinbase)
+      public TX ParseTX(
+        bool isCoinbase,
+        byte[] buffer,
+        ref int indexBuffer)
       {
         TX tX = new TX();
 
         try
         {
-          int tXStartIndex = IndexBuffer;
+          int tXStartIndex = indexBuffer;
 
-          IndexBuffer += 4; // BYTE_LENGTH_VERSION
+          indexBuffer += 4; // BYTE_LENGTH_VERSION
 
-          bool isWitnessFlagPresent = Buffer[IndexBuffer] == 0x00;
+          bool isWitnessFlagPresent = buffer[indexBuffer] == 0x00;
           if (isWitnessFlagPresent)
           {
             throw new NotImplementedException(
@@ -196,11 +210,11 @@ namespace BTokenCore.Chaining
           }
 
           int countInputs = VarInt.GetInt32(
-            Buffer, ref IndexBuffer);
+            buffer, ref indexBuffer);
 
           if (isCoinbase)
           {
-            new TXInput(Buffer, ref IndexBuffer);
+            new TXInput(buffer, ref indexBuffer);
           }
           else
           {
@@ -208,21 +222,21 @@ namespace BTokenCore.Chaining
             {
               tX.TXInputs.Add(
                 new TXInput(
-                  Buffer, 
-                  ref IndexBuffer));
+                  buffer, 
+                  ref indexBuffer));
             }
           }
 
           int countTXOutputs = VarInt.GetInt32(
-            Buffer,
-            ref IndexBuffer);
+            buffer,
+            ref indexBuffer);
 
           for (int i = 0; i < countTXOutputs; i += 1)
           {
             tX.TXOutputs.Add(
               new TXOutput(
-                Buffer,
-                ref IndexBuffer));
+                buffer,
+                ref indexBuffer));
           }
 
           //if (isWitnessFlagPresent)
@@ -234,13 +248,13 @@ namespace BTokenCore.Chaining
           //}
           //}
 
-          IndexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
+          indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
 
           tX.Hash = SHA256.ComputeHash(
            SHA256.ComputeHash(
-             Buffer,
+             buffer,
              tXStartIndex,
-             IndexBuffer - tXStartIndex));
+             indexBuffer - tXStartIndex));
 
           tX.TXIDShort = BitConverter.ToInt32(tX.Hash, 0);
 

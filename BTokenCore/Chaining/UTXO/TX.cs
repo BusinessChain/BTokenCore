@@ -10,6 +10,7 @@ namespace BTokenCore.Chaining
   {
     public class TX
     {
+      public byte[] TXRaw;
       public byte[] Hash;
       public int TXIDShort;
       public List<TXInput> TXInputs = new List<TXInput>();

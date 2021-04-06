@@ -4,6 +4,7 @@ using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
 using System.Security.Cryptography;
+using System.Diagnostics;
 
 
 namespace BTokenCore.Chaining
@@ -32,33 +33,6 @@ namespace BTokenCore.Chaining
       signer.BlockUpdate(message, 0, message.Length);
 
       return signer.VerifySignature(signature);
-    }
-
-    public void SignTX(
-      string privKey,
-      byte[] tX)
-    {
-      byte[] message = SHA256.ComputeHash(
-        tX,
-        0,
-        tX.Length);
-
-      byte[] signature = GetSignature(
-        privKey,
-        message);
-
-      byte[] publicKey = GetPubKeyFromPrivKey(
-        privKey);
-
-      var isvalid = VerifySignature(
-        message,
-        publicKey,
-        signature);
-
-      Console.WriteLine(
-        "signature {0} \n is {1}",
-        signature.ToHexString(),
-        isvalid ? "valid" : "invalid");
     }
 
     public byte[] GetSignature(

@@ -90,7 +90,7 @@ namespace BTokenCore.Chaining
       protected abstract int GetCountPrimaryTableItems();
       protected abstract int GetCountCollisionTableItems();
 
-      public string GetMetricsCSV()
+      public string GetStatus()
       {
         return 
           GetCountPrimaryTableItems() + 

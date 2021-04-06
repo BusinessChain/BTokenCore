@@ -7,12 +7,13 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Net;
 using System.Net.Sockets;
+using System.Diagnostics;
 
 namespace BTokenCore.Chaining
 {
   partial class Blockchain
   {
-    partial class BlockchainNetwork
+    public partial class BlockchainNetwork
     {
       Blockchain Blockchain;
 
@@ -25,7 +26,7 @@ namespace BTokenCore.Chaining
 
       const UInt16 Port = 8333;
 
-      const int COUNT_PEERS_MAX = 4;
+      const int COUNT_PEERS_MAX = 1;
 
       object LOCK_Peers = new object();
       List<Peer> Peers = new List<Peer>();
@@ -63,6 +64,20 @@ namespace BTokenCore.Chaining
         //"Start listener for inbound connection requests."
         //  .Log(LogFile);
       }
+
+      public async Task SendTX(UTXOTable.TX tX)
+      {
+        Peer peer;
+        while (!TryGetPeer(out peer))
+        {
+          await Task.Delay(3000);
+        }
+
+        await peer.SendTX(tX);
+
+        ReleasePeer(peer);
+      }
+
 
       async Task StartConnector()
       {
@@ -547,7 +562,7 @@ namespace BTokenCore.Chaining
             }
             else if (peer.FlagDispose)
             {
-              Console.WriteLine(
+              Debug.WriteLine(
                 "Release peer {0} on line 524",
                 peer.GetID());
 
@@ -576,7 +591,7 @@ namespace BTokenCore.Chaining
               }
               else
               {
-                Console.WriteLine(
+                Debug.WriteLine(
                   "Release peer {0} on line 318",
                   peer.GetID());
 
@@ -630,7 +645,7 @@ namespace BTokenCore.Chaining
       {
         foreach (Block block in blockDownload.Blocks)
         {
-          Console.WriteLine(
+          Debug.WriteLine(
             "Insert block {0} from download {1}",
             block.Header.Hash.ToHexString(),
             blockDownload.Index);
@@ -696,7 +711,10 @@ namespace BTokenCore.Chaining
 
           if (peer != null)
           {
-            Console.WriteLine("Get peer {0}", peer.GetID());
+            Debug.WriteLine(string.Format(
+              "Get peer {0}", 
+              peer.GetID()));
+
             peer.IsBusy = true;
             return true;
           }
@@ -715,10 +733,6 @@ namespace BTokenCore.Chaining
       void EnqueueBlockDownloadInvalid(
         BlockDownload download)
       {
-        Console.WriteLine(
-          "Enqueue block download {0}",
-          download.Index);
-
         download.IndexHeaderExpected = 0;
         download.Blocks.Clear();
 

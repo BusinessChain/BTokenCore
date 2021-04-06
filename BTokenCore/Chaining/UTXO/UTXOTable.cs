@@ -32,7 +32,7 @@ namespace BTokenCore.Chaining
     
     StreamWriter LogFile;
 
-    WalletUTXO Wallet;
+    public WalletUTXO Wallet;
 
 
 
@@ -253,12 +253,12 @@ namespace BTokenCore.Chaining
       Wallet.CreateImage(directoryUTXOImage.FullName);
     }
 
-    public string GetMetricsCSV()
+    public string GetStatus()
     {
       return
-        Tables[0].GetMetricsCSV() + "," +
-        Tables[1].GetMetricsCSV() + "," +
-        Tables[2].GetMetricsCSV();
+        Tables[0].GetStatus() + "," +
+        Tables[1].GetStatus() + "," +
+        Tables[2].GetStatus();
     }
   }
 }

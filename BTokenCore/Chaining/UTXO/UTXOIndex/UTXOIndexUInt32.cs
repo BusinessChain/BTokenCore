@@ -320,10 +320,6 @@ namespace BTokenCore.Chaining
 
         Stopwatch.Stop();
 
-        Console.WriteLine(
-          "Time store image {0}", 
-          Stopwatch.ElapsedMilliseconds);
-
         byte[] bufferCollisionTable = new byte[
           GetCountCollisionTableItems() * (HASH_BYTE_SIZE + sizeof(uint))];
         int index = 0;
@@ -370,8 +366,6 @@ namespace BTokenCore.Chaining
           countLoadersPartition, 
           path));
 
-        Console.WriteLine("Load collision table.");
-
         LoadCollisionData(File.ReadAllBytes(
           Path.Combine(path, Label, "CollisionTable")));
       }
@@ -388,10 +382,6 @@ namespace BTokenCore.Chaining
           i < COUNT_TABLE_PARTITIONS_FILE;
           i += countLoadersPartition)
         {
-          Console.WriteLine("Loader {0} loads primary table {1}.",
-            Thread.CurrentThread.ManagedThreadId,
-            i);
-
           using (FileStream stream = new FileStream(
              Path.Combine(path, Label, "PrimaryTable" + i),
              FileMode.Open,

@@ -62,8 +62,6 @@ namespace BTokenCore
 
     public static bool IsEqual(this byte[] arr1, byte[] arr2)
     {
-      //Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
-
       for (int i = 0; i < arr1.Length; i += 1)
       {
         if (arr1[i] != arr2[i])
