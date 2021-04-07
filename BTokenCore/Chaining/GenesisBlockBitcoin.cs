@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BTokenCore.Chaining
 {
-  public class BitcoinGenesisBlock
+  public class GenesisBlockBitcoin
   {
     public Header Header;
 
@@ -33,7 +33,7 @@ namespace BTokenCore.Chaining
       0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
 
 
-    public BitcoinGenesisBlock()
+    public GenesisBlockBitcoin()
     {
       Header = new Header(
          headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
