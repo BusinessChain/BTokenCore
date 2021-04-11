@@ -30,18 +30,16 @@ namespace BTokenCore
       "F0", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "FA", "FB", "FC", "FD", "FE", "FF"
     };
 
-    static StringBuilder StringBuilder = new StringBuilder();
-
     public static string ToHexString(this byte[] array)
     {
-      StringBuilder.Clear();
+      string[] stringArrayHex = new string[array.Length];
 
-      for (int i = array.Length - 1; i > -1; i -= 1)
+      for (int i = 0; i < array.Length; i += 1)
       {
-        StringBuilder.Append(BYTE2HEX[array[i]]);
+        stringArrayHex[array.Length - i - 1] = BYTE2HEX[array[i]];
       }
 
-      return StringBuilder.ToString();
+      return string.Join(null, stringArrayHex);
     }
 
     public static bool IsEqual(

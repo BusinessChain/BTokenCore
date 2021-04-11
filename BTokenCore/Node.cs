@@ -12,32 +12,23 @@ namespace BTokenCore
   partial class Node
   {
     Blockchain Bitcoin;
+    TokenBitcoin TokenBitcoin;
 
-    Blockchain BCash;
+    Blockchain BToken;
 
 
     public Node()
     {
-      var bitcoinGenesisBlock = new GenesisBlockBitcoin();
-
-      var bitcoinCheckpoints = new Dictionary<int, byte[]>()
-      {
-        { 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
-        { 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }
-      };
+      TokenBitcoin = new TokenBitcoin();
 
       Bitcoin = new Blockchain(
-        bitcoinGenesisBlock.Header,
-        bitcoinGenesisBlock.BlockBytes,
-        bitcoinCheckpoints);
+        TokenBitcoin,
+        "configurationNetworkBitcoin");
 
-      var bCashGenesisBlock = new GenesisBlockBCash();
-      var bCashCheckpoints = new Dictionary<int, byte[]>() { };
 
-      BCash = new Blockchain(
-        bCashGenesisBlock.Header,
-        bCashGenesisBlock.BlockBytes,
-        bCashCheckpoints);
+      //BToken = new Blockchain(
+      //  new TokenBToken(),
+      //  "configurationNetworkBCash");
     }
 
     public void Start()
@@ -57,23 +48,15 @@ namespace BTokenCore
 
         switch(inputCommand)
         {
-          case "blockchain":
+          case "status":
             Console.WriteLine(Bitcoin.GetStatus());
-            break;
-
-          case "utxo":
-            Console.WriteLine(Bitcoin.UTXOTable.GetStatus());
-            break;
-
-          case "wallet":
-            Console.WriteLine(
-              Bitcoin.UTXOTable.Wallet.GetStatus());
             break;
 
           case "sendtoken":
             Console.WriteLine(inputCommand);
 
-            UTXOTable.TX tXAnchorToken = Bitcoin.UTXOTable.Wallet.CreateAnchorToken(
+            UTXOTable.TX tXAnchorToken =
+              TokenBitcoin.UTXOTable.Wallet.CreateAnchorToken(
               "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
             
             Bitcoin.Network.SendTX(tXAnchorToken);

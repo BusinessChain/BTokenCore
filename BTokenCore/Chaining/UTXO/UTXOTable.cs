@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace BTokenCore.Chaining
 {
-  public partial class UTXOTable
+  partial class UTXOTable
   {
     const int HASH_BYTE_SIZE = 32;
     const int COUNT_BATCHINDEX_BITS = 16;
@@ -82,10 +82,10 @@ namespace BTokenCore.Chaining
 
 
     public void InsertBlock(
-      Block block,
+      List<TX> tXs,
       int indexArchive)
     {
-      foreach (TX tX in block.TXs)
+      foreach (TX tX in tXs)
       {
         int lengthUTXOBits =
           COUNT_NON_OUTPUT_BITS +
@@ -161,7 +161,7 @@ namespace BTokenCore.Chaining
         Wallet.DetectTXOutputsSpendable(tX);
       }
 
-      foreach (TX tX in block.TXs)
+      foreach (TX tX in tXs)
       {
         foreach (TXInput tXInput in tX.TXInputs)
         {
@@ -258,7 +258,8 @@ namespace BTokenCore.Chaining
       return
         Tables[0].GetStatus() + "," +
         Tables[1].GetStatus() + "," +
-        Tables[2].GetStatus();
+        Tables[2].GetStatus() + "\n" +
+        Wallet.GetStatus();
     }
   }
 }

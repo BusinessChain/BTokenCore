@@ -12,7 +12,7 @@ namespace BTokenCore.Chaining
     {
       public int Index;
       public List<Block> Blocks = new List<Block>();
-      public int CountTX;
+      public int CountBytes;
 
       public bool IsInvalid;
 
@@ -31,7 +31,7 @@ namespace BTokenCore.Chaining
         }
 
         Blocks.Add(block);
-        CountTX += block.TXs.Count;
+        CountBytes += block.Buffer.Length;
       }
     }
   }
