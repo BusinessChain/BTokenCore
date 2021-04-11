@@ -40,7 +40,9 @@ namespace BTokenCore.Chaining
       {
         Blockchain = blockchain;
 
-        LogFile = new StreamWriter("logSynchronizer", false);
+        LogFile = new StreamWriter(
+          Path.Combine(Blockchain.PathRoot + "logSynchronizer")
+          , false);
 
         DirectoryLogPeers = Directory.CreateDirectory(
           "logPeers");

@@ -8,28 +8,17 @@ namespace BTokenCore.Chaining
 {
   partial class UTXOTable
   {
-    public class BlockParser
+    public class BlockParser : Blockchain.IBlockParser
     {
       public const int COUNT_HEADER_BYTES = 80;
 
       public byte[] Buffer;
       public int IndexBuffer;
+
+      SHA256 SHA256 = SHA256.Create();                 
+
             
-      public List<Block> Blocks = new List<Block>();
-          
-      SHA256 SHA256 = SHA256.Create();
-
-      public Stopwatch StopwatchInsertion = new Stopwatch();
-      public Stopwatch StopwatchParse = new Stopwatch();
-                 
-
-      public void ClearPayloadData()
-      {
-        IndexBuffer = 0;
-      }
-
-      
-      public Block ParseBlock(byte[] buffer)
+      public Blockchain.Block ParseBlock(byte[] buffer)
       {
         int startIndex = 0;
 
@@ -38,14 +27,14 @@ namespace BTokenCore.Chaining
           ref startIndex);
       }
 
-      public Block ParseBlock(
+      public Blockchain.Block ParseBlock(
         byte[] buffer,
         ref int startIndex)
       {
         Buffer = buffer;
         IndexBuffer = startIndex;
 
-        Header header = ParseHeader(
+        HeaderBitcoin header = ParseHeader(
           Buffer,
           ref IndexBuffer);
 
@@ -54,13 +43,13 @@ namespace BTokenCore.Chaining
 
         startIndex = IndexBuffer;
         
-        return new Block(
+        return new BlockBitcoin(
           Buffer,
           header,
           tXs);
       }
 
-      public Header ParseHeader(
+      public HeaderBitcoin ParseHeader(
         byte[] buffer,
         ref int index)
       {
@@ -110,7 +99,7 @@ namespace BTokenCore.Chaining
         uint nonce = BitConverter.ToUInt32(buffer, index);
         index += 4;
 
-        return new Header(
+        return new HeaderBitcoin(
           hash,
           version,
           previousHeaderHash,

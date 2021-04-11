@@ -44,11 +44,6 @@ namespace BTokenCore.Chaining
 
         public void InsertBlock(Block block)
         {
-          Debug.WriteLine(
-            "Insert block {0} into download {1}",
-            block.Header.Hash.ToHexString(),
-            Index);
-
           if (!block.Header.Hash.IsEqual(
             HeadersExpected[IndexHeaderExpected].Hash))
           {

@@ -9,11 +9,11 @@ namespace BTokenCore.Chaining
 {
   class HeadersMessage : NetworkMessage
   {
-    public List<Header> Headers = new List<Header>();
+    public List<Blockchain.Header> Headers = new List<Blockchain.Header>();
 
 
     public HeadersMessage(
-      List<Header> headers)
+      List<Blockchain.Header> headers)
       : base("headers")
     {
       Headers = headers;
@@ -25,7 +25,7 @@ namespace BTokenCore.Chaining
 
       payload.AddRange(VarInt.GetBytes(Headers.Count));
 
-      foreach (Header header in Headers)
+      foreach (Blockchain.Header header in Headers)
       {
         payload.AddRange(header.GetBytes());
         payload.Add(0);

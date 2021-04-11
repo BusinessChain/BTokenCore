@@ -412,7 +412,7 @@ namespace BTokenCore.Chaining
 
             if (chunkSize == 0)
             {
-              throw new ProtocolException(
+              throw new IOException(
                 "Stream returns 0 bytes signifying end of stream.");
             }
 
@@ -479,7 +479,7 @@ namespace BTokenCore.Chaining
                     .ToArray();
 
                   Block block = BlockParser.ParseBlock(blockBytes);
-                  
+
                   string.Format(
                     "{0}: Receives block {1}.",
                     GetID(),
@@ -819,7 +819,7 @@ namespace BTokenCore.Chaining
 
           while (true)
           {
-            Blockchain.ValidateHeader(header, height);
+            Blockchain.Token.ValidateHeader(header, height);
 
             difficulty += header.Difficulty;
 
