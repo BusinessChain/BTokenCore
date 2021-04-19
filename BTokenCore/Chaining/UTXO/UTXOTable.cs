@@ -209,7 +209,7 @@ namespace BTokenCore.Chaining
           throw new ProtocolException(
             string.Format(
               "Referenced TX {0} not found in UTXO table.",
-              tXInput.TXIDOutputShort));
+              tXInput.TXIDOutput.ToHexString()));
 
         LABEL_LoopNextInput:
           ;

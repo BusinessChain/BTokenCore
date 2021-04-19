@@ -306,7 +306,7 @@ namespace BTokenCore.Chaining
       }
       catch(Exception ex)
       {
-        Console.WriteLine(
+        Debug.WriteLine(
           "{0} when inserting block {1} in blockchain:\n {2}",
           ex.GetType().Name,
           block.Header.Hash.ToHexString(),
@@ -758,6 +758,8 @@ namespace BTokenCore.Chaining
       {
         FileBlockArchive.Dispose();
 
+        IndexBlockArchive += 1;
+
         if (IndexBlockArchive % intervalImage == 0)
         {
           string pathImage = IsFork ? 
@@ -768,8 +770,6 @@ namespace BTokenCore.Chaining
             IndexBlockArchive, 
             pathImage);
         }
-
-        IndexBlockArchive += 1;
 
         CreateBlockArchive();
       }
