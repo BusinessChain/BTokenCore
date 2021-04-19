@@ -360,10 +360,10 @@ namespace BTokenCore.Chaining
             2,
             exponentCountLoadersPartition);
 
-        Parallel.For(0, countLoadersPartition, n => 
+        Parallel.For(0, countLoadersPartition, n =>
         RunLoaderPartition(
-          n, 
-          countLoadersPartition, 
+          n,
+          countLoadersPartition,
           path));
 
         LoadCollisionData(File.ReadAllBytes(

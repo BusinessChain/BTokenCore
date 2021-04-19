@@ -21,12 +21,13 @@ namespace BTokenCore.Chaining
         public List<Block> Blocks = new List<Block>();
         public bool IsDownloadCompleted;
 
-        
 
-        public BlockDownload(
-          int index)
+                
+
+        public BlockDownload(int index, Peer peer)
         {
           Index = index;
+          Peer = peer;
         }
 
         public void LoadHeaders(
@@ -48,7 +49,7 @@ namespace BTokenCore.Chaining
             HeadersExpected[IndexHeaderExpected].Hash))
           {
             throw new ProtocolException(string.Format(
-              "Unexpected block header {0} in blockParser {1}. \n" +
+              "Unexpected block header {0} in blockLoad {1}. \n" +
               "Excpected {2}.",
               block.Header.Hash.ToHexString(),
               Index,

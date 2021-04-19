@@ -480,15 +480,13 @@ namespace BTokenCore.Chaining
 
                   Block block = BlockParser.ParseBlock(blockBytes);
 
-                  string.Format(
-                    "{0}: Receives block {1}.",
-                    GetID(),
-                    block.Header.Hash.ToHexString())
-                    .Log(LogFile);
-
                   if (IsStateIdle())
                   {
-                    // Received unsolicited block
+                    string.Format(
+                      "{0}: Receives unsolicited block {1}.",
+                      GetID(),
+                      block.Header.Hash.ToHexString())
+                      .Log(LogFile);
                   }
                   else if(IsStateAwaitingBlock())
                   {
@@ -603,7 +601,7 @@ namespace BTokenCore.Chaining
                         Blockchain.ValidateHeaders(header);
 
                         await Blockchain.Network
-                          .SynchronizeUTXO(header, this);
+                          .TrySynchronizeUTXO(header, this);
 
                         Blockchain.ReleaseLock();
 
@@ -646,11 +644,6 @@ namespace BTokenCore.Chaining
                         HeaderDownload.InsertHeader(header);
                       }
                     }
-
-                    string.Format(
-                      "{0}: Signal getheaders task complete.",
-                      GetID())
-                      .Log(LogFile);
 
                     SignalProtocolTaskCompleted.Post(true);
 
@@ -724,11 +717,10 @@ namespace BTokenCore.Chaining
             Cancellation.Cancel();
 
             string.Format(
-             "Peer {0} experienced error " +
-             "in message listener: \n{1}",
+             "Peer {0} experienced error in message listener: \n{1}",
              GetID(),
              "message: " + ex.Message + 
-             "stack trace: " + ex.StackTrace)
+             "\nstack trace: " + ex.StackTrace)
              .Log(LogFile);
           }
         }
@@ -767,16 +759,11 @@ namespace BTokenCore.Chaining
         }
 
 
-        async Task<Header> GetHeaders(Header header)
+        public async Task<Header> GetHeaders(Header header)
         {
           HeaderDownload.Locator.Clear();
           HeaderDownload.Locator.Add(header);
 
-          return await GetHeaders();
-        }
-
-        public async Task<Header> GetHeaders()
-        {
           string.Format(
             "Send getheaders to peer {0}, \n" +
             "locator: {1} ... \n{2}",
@@ -811,38 +798,7 @@ namespace BTokenCore.Chaining
           return HeaderDownload.HeaderRoot;
         }
 
-        public async Task<double> BuildHeaderchain(
-          Header header,
-          int height)
-        {
-          double difficulty = 0.0;
-
-          while (true)
-          {
-            Blockchain.Token.ValidateHeader(header, height);
-
-            difficulty += header.Difficulty;
-
-            if (header.HeaderNext == null)
-            {
-              header.HeaderNext = await GetHeaders(header);
-
-              if (header.HeaderNext == null)
-              {
-                string.Format(
-                  "Height header chain {0}\n",
-                  height)
-                  .Log(LogFile);
-
-                return difficulty;
-              }
-            }
-
-            header = header.HeaderNext;
-            height += 1;
-          }
-        }
-               
+                       
         public async Task<Header> SkipDuplicates(
           Header header)
         {
@@ -875,31 +831,23 @@ namespace BTokenCore.Chaining
           return header;
         }
 
-        public async Task DownloadBlocks(
-          bool flagContinueDownload)
+        public async Task DownloadBlocks()
         {
           StopwatchDownload.Restart();
 
           try
           {
-            if (flagContinueDownload)
-            {
-              flagContinueDownload = false;
-            }
-            else
-            {
-              List<Inventory> inventories =
-                BlockDownload.HeadersExpected.Select(
-                  h => new Inventory(
-                    InventoryType.MSG_BLOCK,
-                    h.Hash))
-                    .ToList();
+            List<Inventory> inventories =
+              BlockDownload.HeadersExpected.Select(
+                h => new Inventory(
+                  InventoryType.MSG_BLOCK,
+                  h.Hash))
+                  .ToList();
 
-              await SendMessage(
-                new GetDataMessage(inventories));
-            }
+            await SendMessage(
+              new GetDataMessage(inventories));
 
-            lock(LOCK_StateProtocol)
+            lock (LOCK_StateProtocol)
             {
               State = StateProtocol.AwaitingBlock;
             }
