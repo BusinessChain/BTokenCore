@@ -14,16 +14,17 @@ namespace BTokenCore.Chaining
 {
   partial class Blockchain
   {
+    public Network Network;
+    public Token Token;
+
     Header HeaderGenesis;
-    Header HeaderTip;
-    double Difficulty;
-    int Height;
+    internal Header HeaderTip;
+    internal double Difficulty;
+    internal int Height;
 
     readonly object HeaderIndexLOCK = new object();
     Dictionary<int, List<Header>> HeaderIndex;
-    
-    public BlockchainNetwork Network;
-    
+
     string NameFork = "Fork";
     string NameImage = "Image";
     string NameOld = "Old";
@@ -53,19 +54,19 @@ namespace BTokenCore.Chaining
     readonly object LOCK_IndexBlockArchiveLoad = new object();
     int IndexBlockArchiveLoad;
 
-    public IToken Token;
 
 
 
     public Blockchain(
-      IToken token,
-      string configurationNetwork)
+      Network network,
+      Token token)
     {
+      Network = network;
+      Network.Blockchain = this;
+
       Token = token;
 
       PathRoot = Token.GetName();
-
-      Network = new BlockchainNetwork(this);
 
       HeaderGenesis = token.GetHeaderGenesis();
       HeaderTip = HeaderGenesis;
@@ -77,18 +78,10 @@ namespace BTokenCore.Chaining
           Directory.CreateDirectory(PathBlockArchive);
 
       LogFile = new StreamWriter(
-        Path.Combine(PathRoot + "logArchiver")
-        , false);
+        Path.Combine(PathRoot + "logArchiver"), 
+        false);
     }
 
-
-
-    public async Task Start()
-    {
-      await LoadImage();
-
-      Network.Start();
-    }
 
     public string GetStatus()
     {
@@ -110,7 +103,7 @@ namespace BTokenCore.Chaining
       return statusBlockchain + statusUTXO;
     }
 
-    async Task LoadImage()
+    public async Task LoadImage()
     {
       await LoadImage(0, new byte[32]);
     }
@@ -252,7 +245,7 @@ namespace BTokenCore.Chaining
       Token.Reset();
     }
     
-    void ValidateHeaders(Header header)
+    public void ValidateHeaders(Header header)
     {
       int height = Height + 1;
 
@@ -264,7 +257,7 @@ namespace BTokenCore.Chaining
       } while (header != null);
     }
 
-    void GetStateAtHeader(
+    internal void GetStateAtHeader(
       Header headerAncestor,
       out int heightAncestor,
       out double difficultyAncestor)
@@ -327,7 +320,7 @@ namespace BTokenCore.Chaining
 
 
 
-    List<Header> GetLocator()
+    internal List<Header> GetLocator()
     {
       Header header = HeaderTip;
       var locator = new List<Header>();
@@ -362,7 +355,7 @@ namespace BTokenCore.Chaining
 
        
     
-    bool ContainsHeader(byte[] headerHash)
+    internal bool ContainsHeader(byte[] headerHash)
     {
       return TryReadHeader(
         headerHash,
@@ -456,7 +449,7 @@ namespace BTokenCore.Chaining
     }
 
 
-    bool TryLock()
+    internal bool TryLock()
     {
       lock (LOCK_IsBlockchainLocked)
       {
@@ -471,7 +464,7 @@ namespace BTokenCore.Chaining
       }
     }
 
-    void ReleaseLock()
+    internal void ReleaseLock()
     {
       lock (LOCK_IsBlockchainLocked)
       {
@@ -934,7 +927,7 @@ namespace BTokenCore.Chaining
 
     bool IsFork;
 
-    async Task<bool> TryFork(
+    internal async Task<bool> TryFork(
       int heightAncestor, 
       byte[] hashAncestor)
     {
@@ -953,12 +946,12 @@ namespace BTokenCore.Chaining
       return false;
     }
 
-    void DismissFork()
+    internal void DismissFork()
     {
       IsFork = false;
     }
 
-    void Reorganize()
+    internal void Reorganize()
     {
       string pathImageFork = Path.Combine(
         NameFork, 

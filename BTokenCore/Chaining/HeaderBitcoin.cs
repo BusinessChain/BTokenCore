@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore.Chaining
 {
-  class HeaderBitcoin : Blockchain.Header
+  class HeaderBitcoin : Header
   {
     const int COUNT_HEADER_BYTES = 80;
 

@@ -8,7 +8,7 @@ namespace BTokenCore.Chaining
 {
   partial class UTXOTable
   {
-    public class BlockParser : Blockchain.IBlockParser
+    public class BlockParser : IBlockParser
     {
       public const int COUNT_HEADER_BYTES = 80;
 
@@ -18,7 +18,7 @@ namespace BTokenCore.Chaining
       SHA256 SHA256 = SHA256.Create();                 
 
             
-      public Blockchain.Block ParseBlock(byte[] buffer)
+      public Block ParseBlock(byte[] buffer)
       {
         int startIndex = 0;
 
@@ -27,7 +27,7 @@ namespace BTokenCore.Chaining
           ref startIndex);
       }
 
-      public Blockchain.Block ParseBlock(
+      public Block ParseBlock(
         byte[] buffer,
         ref int startIndex)
       {

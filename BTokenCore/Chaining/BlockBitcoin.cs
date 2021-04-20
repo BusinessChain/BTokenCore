@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BTokenCore.Chaining
 {
-  class BlockBitcoin : Blockchain.Block
+  class BlockBitcoin : Block
   {
     public List<UTXOTable.TX> TXs = new List<UTXOTable.TX>();
 

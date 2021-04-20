@@ -11,11 +11,13 @@ namespace BTokenCore.Chaining
   // compose token of componenents like PoW, dPow, UTXO, Parser
   // exposes IHeader for the blockchain Syncer
 
-  class TokenBitcoin : Blockchain.IToken
+  class TokenBitcoin : Token
   {
+    //Miner Miner;
+
     HeaderBitcoin HeaderGenesis;
 
-    Dictionary<int, byte[]> Checkpoints = 
+    Dictionary<int, byte[]> Checkpoints =
       new Dictionary<int, byte[]>(){
         { 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
         { 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }};
@@ -27,6 +29,8 @@ namespace BTokenCore.Chaining
 
     public TokenBitcoin()
     {
+      UTXOTable = new UTXOTable(GetGenesisBlockBytes());
+
       HeaderGenesis = new HeaderBitcoin(
          headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
          version: 0x01,
@@ -36,46 +40,56 @@ namespace BTokenCore.Chaining
          nBits: 0x1d00ffff,
          nonce: 2083236893);
 
-      UTXOTable = new UTXOTable(GetGenesisBlockBytes());
+      Network = new Network(this);
+      Blockchain = new Blockchain(Network, this);
     }
 
-    public string GetName()
+    internal void SendTX()
     {
-       return GetType().Name;
+      UTXOTable.TX tXAnchorToken =
+        UTXOTable.Wallet.CreateAnchorToken(
+        "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
+
+      Network.SendTX(tXAnchorToken);
     }
 
-    public Blockchain.IBlockParser CreateParser()
+    public override string GetName()
+    {
+      return GetType().Name;
+    }
+
+    public override IBlockParser CreateParser()
     {
       return new UTXOTable.BlockParser();
     }
 
-    public Blockchain.Header GetHeaderGenesis()
+    public override Header GetHeaderGenesis()
     {
       return HeaderGenesis;
     }
 
-    public Dictionary<int, byte[]> GetCheckpoints()
+    public override Dictionary<int, byte[]> GetCheckpoints()
     {
       return Checkpoints;
     }
 
-    public void LoadImage(string pathImage)
+    public override void LoadImage(string pathImage)
     {
       UTXOTable.LoadImage(pathImage);
     }
 
-    public void CreateImage(string pathImage)
+    public override void CreateImage(string pathImage)
     {
       UTXOTable.CreateImage(pathImage);
     }
 
-    public void Reset()
+    public override void Reset()
     {
       UTXOTable.Clear();
     }
 
-    public void InsertBlock(
-      Blockchain.Block block,
+    public override void InsertBlock(
+      Block block,
       int indexBlockArchive)
     {
       UTXOTable.InsertBlock(
@@ -83,7 +97,7 @@ namespace BTokenCore.Chaining
           indexBlockArchive);
     }
 
-    public string GetStatus()
+    public override string GetStatus()
     {
       return UTXOTable.GetStatus();
     }
@@ -111,15 +125,15 @@ namespace BTokenCore.Chaining
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
     }
 
-    public Blockchain.Header ParseHeader(
+    public override Header ParseHeader(
         byte[] buffer,
         ref int index)
     {
       return Parser.ParseHeader(buffer, ref index);
     }
 
-    public void ValidateHeader(
-      Blockchain.Header headerBlockchain, 
+    public override void ValidateHeader(
+      Header headerBlockchain,
       int height)
     {
       HeaderBitcoin header = (HeaderBitcoin)headerBlockchain;

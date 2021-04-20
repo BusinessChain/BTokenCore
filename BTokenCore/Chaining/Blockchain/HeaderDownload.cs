@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BTokenCore.Chaining
 {
-  partial class Blockchain
+  public partial class Network
   {
     class HeaderDownload
     {

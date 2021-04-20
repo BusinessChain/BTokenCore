@@ -13,7 +13,7 @@ namespace BTokenCore
 
     BigInteger Data;
 
-
+    
     UInt256(BigInteger data)
     {
       Data = data;
