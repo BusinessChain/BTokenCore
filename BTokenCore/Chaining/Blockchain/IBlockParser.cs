@@ -6,13 +6,10 @@ using System.Threading.Tasks;
 
 namespace BTokenCore.Chaining
 {
-  partial class Blockchain
+  interface IBlockParser
   {
-    public interface IBlockParser
-    {
-      public Block ParseBlock(
-        byte[] buffer,
-        ref int startIndex);
-    }
+    public Block ParseBlock(
+      byte[] buffer,
+      ref int startIndex);
   }
 }

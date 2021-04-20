@@ -11,29 +11,23 @@ namespace BTokenCore
 {
   partial class Node
   {
-    Blockchain Bitcoin;
     TokenBitcoin TokenBitcoin;
 
-    Blockchain BToken;
+    //TokenBToken BToken;
 
 
     public Node()
     {
       TokenBitcoin = new TokenBitcoin();
 
-      Bitcoin = new Blockchain(
-        TokenBitcoin,
-        "configurationNetworkBitcoin");
-
-
-      //BToken = new Blockchain(
-      //  new TokenBToken(),
-      //  "configurationNetworkBCash");
+      //BToken = new TokenBitcoin(
+      //  "configurationNetworkBToken",
+      //  TokenBitcoin);
     }
 
     public void Start()
     {
-      Bitcoin.Start();
+      TokenBitcoin.Start();
     }
 
 
@@ -49,17 +43,13 @@ namespace BTokenCore
         switch(inputCommand)
         {
           case "status":
-            Console.WriteLine(Bitcoin.GetStatus());
+            Console.WriteLine(TokenBitcoin.GetStatus());
             break;
 
           case "sendtoken":
             Console.WriteLine(inputCommand);
 
-            UTXOTable.TX tXAnchorToken =
-              TokenBitcoin.UTXOTable.Wallet.CreateAnchorToken(
-              "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
-            
-            Bitcoin.Network.SendTX(tXAnchorToken);
+            TokenBitcoin.SendTX();
             break;
 
           default:

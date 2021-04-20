@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore.Chaining
 {
-  class HeaderBToken : Blockchain.Header
+  class HeaderBToken : Header
   {
     public HeaderBToken(
       byte[] headerHash,

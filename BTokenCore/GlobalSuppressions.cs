@@ -6,3 +6,4 @@
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Usage", "CA2200:Rethrow to preserve stack details", Justification = "<Pending>", Scope = "member", Target = "~M:BTokenCore.Chaining.Blockchain.BlockchainNetwork.Peer.StartMessageListener~System.Threading.Tasks.Task")]
+[assembly: SuppressMessage("Usage", "CA2200:Rethrow to preserve stack details", Justification = "<Pending>", Scope = "member", Target = "~M:BTokenCore.Chaining.Network.Peer.StartMessageListener~System.Threading.Tasks.Task")]
