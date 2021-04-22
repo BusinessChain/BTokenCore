@@ -6,6 +6,7 @@ using System.Linq;
 
 using BTokenCore.Chaining;
 
+using BTokenLib;
 
 namespace BTokenCore
 {
@@ -15,6 +16,7 @@ namespace BTokenCore
 
     //TokenBToken BToken;
 
+    
 
     public Node()
     {
