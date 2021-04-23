@@ -7,51 +7,54 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class GetDataMessage : NetworkMessage
+  partial class Network
   {
-    public List<Inventory> Inventories = 
-      new List<Inventory>();
-       
-
-
-    public GetDataMessage(byte[] buffer)
-      : base("getdata", buffer)
+    class GetDataMessage : NetworkMessage
     {
-      int startIndex = 0;
+      public List<Inventory> Inventories =
+        new List<Inventory>();
 
-      int inventoryCount = VarInt.GetInt32(
-        Payload,
-        ref startIndex);
-      
-      for (int i = 0; i < inventoryCount; i += 1)
+
+
+      public GetDataMessage(byte[] buffer)
+        : base("getdata", buffer)
       {
-        Inventories.Add(
-          Inventory.Parse(
-            Payload,
-            ref startIndex));
-      }
-    }
+        int startIndex = 0;
 
-    public GetDataMessage(Inventory inventory)
-      : this(new List<Inventory> { inventory })
-    { }
+        int inventoryCount = VarInt.GetInt32(
+          Payload,
+          ref startIndex);
 
-
-    public GetDataMessage(List<Inventory> inventories) 
-      : base("getdata")
-    {
-      Inventories = inventories;
-
-      List<byte> payload = new List<byte>();
-
-      payload.AddRange(VarInt.GetBytes(Inventories.Count()));
-
-      for (int i = 0; i < Inventories.Count(); i++)
-      {
-        payload.AddRange(Inventories[i].GetBytes());
+        for (int i = 0; i < inventoryCount; i += 1)
+        {
+          Inventories.Add(
+            Inventory.Parse(
+              Payload,
+              ref startIndex));
+        }
       }
 
-      Payload = payload.ToArray();
+      public GetDataMessage(Inventory inventory)
+        : this(new List<Inventory> { inventory })
+      { }
+
+
+      public GetDataMessage(List<Inventory> inventories)
+        : base("getdata")
+      {
+        Inventories = inventories;
+
+        List<byte> payload = new List<byte>();
+
+        payload.AddRange(VarInt.GetBytes(Inventories.Count()));
+
+        for (int i = 0; i < Inventories.Count(); i++)
+        {
+          payload.AddRange(Inventories[i].GetBytes());
+        }
+
+        Payload = payload.ToArray();
+      }
     }
   }
 }

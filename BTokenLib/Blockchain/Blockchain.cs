@@ -599,7 +599,7 @@ namespace BTokenLib
 
     async Task StartLoader()
     {
-      IBlockParser parser = Token.CreateParser();
+      Token.IParser parser = Token.CreateParser();
 
     LABEL_LoadBlockArchive:
 

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  public abstract class Token
+  public abstract partial class Token
   {
     protected Network Network;
     protected Blockchain Blockchain;
@@ -28,13 +28,6 @@ namespace BTokenLib
     public abstract void CreateImage(string pathImage);
     public abstract void Reset();
 
-    public abstract Block ParseBlock(
-      byte[] buffer,
-      ref int startIndex);
-
-    public abstract Block ParseBlock(
-      byte[] buffer);
-
     public abstract void InsertBlock(
       Block block,
       int indexBlockArchive);
@@ -45,12 +38,16 @@ namespace BTokenLib
       Header header,
       int height);
 
+    public abstract IParser CreateParser();
+
     public abstract Header ParseHeader(
       byte[] buffer,
       ref int index);
 
-    public abstract IBlockParser CreateParser();
-
     public abstract string GetName();
+
+    public abstract bool TryRequestTX(
+      byte[] hash,
+      out byte[] tXRaw);
   }
 }

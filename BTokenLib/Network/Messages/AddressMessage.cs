@@ -6,26 +6,28 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class AddressMessage : NetworkMessage
+  partial class Network
   {
-    public List<NetworkAddress> NetworkAddresses = 
-      new List<NetworkAddress>();
-
-
-    public AddressMessage(byte[] messagePayload) 
-      : base("addr", messagePayload)
+    class AddressMessage : NetworkMessage
     {
-      int startIndex = 0;
+      public List<NetworkAddress> NetworkAddresses = new();
 
-      int addressesCount = VarInt.GetInt32(
-        Payload, 
-        ref startIndex);
 
-      for (int i = 0; i < addressesCount; i++)
+      public AddressMessage(byte[] messagePayload)
+        : base("addr", messagePayload)
       {
-        NetworkAddresses.Add(
-          NetworkAddress.ParseAddress(
-            Payload, ref startIndex));
+        int startIndex = 0;
+
+        int addressesCount = VarInt.GetInt32(
+          Payload,
+          ref startIndex);
+
+        for (int i = 0; i < addressesCount; i++)
+        {
+          NetworkAddresses.Add(
+            NetworkAddress.ParseAddress(
+              Payload, ref startIndex));
+        }
       }
     }
   }

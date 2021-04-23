@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 
+using BTokenLib;
+
 namespace BTokenCore
 {
   partial class UTXOTable
@@ -253,7 +255,7 @@ namespace BTokenCore
         uint mask = (uint)1 << (COUNT_NON_OUTPUT_BITS + outputIndex);
         if ((uTXO & mask) != 0x00)
         {
-          throw new ProtocolException(
+          throw new BitcoinException(
             string.Format(
               "Output index {0} already spent.",
               outputIndex),

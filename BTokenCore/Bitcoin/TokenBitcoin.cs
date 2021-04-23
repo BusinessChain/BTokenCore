@@ -16,14 +16,15 @@ namespace BTokenCore
   {
     HeaderBitcoin HeaderGenesis;
 
-    Dictionary<int, byte[]> Checkpoints =
-      new Dictionary<int, byte[]>(){
-        { 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
-        { 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }};
+    Dictionary<int, byte[]> Checkpoints = new()
+    {
+      { 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
+      { 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }
+    };
 
     UTXOTable UTXOTable;
 
-    UTXOTable.BlockParser Parser = new UTXOTable.BlockParser();
+    UTXOTable.BlockParser Parser = new();
 
 
     public TokenBitcoin()
@@ -44,15 +45,22 @@ namespace BTokenCore
       //Miner = new Miner(this);
     }
 
+    List<UTXOTable.TX> TXPool = new();
+
     internal void SendTX()
     {
       UTXOTable.TX tXAnchorToken =
         UTXOTable.Wallet.CreateAnchorToken(
         "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
 
-      NetworkMessage message = new txm
+      TXPool.Add(tXAnchorToken);
 
-      Network.SendTX(tXAnchorToken);
+      Network.AdvertizeToken(tXAnchorToken.Hash);
+    }
+
+    public override IParser CreateParser()
+    {
+      return new UTXOTable.BlockParser();
     }
 
     public override string GetName()
@@ -60,9 +68,20 @@ namespace BTokenCore
       return GetType().Name;
     }
 
-    public override IBlockParser CreateParser()
+    public override bool TryRequestTX(
+      byte[] hash, 
+      out byte[] tXRaw)
     {
-      return new UTXOTable.BlockParser();
+      UTXOTable.TX tX = TXPool.Find(t => t.Hash.IsEqual(hash));
+
+      if(tX == null)
+      {
+        tXRaw = null;
+        return false;
+      }
+
+      tXRaw = tX.TXRaw;
+      return true;
     }
 
     public override Header GetHeaderGenesis()
@@ -144,7 +163,7 @@ namespace BTokenCore
         .TryGetValue(height, out byte[] hashCheckpoint) &&
         !hashCheckpoint.IsEqual(header.Hash))
       {
-        throw new ProtocolException(
+        throw new BitcoinException(
           string.Format(
             "Header {0} at hight {1} not equal to checkpoint hash {2}",
             header.Hash.ToHexString(),
@@ -158,7 +177,7 @@ namespace BTokenCore
 
       if (header.UnixTimeSeconds < medianTimePast)
       {
-        throw new ProtocolException(
+        throw new BitcoinException(
           string.Format(
             "Header {0} with unix time {1} " +
             "is older than median time past {2}.",
@@ -183,7 +202,7 @@ namespace BTokenCore
 
       if (header.NBits != targetBitsNew)
       {
-        throw new ProtocolException(
+        throw new BitcoinException(
           string.Format(
             "In header {0}\n nBits {1} not equal to target nBits {2}",
             header.Hash.ToHexString(),
@@ -192,6 +211,7 @@ namespace BTokenCore
           ErrorCode.INVALID);
       }
     }
+
 
     static uint GetMedianTimePast(HeaderBitcoin header)
     {

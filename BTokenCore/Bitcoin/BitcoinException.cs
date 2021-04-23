@@ -11,19 +11,19 @@ namespace BTokenCore
     ORPHAN,
     INVALID };
 
-  class ProtocolException : Exception
+  class BitcoinException : Exception
   {
     public ErrorCode ErrorCode;
     
 
-    public ProtocolException()
+    public BitcoinException()
     { }
 
-    public ProtocolException(string message)
+    public BitcoinException(string message)
         : base(message)
     { }
 
-    public ProtocolException(
+    public BitcoinException(
       string message, 
       ErrorCode errorCode)
         : base(message)
@@ -31,7 +31,7 @@ namespace BTokenCore
       ErrorCode = errorCode;
     }
 
-    public ProtocolException(string message, Exception inner)
+    public BitcoinException(string message, Exception inner)
         : base(message, inner)
     { }
 

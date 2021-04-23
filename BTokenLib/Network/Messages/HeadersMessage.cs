@@ -7,31 +7,34 @@ using System.Security.Cryptography;
 
 namespace BTokenLib
 {
-  class HeadersMessage : NetworkMessage
+  partial class Network
   {
-    public List<Header> Headers = new List<Header>();
-
-
-    public HeadersMessage(
-      List<Header> headers)
-      : base("headers")
+    class HeadersMessage : NetworkMessage
     {
-      Headers = headers;
-      SerializePayload();
-    }
-    void SerializePayload()
-    {
-      var payload = new List<byte>();
+      public List<Header> Headers = new List<Header>();
 
-      payload.AddRange(VarInt.GetBytes(Headers.Count));
 
-      foreach (Header header in Headers)
+      public HeadersMessage(
+        List<Header> headers)
+        : base("headers")
       {
-        payload.AddRange(header.GetBytes());
-        payload.Add(0);
+        Headers = headers;
+        SerializePayload();
       }
+      void SerializePayload()
+      {
+        var payload = new List<byte>();
 
-      Payload = payload.ToArray();
+        payload.AddRange(VarInt.GetBytes(Headers.Count));
+
+        foreach (Header header in Headers)
+        {
+          payload.AddRange(header.GetBytes());
+          payload.Add(0);
+        }
+
+        Payload = payload.ToArray();
+      }
     }
   }
 }

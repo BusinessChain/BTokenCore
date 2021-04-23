@@ -6,11 +6,14 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class TXMessage : NetworkMessage
+  partial class Network
   {
-    public TXMessage(byte[] tXRaw) : base("tx")
+    public class TXMessage : NetworkMessage
     {
-      Payload = tXRaw;
+      public TXMessage(byte[] tXRaw) : base("tx")
+      {
+        Payload = tXRaw;
+      }
     }
   }
 }

@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 
 
+using BTokenLib;
+
 namespace BTokenCore
 {
   partial class UTXOTable

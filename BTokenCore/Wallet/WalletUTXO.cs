@@ -6,6 +6,8 @@ using System.Text;
 using System.Security.Cryptography;
 using Org.BouncyCastle.Crypto.Digests;
 
+using BTokenLib;
+
 namespace BTokenCore
 {
   partial class UTXOTable
@@ -240,7 +242,7 @@ namespace BTokenCore
 
         if (outputSpendable == null)
         {
-          throw new ProtocolException("No spendable output found.");
+          throw new BitcoinException("No spendable output found.");
         }
         
         List<byte> tXRaw = new List<byte>();

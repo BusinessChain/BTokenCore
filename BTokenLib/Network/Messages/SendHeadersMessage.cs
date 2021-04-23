@@ -5,9 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace BTokenLib
-{ 
-  class SendHeadersMessage : NetworkMessage
+{
+  partial class Network
   {
-    public SendHeadersMessage() : base("sendheaders") { }
+    class SendHeadersMessage : NetworkMessage
+    {
+      public SendHeadersMessage() : base("sendheaders") { }
+    }
   }
 }

@@ -6,11 +6,14 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class PongMessage : NetworkMessage
+  partial class Network
   {
-    public PongMessage(UInt64 nonce) : base("pong")
+    class PongMessage : NetworkMessage
     {
-      Payload = BitConverter.GetBytes(nonce);
+      public PongMessage(UInt64 nonce) : base("pong")
+      {
+        Payload = BitConverter.GetBytes(nonce);
+      }
     }
   }
 }

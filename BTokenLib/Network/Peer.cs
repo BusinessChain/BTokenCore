@@ -58,6 +58,7 @@ namespace BTokenLib
       Network Network;
       Blockchain Blockchain;
       Token Token;
+      Token.IParser ParserToken;
 
       public bool IsBusy;
 
@@ -70,8 +71,8 @@ namespace BTokenLib
       Stopwatch StopwatchDownload = new Stopwatch();
       public int CountBlocksLoad = COUNT_BLOCKS_DOWNLOADBATCH_INIT;
 
-      public HeaderDownload HeaderDownload;
-      public BlockDownload BlockDownload;
+      internal HeaderDownload HeaderDownload;
+      internal BlockDownload BlockDownload;
 
 
       ulong FeeFilterValue;
@@ -133,6 +134,7 @@ namespace BTokenLib
         Network = network;
         Blockchain = blockchain;
         Token = token;
+        ParserToken = token.CreateParser();
 
         TcpClient = tcpClient;
 
@@ -152,6 +154,7 @@ namespace BTokenLib
         Network = network;
         Blockchain = blockchain;
         Token = token;
+        ParserToken = token.CreateParser();
 
         Connection = ConnectionType.OUTBOUND;
         IPAddress = iPAddress;
@@ -485,7 +488,7 @@ namespace BTokenLib
                   .Take(PayloadLength)
                   .ToArray();
 
-                Block block = Network.Token.ParseBlock(blockBytes);
+                Block block = ParserToken.ParseBlock(blockBytes);
 
                 if (IsStateIdle())
                 {
@@ -678,40 +681,38 @@ namespace BTokenLib
 
                 getDataMessage = new GetDataMessage(Payload);
 
-                if (IsStateIdle())
+                foreach(Inventory inventory in getDataMessage.Inventories)
                 {
-
-                }
-                else if (IsStateAwaitingGetDataTX())
-                {
-                  if (getDataMessage.Inventories[0].Hash.IsEqual(TX.Hash))
+                  if(inventory.Type == InventoryType.MSG_TX)
                   {
-                    TXMessage tXMessage = new TXMessage(TX.TXRaw);
-                    SendMessage(tXMessage);
+                    if (Token.TryRequestTX(
+                      inventory.Hash, 
+                      out byte[] tXRaw))
+                    {
+                      SendMessage(new TXMessage(tXRaw));
 
-                    Debug.WriteLine(string.Format(
-                      "Received getData {0} and sent tXMessage {1}.",
-                      getDataMessage.Inventories[0].Hash.ToHexString(),
-                      TX.Hash.ToHexString()));
+                      string.Format(
+                        "{0} received getData {1} and sent tXMessage {2}.",
+                        GetID(),
+                        getDataMessage.Inventories[0].Hash.ToHexString(),
+                        inventory.Hash.ToHexString())
+                        .Log(LogFile);
+                    }
+                    else
+                    {
+                      // Send notfound
+                    }
                   }
-
-                  string.Format(
-                    "{0}: Signal getdata task complete.",
-                    GetID())
-                    .Log(LogFile);
-
-                  SignalProtocolTaskCompleted.Post(true);
-
-                  Cancellation = new CancellationTokenSource();
                 }
 
                 break;
 
               default:
-                Debug.WriteLine(
-                  "{0} received unknown message {1}",
+                string.Format(
+                  "{0} received unknown message {1}.",
                   GetID(),
-                  Command);
+                  Command)
+                  .Log(LogFile);
                 break;
             }
           }
@@ -731,37 +732,24 @@ namespace BTokenLib
         }
       }
 
-      public async Task SendTX(UTXOTable.TX tX)
+      public async Task AdvertizeToken(byte[] hash)
       {
-        TX = tX;
-
-        Debug.WriteLine(TX.Hash.ToHexString());
+        string.Format(
+          "{0} advertize token {1}.",
+          GetID(),
+          hash.ToHexString())
+          .Log(LogFile);
 
         var inventoryTX = new Inventory(
           InventoryType.MSG_TX,
-          TX.Hash);
+          hash);
 
         var invMessage = new InvMessage(
           new List<Inventory> { inventoryTX });
 
         await SendMessage(invMessage);
 
-        lock (LOCK_StateProtocol)
-        {
-          State = StateProtocol.AwaitingGetData;
-        }
-
-        Cancellation.CancelAfter(
-            TIMEOUT_RESPONSE_MILLISECONDS);
-
-        await SignalProtocolTaskCompleted
-          .ReceiveAsync(Cancellation.Token)
-          .ConfigureAwait(false);
-
-        lock (LOCK_StateProtocol)
-        {
-          State = StateProtocol.IDLE;
-        }
+        Network.ReleasePeer(this);
       }
 
 

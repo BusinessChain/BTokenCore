@@ -6,12 +6,15 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class FeeFilterMessage : NetworkMessage
+  partial class Network
   {
-    public ulong FeeFilterValue { get; private set; }
+    class FeeFilterMessage : NetworkMessage
+    {
+      public ulong FeeFilterValue { get; private set; }
 
-    public FeeFilterMessage(byte[] messagePayload) 
-      : base("feefilter", messagePayload)
-    { }
+      public FeeFilterMessage(byte[] messagePayload)
+        : base("feefilter", messagePayload)
+      { }
+    }
   }
 }

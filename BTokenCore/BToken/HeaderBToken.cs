@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Security.Cryptography;
 
-
+using BTokenLib;
 
 namespace BTokenCore
 {

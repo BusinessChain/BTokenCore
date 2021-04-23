@@ -6,7 +6,6 @@ using System.Threading;
 
 namespace BTokenLib
 {
-
   public static class ByteArray2HexString
   {
     static readonly string[] BYTE2HEX = new string[] 

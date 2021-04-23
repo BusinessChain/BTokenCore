@@ -10,7 +10,7 @@ namespace BTokenCore
 {
   class BlockBitcoin : Block
   {
-    public List<UTXOTable.TX> TXs = new List<UTXOTable.TX>();
+    public List<UTXOTable.TX> TXs = new();
 
 
     public BlockBitcoin(

@@ -206,7 +206,7 @@ namespace BTokenCore
             }
           }
 
-          throw new ProtocolException(
+          throw new BitcoinException(
             string.Format(
               "Referenced TX {0} not found in UTXO table.",
               tXInput.TXIDOutput.ToHexString()));

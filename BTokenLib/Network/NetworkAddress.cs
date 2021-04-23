@@ -6,45 +6,48 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class NetworkAddress
+  partial class Network
   {
-    public UInt32 UnixTimeSeconds { get; private set; }
-    public UInt64 NetworkServices { get; private set; }
-    public IPAddress IPAddress { get; private set; }
-    public UInt16 Port { get; private set; }
-
-
-    public NetworkAddress(
-      UInt32 unixTimeSeconds,
-      UInt64 networkServices,
-      IPAddress iPAddress,
-      UInt16 port)
+    class NetworkAddress
     {
-      UnixTimeSeconds = unixTimeSeconds;
-      NetworkServices = networkServices;
-      IPAddress = iPAddress;
-      Port = port;
-    }
+      public UInt32 UnixTimeSeconds { get; private set; }
+      public UInt64 NetworkServices { get; private set; }
+      public IPAddress IPAddress { get; private set; }
+      public UInt16 Port { get; private set; }
 
-    public static NetworkAddress ParseAddress(byte[] buffer, ref int startIndex)
-    {
-      UInt32 unixTimeSeconds = BitConverter.ToUInt32(buffer, startIndex);
-      startIndex += 4;
 
-      UInt64 networkServices = BitConverter.ToUInt64(buffer, startIndex);
-      startIndex += 8;
+      public NetworkAddress(
+        UInt32 unixTimeSeconds,
+        UInt64 networkServices,
+        IPAddress iPAddress,
+        UInt16 port)
+      {
+        UnixTimeSeconds = unixTimeSeconds;
+        NetworkServices = networkServices;
+        IPAddress = iPAddress;
+        Port = port;
+      }
 
-      IPAddress iPAddress = new IPAddress(buffer.Skip(startIndex).Take(16).ToArray());
-      startIndex += 16;
+      public static NetworkAddress ParseAddress(byte[] buffer, ref int startIndex)
+      {
+        UInt32 unixTimeSeconds = BitConverter.ToUInt32(buffer, startIndex);
+        startIndex += 4;
 
-      UInt16 port = BitConverter.ToUInt16(buffer, startIndex);
-      startIndex += 2;
+        UInt64 networkServices = BitConverter.ToUInt64(buffer, startIndex);
+        startIndex += 8;
 
-      return new NetworkAddress(
-        unixTimeSeconds,
-        networkServices,
-        iPAddress,
-        port);
+        IPAddress iPAddress = new IPAddress(buffer.Skip(startIndex).Take(16).ToArray());
+        startIndex += 16;
+
+        UInt16 port = BitConverter.ToUInt16(buffer, startIndex);
+        startIndex += 2;
+
+        return new NetworkAddress(
+          unixTimeSeconds,
+          networkServices,
+          iPAddress,
+          port);
+      }
     }
   }
 }

@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  class VerAckMessage : NetworkMessage
+  partial class Network
   {
-
-
-    public VerAckMessage() : base("verack")
+    class VerAckMessage : NetworkMessage
     {
+      public VerAckMessage() : base("verack")
+      {
+      }
     }
   }
 }

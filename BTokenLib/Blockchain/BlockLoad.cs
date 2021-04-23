@@ -11,7 +11,7 @@ namespace BTokenLib
     class BlockLoad
     {
       public int Index;
-      public List<Block> Blocks = new List<Block>();
+      public List<Block> Blocks = new();
       public int CountBytes;
 
       public bool IsInvalid;

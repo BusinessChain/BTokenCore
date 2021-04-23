@@ -19,7 +19,7 @@ namespace BTokenLib
 
     int TIMEOUT_SYNCHRONIZER = 30000;
 
-    const int UTXOIMAGE_INTERVAL_SYNC = 100;
+    const int UTXOIMAGE_INTERVAL_SYNC = 300;
     const int UTXOIMAGE_INTERVAL_LISTEN = 100;
 
     StreamWriter LogFile;
@@ -71,19 +71,6 @@ namespace BTokenLib
     void LoadNetworkConfiguration (string pathConfigFile)
     {
       "Load Network configuration.".Log(LogFile);
-    }
-
-    internal async Task SendTX(UTXOTable.TX tX)
-    {
-      Peer peer;
-      while (!TryGetPeer(out peer))
-      {
-        await Task.Delay(3000);
-      }
-
-      await peer.SendTX(tX);
-
-      ReleasePeer(peer);
     }
 
 
@@ -643,7 +630,7 @@ namespace BTokenLib
             }
 
             Debug.WriteLine(
-              "Inserte block download {0}. Blockchain height: {1}",
+              "Insert block download {0}. Blockchain height: {1}",
               blockDownload.Index,
               Blockchain.Height);
 
@@ -732,6 +719,29 @@ namespace BTokenLib
       await peer.DownloadBlocks();
 
       QueueSynchronizer.Post(peer);
+    }
+
+    public async Task AdvertizeToken(byte[] hash)
+    {
+      var peers = new List<Peer>();
+
+      while (true)
+      {
+        if (TryGetPeer(
+          out Peer peer))
+        {
+          peers.Add(peer);
+        }
+        else if (peers.Any())
+        {
+          break;
+        }
+
+        await Task.Delay(1000);
+      }
+
+      peers.Select(p => p.AdvertizeToken(hash))
+        .ToArray();
     }
 
     bool TryGetPeer(

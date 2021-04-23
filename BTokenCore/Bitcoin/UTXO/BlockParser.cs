@@ -10,7 +10,7 @@ namespace BTokenCore
 {
   partial class UTXOTable
   {
-    public class BlockParser : IBlockParser
+    public class BlockParser : Token.IParser
     {
       public const int COUNT_HEADER_BYTES = 80;
 
@@ -82,7 +82,7 @@ namespace BTokenCore
           (DateTimeOffset.UtcNow.ToUnixTimeSeconds() +
           MAX_FUTURE_TIME_SECONDS))
         {
-          throw new ProtocolException(
+          throw new BitcoinException(
             string.Format("Timestamp premature {0}",
               new DateTime(unixTimeSeconds).Date));
         }
@@ -92,7 +92,7 @@ namespace BTokenCore
 
         if (hash.IsGreaterThan(nBits))
         {
-          throw new ProtocolException(
+          throw new BitcoinException(
             string.Format("header hash {0} greater than NBits {1}",
               hash.ToHexString(),
               nBits));
@@ -134,7 +134,7 @@ namespace BTokenCore
 
           if (!tX.Hash.IsEqual(hashMerkleRoot))
           {
-            throw new ProtocolException(
+            throw new BitcoinException(
               "Payload merkle root corrupted");
           }
         }
@@ -171,7 +171,7 @@ namespace BTokenCore
 
           if (!GetRoot(merkleList).IsEqual(hashMerkleRoot))
           {
-            throw new ProtocolException(
+            throw new BitcoinException(
               "Payload hash unequal with merkle root.");
           }
         }
@@ -256,7 +256,7 @@ namespace BTokenCore
         }
         catch (ArgumentOutOfRangeException)
         {
-          throw new ProtocolException(
+          throw new BitcoinException(
             "ArgumentOutOfRangeException thrown in ParseTX.");
         }
       }

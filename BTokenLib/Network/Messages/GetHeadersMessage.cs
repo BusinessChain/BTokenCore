@@ -6,66 +6,69 @@ using System.Text;
 
 namespace BTokenLib
 {
-  class GetHeadersMessage : NetworkMessage
+  partial class Network
   {
-    public List<Header> HeaderLocator =
-      new List<Header>();
-
-    public byte[] StopHash = new byte[32];
-
-
-
-    public GetHeadersMessage(
-      List<Header> headerLocator,
-      uint versionProtocol)
-      : base("getheaders")
+    class GetHeadersMessage : NetworkMessage
     {
-      HeaderLocator = headerLocator;
-      StopHash =
-        ("00000000000000000000000000000000" +
-        "00000000000000000000000000000000").ToBinary();
+      public List<Header> HeaderLocator =
+        new List<Header>();
 
-      List<byte> payload = new List<byte>();
+      public byte[] StopHash = new byte[32];
 
-      payload.AddRange(BitConverter.GetBytes(versionProtocol));
-      payload.AddRange(VarInt.GetBytes(HeaderLocator.Count()));
 
-      for (int i = 0; i < HeaderLocator.Count(); i++)
+
+      public GetHeadersMessage(
+        List<Header> headerLocator,
+        uint versionProtocol)
+        : base("getheaders")
       {
-        payload.AddRange(
-          HeaderLocator.ElementAt(i).Hash);
+        HeaderLocator = headerLocator;
+        StopHash =
+          ("00000000000000000000000000000000" +
+          "00000000000000000000000000000000").ToBinary();
+
+        List<byte> payload = new List<byte>();
+
+        payload.AddRange(BitConverter.GetBytes(versionProtocol));
+        payload.AddRange(VarInt.GetBytes(HeaderLocator.Count()));
+
+        for (int i = 0; i < HeaderLocator.Count(); i++)
+        {
+          payload.AddRange(
+            HeaderLocator.ElementAt(i).Hash);
+        }
+
+        payload.AddRange(StopHash);
+
+        Payload = payload.ToArray();
       }
 
-      payload.AddRange(StopHash);
 
-      Payload = payload.ToArray();
-    }
-
-
-    public GetHeadersMessage(NetworkMessage message)
-      : base("getheaders", message.Payload)
-    {
-      int startIndex = 0;
-
-      var protocolVersionRemote = BitConverter.ToUInt32(
-        Payload,
-        startIndex);
-
-      startIndex += 4;
-
-      int headersCount = VarInt.GetInt32(Payload, ref startIndex);
-      for (int i = 0; i < headersCount; i++)
+      public GetHeadersMessage(NetworkMessage message)
+        : base("getheaders", message.Payload)
       {
-        byte[] hash = new byte[32];
-        Array.Copy(Payload, startIndex, hash, 0, 32);
+        int startIndex = 0;
 
-        //HeaderLocator.Add(hash);
+        var protocolVersionRemote = BitConverter.ToUInt32(
+          Payload,
+          startIndex);
 
+        startIndex += 4;
+
+        int headersCount = VarInt.GetInt32(Payload, ref startIndex);
+        for (int i = 0; i < headersCount; i++)
+        {
+          byte[] hash = new byte[32];
+          Array.Copy(Payload, startIndex, hash, 0, 32);
+
+          //HeaderLocator.Add(hash);
+
+          startIndex += 32;
+        }
+
+        Array.Copy(Payload, startIndex, StopHash, 0, 32);
         startIndex += 32;
       }
-
-      Array.Copy(Payload, startIndex, StopHash, 0, 32);
-      startIndex += 32;
     }
   }
 }

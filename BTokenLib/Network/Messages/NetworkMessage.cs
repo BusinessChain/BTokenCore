@@ -2,23 +2,26 @@
 
 namespace BTokenLib
 {
-  public class NetworkMessage
+  partial class Network
   {
-    public string Command;
-    public byte[] Payload;
-
-
-
-    public NetworkMessage(string command)
-      : this(command, new byte[0])
-    { }
-
-    public NetworkMessage(
-      string command, 
-      byte[] payload)
+    public class NetworkMessage
     {
-      Command = command;
-      Payload = payload;
+      public string Command;
+      public byte[] Payload;
+
+
+
+      public NetworkMessage(string command)
+        : this(command, new byte[0])
+      { }
+
+      public NetworkMessage(
+        string command,
+        byte[] payload)
+      {
+        Command = command;
+        Payload = payload;
+      }
     }
   }
 }
