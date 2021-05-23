@@ -221,6 +221,8 @@ namespace BTokenLib
       {
         try
         {
+          Console.WriteLine(Directory.GetCurrentDirectory());
+
           dnsSeeds = File.ReadAllLines(pathFileSeeds);
 
           break;

@@ -8,10 +8,19 @@ namespace BTokenCore
   {
     static void Main(string[] args)
     {
-      var node = new Node();
-      node.Start();
+      try
+      {
+        var node = new Node();
+        node.Start();
 
-      node.RunConsole();
+        node.RunConsole();
+      }
+      catch(Exception ex)
+      {
+        Console.WriteLine(ex.Message);
+      }
+
+      Console.ReadKey();
     }
   }
 }
