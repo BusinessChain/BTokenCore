@@ -120,7 +120,7 @@ namespace BTokenCore
 
     public override string GetStatus()
     {
-      return UTXOTable.GetStatus();
+      return Blockchain.GetStatus() + UTXOTable.GetStatus();
     }
 
     byte[] GetGenesisBlockBytes()

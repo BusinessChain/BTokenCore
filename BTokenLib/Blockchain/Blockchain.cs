@@ -88,7 +88,7 @@ namespace BTokenLib
       var ageBlock = TimeSpan.FromSeconds(
         DateTimeOffset.UtcNow.ToUnixTimeSeconds() - HeaderTip.UnixTimeSeconds);
 
-      string statusBlockchain = string.Format(
+      return string.Format(
         "Height: {0}\n" +
         "Block tip: {1}\n" +
         "Timestamp: {2}\n" +
@@ -97,10 +97,6 @@ namespace BTokenLib
         HeaderTip.Hash.ToHexString(),
         DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds),
         ageBlock);
-
-      string statusUTXO = Token.GetStatus();
-
-      return statusBlockchain + statusUTXO;
     }
 
     public async Task LoadImage()
@@ -132,7 +128,11 @@ namespace BTokenLib
 
           Reset();
         }
-        
+
+        Console.WriteLine(
+          "Start loading block from blockArchive {0}.", 
+          indexBlockArchiveImage);
+
         if (await TryLoadBlocks(
           hashRootFork,
           indexBlockArchiveImage))
@@ -149,8 +149,10 @@ namespace BTokenLib
     {
       try
       {
+        Console.WriteLine("Load headerchain.");
         LoadImageHeaderchain(pathImage);
 
+        Console.WriteLine("Load UTXO.");
         Token.LoadImage(pathImage);
 
         LoadMapBlockToArchiveData(

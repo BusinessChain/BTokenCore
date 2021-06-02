@@ -11,6 +11,8 @@ namespace BTokenCore
       try
       {
         var node = new Node();
+
+        Console.WriteLine("Start node.");
         node.Start();
 
         node.RunConsole();

@@ -16,8 +16,12 @@ namespace BTokenLib
 
     public async Task Start()
     {
+      Console.WriteLine("Load image.");
       await Blockchain.LoadImage();
+
+      Console.WriteLine("Start network.");
       Network.Start();
+
       //Miner.Start();
     }
 

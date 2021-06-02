@@ -43,7 +43,7 @@ namespace BTokenCore
 
       public WalletUTXO()
       {
-        PrivKeyDec = File.ReadAllText("wallet");
+        PrivKeyDec = File.ReadAllText("Wallet/wallet");
 
         byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
 
@@ -79,7 +79,12 @@ namespace BTokenCore
           pathImage, "ImageWallet");
 
         int index = 0;
+
+        Console.WriteLine("Read file {0}.", pathFile);
+
         byte[] buffer = File.ReadAllBytes(pathFile);
+
+        Console.WriteLine("Succeeded read file {0}.", pathFile);
 
         while (index < buffer.Length)
         {
