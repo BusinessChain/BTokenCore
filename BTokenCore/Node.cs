@@ -16,9 +16,9 @@ namespace BTokenCore
 
     
 
-    public Node()
+    public Node(string pathBlockArchive)
     {
-      TokenBitcoin = new TokenBitcoin();
+      TokenBitcoin = new TokenBitcoin(pathBlockArchive);
 
       //BToken = new TokenBitcoin(
       //  "configurationNetworkBToken",
@@ -53,7 +53,7 @@ namespace BTokenCore
             break;
 
           default:
-            Debug.WriteLine("Unknown command {0}", inputCommand);
+            Console.WriteLine("Unknown command {0}", inputCommand);
             break;
         }
       }

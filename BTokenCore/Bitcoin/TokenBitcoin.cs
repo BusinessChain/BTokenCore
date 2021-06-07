@@ -27,7 +27,7 @@ namespace BTokenCore
     UTXOTable.BlockParser Parser = new();
 
 
-    public TokenBitcoin()
+    public TokenBitcoin(string pathBlockArchive)
     {
       UTXOTable = new UTXOTable(GetGenesisBlockBytes());
 
@@ -41,7 +41,7 @@ namespace BTokenCore
          nonce: 2083236893);
 
       Network = new Network(this);
-      Blockchain = new Blockchain(Network, this);
+      Blockchain = new Blockchain(Network, this, pathBlockArchive);
       //Miner = new Miner(this);
     }
 

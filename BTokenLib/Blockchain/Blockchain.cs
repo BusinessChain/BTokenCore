@@ -31,7 +31,6 @@ namespace BTokenLib
 
     string FileNameIndexBlockArchiveImage = "IndexBlockArchive";
     string PathBlockArchive = "J:\\BlockArchivePartitioned";
-    string PathBlockArchiveFork = "J:\\BlockArchivePartitionedFork";
 
     readonly object LOCK_IsBlockchainLocked = new object();
     bool IsBlockchainLocked;
@@ -44,11 +43,10 @@ namespace BTokenLib
     byte[] HashRootFork;
     public const int COUNT_LOADER_TASKS = 4;
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-    const int UTXOIMAGE_INTERVAL_LOADER = 400;
+    const int UTXOIMAGE_INTERVAL_LOADER = 200;
 
     int IndexBlockArchiveQueue;
 
-    string PathRoot;
     StreamWriter LogFile;
 
     readonly object LOCK_IndexBlockArchiveLoad = new object();
@@ -59,14 +57,15 @@ namespace BTokenLib
 
     public Blockchain(
       Network network,
-      Token token)
+      Token token,
+      string pathBlockArchive)
     {
       Network = network;
       Network.Blockchain = this;
 
       Token = token;
 
-      PathRoot = Token.GetName();
+      PathBlockArchive = pathBlockArchive;
 
       HeaderGenesis = token.GetHeaderGenesis();
       HeaderTip = HeaderGenesis;
@@ -78,7 +77,7 @@ namespace BTokenLib
           Directory.CreateDirectory(PathBlockArchive);
 
       LogFile = new StreamWriter(
-        Path.Combine(PathRoot + "logArchiver"), 
+        Path.Combine(Token.GetName() + "LogArchiver"), 
         false);
     }
 
@@ -1033,7 +1032,8 @@ namespace BTokenLib
         }
       }
 
-      var dirArchiveFork = new DirectoryInfo(PathBlockArchiveFork);
+      string pathBlockArchiveFork = PathBlockArchive + "Fork";
+      var dirArchiveFork = new DirectoryInfo(pathBlockArchiveFork);
 
       string filename = Path.GetFileName(FileBlockArchive.Name);
       FileBlockArchive.Dispose();
@@ -1045,7 +1045,7 @@ namespace BTokenLib
 
       OpenBlockArchive();
 
-      Directory.Delete(PathBlockArchiveFork);
+      Directory.Delete(pathBlockArchiveFork);
       DismissFork();
     }
   }

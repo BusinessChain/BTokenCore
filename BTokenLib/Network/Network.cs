@@ -43,7 +43,7 @@ namespace BTokenLib
       string pathRoot = token.GetName();
 
       LogFile = new StreamWriter(
-        Path.Combine(pathRoot + "logSynchronizer"),
+        Path.Combine(pathRoot + "LogNetwork"),
         false);
 
       DirectoryLogPeers = Directory.CreateDirectory(
@@ -214,7 +214,7 @@ namespace BTokenLib
 
     void DownloadIPAddressesFromSeeds()
     {
-      string pathFileSeeds = @"..\..\..\DNSSeeds";
+      string pathFileSeeds = "DNSSeeds";
       string[] dnsSeeds;
 
       while (true)
