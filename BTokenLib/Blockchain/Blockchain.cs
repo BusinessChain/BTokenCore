@@ -30,7 +30,7 @@ namespace BTokenLib
     string NameOld = "Old";
 
     string FileNameIndexBlockArchiveImage = "IndexBlockArchive";
-    string PathBlockArchive = "J:\\BlockArchivePartitioned";
+    string PathBlockArchive;
 
     readonly object LOCK_IsBlockchainLocked = new object();
     bool IsBlockchainLocked;
