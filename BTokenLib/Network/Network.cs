@@ -76,7 +76,7 @@ namespace BTokenLib
 
     async Task StartConnector()
     {
-      int countPeersToCreate;
+      int countPeersCreate;
 
       while (true)
       {
@@ -91,31 +91,38 @@ namespace BTokenLib
             p.Dispose();
           });
 
-          countPeersToCreate = COUNT_PEERS_MAX - Peers.Count;
+          countPeersCreate = COUNT_PEERS_MAX - Peers.Count;
         }
 
-        if (countPeersToCreate > 0)
+        if (countPeersCreate > 0)
         {
           string.Format(
             "Connect with {0} new peers. " +
             "{1} peers connected currently.",
-            countPeersToCreate,
+            countPeersCreate,
             Peers.Count)
             .Log(LogFile);
 
           List<IPAddress> iPAddresses =
-            RetrieveIPAddresses(countPeersToCreate);
+            RetrieveIPAddresses(countPeersCreate);
 
           if (iPAddresses.Count > 0)
           {
-            var createPeerTasks = new Task[iPAddresses.Count()];
+            var createPeerTasks = new Task[iPAddresses.Count];
+
+            // gibt fehler wenn nicht countPeersToCreate ip's zur verfügung
+            // stehen weil dann i zu hoch wird.
 
             Parallel.For(
               0,
-              countPeersToCreate,
+              iPAddresses.Count,
               i => createPeerTasks[i] = CreatePeer(iPAddresses[i]));
 
             await Task.WhenAll(createPeerTasks);
+          }
+          else
+          {
+            "No peer found to connect.".Log(LogFile);
           }
         }
 
@@ -221,8 +228,6 @@ namespace BTokenLib
       {
         try
         {
-          Console.WriteLine(Directory.GetCurrentDirectory());
-
           dnsSeeds = File.ReadAllLines(pathFileSeeds);
 
           break;
