@@ -169,7 +169,24 @@ namespace BTokenLib
            DirectoryLogPeers.Name,
           GetID());
 
-        LogFile = new StreamWriter(PathLogFile, true);
+        while(true)
+        {
+          try
+          {
+            LogFile = new StreamWriter(PathLogFile, true);
+
+            break;
+          }
+          catch (Exception ex)
+          {
+            Console.WriteLine(
+              "Cannot create logfile file peer {0}: {1}",
+              GetID(),
+              ex.Message);
+
+            Thread.Sleep(10000);
+          }
+        }
       }
 
       public async Task Connect(int port)

@@ -110,9 +110,6 @@ namespace BTokenLib
           {
             var createPeerTasks = new Task[iPAddresses.Count];
 
-            // gibt fehler wenn nicht countPeersToCreate ip's zur verfügung
-            // stehen weil dann i zu hoch wird.
-
             Parallel.For(
               0,
               iPAddresses.Count,
@@ -187,11 +184,27 @@ namespace BTokenLib
 
     async Task CreatePeer(IPAddress iPAddress)
     {
-      var peer = new Peer(
-        this, 
-        Blockchain,
-        Token,
-        iPAddress);
+      Peer peer;
+
+      try
+      {
+        peer = new Peer(
+          this,
+          Blockchain,
+          Token,
+          iPAddress);
+      }
+      catch (Exception ex)
+      {
+        string.Format(
+          "{0} when creating peer {1}: \n{2}",
+          ex.GetType(),
+          iPAddress.ToString(),
+          ex.Message)
+          .Log(LogFile);
+
+        return;
+      }
 
       try
       {
@@ -253,12 +266,12 @@ namespace BTokenLib
           continue;
         }
 
-        IPAddress[] dnsSeedAddresses;
+        List<IPAddress> dnsSeedAddresses;
 
         try
         {
           dnsSeedAddresses =
-            Dns.GetHostEntry(dnsSeed).AddressList;
+            Dns.GetHostEntry(dnsSeed).AddressList.ToList();
         }
         catch (Exception ex)
         {
@@ -272,6 +285,9 @@ namespace BTokenLib
 
           continue;
         }
+
+        dnsSeedAddresses.RemoveAll(ip => 
+        ip.AddressFamily == AddressFamily.InterNetworkV6);
 
         AddressPool = AddressPool.Union(
           dnsSeedAddresses.Distinct())
