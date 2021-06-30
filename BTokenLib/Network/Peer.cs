@@ -71,7 +71,7 @@ namespace BTokenLib
       Stopwatch StopwatchDownload = new Stopwatch();
       public int CountBlocksLoad = COUNT_BLOCKS_DOWNLOADBATCH_INIT;
 
-      internal HeaderDownload HeaderDownload;
+      internal HeaderDownload HeaderDownload = new();
       internal BlockDownload BlockDownload;
 
 
@@ -625,9 +625,9 @@ namespace BTokenLib
                     {
                       header.HeaderPrevious = Network.Blockchain.HeaderTip;
 
-                      Network.Blockchain.ValidateHeaders(header);
+                      Network.Token.ValidateHeaders(header);
 
-                      await Network.TrySynchronizeUTXO(header, this);
+                      await Network.TrySynchronize(header, this);
 
                       Network.Blockchain.ReleaseLock();
 
@@ -769,12 +769,8 @@ namespace BTokenLib
         Network.ReleasePeer(this);
       }
 
-
-      public async Task<Header> GetHeaders(Header header)
+      public async Task<Header> GetHeaders()
       {
-        HeaderDownload.Locator.Clear();
-        HeaderDownload.Locator.Add(header);
-
         string.Format(
           "Send getheaders to peer {0}, \n" +
           "locator: {1} ... \n{2}",
@@ -835,7 +831,10 @@ namespace BTokenLib
           }
           else
           {
-            header = await GetHeaders(header);
+            HeaderDownload.Locator.Clear();
+            HeaderDownload.Locator.Add(header);
+
+            header = await GetHeaders();
           }
         }
 

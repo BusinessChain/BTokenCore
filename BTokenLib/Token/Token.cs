@@ -42,6 +42,18 @@ namespace BTokenLib
       Header header,
       int height);
 
+    public void ValidateHeaders(Header header)
+    {
+      int height = Blockchain.Height + 1;
+
+      do
+      {
+        ValidateHeader(header, height);
+        header = header.HeaderNext;
+        height += 1;
+      } while (header != null);
+    }
+
     public abstract IParser CreateParser();
 
     public abstract Header ParseHeader(

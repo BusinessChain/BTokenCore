@@ -43,7 +43,7 @@ namespace BTokenLib
     byte[] HashRootFork;
     public const int COUNT_LOADER_TASKS = 4;
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-    const int UTXOIMAGE_INTERVAL_LOADER = 200;
+    const int UTXOIMAGE_INTERVAL_LOADER = 50;
 
     int IndexBlockArchiveQueue;
 
@@ -206,9 +206,7 @@ namespace BTokenLib
 
         header.HeaderPrevious = headerPrevious;
 
-        Token.ValidateHeader(
-          header, 
-          Height + 1);
+        Token.ValidateHeaders(header);
 
         InsertHeader(header);
 
@@ -246,18 +244,6 @@ namespace BTokenLib
       Token.Reset();
     }
     
-    public void ValidateHeaders(Header header)
-    {
-      int height = Height + 1;
-
-      do
-      {
-        Token.ValidateHeader(header, height);
-        header = header.HeaderNext;
-        height += 1;
-      } while (header != null);
-    }
-
     internal void GetStateAtHeader(
       Header headerAncestor,
       out int heightAncestor,
@@ -287,7 +273,7 @@ namespace BTokenLib
 
         if (flagValidateHeader)
         {
-          Token.ValidateHeader(block.Header, Height + 1);
+          Token.ValidateHeaders(block.Header);
         }
 
         Token.InsertBlock(
