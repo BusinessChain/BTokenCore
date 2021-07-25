@@ -14,9 +14,9 @@ namespace BTokenLib
       public int Index;
       public Peer Peer;
 
-      public List<Header> HeadersExpected = new List<Header>();
+      public List<Header> HeadersExpected = new();
+      public List<Block> Blocks = new();
       public int IndexHeaderExpected;
-      public List<Block> Blocks = new List<Block>();
       public bool IsDownloadCompleted;
 
 

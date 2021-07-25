@@ -108,7 +108,6 @@ namespace BTokenLib
       const int ChecksumSize = 4;
 
       public string Command;
-      public const string COMMAND_NOTFOUND = "notfound";
 
       const int SIZE_MESSAGE_PAYLOAD_BUFFER = 0x400000;
       byte[] Payload = new byte[SIZE_MESSAGE_PAYLOAD_BUFFER];
@@ -228,7 +227,7 @@ namespace BTokenLib
           PortLocal = (ushort)port,
           Nonce = Nonce,
           UserAgent = UserAgent,
-          BlockchainHeight = Network.Blockchain.Height,
+          BlockchainHeight = Blockchain.HeaderTip.Height,
           RelayOption = RelayOption
         };
 
@@ -361,8 +360,6 @@ namespace BTokenLib
         return hash.Take(ChecksumSize).ToArray();
       }
 
-
-
       async Task ReadMessage(
         CancellationToken cancellationToken)
       {
@@ -448,13 +445,12 @@ namespace BTokenLib
         }
       }
 
-
       readonly object LOCK_StateProtocol = new object();
       enum StateProtocol
       {
         IDLE = 0,
-        AwaitingBlock,
-        AwaitingHeader,
+        AwaitingBlockDownload,
+        GetHeader,
         AwaitingGetData
       }
 
@@ -470,11 +466,11 @@ namespace BTokenLib
           {
             await ReadMessage(Cancellation.Token);
 
-            //string.Format(
-            //  "{0} received message {1}",
-            //  GetID(),
-            //  Command)
-            //  .Log(LogFile);
+            string.Format(
+              "{0} received message {1}",
+              GetID(),
+              Command)
+              .Log(LogFile);
 
             switch (Command)
             {
@@ -514,8 +510,40 @@ namespace BTokenLib
                     GetID(),
                     block.Header.Hash.ToHexString())
                     .Log(LogFile);
+
+                  Console.Beep();
+
+                  if (!Blockchain.TryLock())
+                  {
+                    break;
+                  }
+
+                  try
+                  {
+                    ProcessHeaderUnsolicited(
+                      block.Header,
+                      out bool flagHeaderExtendsChain);
+
+                    if(flagHeaderExtendsChain)
+                    {
+                      if(!Blockchain.TryInsertBlock(
+                        block,
+                        flagValidateHeader: true))
+                      {
+                        // Blockchain insert sollte doch einfach Ex. schmeissen
+                      }
+                    }  
+                  }
+                  catch (Exception ex)
+                  {
+                    Blockchain.ReleaseLock();
+
+                    throw ex;
+                  }
+
+                  Blockchain.ReleaseLock();
                 }
-                else if (IsStateAwaitingBlock())
+                else if (IsStateAwaitingBlockDownload())
                 {
                   BlockDownload.InsertBlock(block);
 
@@ -523,7 +551,10 @@ namespace BTokenLib
                   {
                     SignalProtocolTaskCompleted.Post(true);
 
-                    Cancellation = new CancellationTokenSource();
+                    lock (LOCK_StateProtocol)
+                    {
+                      State = StateProtocol.IDLE;
+                    }
 
                     break;
                   }
@@ -551,91 +582,38 @@ namespace BTokenLib
 
                 if (IsStateIdle())
                 {
-                  header = Network.Token.ParseHeader(
+                  header = Token.ParseHeader(
                     Payload,
                     ref index);
 
+                  string.Format(
+                    "Received unsolicited header {0}",
+                    header.Hash.ToHexString())
+                    .Log(LogFile);
+
                   index += 1;
 
-                  if (!Network.Blockchain.TryLock())
+                  if (!Blockchain.TryLock())
                   {
                     break;
                   }
 
                   try
                   {
-                    string.Format(
-                      "Received unsolicited header {0}",
-                      header.Hash.ToHexString())
-                      .Log(LogFile);
+                    ProcessHeaderUnsolicited(
+                      header,
+                      out bool flagHeaderExtendsChain);
 
-                    Console.Beep();
-
-                    if (Network.Blockchain.ContainsHeader(header.Hash))
+                    if (flagHeaderExtendsChain)
                     {
-                      Header headerContained = Network.Blockchain.HeaderTip;
-
-                      var headerDuplicates = new List<byte[]>();
-                      int depthDuplicateAcceptedMax = 3;
-                      int depthDuplicate = 0;
-
-                      while (depthDuplicate < depthDuplicateAcceptedMax)
+                      List<Inventory> inventories = new()
                       {
-                        if (headerContained.Hash.IsEqual(header.Hash))
-                        {
-                          if (headerDuplicates.Any(h => h.IsEqual(header.Hash)))
-                          {
-                            throw new ProtocolException(
-                              string.Format(
-                                "Received duplicate header {0} more than once.",
-                                header.Hash.ToHexString()));
-                          }
+                        new Inventory(
+                          InventoryType.MSG_BLOCK,
+                          header.Hash)
+                      };
 
-                          headerDuplicates.Add(header.Hash);
-                          if (headerDuplicates.Count > depthDuplicateAcceptedMax)
-                          {
-                            headerDuplicates = headerDuplicates.Skip(1)
-                              .ToList();
-                          }
-
-                          break;
-                        }
-
-                        if (headerContained.HeaderPrevious != null)
-                        {
-                          break;
-                        }
-
-                        headerContained = header.HeaderPrevious;
-                        depthDuplicate += 1;
-                      }
-
-                      if (depthDuplicate == depthDuplicateAcceptedMax)
-                      {
-                        throw new ProtocolException(
-                          string.Format(
-                            "Received duplicate header {0} with depth greater than {1}.",
-                            header.Hash.ToHexString(),
-                            depthDuplicateAcceptedMax));
-                      }
-                    }
-                    else
-                    if (header.HashPrevious.IsEqual(
-                      Network.Blockchain.HeaderTip.Hash))
-                    {
-                      header.HeaderPrevious = Network.Blockchain.HeaderTip;
-
-                      Network.Token.ValidateHeaders(header);
-
-                      await Network.TrySynchronize(header, this);
-
-                      Network.Blockchain.ReleaseLock();
-
-                      break;
-                    }
-                    else
-                    {
-                      IsSynchronized = false;
+                      SendMessage(new GetDataMessage(inventories));
                     }
                   }
                   catch (Exception ex)
@@ -647,18 +625,10 @@ namespace BTokenLib
 
                   Blockchain.ReleaseLock();
                 }
-                else if (IsStateAwaitingHeader())
+                else if (IsStateGetHeaders())
                 {
                   if (countHeaders > 0)
                   {
-                    header = Token.ParseHeader(
-                      Payload,
-                      ref index);
-
-                    index += 1;
-
-                    HeaderDownload.InsertHeader(header);
-
                     while (index < PayloadLength)
                     {
                       header = Token.ParseHeader(
@@ -667,13 +637,11 @@ namespace BTokenLib
 
                       index += 1;
 
-                      HeaderDownload.InsertHeader(header);
+                      HeaderDownload.InsertHeader(header, Token);
                     }
                   }
 
                   SignalProtocolTaskCompleted.Post(true);
-
-                  Cancellation = new CancellationTokenSource();
                 }
 
                 break;
@@ -749,6 +717,75 @@ namespace BTokenLib
         }
       }
 
+      /// <summary>
+      /// Check if header is duplicate. Check if header extends chain, 
+      /// otherwise mark peer not synchronized.
+      /// </summary>
+      void ProcessHeaderUnsolicited(
+        Header header, 
+        out bool flagHeaderExtendsChain)
+      {
+        flagHeaderExtendsChain = false;
+
+        if (Blockchain.ContainsHeader(header.Hash))
+        {
+          Header headerContained = Blockchain.HeaderTip;
+
+          List<byte[]> headerDuplicates = new();
+          int depthDuplicateAcceptedMax = 3;
+          int depthDuplicate = 0;
+
+          while (depthDuplicate < depthDuplicateAcceptedMax)
+          {
+            if (headerContained.Hash.IsEqual(header.Hash))
+            {
+              if (headerDuplicates.Any(h => h.IsEqual(header.Hash)))
+              {
+                throw new ProtocolException(
+                  string.Format(
+                    "Received duplicate header {0} more than once.",
+                    header.Hash.ToHexString()));
+              }
+
+              headerDuplicates.Add(header.Hash);
+              if (headerDuplicates.Count > depthDuplicateAcceptedMax)
+              {
+                headerDuplicates = headerDuplicates.Skip(1)
+                  .ToList();
+              }
+
+              break;
+            }
+
+            if (headerContained.HeaderPrevious != null)
+            {
+              break;
+            }
+
+            headerContained = header.HeaderPrevious;
+            depthDuplicate += 1;
+          }
+
+          if (depthDuplicate == depthDuplicateAcceptedMax)
+          {
+            throw new ProtocolException(
+              string.Format(
+                "Received duplicate header {0} with depth greater than {1}.",
+                header.Hash.ToHexString(),
+                depthDuplicateAcceptedMax));
+          }
+        }
+        else if (header.HashPrevious.IsEqual(
+          Blockchain.HeaderTip.Hash))
+        {
+          flagHeaderExtendsChain = true;
+        }
+        else
+        {
+          IsSynchronized = false;
+        }
+      }
+
       public async Task AdvertizeToken(byte[] hash)
       {
         string.Format(
@@ -769,76 +806,302 @@ namespace BTokenLib
         Network.ReleasePeer(this);
       }
 
-      public async Task<Header> GetHeaders()
+
+
+
+      public async Task Synchronize()
       {
-        string.Format(
-          "Send getheaders to peer {0}, \n" +
-          "locator: {1} ... \n{2}",
-          GetID(),
-          HeaderDownload.Locator.First().Hash.ToHexString(),
-          HeaderDownload.Locator.Count > 1 ? HeaderDownload.Locator.Last().Hash.ToHexString() : "")
-          .Log(LogFile);
+      LABEL_SynchronizeWithPeer:
 
-        HeaderDownload.Reset();
+        await GetHeaders();
 
-        await SendMessage(new GetHeadersMessage(
-          HeaderDownload.Locator,
-          ProtocolVersion));
-
-        lock (LOCK_StateProtocol)
+        if (HeaderDownload.HeaderTip == null)
         {
-          State = StateProtocol.AwaitingHeader;
+          return;
         }
 
-        Cancellation.CancelAfter(
-            TIMEOUT_RESPONSE_MILLISECONDS);
+        Dictionary<int, BlockDownload> downloadsAwaiting = new();
+        List<BlockDownload> queueDownloadsIncomplete = new();
+        BufferBlock<Peer> queueSynchronizer = new();
 
-        await SignalProtocolTaskCompleted
-          .ReceiveAsync(Cancellation.Token)
-          .ConfigureAwait(false);
+        List<Peer> peersRetired = new();
+        List<Peer> peersDownloading = new();
+        bool flagAbort = false;
+
+        int indexBlockDownload = 0;
+        int indexInsertion = 0;
+
+        Header headerRoot = HeaderDownload.HeaderRoot;
+        double difficultyOld = Blockchain.HeaderTip.Difficulty;
+
+        if (HeaderDownload.IsFork)
+        {
+          if (!await Blockchain.TryFork(
+             HeaderDownload.HeaderLocatorAncestor.Height,
+             headerRoot.HashPrevious))
+          {
+            goto LABEL_SynchronizeWithPeer;
+          }
+        }
+
+        Peer peer = this;
+
+        while (true)
+        {
+          do
+          {
+            bool isBlockDownloadAvailable =
+              queueDownloadsIncomplete.Count > 0 || headerRoot != null;
+
+            if (
+             flagAbort ||
+             peer.FlagDispose ||
+             !isBlockDownloadAvailable)
+            {
+              if (peer != this)
+              {
+                Network.ReleasePeer(peer);
+              }
+
+              if (peersDownloading.Count == 0)
+              {
+                string.Format(
+                  "Synchronization ended {0}.",
+                  flagAbort ? "unsuccessfully" : "successfully").
+                  Log(LogFile);
+
+                if (flagAbort)
+                {
+                  await Blockchain.LoadImage();
+                }
+
+                if (Blockchain.IsFork)
+                {
+                  if (Blockchain.HeaderTip.Difficulty > difficultyOld)
+                  {
+                    Blockchain.Reorganize();
+                  }
+                  else
+                  {
+                    Blockchain.DismissFork();
+                    await Blockchain.LoadImage();
+                  }
+                }
+
+                return;
+              }
+
+              break;
+            }
+            else if (downloadsAwaiting.Count < 10)
+            {
+              if (queueDownloadsIncomplete.Any())
+              {
+                peer.BlockDownload = queueDownloadsIncomplete.First();
+                queueDownloadsIncomplete.RemoveAt(0);
+
+                peer.BlockDownload.Peer = peer;
+
+                string.Format(
+                  "peer {0} loads blockDownload {1} from queue invalid.",
+                  peer.GetID(),
+                  peer.BlockDownload.Index)
+                  .Log(LogFile);
+              }
+              else
+              {
+                peer.BlockDownload = new BlockDownload(
+                  indexBlockDownload,
+                  peer);
+
+                peer.BlockDownload.LoadHeaders(
+                  ref headerRoot,
+                  peer.CountBlocksLoad);
+
+                indexBlockDownload += 1;
+              }
+
+              peersDownloading.Add(peer);
+
+              RunBlockDownload(peer, queueSynchronizer);
+            }
+          } while (Network.TryGetPeer(out peer));
+
+          peer = await queueSynchronizer
+            .ReceiveAsync()
+            .ConfigureAwait(false);
+
+          peersDownloading.Remove(peer);
+
+          var blockDownload = peer.BlockDownload;
+          peer.BlockDownload = null;
+
+          if (flagAbort)
+          {
+            continue;
+          }
+
+          if (!blockDownload.IsDownloadCompleted)
+          {
+            EnqueueBlockDownloadIncomplete(
+              blockDownload,
+              queueDownloadsIncomplete);
+
+            if (peer == this)
+            {
+              peer.FlagDispose = true;
+            }
+
+            if (!peer.FlagDispose)
+            {
+              peersRetired.Add(peer);
+            }
+          }
+          else
+          {
+            if (indexInsertion == blockDownload.Index)
+            {
+              while (true)
+              {
+                if (!TryInsertBlockDownload(blockDownload))
+                {
+                  blockDownload.Peer.FlagDispose = true;
+
+                  flagAbort = true;
+
+                  break;
+                }
+
+                string.Format(
+                  "Insert block download {0}. Blockchain height: {1}",
+                  blockDownload.Index,
+                  Blockchain.HeaderTip.Height)
+                  .Log(LogFile);
+
+                indexInsertion += 1;
+
+                if (!downloadsAwaiting.TryGetValue(
+                  indexInsertion,
+                  out blockDownload))
+                {
+                  break;
+                }
+
+                downloadsAwaiting.Remove(indexInsertion);
+              }
+            }
+            else
+            {
+              downloadsAwaiting.Add(
+                blockDownload.Index,
+                blockDownload);
+            }
+          }
+        }
+      }
+
+      static async Task RunBlockDownload(
+      Peer peer,
+      BufferBlock<Peer> queueSynchronizer)
+      {
+        await peer.DownloadBlocks();
+
+        queueSynchronizer.Post(peer);
+      }
+
+      static void EnqueueBlockDownloadIncomplete(
+        BlockDownload download,
+        List<BlockDownload> queue)
+      {
+        download.IndexHeaderExpected = 0;
+        download.Blocks.Clear();
+
+        int indexdownload = queue
+          .FindIndex(b => b.Index > download.Index);
+
+        if (indexdownload == -1)
+        {
+          queue.Add(download);
+        }
+        else
+        {
+          queue.Insert(
+            indexdownload,
+            download);
+        }
+      }
+
+      bool TryInsertBlockDownload(BlockDownload blockDownload)
+      {
+        foreach (Block block in blockDownload.Blocks)
+        {
+          if (!Blockchain.TryInsertBlock(
+              block,
+              flagValidateHeader: false))
+          {
+            return false;
+          }
+
+          Blockchain.ArchiveBlock(
+              block,
+              UTXOIMAGE_INTERVAL_SYNC);
+        }
+
+        return true;
+      }
+
+
+      /// <summary>
+      /// Request all headers from peer returning the root header.
+      /// </summary>
+      public async Task GetHeaders()
+      {
+        HeaderDownload.Reset();
+        HeaderDownload.Locator = Blockchain.GetLocator();
+        List<Header> headerLocatorNext = HeaderDownload.Locator.ToList();
+        int countHeaderOld;
+
+        CancellationTokenSource cancelGetHeaders = new();
+
+        do
+        {
+          countHeaderOld = HeaderDownload.CountHeaders;
+
+          if(HeaderDownload.HeaderInsertedLast != null)
+          {
+            headerLocatorNext.Clear();
+            headerLocatorNext.Add(HeaderDownload.HeaderInsertedLast);
+          }
+
+          string.Format(
+            "Send getheaders to peer {0}, \n" +
+            "locator: {1} ... \n{2}",
+            GetID(),
+            headerLocatorNext.First().Hash.ToHexString(),
+            headerLocatorNext.Count > 1 ? headerLocatorNext.Last().Hash.ToHexString() : "")
+            .Log(LogFile);
+
+          await SendMessage(new GetHeadersMessage(
+            headerLocatorNext,
+            ProtocolVersion));
+
+          lock (LOCK_StateProtocol)
+          {
+            State = StateProtocol.GetHeader;
+          }
+
+          cancelGetHeaders.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+          await SignalProtocolTaskCompleted
+            .ReceiveAsync(cancelGetHeaders.Token)
+            .ConfigureAwait(false);
+
+        } while (HeaderDownload.CountHeaders > countHeaderOld);
 
         lock (LOCK_StateProtocol)
         {
           State = StateProtocol.IDLE;
         }
-
-        return HeaderDownload.HeaderRoot;
-      }
-
-
-      public async Task<Header> SkipDuplicates(
-        Header header)
-      {
-        Header headerAncestor = header.HeaderPrevious;
-
-        Header stopHeader = HeaderDownload.Locator[
-          HeaderDownload.Locator.IndexOf(headerAncestor) + 1];
-
-        while (headerAncestor.HeaderNext.Hash
-          .IsEqual(header.Hash))
-        {
-          headerAncestor = headerAncestor.HeaderNext;
-
-          if (headerAncestor == stopHeader)
-          {
-            throw new ProtocolException(
-              "Received headers do root in locator more than once.");
-          }
-
-          if (header.HeaderNext != null)
-          {
-            header = header.HeaderNext;
-          }
-          else
-          {
-            HeaderDownload.Locator.Clear();
-            HeaderDownload.Locator.Add(header);
-
-            header = await GetHeaders();
-          }
-        }
-
-        return header;
       }
 
       public async Task DownloadBlocks()
@@ -854,12 +1117,11 @@ namespace BTokenLib
                 h.Hash))
                 .ToList();
 
-          await SendMessage(
-            new GetDataMessage(inventories));
+          await SendMessage(new GetDataMessage(inventories));
 
           lock (LOCK_StateProtocol)
           {
-            State = StateProtocol.AwaitingBlock;
+            State = StateProtocol.AwaitingBlockDownload;
           }
 
           Cancellation.CancelAfter(
@@ -869,15 +1131,12 @@ namespace BTokenLib
             .ReceiveAsync(Cancellation.Token)
             .ConfigureAwait(false);
 
-          lock (LOCK_StateProtocol)
-          {
-            State = StateProtocol.IDLE;
-          }
+          Cancellation = new CancellationTokenSource();
         }
         catch (Exception ex)
         {
           string.Format(
-            "{0} with peer {1} when downloading blockArchive {2}: \n{3}.",
+            "{0} with peer {1} with download {2}: \n{3}.",
             ex.GetType().Name,
             GetID(),
             BlockDownload.Index,
@@ -933,11 +1192,11 @@ namespace BTokenLib
         }
       }
 
-      bool IsStateAwaitingHeader()
+      bool IsStateGetHeaders()
       {
         lock (LOCK_StateProtocol)
         {
-          return State == StateProtocol.AwaitingHeader;
+          return State == StateProtocol.GetHeader;
         }
       }
 
@@ -949,11 +1208,11 @@ namespace BTokenLib
         }
       }
 
-      bool IsStateAwaitingBlock()
+      bool IsStateAwaitingBlockDownload()
       {
         lock (LOCK_StateProtocol)
         {
-          return State == StateProtocol.AwaitingBlock;
+          return State == StateProtocol.AwaitingBlockDownload;
         }
       }
 

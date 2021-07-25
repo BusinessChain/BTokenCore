@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Security.Cryptography;
 
 
 
@@ -9,14 +8,20 @@ namespace BTokenLib
   {
     const int COUNT_HEADER_BYTES = 68;
 
-    public Header HeaderPrevious;
-    public Header HeaderNext;
-
     public byte[] Hash;
     public byte[] HashPrevious;
     public byte[] MerkleRoot;
     public uint UnixTimeSeconds;
+
+
+    // Eigentlich müsste Difficulty im Bitcoin Header definiert werden
     public double Difficulty;
+    public double DifficultyAccumulated;
+
+    public Header HeaderPrevious;
+    public Header HeaderNext;
+
+    public int Height;
 
 
 

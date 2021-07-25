@@ -16,7 +16,6 @@ namespace BTokenCore
     const double MAX_TARGET = 2.695994666715064E67;
 
 
-
     public HeaderBitcoin(
       byte[] headerHash,
       uint version,
@@ -24,7 +23,8 @@ namespace BTokenCore
       byte[] merkleRootHash,
       uint unixTimeSeconds,
       uint nBits,
-      uint nonce) : base(
+      uint nonce
+      ) : base(
         headerHash,
         hashPrevious,
         merkleRootHash,

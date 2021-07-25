@@ -40,8 +40,7 @@ namespace BTokenCore
           Buffer,
           ref IndexBuffer);
 
-        List<TX> tXs = ParseTXs(
-          header.MerkleRoot);
+        List<TX> tXs = ParseTXs(header.MerkleRoot);
 
         startIndex = IndexBuffer;
         

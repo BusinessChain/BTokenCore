@@ -19,11 +19,12 @@ namespace BTokenLib
 
     Header HeaderGenesis;
     internal Header HeaderTip;
-    internal double Difficulty;
-    internal int Height;
 
-    readonly object HeaderIndexLOCK = new object();
+    readonly object HeaderIndexLOCK = new();
     Dictionary<int, List<Header>> HeaderIndex;
+
+    Dictionary<byte[], int> MapBlockToArchiveIndex =
+      new(new EqualityComparerByteArray());
 
     string NameFork = "Fork";
     string NameImage = "Image";
@@ -32,7 +33,7 @@ namespace BTokenLib
     string FileNameIndexBlockArchiveImage = "IndexBlockArchive";
     string PathBlockArchive;
 
-    readonly object LOCK_IsBlockchainLocked = new object();
+    readonly object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
     
     long UTCTimeStartMerger = 
@@ -49,9 +50,8 @@ namespace BTokenLib
 
     StreamWriter LogFile;
 
-    readonly object LOCK_IndexBlockArchiveLoad = new object();
+    readonly object LOCK_IndexBlockArchiveLoad = new();
     int IndexBlockArchiveLoad;
-
 
 
 
@@ -68,8 +68,11 @@ namespace BTokenLib
       PathBlockArchive = pathBlockArchive;
 
       HeaderGenesis = token.GetHeaderGenesis();
+      HeaderGenesis.Height = 0;
+      HeaderGenesis.DifficultyAccumulated = HeaderGenesis.Difficulty;
+
       HeaderTip = HeaderGenesis;
-            
+
       HeaderIndex = new Dictionary<int, List<Header>>();
       UpdateHeaderIndex(HeaderGenesis);
       
@@ -92,7 +95,7 @@ namespace BTokenLib
         "Block tip: {1}\n" +
         "Timestamp: {2}\n" +
         "Age: {3}\n",
-        Height,
+        HeaderTip.Height,
         HeaderTip.Hash.ToHexString(),
         DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds),
         ageBlock);
@@ -116,7 +119,7 @@ namespace BTokenLib
         if (!TryLoadImageFile(
           pathImage, 
           out int indexBlockArchiveImage) ||
-        (heightMax > 0 && Height > heightMax))
+        (heightMax > 0 && HeaderTip.Height > heightMax))
         {
           if (pathImage == NameImage)
           {
@@ -212,7 +215,6 @@ namespace BTokenLib
 
         headerPrevious = header;
       }
-      
     }
 
     void LoadMapBlockToArchiveData(byte[] buffer)
@@ -235,34 +237,13 @@ namespace BTokenLib
     void Reset()
     {
       HeaderTip = HeaderGenesis;
-      Height = 0;
-      Difficulty = HeaderGenesis.Difficulty;
       
       HeaderIndex.Clear();
       UpdateHeaderIndex(HeaderGenesis);
 
       Token.Reset();
     }
-    
-    internal void GetStateAtHeader(
-      Header headerAncestor,
-      out int heightAncestor,
-      out double difficultyAncestor)
-    {
-      heightAncestor = Height - 1;
-      difficultyAncestor = Difficulty - HeaderTip.Difficulty;
-
-      Header header = HeaderTip.HeaderPrevious;
-
-      while (header != headerAncestor)
-      {
-        difficultyAncestor -= header.Difficulty;
-        heightAncestor -= 1;
-        header = header.HeaderPrevious;
-      }
-    }
-
-    
+        
     public bool TryInsertBlock(
       Block block,
       bool flagValidateHeader)
@@ -298,25 +279,23 @@ namespace BTokenLib
 
     void InsertHeader(Header header)
     {
+      header.Height = HeaderTip.Height + 1;
+      header.DifficultyAccumulated = 
+        HeaderTip.DifficultyAccumulated + header.Difficulty;
+
       HeaderTip.HeaderNext = header;
       HeaderTip = header;
-
-      Difficulty += header.Difficulty;
-      Height += 1;
     }
-
-
 
     internal List<Header> GetLocator()
     {
       Header header = HeaderTip;
       var locator = new List<Header>();
-      int height = Height;
       int heightCheckpoint = Token.GetCheckpoints().Keys.Max();
       int depth = 0;
       int nextLocationDepth = 0;
 
-      while (height > heightCheckpoint)
+      while (header.Height > heightCheckpoint)
       {
         if (depth == nextLocationDepth)
         {
@@ -325,7 +304,6 @@ namespace BTokenLib
         }
 
         depth++;
-        height--;
         header = header.HeaderPrevious;
       }
 
@@ -334,13 +312,6 @@ namespace BTokenLib
       return locator;
     }
           
-                
-
-    public Dictionary<byte[], int> MapBlockToArchiveIndex =
-      new Dictionary<byte[], int>(
-        new EqualityComparerByteArray());
-
-       
     
     internal bool ContainsHeader(byte[] headerHash)
     {
@@ -491,8 +462,7 @@ namespace BTokenLib
       return IsInserterSuccess;
     }
 
-    BufferBlock<BlockLoad> QueueLoader =
-      new BufferBlock<BlockLoad>();
+    BufferBlock<BlockLoad> QueueLoader = new();
     bool IsInserterSuccess;
 
     async Task RunLoaderInserter()
@@ -554,7 +524,7 @@ namespace BTokenLib
 
         Debug.WriteLine(
           "{0},{1},{2}",
-          Height,
+          HeaderTip.Height,
           blockLoad.Index,
           DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger);
 
@@ -912,7 +882,7 @@ namespace BTokenLib
     }
 
 
-    bool IsFork;
+    public bool IsFork;
 
     internal async Task<bool> TryFork(
       int heightAncestor, 
@@ -924,7 +894,7 @@ namespace BTokenLib
          heightAncestor,
          hashAncestor);
 
-      if(Height == heightAncestor)
+      if(HeaderTip.Height == heightAncestor)
       {
         return true;
       }

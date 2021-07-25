@@ -38,19 +38,14 @@ namespace BTokenLib
 
     public abstract string GetStatus();
 
-    public abstract void ValidateHeader(
-      Header header,
-      int height);
+    public abstract void ValidateHeader(Header header);
 
     public void ValidateHeaders(Header header)
     {
-      int height = Blockchain.Height + 1;
-
       do
       {
-        ValidateHeader(header, height);
+        ValidateHeader(header);
         header = header.HeaderNext;
-        height += 1;
       } while (header != null);
     }
 

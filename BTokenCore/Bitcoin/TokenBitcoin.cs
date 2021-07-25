@@ -154,20 +154,24 @@ namespace BTokenCore
     }
 
     public override void ValidateHeader(
-      Header headerBlockchain,
-      int height)
+      Header headerBlockchain)
     {
       HeaderBitcoin header = (HeaderBitcoin)headerBlockchain;
 
+      header.Height = header.HeaderPrevious.Height + 1;
+      header.DifficultyAccumulated =
+        header.HeaderPrevious.DifficultyAccumulated + 
+        header.Difficulty;
+
       if (Checkpoints
-        .TryGetValue(height, out byte[] hashCheckpoint) &&
+        .TryGetValue(header.Height, out byte[] hashCheckpoint) &&
         !hashCheckpoint.IsEqual(header.Hash))
       {
         throw new BitcoinException(
           string.Format(
             "Header {0} at hight {1} not equal to checkpoint hash {2}",
             header.Hash.ToHexString(),
-            height,
+            header.Height,
             hashCheckpoint.ToHexString()),
           ErrorCode.INVALID);
       }
@@ -189,7 +193,7 @@ namespace BTokenCore
 
       uint targetBitsNew;
 
-      if ((height % RETARGETING_BLOCK_INTERVAL) == 0)
+      if ((header.Height % RETARGETING_BLOCK_INTERVAL) == 0)
       {
         targetBitsNew = GetNextTarget(
           (HeaderBitcoin)header.HeaderPrevious)
