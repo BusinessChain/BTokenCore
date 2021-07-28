@@ -68,7 +68,7 @@ namespace BTokenLib
       const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
       const int COUNT_BLOCKS_DOWNLOADBATCH_INIT = 1;
-      Stopwatch StopwatchDownload = new Stopwatch();
+      Stopwatch StopwatchDownload = new();
       public int CountBlocksLoad = COUNT_BLOCKS_DOWNLOADBATCH_INIT;
 
       internal HeaderDownload HeaderDownload = new();
@@ -100,8 +100,7 @@ namespace BTokenLib
       public IPAddress IPAddress;
       TcpClient TcpClient;
       NetworkStream NetworkStream;
-      CancellationTokenSource Cancellation =
-        new CancellationTokenSource();
+      CancellationTokenSource Cancellation = new();
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -215,7 +214,7 @@ namespace BTokenLib
 
       async Task HandshakeAsync(int port)
       {
-        var versionMessage = new VersionMessage()
+        VersionMessage versionMessage = new()
         {
           ProtocolVersion = ProtocolVersion,
           NetworkServicesLocal = (long)NetworkServicesLocal,
@@ -455,8 +454,7 @@ namespace BTokenLib
       }
 
       StateProtocol State;
-      BufferBlock<bool> SignalProtocolTaskCompleted =
-        new BufferBlock<bool>();
+      BufferBlock<bool> SignalProtocolTaskCompleted = new();
 
       public async Task StartMessageListener()
       {
@@ -490,8 +488,7 @@ namespace BTokenLib
                 break;
 
               case "feefilter":
-                FeeFilterMessage feeFilterMessage =
-                  new FeeFilterMessage(Payload);
+                FeeFilterMessage feeFilterMessage = new(Payload);
                 FeeFilterValue = feeFilterMessage.FeeFilterValue;
                 break;
 
@@ -655,10 +652,10 @@ namespace BTokenLib
 
               case "inv":
 
-                var invMessage = new InvMessage(Payload);
+                InvMessage invMessage = new(Payload);
 
-                var getDataMessage = new GetDataMessage(
-                  invMessage.Inventories);
+                GetDataMessage getDataMessage =
+                  new(invMessage.Inventories);
 
                 break;
 
@@ -704,16 +701,12 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          FlagDispose = true;
-
           Cancellation.Cancel();
 
-          string.Format(
-           "Peer {0} experienced error in message listener: \n{1}",
-           GetID(),
-           "message: " + ex.Message +
-           "\nstack trace: " + ex.StackTrace)
-           .Log(LogFile);
+          SetFlagDisposed(string.Format(
+            "{0} in listener.: \n{1}",
+            ex.GetType(),
+            ex.Message));
         }
       }
 
@@ -750,8 +743,7 @@ namespace BTokenLib
               headerDuplicates.Add(header.Hash);
               if (headerDuplicates.Count > depthDuplicateAcceptedMax)
               {
-                headerDuplicates = headerDuplicates.Skip(1)
-                  .ToList();
+                headerDuplicates = headerDuplicates.Skip(1).ToList();
               }
 
               break;
@@ -860,6 +852,10 @@ namespace BTokenLib
             {
               if (peer != this)
               {
+                string.Format(
+                  "Release peer {0}.",
+                  GetID());
+
                 Network.ReleasePeer(peer);
               }
 
@@ -893,7 +889,7 @@ namespace BTokenLib
 
               break;
             }
-            else if (downloadsAwaiting.Count < 10)
+            else
             {
               if (queueDownloadsIncomplete.Any())
               {
@@ -925,7 +921,9 @@ namespace BTokenLib
 
               RunBlockDownload(peer, queueSynchronizer);
             }
-          } while (Network.TryGetPeer(out peer));
+          } while (
+          downloadsAwaiting.Count > 10 &&
+          Network.TryGetPeer(out peer));
 
           peer = await queueSynchronizer
             .ReceiveAsync()
@@ -949,7 +947,10 @@ namespace BTokenLib
 
             if (peer == this)
             {
-              peer.FlagDispose = true;
+              SetFlagDisposed(
+                string.Format(
+                  "Block download {0} not complete.",
+                  blockDownload.Index));
             }
 
             if (!peer.FlagDispose)
@@ -965,7 +966,11 @@ namespace BTokenLib
               {
                 if (!TryInsertBlockDownload(blockDownload))
                 {
-                  blockDownload.Peer.FlagDispose = true;
+                  blockDownload.Peer.SetFlagDisposed(
+                    string.Format(
+                      "Insertion of block download {0} failed. " +
+                      "Abort flag is set.",
+                      blockDownload.Index));
 
                   flagAbort = true;
 
@@ -1005,7 +1010,6 @@ namespace BTokenLib
       BufferBlock<Peer> queueSynchronizer)
       {
         await peer.DownloadBlocks();
-
         queueSynchronizer.Post(peer);
       }
 
@@ -1135,14 +1139,11 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          string.Format(
-            "{0} with peer {1} with download {2}: \n{3}.",
-            ex.GetType().Name,
-            GetID(),
+          SetFlagDisposed(string.Format(
+            "{0} when downloading block download {1}.: \n{2}",
+            ex.GetType(),
             BlockDownload.Index,
-            ex.Message).Log(LogFile);
-
-          FlagDispose = true;
+            ex.Message));
 
           return;
         }
@@ -1226,11 +1227,21 @@ namespace BTokenLib
         return IPAddress.ToString();
       }
 
+      public void SetFlagDisposed(string message)
+      {
+        string.Format(
+          "Set flag dispose on peer {0}: {1}",
+          GetID(),
+          message).Log(LogFile);
+
+        FlagDispose = true;
+      }
+
       public void Dispose()
       {
-        Debug.WriteLine(string.Format(
+        string.Format(
           "Dispose peer {0}.",
-          GetID()));
+          GetID()).Log(LogFile);
 
         Cancellation.Cancel();
 

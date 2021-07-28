@@ -209,14 +209,10 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        string.Format(
-          "Exception {0} when connecting with peer {1}: \n{2}",
+        peer.SetFlagDisposed(string.Format(
+          "{0} when connecting.: \n{1}",
           ex.GetType(),
-          peer.GetID(),
-          ex.Message)
-          .Log(LogFile);
-
-        peer.FlagDispose = true;
+          ex.Message));
       }
 
       lock (LOCK_Peers)
@@ -330,14 +326,10 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          string.Format(
-            "Exception {0} when syncing with peer {1}: \n{2}",
+          peer.SetFlagDisposed(string.Format(
+            "{0} when synchronizing.: \n{1}",
             ex.GetType(),
-            peer.GetID(),
-            ex.Message)
-            .Log(LogFile);
-
-          peer.FlagDispose = true;
+            ex.Message));
         }
 
         ReleasePeer(peer);
