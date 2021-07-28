@@ -23,7 +23,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333;
 
-    const int COUNT_PEERS_MAX = 4;
+    const int COUNT_PEERS_MAX = 8;
 
     object LOCK_Peers = new object();
     List<Peer> Peers = new List<Peer>();
@@ -211,7 +211,7 @@ namespace BTokenLib
       {
         peer.SetFlagDisposed(string.Format(
           "{0} when connecting.: \n{1}",
-          ex.GetType(),
+          ex.GetType().Name,
           ex.Message));
       }
 
@@ -328,7 +328,7 @@ namespace BTokenLib
         {
           peer.SetFlagDisposed(string.Format(
             "{0} when synchronizing.: \n{1}",
-            ex.GetType(),
+            ex.GetType().Name,
             ex.Message));
         }
 
@@ -363,6 +363,11 @@ namespace BTokenLib
       lock (LOCK_Peers)
       {
         peer.IsBusy = false;
+
+        Debug.WriteLine(string.Format(
+          "Network release peer {0}",
+          peer.GetID()));
+
       }
     }
 
@@ -390,8 +395,7 @@ namespace BTokenLib
         .ToArray();
     }
 
-    bool TryGetPeer(
-      out Peer peer)
+    bool TryGetPeer(out Peer peer)
     {
       lock (LOCK_Peers)
       {
@@ -401,6 +405,11 @@ namespace BTokenLib
         if (peer != null)
         {
           peer.IsBusy = true;
+
+          Debug.WriteLine(string.Format(
+            "Network gets peer {0}",
+            peer.GetID()));
+
           return true;
         }
       }

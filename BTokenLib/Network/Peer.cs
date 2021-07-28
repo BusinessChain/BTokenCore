@@ -464,11 +464,11 @@ namespace BTokenLib
           {
             await ReadMessage(Cancellation.Token);
 
-            string.Format(
-              "{0} received message {1}",
-              GetID(),
-              Command)
-              .Log(LogFile);
+            //string.Format(
+            //  "{0} received message {1}",
+            //  GetID(),
+            //  Command)
+            //  .Log(LogFile);
 
             switch (Command)
             {
@@ -542,6 +542,12 @@ namespace BTokenLib
                 }
                 else if (IsStateAwaitingBlockDownload())
                 {
+                  string.Format(
+                    "{0}: Receives awaited block {1}.",
+                    GetID(),
+                    block.Header.Hash.ToHexString())
+                    .Log(LogFile);
+
                   BlockDownload.InsertBlock(block);
 
                   if (BlockDownload.IsDownloadCompleted)
@@ -645,8 +651,9 @@ namespace BTokenLib
 
               case "notfound":
 
-                Debug.WriteLine(
-                  "Command notfound not implemented yet.");
+                string.Format(
+                  "Received meassage notfound.")
+                  .Log(LogFile);
 
                 break;
 
@@ -705,7 +712,7 @@ namespace BTokenLib
 
           SetFlagDisposed(string.Format(
             "{0} in listener.: \n{1}",
-            ex.GetType(),
+            ex.GetType().Name,
             ex.Message));
         }
       }
@@ -852,10 +859,6 @@ namespace BTokenLib
             {
               if (peer != this)
               {
-                string.Format(
-                  "Release peer {0}.",
-                  GetID());
-
                 Network.ReleasePeer(peer);
               }
 
@@ -922,7 +925,7 @@ namespace BTokenLib
               RunBlockDownload(peer, queueSynchronizer);
             }
           } while (
-          downloadsAwaiting.Count > 10 &&
+          downloadsAwaiting.Count < 10 &&
           Network.TryGetPeer(out peer));
 
           peer = await queueSynchronizer
@@ -1141,7 +1144,7 @@ namespace BTokenLib
         {
           SetFlagDisposed(string.Format(
             "{0} when downloading block download {1}.: \n{2}",
-            ex.GetType(),
+            ex.GetType().Name,
             BlockDownload.Index,
             ex.Message));
 
