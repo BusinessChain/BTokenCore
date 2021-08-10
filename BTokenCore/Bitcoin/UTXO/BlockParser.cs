@@ -114,7 +114,7 @@ namespace BTokenCore
       List<TX> ParseTXs(
         byte[] hashMerkleRoot)
       {
-        List<TX> tXs = new List<TX>();
+        List<TX> tXs = new();
 
         int tXCount = VarInt.GetInt32(
           Buffer,
@@ -168,10 +168,10 @@ namespace BTokenCore
             merkleList[tXCount] = merkleList[tXCount - 1];
           }
 
-          if (!GetRoot(merkleList).IsEqual(hashMerkleRoot))
+          if (!hashMerkleRoot.IsEqual(GetRoot(merkleList)))
           {
             throw new BitcoinException(
-              "Payload hash unequal with merkle root.");
+              "Payload hash not equal to merkle root.");
           }
         }
 

@@ -60,6 +60,7 @@ namespace BTokenLib
       Token Token;
       Token.IParser ParserToken;
 
+
       public bool IsBusy;
 
       public bool FlagDispose;
@@ -120,6 +121,7 @@ namespace BTokenLib
 
       StreamWriter LogFile;
       string PathLogFile;
+
 
 
 
@@ -444,7 +446,6 @@ namespace BTokenLib
         }
       }
 
-      readonly object LOCK_StateProtocol = new object();
       enum StateProtocol
       {
         IDLE = 0,
@@ -458,11 +459,18 @@ namespace BTokenLib
 
       public async Task StartMessageListener()
       {
+        int countOrphanReceived = 0;
+
         try
         {
           while (true)
           {
             await ReadMessage(Cancellation.Token);
+
+            if(FlagDispose)
+            {
+              return;
+            }
 
             //string.Format(
             //  "{0} received message {1}",
@@ -494,11 +502,7 @@ namespace BTokenLib
 
               case "block":
 
-                byte[] blockBytes = Payload
-                  .Take(PayloadLength)
-                  .ToArray();
-
-                Block block = ParserToken.ParseBlock(blockBytes);
+                Block block = ParserToken.ParseBlock(Payload);
 
                 if (IsStateIdle())
                 {
@@ -508,37 +512,32 @@ namespace BTokenLib
                     block.Header.Hash.ToHexString())
                     .Log(LogFile);
 
-                  Console.Beep();
-
                   if (!Blockchain.TryLock())
                   {
                     break;
                   }
 
+                  Console.Beep();
+
                   try
                   {
-                    ProcessHeaderUnsolicited(
-                      block.Header,
-                      out bool flagHeaderExtendsChain);
-
-                    if(flagHeaderExtendsChain)
+                    if (block.Header.HashPrevious.IsEqual(
+                      Blockchain.HeaderTip.Hash))
                     {
-                      if(!Blockchain.TryInsertBlock(
-                        block,
-                        flagValidateHeader: true))
-                      {
-                        // Blockchain insert sollte doch einfach Ex. schmeissen
-                      }
-                    }  
+                      Blockchain.InsertBlock(
+                         block,
+                         flagValidateHeader: true);
+                    }
+                    else
+                    {
+                      ProcessHeaderUnsolicited(block.Header);
+                    }
                   }
-                  catch (Exception ex)
+                  finally
                   {
                     Blockchain.ReleaseLock();
-
-                    throw ex;
+                    Network.ClearHeaderUnsolicitedDuplicates();
                   }
-
-                  Blockchain.ReleaseLock();
                 }
                 else if (IsStateAwaitingBlockDownload())
                 {
@@ -554,7 +553,7 @@ namespace BTokenLib
                   {
                     SignalProtocolTaskCompleted.Post(true);
 
-                    lock (LOCK_StateProtocol)
+                    lock (this)
                     {
                       State = StateProtocol.IDLE;
                     }
@@ -571,30 +570,27 @@ namespace BTokenLib
               case "headers":
 
                 Header header = null;
-                int index = 0;
+                int byteIndex = 0;
 
                 int countHeaders = VarInt.GetInt32(
                   Payload,
-                  ref index);
-
-                string.Format(
-                  "{0}: Receiving {1} headers.",
-                  GetID(),
-                  countHeaders)
-                  .Log(LogFile);
+                  ref byteIndex);
 
                 if (IsStateIdle())
                 {
                   header = Token.ParseHeader(
                     Payload,
-                    ref index);
+                    ref byteIndex);
 
                   string.Format(
                     "Received unsolicited header {0}",
                     header.Hash.ToHexString())
                     .Log(LogFile);
 
-                  index += 1;
+                  if(Network.IsHeaderUnsolicitedDuplicate(header))
+                  {
+                    break;
+                  }
 
                   if (!Blockchain.TryLock())
                   {
@@ -603,45 +599,41 @@ namespace BTokenLib
 
                   try
                   {
-                    ProcessHeaderUnsolicited(
-                      header,
-                      out bool flagHeaderExtendsChain);
-
-                    if (flagHeaderExtendsChain)
+                    if (header.HashPrevious.IsEqual(
+                      Blockchain.HeaderTip.Hash))
                     {
-                      List<Inventory> inventories = new()
-                      {
+                      await SendMessage(new GetDataMessage(
                         new Inventory(
                           InventoryType.MSG_BLOCK,
-                          header.Hash)
-                      };
-
-                      SendMessage(new GetDataMessage(inventories));
+                          header.Hash)));
+                    }
+                    else
+                    {
+                      ProcessHeaderUnsolicited(header);
                     }
                   }
-                  catch (Exception ex)
+                  finally
                   {
                     Blockchain.ReleaseLock();
-
-                    throw ex;
                   }
-
-                  Blockchain.ReleaseLock();
                 }
                 else if (IsStateGetHeaders())
                 {
-                  if (countHeaders > 0)
+                  string.Format(
+                    "{0}: Receiving {1} headers.",
+                    GetID(),
+                    countHeaders)
+                    .Log(LogFile);
+
+                  while (byteIndex < PayloadLength)
                   {
-                    while (index < PayloadLength)
-                    {
-                      header = Token.ParseHeader(
-                        Payload,
-                        ref index);
+                    header = Token.ParseHeader(
+                      Payload,
+                      ref byteIndex);
 
-                      index += 1;
+                    byteIndex += 1;
 
-                      HeaderDownload.InsertHeader(header, Token);
-                    }
+                    HeaderDownload.InsertHeader(header, Token);
                   }
 
                   SignalProtocolTaskCompleted.Post(true);
@@ -678,7 +670,7 @@ namespace BTokenLib
                       inventory.Hash, 
                       out byte[] tXRaw))
                     {
-                      SendMessage(new TXMessage(tXRaw));
+                      await SendMessage(new TXMessage(tXRaw));
 
                       string.Format(
                         "{0} received getData {1} and sent tXMessage {2}.",
@@ -708,8 +700,6 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          Cancellation.Cancel();
-
           SetFlagDisposed(string.Format(
             "{0} in listener.: \n{1}",
             ex.GetType().Name,
@@ -717,71 +707,42 @@ namespace BTokenLib
         }
       }
 
-      /// <summary>
-      /// Check if header is duplicate. Check if header extends chain, 
-      /// otherwise mark peer not synchronized.
-      /// </summary>
-      void ProcessHeaderUnsolicited(
-        Header header, 
-        out bool flagHeaderExtendsChain)
+
+      
+      internal Header HeaderDuplicateReceivedLast;
+      internal int CountOrphanReceived;
+
+      void ProcessHeaderUnsolicited(Header header)
       {
-        flagHeaderExtendsChain = false;
-
-        if (Blockchain.ContainsHeader(header.Hash))
+        if (Blockchain.TryReadHeader(
+          header.Hash,
+          out Header headerReceivedNow))
         {
-          Header headerContained = Blockchain.HeaderTip;
-
-          List<byte[]> headerDuplicates = new();
-          int depthDuplicateAcceptedMax = 3;
-          int depthDuplicate = 0;
-
-          while (depthDuplicate < depthDuplicateAcceptedMax)
+          if (HeaderDuplicateReceivedLast != null &&
+            HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
           {
-            if (headerContained.Hash.IsEqual(header.Hash))
-            {
-              if (headerDuplicates.Any(h => h.IsEqual(header.Hash)))
-              {
-                throw new ProtocolException(
-                  string.Format(
-                    "Received duplicate header {0} more than once.",
-                    header.Hash.ToHexString()));
-              }
-
-              headerDuplicates.Add(header.Hash);
-              if (headerDuplicates.Count > depthDuplicateAcceptedMax)
-              {
-                headerDuplicates = headerDuplicates.Skip(1).ToList();
-              }
-
-              break;
-            }
-
-            if (headerContained.HeaderPrevious != null)
-            {
-              break;
-            }
-
-            headerContained = header.HeaderPrevious;
-            depthDuplicate += 1;
+            throw new ProtocolException(string.Format(
+              "Sent duplicate block {0}",
+              header.Hash.ToHexString()));
           }
 
-          if (depthDuplicate == depthDuplicateAcceptedMax)
-          {
-            throw new ProtocolException(
-              string.Format(
-                "Received duplicate header {0} with depth greater than {1}.",
-                header.Hash.ToHexString(),
-                depthDuplicateAcceptedMax));
-          }
-        }
-        else if (header.HashPrevious.IsEqual(
-          Blockchain.HeaderTip.Hash))
-        {
-          flagHeaderExtendsChain = true;
+          HeaderDuplicateReceivedLast = headerReceivedNow;
         }
         else
         {
-          IsSynchronized = false;
+          if (IsSynchronized)
+          {
+            CountOrphanReceived = 0;
+            IsSynchronized = false;
+          }
+
+          if (CountOrphanReceived > 10)
+          {
+            throw new ProtocolException(
+              "Too many orphan blocks or headers received.");
+          }
+
+          CountOrphanReceived += 1;
         }
       }
 
@@ -802,7 +763,7 @@ namespace BTokenLib
 
         await SendMessage(invMessage);
 
-        Network.ReleasePeer(this);
+        Release();
       }
 
 
@@ -811,6 +772,8 @@ namespace BTokenLib
       public async Task Synchronize()
       {
       LABEL_SynchronizeWithPeer:
+
+        IsSynchronized = true;
 
         await GetHeaders();
 
@@ -859,7 +822,7 @@ namespace BTokenLib
             {
               if (peer != this)
               {
-                Network.ReleasePeer(peer);
+                peer.Release();
               }
 
               if (peersDownloading.Count == 0)
@@ -950,10 +913,9 @@ namespace BTokenLib
 
             if (peer == this)
             {
-              SetFlagDisposed(
-                string.Format(
-                  "Block download {0} not complete.",
-                  blockDownload.Index));
+              SetFlagDisposed(string.Format(
+                "Block download {0} not complete.",
+                blockDownload.Index));
             }
 
             if (!peer.FlagDispose)
@@ -1040,21 +1002,25 @@ namespace BTokenLib
 
       bool TryInsertBlockDownload(BlockDownload blockDownload)
       {
-        foreach (Block block in blockDownload.Blocks)
+        try
         {
-          if (!Blockchain.TryInsertBlock(
-              block,
-              flagValidateHeader: false))
+          foreach (Block block in blockDownload.Blocks)
           {
-            return false;
+            Blockchain.InsertBlock(
+                block,
+                flagValidateHeader: false);
+
+            Blockchain.ArchiveBlock(
+                block,
+                UTXOIMAGE_INTERVAL_SYNC);
           }
 
-          Blockchain.ArchiveBlock(
-              block,
-              UTXOIMAGE_INTERVAL_SYNC);
+          return true;
         }
-
-        return true;
+        catch
+        {
+          return false;
+        }
       }
 
 
@@ -1092,7 +1058,7 @@ namespace BTokenLib
             headerLocatorNext,
             ProtocolVersion));
 
-          lock (LOCK_StateProtocol)
+          lock (this)
           {
             State = StateProtocol.GetHeader;
           }
@@ -1105,7 +1071,7 @@ namespace BTokenLib
 
         } while (HeaderDownload.CountHeaders > countHeaderOld);
 
-        lock (LOCK_StateProtocol)
+        lock (this)
         {
           State = StateProtocol.IDLE;
         }
@@ -1126,7 +1092,7 @@ namespace BTokenLib
 
           await SendMessage(new GetDataMessage(inventories));
 
-          lock (LOCK_StateProtocol)
+          lock (this)
           {
             State = StateProtocol.AwaitingBlockDownload;
           }
@@ -1188,9 +1154,30 @@ namespace BTokenLib
         await SendMessage(new HeadersMessage(headers));
       }
 
+
+      public void Release()
+      {
+        lock (this)
+        {
+          IsBusy = false;
+
+          Debug.WriteLine(string.Format(
+            "Release peer {0}",
+            GetID()));
+        }
+      }
+
+      public bool IsReady()
+      {
+        lock(this)
+        {
+          return !FlagDispose && !IsBusy;
+        }
+      }
+
       bool IsStateIdle()
       {
-        lock (LOCK_StateProtocol)
+        lock (this)
         {
           return State == StateProtocol.IDLE;
         }
@@ -1198,7 +1185,7 @@ namespace BTokenLib
 
       bool IsStateGetHeaders()
       {
-        lock (LOCK_StateProtocol)
+        lock (this)
         {
           return State == StateProtocol.GetHeader;
         }
@@ -1206,7 +1193,7 @@ namespace BTokenLib
 
       bool IsStateAwaitingGetDataTX()
       {
-        lock (LOCK_StateProtocol)
+        lock (this)
         {
           return State == StateProtocol.AwaitingGetData;
         }
@@ -1214,7 +1201,7 @@ namespace BTokenLib
 
       bool IsStateAwaitingBlockDownload()
       {
-        lock (LOCK_StateProtocol)
+        lock (this)
         {
           return State == StateProtocol.AwaitingBlockDownload;
         }
@@ -1229,6 +1216,8 @@ namespace BTokenLib
       {
         return IPAddress.ToString();
       }
+
+
 
       public void SetFlagDisposed(string message)
       {

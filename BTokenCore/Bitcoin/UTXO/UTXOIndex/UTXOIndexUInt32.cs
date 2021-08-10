@@ -4,7 +4,6 @@ using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 
 using BTokenLib;
 
@@ -266,8 +265,6 @@ namespace BTokenCore
         areAllOutputpsSpent = (uTXO & MaskAllOutputBitsSpent) == MaskAllOutputBitsSpent;
       }
 
-      Stopwatch Stopwatch = new Stopwatch();
-
       void WriteFile(int i, string directoryPath)
       {
         using (FileStream stream = new FileStream(
@@ -313,14 +310,10 @@ namespace BTokenCore
         string directoryPath = Path.Combine(path, Label);
         Directory.CreateDirectory(directoryPath);
 
-        Stopwatch.Restart();
-
         Parallel.For(
           0, 
           COUNT_TABLE_PARTITIONS_FILE, 
           i => WriteFile(i, directoryPath));
-
-        Stopwatch.Stop();
 
         byte[] bufferCollisionTable = new byte[
           GetCountCollisionTableItems() * (HASH_BYTE_SIZE + sizeof(uint))];
@@ -355,7 +348,6 @@ namespace BTokenCore
       public override void LoadImage(string path)
       {
         int exponentCountLoadersPartition = 2;
-        Debug.Assert(exponentCountLoadersPartition < 8);
 
         int countLoadersPartition =
           (int)Math.Pow(

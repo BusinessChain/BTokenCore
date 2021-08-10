@@ -20,8 +20,8 @@ namespace BTokenLib
     Header HeaderGenesis;
     internal Header HeaderTip;
 
-    readonly object HeaderIndexLOCK = new();
-    Dictionary<int, List<Header>> HeaderIndex;
+    readonly object LOCK_HeaderIndex = new();
+    Dictionary<int, List<Header>> HeaderIndex = new();
 
     Dictionary<byte[], int> MapBlockToArchiveIndex =
       new(new EqualityComparerByteArray());
@@ -73,7 +73,6 @@ namespace BTokenLib
 
       HeaderTip = HeaderGenesis;
 
-      HeaderIndex = new Dictionary<int, List<Header>>();
       UpdateHeaderIndex(HeaderGenesis);
       
       DirectoryInfo DirectoryBlockArchive =
@@ -244,37 +243,22 @@ namespace BTokenLib
       Token.Reset();
     }
         
-    public bool TryInsertBlock(
+    public void InsertBlock(
       Block block,
       bool flagValidateHeader)
     {
-      try
+      block.Header.HeaderPrevious = HeaderTip;
+
+      if (flagValidateHeader)
       {
-        block.Header.HeaderPrevious = HeaderTip;
-
-        if (flagValidateHeader)
-        {
-          Token.ValidateHeaders(block.Header);
-        }
-
-        Token.InsertBlock(
-          block,
-          IndexBlockArchive);
-
-        InsertHeader(block.Header);
-
-        return true;
+        Token.ValidateHeaders(block.Header);
       }
-      catch(Exception ex)
-      {
-        Debug.WriteLine(
-          "{0} when inserting block {1} in blockchain:\n {2}",
-          ex.GetType().Name,
-          block.Header.Hash.ToHexString(),
-          ex.Message);
 
-        return false;
-      }
+      Token.InsertBlock(
+        block,
+        IndexBlockArchive);
+
+      InsertHeader(block.Header);
     }
 
     void InsertHeader(Header header)
@@ -285,6 +269,8 @@ namespace BTokenLib
 
       HeaderTip.HeaderNext = header;
       HeaderTip = header;
+
+      UpdateHeaderIndex(header);
     }
 
     internal List<Header> GetLocator()
@@ -311,8 +297,7 @@ namespace BTokenLib
 
       return locator;
     }
-          
-    
+              
     internal bool ContainsHeader(byte[] headerHash)
     {
       return TryReadHeader(
@@ -320,7 +305,7 @@ namespace BTokenLib
         out Header header);
     }
 
-    bool TryReadHeader(
+    public bool TryReadHeader(
       byte[] headerHash,
       out Header header)
     {
@@ -339,7 +324,7 @@ namespace BTokenLib
     {
       int key = BitConverter.ToInt32(headerHash, 0);
 
-      lock (HeaderIndexLOCK)
+      lock (LOCK_HeaderIndex)
       {
         if (HeaderIndex.TryGetValue(key, out List<Header> headers))
         {
@@ -362,7 +347,7 @@ namespace BTokenLib
     {
       int keyHeader = BitConverter.ToInt32(header.Hash, 0);
 
-      lock (HeaderIndexLOCK)
+      lock (LOCK_HeaderIndex)
       {
         if (!HeaderIndex.TryGetValue(keyHeader, out List<Header> headers))
         {
@@ -481,9 +466,9 @@ namespace BTokenLib
 
         if (
           blockLoad.IsInvalid ||
-          !blockLoad.Blocks.Any() ||
-          !HeaderTip.Hash.IsEqual(
-            blockLoad.Blocks.First().Header.HashPrevious))
+          blockLoad.Blocks.Count == 0 ||
+          !blockLoad.Blocks[0].Header.HashPrevious.IsEqual(
+            HeaderTip.Hash))
         {
           CreateBlockArchive();
           return;
@@ -491,9 +476,13 @@ namespace BTokenLib
 
         foreach (Block block in blockLoad.Blocks)
         {
-          if (!TryInsertBlock(
-            block,
-            flagValidateHeader: true))
+          try
+          {
+            InsertBlock(
+             block,
+             flagValidateHeader: true);
+          }
+          catch
           {
             File.Delete(
               Path.Combine(

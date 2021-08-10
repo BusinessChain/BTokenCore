@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -25,8 +24,11 @@ namespace BTokenLib
 
     const int COUNT_PEERS_MAX = 8;
 
-    object LOCK_Peers = new object();
-    List<Peer> Peers = new List<Peer>();
+    object LOCK_Peers = new();
+    List<Peer> Peers = new();
+
+    object LOCK_HeadersReceivedUnsolicited = new();
+    public List<Header> HeadersReceivedUnsolicited = new();
 
     static DirectoryInfo DirectoryLogPeers;
     static DirectoryInfo DirectoryLogPeersDisposed;
@@ -69,7 +71,6 @@ namespace BTokenLib
     {
       "Load Network configuration.".Log(LogFile);
     }
-
 
     async Task StartConnector()
     {
@@ -222,8 +223,8 @@ namespace BTokenLib
     }
 
 
-    List<IPAddress> AddressPool = new List<IPAddress>();
-    Random RandomGenerator = new Random();
+    List<IPAddress> AddressPool = new();
+    Random RandomGenerator = new();
 
     void DownloadIPAddressesFromSeeds()
     {
@@ -289,24 +290,22 @@ namespace BTokenLib
     }
 
 
-
     async Task StartSynchronizer()
     {
       "Start network synchronization.".Log(LogFile);
 
       while (true)
       {
-        await Task.Delay(3000).ConfigureAwait(false);
+        await Task.Delay(1000).ConfigureAwait(false);
 
-        if (!Blockchain.TryLock())
+        if (!TryGetPeerReadyToSync(out Peer peer))
         {
           continue;
         }
 
-        if (!TryGetPeerNotSynchronized(
-          out Peer peer))
+        if (!Blockchain.TryLock())
         {
-          Blockchain.ReleaseLock();
+          peer.Release();
           continue;
         }
 
@@ -332,13 +331,13 @@ namespace BTokenLib
             ex.Message));
         }
 
-        ReleasePeer(peer);
+        peer.Release();
 
         Blockchain.ReleaseLock();
       }
     }
 
-    bool TryGetPeerNotSynchronized(out Peer peer)
+    bool TryGetPeerReadyToSync(out Peer peer)
     {
       lock (LOCK_Peers)
       {
@@ -350,7 +349,6 @@ namespace BTokenLib
         if (peer != null)
         {
           peer.IsBusy = true;
-          peer.IsSynchronized = true;
           return true;
         }
 
@@ -358,17 +356,25 @@ namespace BTokenLib
       }
     }
 
-    void ReleasePeer(Peer peer)
+    bool TryGetPeer(out Peer peer)
     {
       lock (LOCK_Peers)
       {
-        peer.IsBusy = false;
+        peer = Peers.Find(
+          p => !p.FlagDispose && !p.IsBusy);
 
-        Debug.WriteLine(string.Format(
-          "Network release peer {0}",
-          peer.GetID()));
+        if (peer != null)
+        {
+          Debug.WriteLine(string.Format(
+            "Network gets peer {0}",
+            peer.GetID()));
 
+          peer.IsBusy = true;
+          return true;
+        }
       }
+
+      return false;
     }
 
 
@@ -378,8 +384,7 @@ namespace BTokenLib
 
       while (true)
       {
-        if (TryGetPeer(
-          out Peer peer))
+        if (TryGetPeer(out Peer peer))
         {
           peers.Add(peer);
         }
@@ -395,26 +400,27 @@ namespace BTokenLib
         .ToArray();
     }
 
-    bool TryGetPeer(out Peer peer)
+    public bool IsHeaderUnsolicitedDuplicate(Header header)
     {
-      lock (LOCK_Peers)
+      lock(LOCK_HeadersReceivedUnsolicited)
       {
-        peer = Peers.Find(
-          p => !p.FlagDispose && !p.IsBusy);
-
-        if (peer != null)
+        if(HeadersReceivedUnsolicited.Any(
+          h => h.Hash.IsEqual(header.Hash)))
         {
-          peer.IsBusy = true;
-
-          Debug.WriteLine(string.Format(
-            "Network gets peer {0}",
-            peer.GetID()));
-
           return true;
         }
-      }
 
-      return false;
+        HeadersReceivedUnsolicited.Add(header);
+        return false;
+      }
+    }
+
+    public void ClearHeaderUnsolicitedDuplicates()
+    {
+      lock (LOCK_HeadersReceivedUnsolicited)
+      {
+        HeadersReceivedUnsolicited.Clear();
+      }
     }
 
 
