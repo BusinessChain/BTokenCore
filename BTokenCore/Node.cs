@@ -28,11 +28,13 @@ namespace BTokenCore
     public void Start()
     {
       TokenBitcoin.Start();
+
+      RunConsole();
     }
 
 
 
-    public void RunConsole()
+    void RunConsole()
     {
       Console.WriteLine("Start console.");
 
@@ -47,9 +49,16 @@ namespace BTokenCore
             break;
 
           case "sendtoken":
-            Console.WriteLine(inputCommand);
-
             TokenBitcoin.SendTX();
+            break;
+
+          case "addPeer":
+            TokenBitcoin.Network.AddPeer();
+            break;
+
+          case "removePeer":
+            string iPAddress = Console.ReadLine();
+            TokenBitcoin.Network.RemovePeer(iPAddress);
             break;
 
           default:

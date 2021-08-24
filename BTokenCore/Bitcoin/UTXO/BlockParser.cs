@@ -15,7 +15,6 @@ namespace BTokenCore
       public const int COUNT_HEADER_BYTES = 80;
 
       public byte[] Buffer;
-      public int IndexBuffer;
 
       SHA256 SHA256 = SHA256.Create();                 
 
@@ -31,21 +30,21 @@ namespace BTokenCore
 
       public Block ParseBlock(
         byte[] buffer,
-        ref int startIndex)
+        ref int bufferIndex)
       {
         Buffer = buffer;
-        IndexBuffer = startIndex;
 
         HeaderBitcoin header = ParseHeader(
           Buffer,
-          ref IndexBuffer);
+          ref bufferIndex);
 
-        List<TX> tXs = ParseTXs(header.MerkleRoot);
-
-        startIndex = IndexBuffer;
-        
+        List<TX> tXs = ParseTXs(
+          header.MerkleRoot,
+          ref bufferIndex);
+                
         return new BlockBitcoin(
           Buffer,
+          bufferIndex,
           header,
           tXs);
       }
@@ -112,13 +111,14 @@ namespace BTokenCore
 
 
       List<TX> ParseTXs(
-        byte[] hashMerkleRoot)
+        byte[] hashMerkleRoot,
+        ref int bufferIndex)
       {
         List<TX> tXs = new();
 
         int tXCount = VarInt.GetInt32(
           Buffer,
-          ref IndexBuffer);
+          ref bufferIndex);
 
         if (tXCount == 0)
         { }
@@ -127,7 +127,7 @@ namespace BTokenCore
           TX tX = ParseTX(
             isCoinbase: true,
             Buffer, 
-            ref IndexBuffer);
+            ref bufferIndex);
 
           tXs.Add(tX);
 
@@ -145,7 +145,7 @@ namespace BTokenCore
           TX tX = ParseTX(
             isCoinbase: true,
             Buffer,
-            ref IndexBuffer);
+            ref bufferIndex);
 
           tXs.Add(tX);
 
@@ -156,7 +156,7 @@ namespace BTokenCore
             tX = ParseTX(
             isCoinbase: false,
             Buffer,
-            ref IndexBuffer);
+            ref bufferIndex);
 
             tXs.Add(tX);
 

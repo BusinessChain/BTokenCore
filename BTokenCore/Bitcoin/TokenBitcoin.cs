@@ -14,8 +14,6 @@ namespace BTokenCore
 
   class TokenBitcoin : Token
   {
-    HeaderBitcoin HeaderGenesis;
-
     Dictionary<int, byte[]> Checkpoints = new()
     {
       { 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
@@ -30,15 +28,6 @@ namespace BTokenCore
     public TokenBitcoin(string pathBlockArchive)
     {
       UTXOTable = new UTXOTable(GetGenesisBlockBytes());
-
-      HeaderGenesis = new HeaderBitcoin(
-         headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
-         version: 0x01,
-         hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-         merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
-         unixTimeSeconds: 1231006505,
-         nBits: 0x1d00ffff,
-         nonce: 2083236893);
 
       Network = new Network(this);
       Blockchain = new Blockchain(Network, this, pathBlockArchive);
@@ -84,9 +73,16 @@ namespace BTokenCore
       return true;
     }
 
-    public override Header GetHeaderGenesis()
+    public override Header CreateHeaderGenesis()
     {
-      return HeaderGenesis;
+      return new HeaderBitcoin(
+         headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
+         version: 0x01,
+         hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+         merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
+         unixTimeSeconds: 1231006505,
+         nBits: 0x1d00ffff,
+         nonce: 2083236893);
     }
 
     public override Dictionary<int, byte[]> GetCheckpoints()

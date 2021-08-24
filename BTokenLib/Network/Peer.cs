@@ -69,7 +69,7 @@ namespace BTokenLib
       const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
       const int COUNT_BLOCKS_DOWNLOADBATCH_INIT = 1;
-      Stopwatch StopwatchDownload = new();
+      public Stopwatch StopwatchDownload = new();
       public int CountBlocksLoad = COUNT_BLOCKS_DOWNLOADBATCH_INIT;
 
       internal HeaderDownload HeaderDownload = new();
@@ -102,6 +102,14 @@ namespace BTokenLib
       TcpClient TcpClient;
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
+
+      enum StateProtocol
+      {
+        IDLE = 0,
+        AwaitingBlockDownload,
+        GetHeader,
+        AwaitingGetData
+      }
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -323,12 +331,9 @@ namespace BTokenLib
         }
       }
 
-      public async Task SendMessage(NetworkMessage message)
+      async Task SendMessage(NetworkMessage message)
       {
-        string.Format(
-          "{0} Send message {1}",
-          GetID(),
-          message.Command)
+        $"{GetID()} Send message {message.Command}"
           .Log(LogFile);
 
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
@@ -446,21 +451,10 @@ namespace BTokenLib
         }
       }
 
-      enum StateProtocol
-      {
-        IDLE = 0,
-        AwaitingBlockDownload,
-        GetHeader,
-        AwaitingGetData
-      }
-
       StateProtocol State;
-      BufferBlock<bool> SignalProtocolTaskCompleted = new();
 
       public async Task StartMessageListener()
       {
-        int countOrphanReceived = 0;
-
         try
         {
           while (true)
@@ -541,28 +535,34 @@ namespace BTokenLib
                 }
                 else if (IsStateAwaitingBlockDownload())
                 {
-                  string.Format(
-                    "{0}: Receives awaited block {1}.",
-                    GetID(),
-                    block.Header.Hash.ToHexString())
-                    .Log(LogFile);
-
                   BlockDownload.InsertBlock(block);
 
                   if (BlockDownload.IsDownloadCompleted)
                   {
-                    SignalProtocolTaskCompleted.Post(true);
+                    Network.InsertBlockDownload(this);
+
+                    Cancellation = new CancellationTokenSource();
+
+                    AdjustCountBlocksLoad();
+
+                    string.Format(
+                      "{0}: Downloaded {1} blocks in download {2} in {3} ms.",
+                      GetID(),
+                      BlockDownload.Blocks.Count,
+                      BlockDownload.Index,
+                      StopwatchDownload.ElapsedMilliseconds)
+                      .Log(LogFile);
 
                     lock (this)
                     {
                       State = StateProtocol.IDLE;
                     }
-
-                    break;
                   }
-
-                  Cancellation.CancelAfter(
-                    TIMEOUT_RESPONSE_MILLISECONDS);
+                  else
+                  {
+                    Cancellation.CancelAfter(
+                      TIMEOUT_RESPONSE_MILLISECONDS);
+                  }
                 }
 
                 break;
@@ -619,10 +619,7 @@ namespace BTokenLib
                 }
                 else if (IsStateGetHeaders())
                 {
-                  string.Format(
-                    "{0}: Receiving {1} headers.",
-                    GetID(),
-                    countHeaders)
+                  $"{GetID()}: Receiving {countHeaders} headers."
                     .Log(LogFile);
 
                   while (byteIndex < PayloadLength)
@@ -636,16 +633,59 @@ namespace BTokenLib
                     HeaderDownload.InsertHeader(header, Token);
                   }
 
-                  SignalProtocolTaskCompleted.Post(true);
+                  if(countHeaders == 0)
+                  {
+                    if (HeaderDownload.HeaderTip == null)
+                    {
+                      lock (this)
+                      {
+                        State = StateProtocol.IDLE;
+                        IsBusy = false;
+                        IsSynchronized = true;
+                      }
+
+                      Blockchain.ReleaseLock();
+
+                      break;
+                    }
+
+                    if (HeaderDownload.IsFork)
+                    {
+                      if (!await Blockchain.TryFork(
+                         HeaderDownload.HeaderLocatorAncestor))
+                      {
+                        Release();
+                      }
+                    }
+
+                    Network.Synchronize(this);
+                  }
+                  else
+                  {
+                    Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+                    await SendMessage(new GetHeadersMessage(
+                      new List<Header> { HeaderDownload.HeaderInsertedLast },
+                      ProtocolVersion));
+                  }
                 }
 
                 break;
 
               case "notfound":
 
-                string.Format(
-                  "Received meassage notfound.")
-                  .Log(LogFile);
+                "Received meassage notfound.".Log(LogFile);
+
+                if (IsStateAwaitingBlockDownload())
+                {
+                  Network.PeerBlockDownloadIncomplete(this);
+
+                  if (this == Network.PeerSynchronizationMaster)
+                  {
+                    throw new ProtocolException(
+                      $"Peer has sent headers but does not deliver blocks.");
+                  }
+                }
 
                 break;
 
@@ -689,21 +729,24 @@ namespace BTokenLib
                 break;
 
               default:
-                string.Format(
-                  "{0} received unknown message {1}.",
-                  GetID(),
-                  Command)
-                  .Log(LogFile);
+                //string.Format(
+                //  "{0} received unknown message {1}.",
+                //  GetID(),
+                //  Command)
+                //  .Log(LogFile);
                 break;
             }
           }
         }
         catch (Exception ex)
         {
-          SetFlagDisposed(string.Format(
-            "{0} in listener.: \n{1}",
-            ex.GetType().Name,
-            ex.Message));
+          SetFlagDisposed(
+            $"{ex.GetType().Name} in listener: \n{ex.Message}");
+
+          if (IsStateAwaitingBlockDownload())
+          {
+            Network.PeerBlockDownloadIncomplete(this);
+          }
         }
       }
 
@@ -765,264 +808,8 @@ namespace BTokenLib
 
         Release();
       }
-
-
-
-
-      public async Task Synchronize()
-      {
-      LABEL_SynchronizeWithPeer:
-
-        IsSynchronized = true;
-
-        await GetHeaders();
-
-        if (HeaderDownload.HeaderTip == null)
-        {
-          return;
-        }
-
-        Dictionary<int, BlockDownload> downloadsAwaiting = new();
-        List<BlockDownload> queueDownloadsIncomplete = new();
-        BufferBlock<Peer> queueSynchronizer = new();
-
-        List<Peer> peersRetired = new();
-        List<Peer> peersDownloading = new();
-        bool flagAbort = false;
-
-        int indexBlockDownload = 0;
-        int indexInsertion = 0;
-
-        Header headerRoot = HeaderDownload.HeaderRoot;
-        double difficultyOld = Blockchain.HeaderTip.Difficulty;
-
-        if (HeaderDownload.IsFork)
-        {
-          if (!await Blockchain.TryFork(
-             HeaderDownload.HeaderLocatorAncestor.Height,
-             headerRoot.HashPrevious))
-          {
-            goto LABEL_SynchronizeWithPeer;
-          }
-        }
-
-        Peer peer = this;
-
-        while (true)
-        {
-          do
-          {
-            bool isBlockDownloadAvailable =
-              queueDownloadsIncomplete.Count > 0 || headerRoot != null;
-
-            if (
-             flagAbort ||
-             peer.FlagDispose ||
-             !isBlockDownloadAvailable)
-            {
-              if (peer != this)
-              {
-                peer.Release();
-              }
-
-              if (peersDownloading.Count == 0)
-              {
-                string.Format(
-                  "Synchronization ended {0}.",
-                  flagAbort ? "unsuccessfully" : "successfully").
-                  Log(LogFile);
-
-                if (flagAbort)
-                {
-                  await Blockchain.LoadImage();
-                }
-
-                if (Blockchain.IsFork)
-                {
-                  if (Blockchain.HeaderTip.Difficulty > difficultyOld)
-                  {
-                    Blockchain.Reorganize();
-                  }
-                  else
-                  {
-                    Blockchain.DismissFork();
-                    await Blockchain.LoadImage();
-                  }
-                }
-
-                return;
-              }
-
-              break;
-            }
-            else
-            {
-              if (queueDownloadsIncomplete.Any())
-              {
-                peer.BlockDownload = queueDownloadsIncomplete.First();
-                queueDownloadsIncomplete.RemoveAt(0);
-
-                peer.BlockDownload.Peer = peer;
-
-                string.Format(
-                  "peer {0} loads blockDownload {1} from queue invalid.",
-                  peer.GetID(),
-                  peer.BlockDownload.Index)
-                  .Log(LogFile);
-              }
-              else
-              {
-                peer.BlockDownload = new BlockDownload(
-                  indexBlockDownload,
-                  peer);
-
-                peer.BlockDownload.LoadHeaders(
-                  ref headerRoot,
-                  peer.CountBlocksLoad);
-
-                indexBlockDownload += 1;
-              }
-
-              peersDownloading.Add(peer);
-
-              RunBlockDownload(peer, queueSynchronizer);
-            }
-          } while (
-          downloadsAwaiting.Count < 10 &&
-          Network.TryGetPeer(out peer));
-
-          peer = await queueSynchronizer
-            .ReceiveAsync()
-            .ConfigureAwait(false);
-
-          peersDownloading.Remove(peer);
-
-          var blockDownload = peer.BlockDownload;
-          peer.BlockDownload = null;
-
-          if (flagAbort)
-          {
-            continue;
-          }
-
-          if (!blockDownload.IsDownloadCompleted)
-          {
-            EnqueueBlockDownloadIncomplete(
-              blockDownload,
-              queueDownloadsIncomplete);
-
-            if (peer == this)
-            {
-              SetFlagDisposed(string.Format(
-                "Block download {0} not complete.",
-                blockDownload.Index));
-            }
-
-            if (!peer.FlagDispose)
-            {
-              peersRetired.Add(peer);
-            }
-          }
-          else
-          {
-            if (indexInsertion == blockDownload.Index)
-            {
-              while (true)
-              {
-                if (!TryInsertBlockDownload(blockDownload))
-                {
-                  blockDownload.Peer.SetFlagDisposed(
-                    string.Format(
-                      "Insertion of block download {0} failed. " +
-                      "Abort flag is set.",
-                      blockDownload.Index));
-
-                  flagAbort = true;
-
-                  break;
-                }
-
-                string.Format(
-                  "Insert block download {0}. Blockchain height: {1}",
-                  blockDownload.Index,
-                  Blockchain.HeaderTip.Height)
-                  .Log(LogFile);
-
-                indexInsertion += 1;
-
-                if (!downloadsAwaiting.TryGetValue(
-                  indexInsertion,
-                  out blockDownload))
-                {
-                  break;
-                }
-
-                downloadsAwaiting.Remove(indexInsertion);
-              }
-            }
-            else
-            {
-              downloadsAwaiting.Add(
-                blockDownload.Index,
-                blockDownload);
-            }
-          }
-        }
-      }
-
-      static async Task RunBlockDownload(
-      Peer peer,
-      BufferBlock<Peer> queueSynchronizer)
-      {
-        await peer.DownloadBlocks();
-        queueSynchronizer.Post(peer);
-      }
-
-      static void EnqueueBlockDownloadIncomplete(
-        BlockDownload download,
-        List<BlockDownload> queue)
-      {
-        download.IndexHeaderExpected = 0;
-        download.Blocks.Clear();
-
-        int indexdownload = queue
-          .FindIndex(b => b.Index > download.Index);
-
-        if (indexdownload == -1)
-        {
-          queue.Add(download);
-        }
-        else
-        {
-          queue.Insert(
-            indexdownload,
-            download);
-        }
-      }
-
-      bool TryInsertBlockDownload(BlockDownload blockDownload)
-      {
-        try
-        {
-          foreach (Block block in blockDownload.Blocks)
-          {
-            Blockchain.InsertBlock(
-                block,
-                flagValidateHeader: false);
-
-            Blockchain.ArchiveBlock(
-                block,
-                UTXOIMAGE_INTERVAL_SYNC);
-          }
-
-          return true;
-        }
-        catch
-        {
-          return false;
-        }
-      }
-
+         
+           
 
       /// <summary>
       /// Request all headers from peer returning the root header.
@@ -1032,100 +819,47 @@ namespace BTokenLib
         HeaderDownload.Reset();
         HeaderDownload.Locator = Blockchain.GetLocator();
         List<Header> headerLocatorNext = HeaderDownload.Locator.ToList();
-        int countHeaderOld;
 
-        CancellationTokenSource cancelGetHeaders = new();
+        string.Format(
+          "Send getheaders to peer {0}, \n" +
+          "locator: {1} ... \n{2}",
+          GetID(),
+          headerLocatorNext.First().Hash.ToHexString(),
+          headerLocatorNext.Count > 1 ? headerLocatorNext.Last().Hash.ToHexString() : "")
+          .Log(LogFile);
 
-        do
-        {
-          countHeaderOld = HeaderDownload.CountHeaders;
+        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
-          if(HeaderDownload.HeaderInsertedLast != null)
-          {
-            headerLocatorNext.Clear();
-            headerLocatorNext.Add(HeaderDownload.HeaderInsertedLast);
-          }
-
-          string.Format(
-            "Send getheaders to peer {0}, \n" +
-            "locator: {1} ... \n{2}",
-            GetID(),
-            headerLocatorNext.First().Hash.ToHexString(),
-            headerLocatorNext.Count > 1 ? headerLocatorNext.Last().Hash.ToHexString() : "")
-            .Log(LogFile);
-
-          await SendMessage(new GetHeadersMessage(
-            headerLocatorNext,
-            ProtocolVersion));
-
-          lock (this)
-          {
-            State = StateProtocol.GetHeader;
-          }
-
-          cancelGetHeaders.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-
-          await SignalProtocolTaskCompleted
-            .ReceiveAsync(cancelGetHeaders.Token)
-            .ConfigureAwait(false);
-
-        } while (HeaderDownload.CountHeaders > countHeaderOld);
+        await SendMessage(new GetHeadersMessage(
+          headerLocatorNext,
+          ProtocolVersion));
 
         lock (this)
         {
-          State = StateProtocol.IDLE;
+          State = StateProtocol.GetHeader;
         }
       }
 
-      public async Task DownloadBlocks()
+      public async Task GetBlock()
       {
         StopwatchDownload.Restart();
 
-        try
+        List<Inventory> inventories =
+          BlockDownload.HeadersExpected.Select(
+            h => new Inventory(
+              InventoryType.MSG_BLOCK,
+              h.Hash))
+              .ToList();
+
+        Cancellation.CancelAfter(
+            TIMEOUT_RESPONSE_MILLISECONDS);
+
+        await SendMessage(new GetDataMessage(inventories));
+
+        lock (this)
         {
-          List<Inventory> inventories =
-            BlockDownload.HeadersExpected.Select(
-              h => new Inventory(
-                InventoryType.MSG_BLOCK,
-                h.Hash))
-                .ToList();
-
-          await SendMessage(new GetDataMessage(inventories));
-
-          lock (this)
-          {
-            State = StateProtocol.AwaitingBlockDownload;
-          }
-
-          Cancellation.CancelAfter(
-              TIMEOUT_RESPONSE_MILLISECONDS);
-
-          await SignalProtocolTaskCompleted
-            .ReceiveAsync(Cancellation.Token)
-            .ConfigureAwait(false);
-
-          Cancellation = new CancellationTokenSource();
+          State = StateProtocol.AwaitingBlockDownload;
         }
-        catch (Exception ex)
-        {
-          SetFlagDisposed(string.Format(
-            "{0} when downloading block download {1}.: \n{2}",
-            ex.GetType().Name,
-            BlockDownload.Index,
-            ex.Message));
-
-          return;
-        }
-
-        AdjustCountBlocksLoad();
-
-        string.Format(
-          "{0}: Downloaded {1} blocks in download {2} in {3} ms.",
-          GetID(),
-          BlockDownload.Blocks.Count,
-          BlockDownload.Index,
-          StopwatchDownload.ElapsedMilliseconds)
-          .Log(LogFile);
       }
 
       void AdjustCountBlocksLoad()
@@ -1160,10 +894,7 @@ namespace BTokenLib
         lock (this)
         {
           IsBusy = false;
-
-          Debug.WriteLine(string.Format(
-            "Release peer {0}",
-            GetID()));
+          State = StateProtocol.IDLE;
         }
       }
 
@@ -1199,7 +930,7 @@ namespace BTokenLib
         }
       }
 
-      bool IsStateAwaitingBlockDownload()
+      public bool IsStateAwaitingBlockDownload()
       {
         lock (this)
         {
@@ -1217,14 +948,10 @@ namespace BTokenLib
         return IPAddress.ToString();
       }
 
-
-
       public void SetFlagDisposed(string message)
       {
-        string.Format(
-          "Set flag dispose on peer {0}: {1}",
-          GetID(),
-          message).Log(LogFile);
+        $"Set flag dispose on peer {GetID()}: {message}"
+          .Log(LogFile);
 
         FlagDispose = true;
       }

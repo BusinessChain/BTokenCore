@@ -21,7 +21,6 @@ namespace BTokenLib
 
 
 
-
       public BlockDownload(int index, Peer peer)
       {
         Index = index;

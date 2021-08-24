@@ -29,7 +29,7 @@ namespace BTokenCore
     UTXOIndexUInt32 TableUInt32 = new UTXOIndexUInt32();
     UTXOIndexULong64 TableULong64 = new UTXOIndexULong64();
     UTXOIndexUInt32Array TableUInt32Array = new UTXOIndexUInt32Array();
-    
+
     StreamWriter LogFile;
 
     public WalletUTXO Wallet;

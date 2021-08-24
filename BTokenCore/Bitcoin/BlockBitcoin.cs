@@ -15,9 +15,11 @@ namespace BTokenCore
 
     public BlockBitcoin(
       byte[] buffer,
+      int stopIndex,
       HeaderBitcoin header,
       List<UTXOTable.TX> tXs) : base(
         buffer,
+        stopIndex,
         header)
     {
       TXs = tXs;

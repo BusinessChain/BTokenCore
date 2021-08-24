@@ -54,8 +54,6 @@ namespace BTokenLib
       logFile.WriteLine(logString);
 
       Debug.WriteLine(logString);
-
-      logFile.Flush();
     }
   }
 }

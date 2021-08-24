@@ -9,14 +9,17 @@ namespace BTokenLib
   public class Block
   {
     public byte[] Buffer;
+    public int StopIndex;
 
     public Header Header;
 
     public Block(
       byte[] buffer,
+      int stopIndex,
       Header header)
     {
       Buffer = buffer;
+      StopIndex = stopIndex;
       Header = header;
     }
   }

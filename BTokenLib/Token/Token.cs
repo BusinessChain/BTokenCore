@@ -8,8 +8,8 @@ namespace BTokenLib
 {
   public abstract partial class Token
   {
-    protected Network Network;
-    protected Blockchain Blockchain;
+    public Network Network;
+    public Blockchain Blockchain;
 
     //protected Miner Miner;
 
@@ -25,7 +25,7 @@ namespace BTokenLib
       //Miner.Start();
     }
 
-    public abstract Header GetHeaderGenesis();
+    public abstract Header CreateHeaderGenesis();
     public abstract Dictionary<int, byte[]> GetCheckpoints();
 
     public abstract void LoadImage(string pathImage);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -59,7 +60,7 @@ namespace BTokenLib
 
     public void Start()
     {
-      StartConnector();
+      StartPeerConnector();
 
       StartSynchronizer();
 
@@ -72,7 +73,7 @@ namespace BTokenLib
       "Load Network configuration.".Log(LogFile);
     }
 
-    async Task StartConnector()
+    async Task StartPeerConnector()
     {
       int countPeersCreate;
 
@@ -80,8 +81,8 @@ namespace BTokenLib
       {
         lock (LOCK_Peers)
         {
-          List<Peer> peersDispose =
-            Peers.FindAll(p => p.FlagDispose && !p.IsBusy);
+          List<Peer> peersDispose = Peers.FindAll(
+            p => p.FlagDispose && !p.IsBusy);
 
           peersDispose.ForEach(p =>
           {
@@ -127,7 +128,7 @@ namespace BTokenLib
 
     List<IPAddress> RetrieveIPAddresses(int countMax)
     {
-      List<IPAddress> iPAddresses = new List<IPAddress>();
+      List<IPAddress> iPAddresses = new();
 
       while (iPAddresses.Count < countMax)
       {
@@ -222,6 +223,34 @@ namespace BTokenLib
       }
     }
 
+    public void AddPeer()
+    {
+      List<IPAddress> iPAddresses = RetrieveIPAddresses(1);
+
+      if(iPAddresses.Count < 1)
+      {
+        Console.WriteLine("No IP address could be retrieved.");
+        return;
+      }
+
+      CreatePeer(iPAddresses[0]);
+    }
+
+    public void RemovePeer(string iPAddress)
+    {
+      lock (LOCK_Peers)
+      {
+        Peer peerRemove =
+          Peers.Find(p => !p.IsBusy && p.GetID() == iPAddress);
+
+        if(peerRemove != null)
+        {
+          Peers.Remove(peerRemove);
+          peerRemove.Dispose();
+        }
+      }
+    }
+
 
     List<IPAddress> AddressPool = new();
     Random RandomGenerator = new();
@@ -289,14 +318,11 @@ namespace BTokenLib
       }
     }
 
-
     async Task StartSynchronizer()
     {
-      "Start network synchronization.".Log(LogFile);
-
       while (true)
       {
-        await Task.Delay(1000).ConfigureAwait(false);
+        await Task.Delay(3000).ConfigureAwait(false);
 
         if (!TryGetPeerReadyToSync(out Peer peer))
         {
@@ -311,29 +337,216 @@ namespace BTokenLib
 
         try
         {
-          string.Format(
-            "Synchronize with peer {0}",
-            peer.GetID())
+          $"Start synchronization with peer {peer.GetID()}."
             .Log(LogFile);
 
-          await peer.Synchronize();
-
-          string.Format(
-            "Synchronization with peer {0} completed.",
-            peer.GetID())
-            .Log(LogFile);
+          await peer.GetHeaders();
         }
         catch (Exception ex)
         {
-          peer.SetFlagDisposed(string.Format(
-            "{0} when synchronizing.: \n{1}",
-            ex.GetType().Name,
-            ex.Message));
+          peer.SetFlagDisposed(
+            $"{ex.GetType().Name} when sending getheaders.: \n{ex.Message}");
+        }
+      }
+    }
+
+
+    BufferBlock<Peer> QueueSynchronizer = new();
+    bool FlagSynchronizationAbort;
+    int IndexInsertion;
+    Dictionary<int, BlockDownload> QueueDownloadsInsertion = new();
+    List<BlockDownload> QueueDownloadsIncomplete = new();
+    List<Peer> PeersDownloadingBlock = new();
+    Peer PeerSynchronizationMaster;
+
+    async Task Synchronize(Peer peer)
+    {
+      PeerSynchronizationMaster = peer;
+      FlagSynchronizationAbort = false;
+      IndexInsertion = 0;
+      QueueDownloadsInsertion.Clear();
+      PeersDownloadingBlock.Clear();
+      QueueDownloadsIncomplete.Clear();
+
+      int indexBlockDownload = 0;
+      Header headerRoot = peer.HeaderDownload.HeaderRoot;
+
+      while (true)
+      {
+        if(peer != null)
+        {
+          if (QueueDownloadsIncomplete.Any())
+          {
+            peer.BlockDownload = QueueDownloadsIncomplete.First();
+            QueueDownloadsIncomplete.RemoveAt(0);
+
+            peer.BlockDownload.Peer = peer;
+
+            ($"peer {peer.GetID()} loads " +
+               $"blockDownload {peer.BlockDownload.Index} from queue invalid.")
+               .Log(LogFile);
+          }
+          else if (headerRoot != null)
+          {
+            peer.BlockDownload = new BlockDownload(
+              indexBlockDownload,
+              peer);
+
+            peer.BlockDownload.LoadHeaders(
+              ref headerRoot,
+              peer.CountBlocksLoad);
+
+            indexBlockDownload += 1;
+          }
+          else
+          {
+            "Synchronization completed.".Log(LogFile);
+
+            peer.Release();
+            break;
+          }
+
+          PeersDownloadingBlock.Add(peer);
+          await peer.GetBlock();
         }
 
-        peer.Release();
+        if (FlagSynchronizationAbort)
+        {
+          string.Format("Synchronization abort.")
+            .Log(LogFile);
 
-        Blockchain.ReleaseLock();
+          await Blockchain.LoadImage();
+
+          break;
+        }
+
+        if (!TryGetPeer(out peer))
+        {
+          await Task.Delay(3000).ConfigureAwait(false);
+        }
+      }
+
+      while (PeersDownloadingBlock.Count > 0)
+      {
+        "Waiting for all peers to exit block download state."
+          .Log(LogFile);
+
+        await Task.Delay(1000).ConfigureAwait(false);
+      }
+
+      lock(LOCK_Peers)
+      {
+        Peers.Where(p => p.IsStateAwaitingBlockDownload())
+          .ToList().ForEach(p => p.Release());
+      }
+
+      if (Blockchain.IsFork)
+      {
+        if (Blockchain.HeaderTip.Difficulty > Blockchain.DifficultyOld)
+        {
+          Blockchain.Reorganize();
+        }
+        else
+        {
+          Blockchain.DismissFork();
+          await Blockchain.LoadImage();
+        }
+      }
+    }
+
+
+    void PeerBlockDownloadIncomplete(
+      Peer peer)
+    {
+      BlockDownload blockDownload = peer.BlockDownload;
+      peer.BlockDownload = null;
+
+      PeersDownloadingBlock.Remove(peer);
+
+      blockDownload.IndexHeaderExpected = 0;
+      blockDownload.Blocks.Clear();
+
+      int indexdownload = QueueDownloadsIncomplete
+        .FindIndex(b => b.Index > blockDownload.Index);
+
+      if (indexdownload == -1)
+      {
+        QueueDownloadsIncomplete.Add(blockDownload);
+      }
+      else
+      {
+        QueueDownloadsIncomplete.Insert(
+          indexdownload,
+          blockDownload);
+      }
+    }
+
+    void InsertBlockDownload(Peer peer)
+    {
+      BlockDownload blockDownload = peer.BlockDownload;
+      peer.BlockDownload = null;
+
+      if (IndexInsertion == blockDownload.Index)
+      {
+        while (true)
+        {
+          if (!TryInsertBlockDownload(blockDownload))
+          {
+            blockDownload.Peer.SetFlagDisposed(
+              $"Insertion of block download {blockDownload.Index} failed. " +
+              "Abort flag is set.");
+
+            FlagSynchronizationAbort = true;
+
+            break;
+          }
+
+          ($"Insert block download {blockDownload.Index}. " +
+            $"Blockchain height: {Blockchain.HeaderTip.Height}")
+            .Log(LogFile);
+
+          IndexInsertion += 1;
+
+          if (!QueueDownloadsInsertion.TryGetValue(
+            IndexInsertion,
+            out blockDownload))
+          {
+            break;
+          }
+
+          QueueDownloadsInsertion.Remove(IndexInsertion);
+        }
+      }
+      else
+      {
+        QueueDownloadsInsertion.Add(
+          blockDownload.Index,
+          blockDownload);
+      }
+
+      PeersDownloadingBlock.Remove(peer);
+    }
+
+    bool TryInsertBlockDownload(BlockDownload blockDownload)
+    {
+      try
+      {
+        foreach (Block block in blockDownload.Blocks)
+        {
+          Blockchain.InsertBlock(
+              block,
+              flagValidateHeader: false);
+
+          Blockchain.ArchiveBlock(
+              block,
+              UTXOIMAGE_INTERVAL_SYNC);
+        }
+
+        return true;
+      }
+      catch
+      {
+        return false;
       }
     }
 
@@ -376,7 +589,6 @@ namespace BTokenLib
 
       return false;
     }
-
 
     public async Task AdvertizeToken(byte[] hash)
     {

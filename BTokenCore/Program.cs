@@ -30,8 +30,6 @@ namespace BTokenCore
 
         Console.WriteLine("Start node.");
         node.Start();
-
-        node.RunConsole();
       }
       catch(Exception ex)
       {

@@ -42,14 +42,14 @@ namespace BTokenLib
               HeaderLocatorAncestor.Hash.ToHexString(),
               HeaderLocatorAncestor.Height));
 
-          IsFork = HeaderLocatorAncestor != Locator.First();
-
-          if(IsFork)
+          if (HeaderLocatorAncestor != Locator.First())
           {
+            IsFork = true;
+
             Debug.WriteLine(
-              string.Format(
-                "{0} is fork",
-                header.Hash.ToHexString()));
+            string.Format(
+              "{0} is fork",
+              header.Hash.ToHexString()));
           }
         }
 
@@ -69,27 +69,29 @@ namespace BTokenLib
             return;
           }
 
-          HeaderTip = HeaderLocatorAncestor;
+          header.HeaderPrevious = HeaderLocatorAncestor;
+
           HeaderRoot = header;
         }
-
-        if (!HeaderTip.Hash.IsEqual(header.HashPrevious))
+        else 
         {
-          throw new ProtocolException(
+          if (!HeaderTip.Hash.IsEqual(header.HashPrevious))
+          {
+            throw new ProtocolException(
             string.Format(
               "Header insertion out of order. " +
               "Previous header {0}\n Next header: {1}",
               HeaderTip.Hash.ToString(),
               header.HashPrevious.ToString()));
-        }
+          }
 
-        header.HeaderPrevious = HeaderTip;
+          header.HeaderPrevious = HeaderTip;
+          HeaderTip.HeaderNext = header;
+        }
 
         token.ValidateHeader(header);
 
-        HeaderTip.HeaderNext = header;
         HeaderTip = header;
-
         CountHeaders += 1;
       }
 

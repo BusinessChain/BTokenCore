@@ -17,13 +17,13 @@ namespace BTokenLib
     public Network Network;
     public Token Token;
 
-    Header HeaderGenesis;
+    Header HeaderRoot;
     internal Header HeaderTip;
 
     readonly object LOCK_HeaderIndex = new();
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    Dictionary<byte[], int> MapBlockToArchiveIndex =
+    Dictionary<byte[], int> BlockIndex =
       new(new EqualityComparerByteArray());
 
     string NameFork = "Fork";
@@ -67,13 +67,13 @@ namespace BTokenLib
 
       PathBlockArchive = pathBlockArchive;
 
-      HeaderGenesis = token.GetHeaderGenesis();
-      HeaderGenesis.Height = 0;
-      HeaderGenesis.DifficultyAccumulated = HeaderGenesis.Difficulty;
+      HeaderRoot = token.CreateHeaderGenesis();
+      HeaderRoot.Height = 0;
+      HeaderRoot.DifficultyAccumulated = HeaderRoot.Difficulty;
 
-      HeaderTip = HeaderGenesis;
+      HeaderTip = HeaderRoot;
 
-      UpdateHeaderIndex(HeaderGenesis);
+      UpdateHeaderIndex(HeaderRoot);
       
       DirectoryInfo DirectoryBlockArchive =
           Directory.CreateDirectory(PathBlockArchive);
@@ -191,7 +191,7 @@ namespace BTokenLib
       int indexBytesHeaderImage = 0;
       byte[] bytesHeaderImage = File.ReadAllBytes(pathFile);
 
-      Header headerPrevious = HeaderGenesis;
+      Header headerPrevious = HeaderRoot;
       
       while(indexBytesHeaderImage < bytesHeaderImage.Length)
       {
@@ -229,16 +229,16 @@ namespace BTokenLib
         int value = BitConverter.ToInt32(buffer, index);
         index += 4;
 
-        MapBlockToArchiveIndex.Add(key, value);
+        BlockIndex.Add(key, value);
       }
     }
         
     void Reset()
     {
-      HeaderTip = HeaderGenesis;
+      HeaderTip = HeaderRoot;
       
       HeaderIndex.Clear();
-      UpdateHeaderIndex(HeaderGenesis);
+      UpdateHeaderIndex(HeaderRoot);
 
       Token.Reset();
     }
@@ -276,7 +276,7 @@ namespace BTokenLib
     internal List<Header> GetLocator()
     {
       Header header = HeaderTip;
-      var locator = new List<Header>();
+      List<Header> locator = new();
       int heightCheckpoint = Token.GetCheckpoints().Keys.Max();
       int depth = 0;
       int nextLocationDepth = 0;
@@ -296,13 +296,6 @@ namespace BTokenLib
       locator.Add(header);
 
       return locator;
-    }
-              
-    internal bool ContainsHeader(byte[] headerHash)
-    {
-      return TryReadHeader(
-        headerHash,
-        out Header header);
     }
 
     public bool TryReadHeader(
@@ -360,7 +353,6 @@ namespace BTokenLib
     }
 
 
-
     public List<Header> GetHeaders(
       IEnumerable<byte[]> locatorHashes,
       int count,
@@ -414,7 +406,6 @@ namespace BTokenLib
         IsBlockchainLocked = false;
       }
     }
-
 
 
     public async Task<bool> TryLoadBlocks(
@@ -583,12 +574,9 @@ namespace BTokenLib
       {
         blockLoad.IsInvalid = true;
 
-        string.Format(
-          "Loader throws exception {0} \n" +
-          "when parsing file {1}",
-          pathFile,
-          ex.Message)
-          .Log(LogFile);
+        ($"Loader throws exception {pathFile} \n " +
+          $"when parsing file {ex.Message}")
+        .Log(LogFile);
       }
 
       while (true)
@@ -669,7 +657,7 @@ namespace BTokenLib
           FileBlockArchive.Write(
             block.Buffer,
             0,
-            block.Buffer.Length);
+            block.StopIndex);
 
           FileBlockArchive.Flush();
 
@@ -691,7 +679,7 @@ namespace BTokenLib
         }
       }
 
-      CountBytesArchive += block.Buffer.Length;
+      CountBytesArchive += block.StopIndex;
 
       if (CountBytesArchive >= SIZE_BLOCK_ARCHIVE_BYTES)
       {
@@ -803,7 +791,7 @@ namespace BTokenLib
             FileShare.None,
             bufferSize: 65536))
         {
-          Header header = HeaderGenesis.HeaderNext;
+          Header header = HeaderRoot.HeaderNext;
 
           while (header != null)
           {
@@ -828,7 +816,7 @@ namespace BTokenLib
            FileAccess.Write))
         {
           foreach (KeyValuePair<byte[], int> keyValuePair
-            in MapBlockToArchiveIndex)
+            in BlockIndex)
           {
             stream.Write(
               keyValuePair.Key,
@@ -872,23 +860,28 @@ namespace BTokenLib
 
 
     public bool IsFork;
+    public double DifficultyOld;
 
     internal async Task<bool> TryFork(
-      int heightAncestor, 
-      byte[] hashAncestor)
+      Header headerAncestor)
     {
-      IsFork = true;
+      DifficultyOld = HeaderTip.Difficulty;
 
       await LoadImage(
-         heightAncestor,
-         hashAncestor);
+         headerAncestor.Height,
+         headerAncestor.Hash);
 
-      if(HeaderTip.Height == heightAncestor)
+      if(HeaderTip.Height == headerAncestor.Height)
       {
+        IsFork = true;
         return true;
       }
 
       IsFork = false;
+
+      await LoadImage();
+      ReleaseLock();
+
       return false;
     }
 
@@ -933,7 +926,6 @@ namespace BTokenLib
             Thread.Sleep(3000);
           }
         }
-
       }
       
       string pathImageForkOld = Path.Combine(
