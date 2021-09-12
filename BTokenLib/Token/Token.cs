@@ -32,6 +32,8 @@ namespace BTokenLib
     public abstract void CreateImage(string pathImage);
     public abstract void Reset();
 
+    public abstract Block CreateBlock();
+
     public abstract void InsertBlock(
       Block block,
       int indexBlockArchive);

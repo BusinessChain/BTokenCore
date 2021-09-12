@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
-using System.Diagnostics;
 
 
 namespace BTokenLib
@@ -15,7 +14,7 @@ namespace BTokenLib
   partial class Network
   {
     Token Token;
-    internal Blockchain Blockchain;
+    Blockchain Blockchain;
 
     const int UTXOIMAGE_INTERVAL_SYNC = 300;
 
@@ -25,8 +24,11 @@ namespace BTokenLib
 
     const int COUNT_PEERS_MAX = 8;
 
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
+
     object LOCK_Peers = new();
     List<Peer> Peers = new();
+    ConcurrentBag<BlockDownload> PoolBlockDownload = new();
 
     object LOCK_HeadersReceivedUnsolicited = new();
     public List<Header> HeadersReceivedUnsolicited = new();
@@ -36,9 +38,10 @@ namespace BTokenLib
 
 
 
-    public Network(Token token)
+    public Network(Token token, Blockchain blockchain)
     {
       Token = token;
+      Blockchain = blockchain;
 
       string pathRoot = token.GetName();
 
@@ -82,7 +85,7 @@ namespace BTokenLib
         lock (LOCK_Peers)
         {
           List<Peer> peersDispose = Peers.FindAll(
-            p => p.FlagDispose && !p.IsBusy);
+            p => p.FlagDispose);
 
           peersDispose.ForEach(p =>
           {
@@ -95,11 +98,8 @@ namespace BTokenLib
 
         if (countPeersCreate > 0)
         {
-          string.Format(
-            "Connect with {0} new peers. " +
-            "{1} peers connected currently.",
-            countPeersCreate,
-            Peers.Count)
+          ($"Connect with {countPeersCreate} new peers. " +
+            $"{Peers.Count} peers connected currently.")
             .Log(LogFile);
 
           List<IPAddress> iPAddresses =
@@ -195,12 +195,10 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        string.Format(
-          "{0} when creating peer {1}: \n{2}",
-          ex.GetType(),
-          iPAddress.ToString(),
-          ex.Message)
-          .Log(LogFile);
+
+        ($"{ex.GetType()} when creating peer {iPAddress}: " +
+        $"\n{ex.Message}")
+        .Log(LogFile);
 
         return;
       }
@@ -211,10 +209,8 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        peer.SetFlagDisposed(string.Format(
-          "{0} when connecting.: \n{1}",
-          ex.GetType().Name,
-          ex.Message));
+        peer.SetFlagDisposed(
+          $"{ex.GetType().Name} when connecting.: \n{ex.Message}");
       }
 
       lock (LOCK_Peers)
@@ -229,8 +225,8 @@ namespace BTokenLib
 
       if(iPAddresses.Count < 1)
       {
-        Console.WriteLine("No IP address could be retrieved.");
-        return;
+        throw new ProtocolException(
+          "No IP address could be retrieved.");
       }
 
       CreatePeer(iPAddresses[0]);
@@ -241,7 +237,7 @@ namespace BTokenLib
       lock (LOCK_Peers)
       {
         Peer peerRemove =
-          Peers.Find(p => !p.IsBusy && p.GetID() == iPAddress);
+          Peers.Find(p => p.GetID() == iPAddress);
 
         if(peerRemove != null)
         {
@@ -320,93 +316,131 @@ namespace BTokenLib
 
     async Task StartSynchronizer()
     {
+      Peer peer;
+
       while (true)
       {
         await Task.Delay(3000).ConfigureAwait(false);
 
-        if (!TryGetPeerReadyToSync(out Peer peer))
+        if (!Blockchain.TryLock())
         {
           continue;
         }
 
-        if (!Blockchain.TryLock())
+        lock (LOCK_Peers)
         {
-          peer.Release();
-          continue;
+          peer = Peers.Find(p => p.TryStageSynchronization());
+
+          if (peer == null)
+          {
+            Blockchain.ReleaseLock();
+            continue;
+          }
         }
+
+        $"Start synchronization with peer {peer.GetID()}."
+          .Log(LogFile);
 
         try
         {
-          $"Start synchronization with peer {peer.GetID()}."
-            .Log(LogFile);
-
           await peer.GetHeaders();
         }
         catch (Exception ex)
         {
           peer.SetFlagDisposed(
-            $"{ex.GetType().Name} when sending getheaders.: \n{ex.Message}");
+            $"{ex.GetType().Name} in getheaders: \n{ex.Message}");
+
+          Blockchain.ReleaseLock();
+          continue;
         }
+
+        peer.SetStateAwaitingHeader();
       }
     }
 
+    bool TryChargeBlockDownload(Peer peer)
+    {
+      if(FlagSynchronizationAbort)
+      {
+        return false;
+      }
 
-    BufferBlock<Peer> QueueSynchronizer = new();
+      // Locken
+
+      if (QueueDownloadsIncomplete.Any())
+      {
+        if(peer.BlockDownload != null)
+        {
+          PoolBlockDownload.Add(peer.BlockDownload);
+        }
+
+        peer.BlockDownload = QueueDownloadsIncomplete.First();
+        QueueDownloadsIncomplete.RemoveAt(0);
+
+        peer.BlockDownload.Peer = peer;
+      }
+      else if (HeaderRoot != null)
+      {
+        if (peer.BlockDownload == null &&
+          !PoolBlockDownload.TryTake(out peer.BlockDownload))
+        {
+          peer.BlockDownload = new BlockDownload(
+            Token,
+            IndexBlockDownload,
+            peer);
+        }
+        else
+        {
+          peer.BlockDownload.Index = IndexBlockDownload;
+          peer.BlockDownload.Peer = peer;
+        }
+
+        peer.BlockDownload.LoadHeaders(ref HeaderRoot);
+
+        IndexBlockDownload += 1;
+      }
+      else
+      {
+        return false;
+      }
+
+      return true;
+    }
+
     bool FlagSynchronizationAbort;
+    object LOCK_IndexInsertion = new();
     int IndexInsertion;
     Dictionary<int, BlockDownload> QueueDownloadsInsertion = new();
     List<BlockDownload> QueueDownloadsIncomplete = new();
-    List<Peer> PeersDownloadingBlock = new();
     Peer PeerSynchronizationMaster;
+    Header HeaderRoot;
+    int IndexBlockDownload;
 
-    async Task Synchronize(Peer peer)
+    async Task SynchronizeBlocks(Peer peer)
     {
       PeerSynchronizationMaster = peer;
       FlagSynchronizationAbort = false;
       IndexInsertion = 0;
       QueueDownloadsInsertion.Clear();
-      PeersDownloadingBlock.Clear();
       QueueDownloadsIncomplete.Clear();
 
-      int indexBlockDownload = 0;
-      Header headerRoot = peer.HeaderDownload.HeaderRoot;
+      IndexBlockDownload = 0;
+      HeaderRoot = peer.HeaderDownload.HeaderRoot;
 
       while (true)
       {
         if(peer != null)
         {
-          if (QueueDownloadsIncomplete.Any())
+          $"Sync with peer {peer.GetID()}".Log(LogFile);
+
+          if (!TryChargeBlockDownload(peer))
           {
-            peer.BlockDownload = QueueDownloadsIncomplete.First();
-            QueueDownloadsIncomplete.RemoveAt(0);
-
-            peer.BlockDownload.Peer = peer;
-
-            ($"peer {peer.GetID()} loads " +
-               $"blockDownload {peer.BlockDownload.Index} from queue invalid.")
-               .Log(LogFile);
-          }
-          else if (headerRoot != null)
-          {
-            peer.BlockDownload = new BlockDownload(
-              indexBlockDownload,
-              peer);
-
-            peer.BlockDownload.LoadHeaders(
-              ref headerRoot,
-              peer.CountBlocksLoad);
-
-            indexBlockDownload += 1;
-          }
-          else
-          {
-            "Synchronization completed.".Log(LogFile);
+            "Synchronization ended.".Log(LogFile);
 
             peer.Release();
             break;
           }
 
-          PeersDownloadingBlock.Add(peer);
           await peer.GetBlock();
         }
 
@@ -426,20 +460,6 @@ namespace BTokenLib
         }
       }
 
-      while (PeersDownloadingBlock.Count > 0)
-      {
-        "Waiting for all peers to exit block download state."
-          .Log(LogFile);
-
-        await Task.Delay(1000).ConfigureAwait(false);
-      }
-
-      lock(LOCK_Peers)
-      {
-        Peers.Where(p => p.IsStateAwaitingBlockDownload())
-          .ToList().ForEach(p => p.Release());
-      }
-
       if (Blockchain.IsFork)
       {
         if (Blockchain.HeaderTip.Difficulty > Blockchain.DifficultyOld)
@@ -452,59 +472,109 @@ namespace BTokenLib
           await Blockchain.LoadImage();
         }
       }
+
+      lock (LOCK_Peers)
+      {
+        Peers.Where(p => p.IsStateIdle() && p.IsBusy) 
+          .ToList().ForEach(p => p.Release());
+      }
+
+      while (true)
+      {
+        lock (LOCK_Peers)
+        {
+          if (!Peers.Any(p => p.IsBusy))
+          {
+            break;
+          }
+        }
+
+        "Waiting for all peers to exit state 'synchronization busy'."
+          .Log(LogFile);
+
+        await Task.Delay(1000).ConfigureAwait(false);
+      }
+
+      Blockchain.ReleaseLock();
     }
 
 
-    void PeerBlockDownloadIncomplete(
-      Peer peer)
+    void ReturnPeerBlockDownloadIncomplete(Peer peer)
     {
       BlockDownload blockDownload = peer.BlockDownload;
+
       peer.BlockDownload = null;
 
-      PeersDownloadingBlock.Remove(peer);
-
+      blockDownload.Peer = null;
       blockDownload.IndexHeaderExpected = 0;
-      blockDownload.Blocks.Clear();
+      blockDownload.IndexNextBlockToParse = 0;
 
-      int indexdownload = QueueDownloadsIncomplete
-        .FindIndex(b => b.Index > blockDownload.Index);
+      int indexInsertInQueue = QueueDownloadsIncomplete
+        .FindIndex(b => blockDownload.Index < b.Index);
 
-      if (indexdownload == -1)
+      if (indexInsertInQueue == -1)
       {
         QueueDownloadsIncomplete.Add(blockDownload);
       }
       else
       {
         QueueDownloadsIncomplete.Insert(
-          indexdownload,
+          indexInsertInQueue,
           blockDownload);
       }
     }
 
-    void InsertBlockDownload(Peer peer)
+    void InsertPeerBlockDownload(BlockDownload blockDownload)
     {
-      BlockDownload blockDownload = peer.BlockDownload;
-      peer.BlockDownload = null;
-
-      if (IndexInsertion == blockDownload.Index)
+      lock(LOCK_IndexInsertion)
       {
-        while (true)
+        if (IndexInsertion != blockDownload.Index)
         {
-          if (!TryInsertBlockDownload(blockDownload))
+          ($"Add blockDownload {blockDownload.Index} of peer " +
+            $"{blockDownload.Peer.GetID()} to queue insertion").Log(LogFile);
+
+          QueueDownloadsInsertion.Add(
+            blockDownload.Index,
+            blockDownload);
+
+          blockDownload.Peer.BlockDownload = null;
+
+          return;
+        }
+      }
+
+      while (true)
+      {
+        ($"Insert block download {blockDownload.Index}. " +
+          $"Blockchain height: {Blockchain.HeaderTip.Height}")
+          .Log(LogFile);
+
+        blockDownload.GetBlocks().ForEach(b =>
+        {
+          try
+          {
+            Blockchain.InsertBlock(
+                b,
+                flagValidateHeader: false);
+          }
+          catch (Exception ex)
           {
             blockDownload.Peer.SetFlagDisposed(
-              $"Insertion of block download {blockDownload.Index} failed. " +
-              "Abort flag is set.");
+              $"Insertion of block download {blockDownload.Index} failed:\n" +
+              $"{ex.Message}.");
 
             FlagSynchronizationAbort = true;
 
-            break;
+            return;
           }
 
-          ($"Insert block download {blockDownload.Index}. " +
-            $"Blockchain height: {Blockchain.HeaderTip.Height}")
-            .Log(LogFile);
+          Blockchain.ArchiveBlock(
+              b,
+              UTXOIMAGE_INTERVAL_SYNC);
+        });
 
+        lock(LOCK_IndexInsertion)
+        {
           IndexInsertion += 1;
 
           if (!QueueDownloadsInsertion.TryGetValue(
@@ -517,82 +587,23 @@ namespace BTokenLib
           QueueDownloadsInsertion.Remove(IndexInsertion);
         }
       }
-      else
-      {
-        QueueDownloadsInsertion.Add(
-          blockDownload.Index,
-          blockDownload);
-      }
-
-      PeersDownloadingBlock.Remove(peer);
-    }
-
-    bool TryInsertBlockDownload(BlockDownload blockDownload)
-    {
-      try
-      {
-        foreach (Block block in blockDownload.Blocks)
-        {
-          Blockchain.InsertBlock(
-              block,
-              flagValidateHeader: false);
-
-          Blockchain.ArchiveBlock(
-              block,
-              UTXOIMAGE_INTERVAL_SYNC);
-        }
-
-        return true;
-      }
-      catch
-      {
-        return false;
-      }
-    }
-
-    bool TryGetPeerReadyToSync(out Peer peer)
-    {
-      lock (LOCK_Peers)
-      {
-        peer = Peers.Find(p =>
-         !p.IsSynchronized &&
-         !p.FlagDispose &&
-         !p.IsBusy);
-
-        if (peer != null)
-        {
-          peer.IsBusy = true;
-          return true;
-        }
-
-        return false;
-      }
     }
 
     bool TryGetPeer(out Peer peer)
     {
       lock (LOCK_Peers)
       {
-        peer = Peers.Find(
-          p => !p.FlagDispose && !p.IsBusy);
-
-        if (peer != null)
-        {
-          Debug.WriteLine(string.Format(
-            "Network gets peer {0}",
-            peer.GetID()));
-
-          peer.IsBusy = true;
-          return true;
-        }
+        peer = Peers.Find(p => p.TryGetBusy());
       }
 
-      return false;
+      return peer != null;
     }
 
     public async Task AdvertizeToken(byte[] hash)
     {
-      var peers = new List<Peer>();
+      List<Peer> peers = new();
+
+      // should Lock Blockchain
 
       while (true)
       {

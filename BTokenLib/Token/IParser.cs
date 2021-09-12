@@ -8,15 +8,19 @@ namespace BTokenLib
 {
   public abstract partial class Token
   {
-    public interface IParser
-    {
+    //public interface IParser
+    //{
+    //  public Header Parse();
 
-      Block ParseBlock(
-        byte[] buffer,
-        ref int startIndex);
+    //  Block ParseBlock(
+    //    byte[] buffer,
+    //    ref int startIndex);
 
-      Block ParseBlock(
-        byte[] buffer);
-    }
+    //  void ParseBlock(Block block);
+
+
+
+    //  byte[] GetBuffer(out int indexBufferStop);
+    //}
   }
 }

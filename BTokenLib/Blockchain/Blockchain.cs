@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Threading.Tasks.Dataflow;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 
 
@@ -14,7 +15,6 @@ namespace BTokenLib
 {
   public partial class Blockchain
   {
-    public Network Network;
     public Token Token;
 
     Header HeaderRoot;
@@ -42,7 +42,7 @@ namespace BTokenLib
     public int IndexBlockArchive;
 
     byte[] HashRootFork;
-    public const int COUNT_LOADER_TASKS = 4;
+    public const int COUNT_LOADER_TASKS = 1;
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
     const int UTXOIMAGE_INTERVAL_LOADER = 50;
 
@@ -56,13 +56,9 @@ namespace BTokenLib
 
 
     public Blockchain(
-      Network network,
       Token token,
       string pathBlockArchive)
     {
-      Network = network;
-      Network.Blockchain = this;
-
       Token = token;
 
       PathBlockArchive = pathBlockArchive;
@@ -517,9 +513,8 @@ namespace BTokenLib
         }
 
         IndexBlockArchive += 1;
-        
-        if (
-          IndexBlockArchive % UTXOIMAGE_INTERVAL_LOADER == 0)
+
+        if (IndexBlockArchive % UTXOIMAGE_INTERVAL_LOADER == 0)
         {
           CreateImage(
             IndexBlockArchive,
@@ -530,17 +525,25 @@ namespace BTokenLib
 
 
     bool IsInserterCompleted;
-    Dictionary<int, BlockLoad> QueueBlockArchives =
-      new Dictionary<int, BlockLoad>();
+    Dictionary<int, BlockLoad> QueueBlockArchives = new();
     readonly object LOCK_QueueBlockArchives = new object();
+    ConcurrentBag<BlockLoad> PoolBlockLoad = new();
 
     async Task StartLoader()
     {
-      Token.IParser parser = Token.CreateParser();
+      BlockLoad blockLoad = null;
 
     LABEL_LoadBlockArchive:
 
-      var blockLoad = new BlockLoad();
+      if (blockLoad == null &&
+        !PoolBlockLoad.TryTake(out blockLoad))
+      {
+        blockLoad = new BlockLoad(IndexBlockArchiveLoad);
+      }
+      else
+      {
+        blockLoad.Index = IndexBlockArchiveLoad;
+      }
 
       lock (LOCK_IndexBlockArchiveLoad)
       {
@@ -560,7 +563,9 @@ namespace BTokenLib
 
         while (startIndex < bytesFile.Length)
         {
-          Block block = parser.ParseBlock(
+          Block block = Token.CreateBlock();
+
+          block.Parse(
             bytesFile,
             ref startIndex);
 
@@ -574,8 +579,8 @@ namespace BTokenLib
       {
         blockLoad.IsInvalid = true;
 
-        ($"Loader throws exception {pathFile} \n " +
-          $"when parsing file {ex.Message}")
+        ($"Loader throws {ex.GetType().Name} \n " +
+          $"when parsing file: {ex.Message}")
         .Log(LogFile);
       }
 
@@ -650,14 +655,16 @@ namespace BTokenLib
       Block block,
       int intervalImage)
     {
+      int indexBufferStop;
+
       while (true)
       {
         try
         {
           FileBlockArchive.Write(
-            block.Buffer,
+            block.GetBuffer(out indexBufferStop),
             0,
-            block.StopIndex);
+            indexBufferStop);
 
           FileBlockArchive.Flush();
 
@@ -679,7 +686,7 @@ namespace BTokenLib
         }
       }
 
-      CountBytesArchive += block.StopIndex;
+      CountBytesArchive += indexBufferStop;
 
       if (CountBytesArchive >= SIZE_BLOCK_ARCHIVE_BYTES)
       {

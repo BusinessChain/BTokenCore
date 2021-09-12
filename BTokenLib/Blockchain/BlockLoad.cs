@@ -17,6 +17,11 @@ namespace BTokenLib
       public bool IsInvalid;
 
 
+      public BlockLoad(int index)
+      {
+        Index = index;
+      }
+
       public void InsertBlock(Block block)
       {
         if (

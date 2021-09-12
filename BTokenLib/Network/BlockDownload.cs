@@ -15,32 +15,56 @@ namespace BTokenLib
       public Peer Peer;
 
       public List<Header> HeadersExpected = new();
-      public List<Block> Blocks = new();
+      List<Block> Blocks = new();
       public int IndexHeaderExpected;
-      public bool IsDownloadCompleted;
+      public int IndexNextBlockToParse;
+
+      public Stopwatch StopwatchBlockDownload = new();
+
+      const int COUNT_MAX = 10;
 
 
 
-      public BlockDownload(int index, Peer peer)
+      public BlockDownload(
+        Token token, 
+        int index, 
+        Peer peer)
       {
         Index = index;
         Peer = peer;
+
+        for(int i = 0; i< COUNT_MAX; i += 1)
+        {
+          Blocks.Add(token.CreateBlock());
+        }
       }
 
-      public void LoadHeaders(
-        ref Header headerLoad,
-        int countMax)
+      public void LoadHeaders(ref Header headerLoad)
       {
+        int countHeadersNew = HeadersExpected.Count * 
+          (int)(TIMEOUT_RESPONSE_MILLISECONDS /
+          (double)StopwatchBlockDownload.ElapsedMilliseconds);
+
+        countHeadersNew = countHeadersNew > COUNT_MAX ? 
+          COUNT_MAX : countHeadersNew;
+
+        HeadersExpected.Clear();
+
         do
         {
           HeadersExpected.Add(headerLoad);
           headerLoad = headerLoad.HeaderNext;
         } while (
-        HeadersExpected.Count < countMax
+        HeadersExpected.Count < countHeadersNew
         && headerLoad != null);
       }
 
-      public void InsertBlock(Block block)
+      public Block GetNextBlockToParse()
+      {
+        return Blocks[IndexNextBlockToParse];
+      }
+
+      public bool InsertBlockFlagComplete(Block block)
       {
         if (!block.Header.Hash.IsEqual(
           HeadersExpected[IndexHeaderExpected].Hash))
@@ -57,8 +81,18 @@ namespace BTokenLib
 
         IndexHeaderExpected += 1;
 
-        IsDownloadCompleted =
-          IndexHeaderExpected == HeadersExpected.Count;
+        if(IndexHeaderExpected == HeadersExpected.Count)
+        {
+          StopwatchBlockDownload.Stop();
+          return true;
+        }
+
+        return false;
+      }
+
+      public List<Block> GetBlocks()
+      {
+        return Blocks.Take(HeadersExpected.Count).ToList();
       }
     }
   }

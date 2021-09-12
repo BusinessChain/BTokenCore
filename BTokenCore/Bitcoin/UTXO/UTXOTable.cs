@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using System.Linq;
 
 using BTokenLib;
 
@@ -18,7 +17,7 @@ namespace BTokenCore
     const int LENGTH_BITS_UINT = 32;
     const int LENGTH_BITS_ULONG = 64;
 
-    const int COUNT_NON_OUTPUT_BITS =
+    public const int COUNT_NON_OUTPUT_BITS =
       COUNT_BATCHINDEX_BITS + 
       COUNT_COLLISION_BITS_PER_TABLE * 3;
 
@@ -26,9 +25,9 @@ namespace BTokenCore
     ulong MaskBatchIndexULong64 = ~(ulong.MaxValue << COUNT_BATCHINDEX_BITS);
        
     UTXOIndex[] Tables;
-    UTXOIndexUInt32 TableUInt32 = new UTXOIndexUInt32();
-    UTXOIndexULong64 TableULong64 = new UTXOIndexULong64();
-    UTXOIndexUInt32Array TableUInt32Array = new UTXOIndexUInt32Array();
+    UTXOIndexUInt32 TableUInt32 = new();
+    UTXOIndexULong64 TableULong64 = new();
+    UTXOIndexUInt32Array TableUInt32Array = new();
 
     StreamWriter LogFile;
 

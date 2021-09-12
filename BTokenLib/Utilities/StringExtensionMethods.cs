@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.IO;
 using System.Diagnostics;
 
@@ -8,7 +7,7 @@ namespace BTokenLib
 {
   public static class StringExtensionMethods
   {
-    static readonly Dictionary<string, byte> HEX2BYTE = new Dictionary<string, byte>()
+    static readonly Dictionary<string, byte> HEX2BYTE = new()
     {
       { "00", 0x00 }, { "01", 0x01 }, { "02", 0x02 }, { "03", 0x03 }, { "04", 0x04 }, { "05", 0x05 }, { "06", 0x06 }, { "07", 0x07 }, { "08", 0x08 }, { "09", 0x09 }, { "0A", 0x0A }, { "0B", 0x0B }, { "0C", 0x0C }, { "0D", 0x0D }, { "0E", 0x0E }, { "0F", 0x0F },
       { "10", 0x10 }, { "11", 0x11 }, { "12", 0x12 }, { "13", 0x13 }, { "14", 0x14 }, { "15", 0x15 }, { "16", 0x16 }, { "17", 0x17 }, { "18", 0x18 }, { "19", 0x19 }, { "1A", 0x1A }, { "1B", 0x1B }, { "1C", 0x1C }, { "1D", 0x1D }, { "1E", 0x1E }, { "1F", 0x1F },

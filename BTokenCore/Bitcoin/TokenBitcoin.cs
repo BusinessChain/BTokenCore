@@ -22,15 +22,16 @@ namespace BTokenCore
 
     UTXOTable UTXOTable;
 
-    UTXOTable.BlockParser Parser = new();
+    UTXOTable.ParserBitcoin Parser = new();
 
 
     public TokenBitcoin(string pathBlockArchive)
     {
       UTXOTable = new UTXOTable(GetGenesisBlockBytes());
 
-      Network = new Network(this);
-      Blockchain = new Blockchain(Network, this, pathBlockArchive);
+      Blockchain = new Blockchain(this, pathBlockArchive);
+      Network = new Network(this, Blockchain);
+
       //Miner = new Miner(this);
     }
 
@@ -49,7 +50,7 @@ namespace BTokenCore
 
     public override IParser CreateParser()
     {
-      return new UTXOTable.BlockParser();
+      return new UTXOTable.ParserBitcoin();
     }
 
     public override string GetName()

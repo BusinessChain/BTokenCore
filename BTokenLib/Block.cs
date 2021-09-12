@@ -1,26 +1,38 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  public class Block
+  public abstract class Block
   {
-    public byte[] Buffer;
-    public int StopIndex;
+    public byte[] Buffer = new byte[0x400000];
+    public int IndexBufferStop;
 
     public Header Header;
 
-    public Block(
-      byte[] buffer,
-      int stopIndex,
-      Header header)
+
+    public Block()
+    { }
+
+    public Block(Header header)
     {
-      Buffer = buffer;
-      StopIndex = stopIndex;
       Header = header;
     }
+
+
+    public abstract Header Parse();
+
+    public abstract Block Parse(
+      byte[] buffer,
+      ref int startIndex);
+
+    public abstract void Parse(Block block);
+
+    public abstract byte[] GetBuffer(out int indexBufferStop);
+
+    public abstract byte[] GetBuffer();
   }
 }

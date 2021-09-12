@@ -324,7 +324,7 @@ namespace BTokenCore
 
         tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
-        var parser = new BlockParser();
+        var parser = new ParserBitcoin();
         int indexTXRaw = 0;
         byte[] tXRawArray = tXRaw.ToArray();
 

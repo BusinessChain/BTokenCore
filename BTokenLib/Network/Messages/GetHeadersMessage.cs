@@ -10,8 +10,7 @@ namespace BTokenLib
   {
     class GetHeadersMessage : NetworkMessage
     {
-      public List<Header> HeaderLocator =
-        new List<Header>();
+      public List<Header> HeaderLocator = new();
 
       public byte[] StopHash = new byte[32];
 
@@ -27,7 +26,7 @@ namespace BTokenLib
           ("00000000000000000000000000000000" +
           "00000000000000000000000000000000").ToBinary();
 
-        List<byte> payload = new List<byte>();
+        List<byte> payload = new();
 
         payload.AddRange(BitConverter.GetBytes(versionProtocol));
         payload.AddRange(VarInt.GetBytes(HeaderLocator.Count()));
