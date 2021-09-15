@@ -193,7 +193,8 @@ namespace BTokenLib
       {
         Header header = Token.ParseHeader(
          bytesHeaderImage,
-         ref indexBytesHeaderImage);
+         ref indexBytesHeaderImage,
+         SHA256.Create());
 
         if (!header.HashPrevious.IsEqual(
           headerPrevious.Hash))
@@ -498,11 +499,11 @@ namespace BTokenLib
           }
         }
 
+        long timeLoading =
+          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger;
+
         Debug.WriteLine(
-          "{0},{1},{2}",
-          HeaderTip.Height,
-          blockLoad.Index,
-          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - UTCTimeStartMerger);
+          $"{HeaderTip.Height},{blockLoad.Index},{timeLoading}");
 
         if (blockLoad.CountBytes < SIZE_BLOCK_ARCHIVE_BYTES)
         {
@@ -520,6 +521,9 @@ namespace BTokenLib
             IndexBlockArchive,
             NameImage);
         }
+
+        blockLoad.Blocks.Clear();
+        PoolBlockLoad.Add(blockLoad);
       }
     }
 
@@ -531,49 +535,24 @@ namespace BTokenLib
 
     async Task StartLoader()
     {
-      BlockLoad blockLoad = null;
-
     LABEL_LoadBlockArchive:
 
-      if (blockLoad == null &&
-        !PoolBlockLoad.TryTake(out blockLoad))
+      if (!PoolBlockLoad.TryTake(out BlockLoad blockLoad))
       {
-        blockLoad = new BlockLoad(IndexBlockArchiveLoad);
-      }
-      else
-      {
-        blockLoad.Index = IndexBlockArchiveLoad;
+        blockLoad = new BlockLoad(Token);
       }
 
       lock (LOCK_IndexBlockArchiveLoad)
       {
-        blockLoad.Index = IndexBlockArchiveLoad;
-        IndexBlockArchiveLoad += 1;
+        blockLoad.Index = IndexBlockArchiveLoad++;
       }
-
-      string pathFile = Path.Combine(
-        PathBlockArchive,
-        blockLoad.Index.ToString());
 
       try
       {
-        byte[] bytesFile = File.ReadAllBytes(pathFile);
-
-        int startIndex = 0;
-
-        while (startIndex < bytesFile.Length)
-        {
-          Block block = Token.CreateBlock();
-
-          block.Parse(
-            bytesFile,
-            ref startIndex);
-
-          blockLoad.InsertBlock(block);
-        }
-
-        blockLoad.CountBytes = bytesFile.Length;
-        blockLoad.IsInvalid = false;
+        blockLoad.Parse(
+          File.ReadAllBytes(Path.Combine(
+            PathBlockArchive,
+            blockLoad.Index.ToString())));
       }
       catch (Exception ex)
       {
@@ -628,6 +607,7 @@ namespace BTokenLib
           return;
         }
 
+        // evt muss zuerst nächster blockLoad gezogen werden bevor zum Queue posten
         lock (LOCK_QueueBlockArchives)
         {
           IndexBlockArchiveQueue += 1;
@@ -655,16 +635,14 @@ namespace BTokenLib
       Block block,
       int intervalImage)
     {
-      int indexBufferStop;
-
       while (true)
       {
         try
         {
           FileBlockArchive.Write(
-            block.GetBuffer(out indexBufferStop),
+            block.Buffer,
             0,
-            indexBufferStop);
+            block.IndexBufferStop);
 
           FileBlockArchive.Flush();
 
@@ -686,7 +664,7 @@ namespace BTokenLib
         }
       }
 
-      CountBytesArchive += indexBufferStop;
+      CountBytesArchive += block.IndexBufferStop;
 
       if (CountBytesArchive >= SIZE_BLOCK_ARCHIVE_BYTES)
       {

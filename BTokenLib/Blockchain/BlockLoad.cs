@@ -16,13 +16,32 @@ namespace BTokenLib
 
       public bool IsInvalid;
 
+      Token Token;
 
-      public BlockLoad(int index)
+
+      public BlockLoad(Token token)
       {
-        Index = index;
+        Token = token;
       }
 
-      public void InsertBlock(Block block)
+      public void Parse(byte[] buffer)
+      {
+        int startIndex = 0;
+
+        while (startIndex < buffer.Length)
+        {
+          Block block = Token.CreateBlock();
+
+          block.Parse(buffer, ref startIndex);
+
+          InsertBlock(block);
+        }
+
+        CountBytes = buffer.Length;
+        IsInvalid = false;
+      }
+
+      void InsertBlock(Block block)
       {
         if (
           Blocks.Any() &&

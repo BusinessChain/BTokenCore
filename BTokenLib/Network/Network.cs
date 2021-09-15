@@ -381,18 +381,18 @@ namespace BTokenLib
       }
       else if (HeaderRoot != null)
       {
-        if (peer.BlockDownload == null &&
-          !PoolBlockDownload.TryTake(out peer.BlockDownload))
+        if (peer.BlockDownload != null ||
+          PoolBlockDownload.TryTake(out peer.BlockDownload))
+        {
+          peer.BlockDownload.Index = IndexBlockDownload;
+          peer.BlockDownload.Peer = peer;
+        }
+        else
         {
           peer.BlockDownload = new BlockDownload(
             Token,
             IndexBlockDownload,
             peer);
-        }
-        else
-        {
-          peer.BlockDownload.Index = IndexBlockDownload;
-          peer.BlockDownload.Peer = peer;
         }
 
         peer.BlockDownload.LoadHeaders(ref HeaderRoot);

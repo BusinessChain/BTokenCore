@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   public abstract class Block
   {
-    public byte[] Buffer = new byte[0x400000];
+    public byte[] Buffer;
     public int IndexBufferStop;
 
     public Header Header;
@@ -23,16 +23,10 @@ namespace BTokenLib
     }
 
 
-    public abstract Header Parse();
+    public abstract void Parse();
 
-    public abstract Block Parse(
+    public abstract void Parse(
       byte[] buffer,
       ref int startIndex);
-
-    public abstract void Parse(Block block);
-
-    public abstract byte[] GetBuffer(out int indexBufferStop);
-
-    public abstract byte[] GetBuffer();
   }
 }

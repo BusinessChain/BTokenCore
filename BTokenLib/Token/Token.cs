@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 namespace BTokenLib
 {
@@ -33,6 +34,7 @@ namespace BTokenLib
     public abstract void Reset();
 
     public abstract Block CreateBlock();
+    public abstract Block CreateBlock(int sizeBlockBuffer);
 
     public abstract void InsertBlock(
       Block block,
@@ -51,11 +53,10 @@ namespace BTokenLib
       } while (header != null);
     }
 
-    public abstract IParser CreateParser();
-
     public abstract Header ParseHeader(
       byte[] buffer,
-      ref int index);
+      ref int index,
+      SHA256 sHA256);
 
     public abstract string GetName();
 

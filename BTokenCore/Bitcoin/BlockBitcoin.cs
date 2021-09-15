@@ -20,71 +20,54 @@ namespace BTokenCore
     SHA256 SHA256 = SHA256.Create();
 
 
-    public BlockBitcoin(
-      byte[] buffer,
-      int stopIndex,
-      HeaderBitcoin header,
-      List<UTXOTable.TX> tXs) : base(
-        buffer,
-        stopIndex,
-        header)
+    public BlockBitcoin()
+    { }
+
+    public BlockBitcoin(int sizeBuffer)
     {
-      TXs = tXs;
+      Buffer = new byte[sizeBuffer];
     }
 
-
-
-
-    public override byte[] GetBuffer(out int indexBufferStop)
-    {
-      indexBufferStop = IndexBufferStop;
-      return Buffer;
-    }
-
-    public override Header Parse()
+    public override void Parse()
     {
       int bufferIndex = 0;
 
-      Header header = ParseHeader(
+      Header = ParseHeader(
         Buffer,
-        ref bufferIndex);
+        ref bufferIndex,
+        SHA256);
 
       TXs = ParseTXs(
-        header.MerkleRoot,
+        Header.MerkleRoot,
         ref bufferIndex);
 
       IndexBufferStop = bufferIndex;
-
-      return header;
     }
 
-    public Block ParseBlock(
+    public override void Parse(
       byte[] buffer,
-      ref int bufferIndex)
+      ref int startIndex)
     {
       Buffer = buffer;
 
-      HeaderBitcoin header = ParseHeader(
+      Header = ParseHeader(
         Buffer,
-        ref bufferIndex);
+        ref startIndex,
+        SHA256);
 
-      List<UTXOTable.TX> tXs = ParseTXs(
-        header.MerkleRoot,
-        ref bufferIndex);
-
-      return new BlockBitcoin(
-        bufferIndex,
-        header,
-        tXs);
+      TXs = ParseTXs(
+        Header.MerkleRoot,
+        ref startIndex);
     }
 
-    public HeaderBitcoin ParseHeader(
+    public static HeaderBitcoin ParseHeader(
       byte[] buffer,
-      ref int index)
+      ref int index,
+      SHA256 sHA256)
     {
       byte[] hash =
-        SHA256.ComputeHash(
-          SHA256.ComputeHash(
+        sHA256.ComputeHash(
+          sHA256.ComputeHash(
             buffer,
             index,
             COUNT_HEADER_BYTES));

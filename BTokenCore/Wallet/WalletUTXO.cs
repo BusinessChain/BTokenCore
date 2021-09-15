@@ -237,106 +237,106 @@ namespace BTokenCore
         return true;
       }
       
-      public TX CreateAnchorToken(
-        byte[] dataOPReturn)
-      {
-        ulong fee = 28000;
+      //public TX CreateAnchorToken(
+      //  byte[] dataOPReturn)
+      //{
+      //  ulong fee = 28000;
 
-        TXOutputWallet outputSpendable =
-          TXOutputsSpendable.Find(t => t.Value > fee);
+      //  TXOutputWallet outputSpendable =
+      //    TXOutputsSpendable.Find(t => t.Value > fee);
 
-        if (outputSpendable == null)
-        {
-          throw new BitcoinException("No spendable output found.");
-        }
+      //  if (outputSpendable == null)
+      //  {
+      //    throw new BitcoinException("No spendable output found.");
+      //  }
         
-        List<byte> tXRaw = new List<byte>();
+      //  List<byte> tXRaw = new List<byte>();
 
-        byte[] version = { 0x01, 0x00, 0x00, 0x00 };
-        tXRaw.AddRange(version);
+      //  byte[] version = { 0x01, 0x00, 0x00, 0x00 };
+      //  tXRaw.AddRange(version);
 
-        byte countInputs = 1;
-        tXRaw.Add(countInputs);
+      //  byte countInputs = 1;
+      //  tXRaw.Add(countInputs);
 
-        tXRaw.AddRange(outputSpendable.TXID);
+      //  tXRaw.AddRange(outputSpendable.TXID);
 
-        tXRaw.AddRange(BitConverter.GetBytes(
-          outputSpendable.OutputIndex));
+      //  tXRaw.AddRange(BitConverter.GetBytes(
+      //    outputSpendable.OutputIndex));
         
-        int indexScriptSig = tXRaw.Count;
+      //  int indexScriptSig = tXRaw.Count;
 
-        tXRaw.Add(LENGTH_P2PKH);
+      //  tXRaw.Add(LENGTH_P2PKH);
 
-        tXRaw.AddRange(outputSpendable.ScriptPubKey);
+      //  tXRaw.AddRange(outputSpendable.ScriptPubKey);
 
-        byte[] sequence = { 0xFF, 0xFF, 0xFF, 0xFF };
-        tXRaw.AddRange(sequence);
+      //  byte[] sequence = { 0xFF, 0xFF, 0xFF, 0xFF };
+      //  tXRaw.AddRange(sequence);
         
-        byte countOutputs = 2; //(byte)(valueChange == 0 ? 1 : 2);
-        tXRaw.Add(countOutputs);
+      //  byte countOutputs = 2; //(byte)(valueChange == 0 ? 1 : 2);
+      //  tXRaw.Add(countOutputs);
 
-        ulong valueChange = outputSpendable.Value - fee;
-        tXRaw.AddRange(BitConverter.GetBytes(
-          valueChange));
+      //  ulong valueChange = outputSpendable.Value - fee;
+      //  tXRaw.AddRange(BitConverter.GetBytes(
+      //    valueChange));
 
-        tXRaw.Add(LENGTH_P2PKH);
+      //  tXRaw.Add(LENGTH_P2PKH);
 
-        tXRaw.AddRange(PREFIX_P2PKH);
-        tXRaw.AddRange(PublicKeyHash160);
-        tXRaw.AddRange(POSTFIX_P2PKH);
+      //  tXRaw.AddRange(PREFIX_P2PKH);
+      //  tXRaw.AddRange(PublicKeyHash160);
+      //  tXRaw.AddRange(POSTFIX_P2PKH);
 
-        tXRaw.AddRange(BitConverter.GetBytes(
-          (ulong)0));
+      //  tXRaw.AddRange(BitConverter.GetBytes(
+      //    (ulong)0));
 
-        tXRaw.Add((byte)(dataOPReturn.Length + 2));
-        tXRaw.Add(OP_RETURN);
-        tXRaw.Add((byte)dataOPReturn.Length);
-        tXRaw.AddRange(dataOPReturn);
+      //  tXRaw.Add((byte)(dataOPReturn.Length + 2));
+      //  tXRaw.Add(OP_RETURN);
+      //  tXRaw.Add((byte)dataOPReturn.Length);
+      //  tXRaw.AddRange(dataOPReturn);
 
-        var lockTime = new byte[4];
-        tXRaw.AddRange(lockTime);
+      //  var lockTime = new byte[4];
+      //  tXRaw.AddRange(lockTime);
 
-        byte[] sigHashType = { 0x01, 0x00, 0x00, 0x00 };
-        tXRaw.AddRange(sigHashType);
+      //  byte[] sigHashType = { 0x01, 0x00, 0x00, 0x00 };
+      //  tXRaw.AddRange(sigHashType);
         
-        byte[] signature = Crypto.GetSignature(
-        PrivKeyDec,
-        tXRaw.ToArray());
+      //  byte[] signature = Crypto.GetSignature(
+      //  PrivKeyDec,
+      //  tXRaw.ToArray());
 
-        var scriptSig = new List<byte>();
-        scriptSig.Add((byte)(signature.Length + 1));
-        scriptSig.AddRange(signature);
-        scriptSig.Add(0x01);
+      //  var scriptSig = new List<byte>();
+      //  scriptSig.Add((byte)(signature.Length + 1));
+      //  scriptSig.AddRange(signature);
+      //  scriptSig.Add(0x01);
 
-        byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
+      //  byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
         
-        scriptSig.Add((byte)publicKey.Length);
-        scriptSig.AddRange(publicKey);
+      //  scriptSig.Add((byte)publicKey.Length);
+      //  scriptSig.AddRange(publicKey);
 
-        var tXRawPreScriptSig = tXRaw.Take(indexScriptSig);
-        var tXRawPostScriptSig = tXRaw.Skip(indexScriptSig + LENGTH_P2PKH + 1);
+      //  var tXRawPreScriptSig = tXRaw.Take(indexScriptSig);
+      //  var tXRawPostScriptSig = tXRaw.Skip(indexScriptSig + LENGTH_P2PKH + 1);
 
-        tXRaw = tXRawPreScriptSig
-          .Concat(new byte[] { (byte)scriptSig.Count })
-          .Concat(scriptSig)
-          .Concat(tXRawPostScriptSig)
-          .ToList();
+      //  tXRaw = tXRawPreScriptSig
+      //    .Concat(new byte[] { (byte)scriptSig.Count })
+      //    .Concat(scriptSig)
+      //    .Concat(tXRawPostScriptSig)
+      //    .ToList();
 
-        tXRaw.RemoveRange(tXRaw.Count - 4, 4);
+      //  tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
-        var parser = new ParserBitcoin();
-        int indexTXRaw = 0;
-        byte[] tXRawArray = tXRaw.ToArray();
+      //  var parser = new ParserBitcoin();
+      //  int indexTXRaw = 0;
+      //  byte[] tXRawArray = tXRaw.ToArray();
 
-        TX tX = parser.ParseTX(
-          false,
-          tXRawArray,
-          ref indexTXRaw);
+      //  TX tX = parser.ParseTX(
+      //    false,
+      //    tXRawArray,
+      //    ref indexTXRaw);
 
-        tX.TXRaw = tXRawArray;
+      //  tX.TXRaw = tXRawArray;
 
-        return tX;        
-      }
+      //  return tX;        
+      //}
 
     }
   }

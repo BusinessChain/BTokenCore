@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 
 using BTokenLib;
@@ -22,8 +23,6 @@ namespace BTokenCore
 
     UTXOTable UTXOTable;
 
-    UTXOTable.ParserBitcoin Parser = new();
-
 
     public TokenBitcoin(string pathBlockArchive)
     {
@@ -39,18 +38,24 @@ namespace BTokenCore
 
     internal void SendTX()
     {
-      UTXOTable.TX tXAnchorToken =
-        UTXOTable.Wallet.CreateAnchorToken(
-        "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
+      //UTXOTable.TX tXAnchorToken =
+      //  UTXOTable.Wallet.CreateAnchorToken(
+      //  "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
 
-      TXPool.Add(tXAnchorToken);
+      //TXPool.Add(tXAnchorToken);
 
-      Network.AdvertizeToken(tXAnchorToken.Hash);
+      //Network.AdvertizeToken(tXAnchorToken.Hash);
     }
 
-    public override IParser CreateParser()
+
+    public override Block CreateBlock()
     {
-      return new UTXOTable.ParserBitcoin();
+      return new BlockBitcoin();
+    }
+
+    public override Block CreateBlock(int sizeBuffer)
+    {
+      return new BlockBitcoin(sizeBuffer);
     }
 
     public override string GetName()
@@ -145,9 +150,13 @@ namespace BTokenCore
 
     public override Header ParseHeader(
         byte[] buffer,
-        ref int index)
+        ref int index,
+        SHA256 sHA256)
     {
-      return Parser.ParseHeader(buffer, ref index);
+      return BlockBitcoin.ParseHeader(
+        buffer, 
+        ref index,
+        sHA256);
     }
 
     public override void ValidateHeader(

@@ -57,7 +57,6 @@ namespace BTokenLib
       Network Network;
       Blockchain Blockchain;
       Token Token;
-      Token.IParser ParserToken;
 
       public bool IsBusy;
       public bool FlagDispose;
@@ -170,7 +169,6 @@ namespace BTokenLib
         Blockchain = blockchain;
         Token = token;
 
-        ParserToken = token.CreateParser();
         CreateLogFile(name);
 
         State = StateProtocol.IDLE;
@@ -512,7 +510,7 @@ namespace BTokenLib
               block = BlockDownload.GetNextBlockToParse();
 
               await ReadBytes(
-                block.GetBuffer(),
+                block.Buffer,
                 PayloadLength,
                 Cancellation.Token);
 
@@ -641,7 +639,8 @@ namespace BTokenLib
                   {
                     header = Token.ParseHeader(
                       Payload,
-                      ref byteIndex);
+                      ref byteIndex,
+                      SHA256);
 
                     string.Format(
                       "Received unsolicited header {0}",
@@ -687,7 +686,8 @@ namespace BTokenLib
                     {
                       header = Token.ParseHeader(
                         Payload,
-                        ref byteIndex);
+                        ref byteIndex,
+                        SHA256);
 
                       byteIndex += 1;
 

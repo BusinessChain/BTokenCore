@@ -21,7 +21,7 @@ namespace BTokenLib
 
       public Stopwatch StopwatchBlockDownload = new();
 
-      const int COUNT_MAX = 10;
+      const int COUNT_BLOCK_MAX = 10;
 
 
 
@@ -33,9 +33,10 @@ namespace BTokenLib
         Index = index;
         Peer = peer;
 
-        for(int i = 0; i< COUNT_MAX; i += 1)
+        for(int i = 0; i< COUNT_BLOCK_MAX; i += 1)
         {
-          Blocks.Add(token.CreateBlock());
+          Block block = token.CreateBlock(0x400000);
+          Blocks.Add(block);
         }
       }
 
@@ -45,8 +46,8 @@ namespace BTokenLib
           (int)(TIMEOUT_RESPONSE_MILLISECONDS /
           (double)StopwatchBlockDownload.ElapsedMilliseconds);
 
-        countHeadersNew = countHeadersNew > COUNT_MAX ? 
-          COUNT_MAX : countHeadersNew;
+        countHeadersNew = countHeadersNew > COUNT_BLOCK_MAX ? 
+          COUNT_BLOCK_MAX : countHeadersNew;
 
         HeadersExpected.Clear();
 
