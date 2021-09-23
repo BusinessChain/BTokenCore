@@ -358,62 +358,14 @@ namespace BTokenLib
       }
     }
 
-    bool TryChargeBlockDownload(Peer peer)
-    {
-      if(FlagSynchronizationAbort)
-      {
-        return false;
-      }
-
-      // Locken
-
-      if (QueueDownloadsIncomplete.Any())
-      {
-        if(peer.BlockDownload != null)
-        {
-          PoolBlockDownload.Add(peer.BlockDownload);
-        }
-
-        peer.BlockDownload = QueueDownloadsIncomplete.First();
-        QueueDownloadsIncomplete.RemoveAt(0);
-
-        peer.BlockDownload.Peer = peer;
-      }
-      else if (HeaderRoot != null)
-      {
-        if (peer.BlockDownload != null ||
-          PoolBlockDownload.TryTake(out peer.BlockDownload))
-        {
-          peer.BlockDownload.Index = IndexBlockDownload;
-          peer.BlockDownload.Peer = peer;
-        }
-        else
-        {
-          peer.BlockDownload = new BlockDownload(
-            Token,
-            IndexBlockDownload,
-            peer);
-        }
-
-        peer.BlockDownload.LoadHeaders(ref HeaderRoot);
-
-        IndexBlockDownload += 1;
-      }
-      else
-      {
-        return false;
-      }
-
-      return true;
-    }
-
     bool FlagSynchronizationAbort;
-    object LOCK_IndexInsertion = new();
+    object LOCK_InsertBlockDownload = new();
     int IndexInsertion;
     Dictionary<int, BlockDownload> QueueDownloadsInsertion = new();
     List<BlockDownload> QueueDownloadsIncomplete = new();
     Peer PeerSynchronizationMaster;
     Header HeaderRoot;
+
     int IndexBlockDownload;
 
     async Task SynchronizeBlocks(Peer peer)
@@ -499,6 +451,186 @@ namespace BTokenLib
     }
 
 
+    BlockDownload BlockDownloadBlocking;
+    BlockDownload BlockDownloadIndexPrevious;
+
+    bool InsertBlockDownloadFlagContinue(Peer peer)
+    {
+      BlockDownload blockDownload = peer.BlockDownload;
+
+      lock (LOCK_InsertBlockDownload)
+      {
+        if (blockDownload.Index > IndexInsertion)
+        {
+          ($"Add blockDownload {blockDownload.Index} of peer {peer.GetID()} " +
+            "to queue insertion.").Log(LogFile);
+
+          QueueDownloadsInsertion.Add(
+            blockDownload.Index,
+            blockDownload);
+
+          if (true /*QueueDownloadsInsertion.Count > COUNT_PEERS_MAX &&*/)
+          {
+            if (BlockDownloadBlocking == null)
+            {
+              BlockDownloadBlocking = blockDownload.BlockDownloadIndexPrevious;
+              while (BlockDownloadBlocking.Index > IndexInsertion)
+              {
+                BlockDownloadBlocking = BlockDownloadBlocking.BlockDownloadIndexPrevious;
+              }
+            }
+
+            ($"BlockDownload {BlockDownloadBlocking.Index} of peer " +
+              $"{BlockDownloadBlocking.Peer.GetID()} is blocking.").Log(LogFile);
+
+            $"Peer {peer.GetID()} duplilcated blocking blockDownload {BlockDownloadBlocking.Index} (former {blockDownload.Index}).".Log(LogFile);
+
+            if (!PoolBlockDownload.TryTake(out blockDownload))
+            {
+              blockDownload = new BlockDownload(Token);
+            }
+
+            blockDownload.Peer = peer;
+            blockDownload.Index = BlockDownloadBlocking.Index;
+            blockDownload.HeadersExpected = BlockDownloadBlocking.HeadersExpected.ToList();
+            blockDownload.IndexHeadersExpected = 0;
+            blockDownload.BlockDownloadIndexPrevious = BlockDownloadBlocking.BlockDownloadIndexPrevious;
+
+            peer.BlockDownload = blockDownload;
+            return true;
+          }
+          else
+          {
+            blockDownload = null;
+          }
+        }
+        else if (blockDownload.Index == IndexInsertion)
+        {
+          bool flagReturnBlockDownloadToPool = false;
+
+          while (true)
+          {
+            ($"Insert blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
+              $"Blockchain height: {Blockchain.HeaderTip.Height}")
+              .Log(LogFile);
+
+            try
+            {
+              for (int i = 0; i < blockDownload.HeadersExpected.Count; i += 1)
+              {
+                Blockchain.InsertBlock(
+                    blockDownload.Blocks[i],
+                    flagValidateHeader: false);
+
+                Blockchain.ArchiveBlock(
+                    blockDownload.Blocks[i],
+                    UTXOIMAGE_INTERVAL_SYNC);
+              }
+            }
+            catch (Exception ex)
+            {
+              blockDownload.Peer.SetFlagDisposed(
+                $"Insertion of block download {blockDownload.Index} failed:\n" +
+                $"{ex.Message}.");
+
+              FlagSynchronizationAbort = true;
+
+              return false;
+            }
+
+            if (
+              BlockDownloadBlocking != null &&
+              BlockDownloadBlocking.Index == blockDownload.Index)
+            {
+              BlockDownloadBlocking = null;
+
+              ($"BlockDownload {blockDownload.Index} of peer " +
+                $"{blockDownload.Peer.GetID()} released blockade.").Log(LogFile);
+            }
+
+            IndexInsertion += 1;
+
+            if (flagReturnBlockDownloadToPool)
+            {
+              PoolBlockDownload.Add(blockDownload);
+            }
+
+            if (!QueueDownloadsInsertion.TryGetValue(
+              IndexInsertion,
+              out blockDownload))
+            {
+              break;
+            }
+
+            QueueDownloadsInsertion.Remove(IndexInsertion);
+            flagReturnBlockDownloadToPool = true;
+          }
+        }
+      }
+
+      return TryChargeBlockDownload(peer);
+    }
+
+
+    object LOCK_ChargeFromHeaderRoot = new();
+
+    bool TryChargeBlockDownload(Peer peer)
+    {
+      BlockDownload blockDownload = peer.BlockDownload;
+
+      lock(QueueDownloadsIncomplete)
+      {
+        if (QueueDownloadsIncomplete.Any())
+        {
+          if (blockDownload != null)
+          {
+            PoolBlockDownload.Add(blockDownload);
+          }
+
+          blockDownload = QueueDownloadsIncomplete.First();
+          QueueDownloadsIncomplete.RemoveAt(0);
+
+          blockDownload.Peer = peer;
+
+          $"Peer {peer.GetID()} charged blockDownload {blockDownload.Index} from queue incomplete.".Log(LogFile);
+
+          peer.BlockDownload = blockDownload;
+
+          return true;
+        }
+      }
+      
+      lock(LOCK_ChargeFromHeaderRoot)
+      {
+        if (HeaderRoot != null)
+        {
+          if (blockDownload == null &&
+            !PoolBlockDownload.TryTake(out blockDownload))
+          {
+            blockDownload = new BlockDownload(Token);
+          }
+
+          $"Peer {peer.GetID()} charges blockDownload {IndexBlockDownload} (former {blockDownload.Index}) by loading headers.".Log(LogFile);
+
+          blockDownload.Peer = peer;
+          blockDownload.Index = IndexBlockDownload;
+          blockDownload.LoadHeaders(ref HeaderRoot);
+          blockDownload.BlockDownloadIndexPrevious = BlockDownloadIndexPrevious;
+
+          BlockDownloadIndexPrevious = blockDownload;
+
+          IndexBlockDownload += 1;
+
+          peer.BlockDownload = blockDownload;
+
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+
     void ReturnPeerBlockDownloadIncomplete(Peer peer)
     {
       BlockDownload blockDownload = peer.BlockDownload;
@@ -506,88 +638,27 @@ namespace BTokenLib
       peer.BlockDownload = null;
 
       blockDownload.Peer = null;
-      blockDownload.IndexHeaderExpected = 0;
-      blockDownload.IndexNextBlockToParse = 0;
+      blockDownload.IndexHeadersExpected = 0;
 
-      int indexInsertInQueue = QueueDownloadsIncomplete
-        .FindIndex(b => blockDownload.Index < b.Index);
+      lock(QueueDownloadsIncomplete)
+      {
+        int indexInsertInQueue = QueueDownloadsIncomplete
+          .FindIndex(b => blockDownload.Index < b.Index);
 
-      if (indexInsertInQueue == -1)
-      {
-        QueueDownloadsIncomplete.Add(blockDownload);
-      }
-      else
-      {
-        QueueDownloadsIncomplete.Insert(
-          indexInsertInQueue,
-          blockDownload);
-      }
-    }
-
-    void InsertPeerBlockDownload(BlockDownload blockDownload)
-    {
-      lock(LOCK_IndexInsertion)
-      {
-        if (IndexInsertion != blockDownload.Index)
+        if (indexInsertInQueue == -1)
         {
-          ($"Add blockDownload {blockDownload.Index} of peer " +
-            $"{blockDownload.Peer.GetID()} to queue insertion").Log(LogFile);
-
-          QueueDownloadsInsertion.Add(
-            blockDownload.Index,
+          QueueDownloadsIncomplete.Add(blockDownload);
+        }
+        else
+        {
+          QueueDownloadsIncomplete.Insert(
+            indexInsertInQueue,
             blockDownload);
-
-          blockDownload.Peer.BlockDownload = null;
-
-          return;
-        }
-      }
-
-      while (true)
-      {
-        ($"Insert block download {blockDownload.Index}. " +
-          $"Blockchain height: {Blockchain.HeaderTip.Height}")
-          .Log(LogFile);
-
-        blockDownload.GetBlocks().ForEach(b =>
-        {
-          try
-          {
-            Blockchain.InsertBlock(
-                b,
-                flagValidateHeader: false);
-          }
-          catch (Exception ex)
-          {
-            blockDownload.Peer.SetFlagDisposed(
-              $"Insertion of block download {blockDownload.Index} failed:\n" +
-              $"{ex.Message}.");
-
-            FlagSynchronizationAbort = true;
-
-            return;
-          }
-
-          Blockchain.ArchiveBlock(
-              b,
-              UTXOIMAGE_INTERVAL_SYNC);
-        });
-
-        lock(LOCK_IndexInsertion)
-        {
-          IndexInsertion += 1;
-
-          if (!QueueDownloadsInsertion.TryGetValue(
-            IndexInsertion,
-            out blockDownload))
-          {
-            break;
-          }
-
-          QueueDownloadsInsertion.Remove(IndexInsertion);
         }
       }
     }
+
+
 
     bool TryGetPeer(out Peer peer)
     {

@@ -331,8 +331,8 @@ namespace BTokenLib
 
       async Task SendMessage(NetworkMessage message)
       {
-        $"{GetID()} Send message {message.Command}"
-          .Log(LogFile);
+        //$"{GetID()} Send message {message.Command}"
+        //  .Log(LogFile);
 
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
@@ -503,21 +503,21 @@ namespace BTokenLib
                 SIZE_MESSAGE_PAYLOAD_BUFFER));
             }
 
-            Block block = null;
-
             if (Command == "block")
             {
-              block = BlockDownload.GetNextBlockToParse();
+              byte[] buffer = BlockDownload.GetBufferToParse();
 
               await ReadBytes(
-                block.Buffer,
+                buffer,
                 PayloadLength,
                 Cancellation.Token);
 
-              block.Parse();
+              BlockDownload.Parse();
 
               if (IsStateIdle())
               {
+                Block block = BlockDownload.Blocks.First();
+
                 string.Format(
                   "{0}: Receives unsolicited block {1}.",
                   GetID(),
@@ -553,23 +553,21 @@ namespace BTokenLib
               }
               else if (IsStateAwaitingBlockDownload())
               {
-                if (BlockDownload.InsertBlockFlagComplete(block))
+                if (BlockDownload.IsComplete)
                 {
                   string.Format(
-                    "{0}: Downloaded {1} blocks in BlockDownload {2}.",
+                    "{0}: Downloaded {1} blocks in BlockDownload {2}. {3} ... {4}",
                     GetID(),
-                    BlockDownload.GetBlocks().Count,
-                    BlockDownload.Index)
+                    BlockDownload.HeadersExpected.Count,
+                    BlockDownload.Index,
+                    BlockDownload.Blocks[0].Header.Hash.ToHexString(),
+                    BlockDownload.Blocks[BlockDownload.HeadersExpected.Count-1].Header.Hash.ToHexString())
                     .Log(LogFile);
 
                   Cancellation = new CancellationTokenSource();
 
-                  Network.InsertPeerBlockDownload(BlockDownload);
-
-                  if (!Network.TryChargeBlockDownload(this))
+                  if (!Network.InsertBlockDownloadFlagContinue(this))
                   {
-                    "Synchronization ended.".Log(LogFile);
-
                     Release();
                     break;
                   }
@@ -933,6 +931,9 @@ namespace BTokenLib
 
         BlockDownload.StopwatchBlockDownload.Restart();
 
+        $"{GetID()} Send message getBlock {inventories.First().Hash.ToHexString()}...{inventories.Last().Hash.ToHexString()}."
+          .Log(LogFile);
+
         await SendMessage(new GetDataMessage(inventories));
 
         lock (this)
@@ -989,6 +990,8 @@ namespace BTokenLib
           IsBusy = false;
           State = StateProtocol.IDLE;
         }
+
+        $"Release {GetID()}.".Log(LogFile);
       }
 
       public bool IsStateIdle()
