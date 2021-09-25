@@ -19,8 +19,6 @@ namespace BTokenLib
       public int IndexHeadersExpected;
       public List<Block> Blocks = new();
 
-      public bool IsComplete;
-
       public Stopwatch StopwatchBlockDownload = new();
 
       const int COUNT_BLOCK_MAX = 10;
@@ -47,7 +45,6 @@ namespace BTokenLib
 
         HeadersExpected.Clear();
         IndexHeadersExpected = 0;
-        IsComplete = false;
 
         do
         {
@@ -82,17 +79,17 @@ namespace BTokenLib
 
         IndexHeadersExpected += 1;
 
-        if (IndexHeadersExpected == HeadersExpected.Count)
+        if (IsComplete())
         {
-          IsComplete = true;
           StopwatchBlockDownload.Stop();
         }
       }
 
-      public List<Block> GetBlocks()
-      {
-        return Blocks.Take(HeadersExpected.Count).ToList();
-      }
+      public bool IsComplete() => 
+        IndexHeadersExpected == HeadersExpected.Count;
+
+      public List<Block> GetBlocks() =>
+        Blocks.Take(HeadersExpected.Count).ToList();
     }
   }
 }

@@ -62,9 +62,6 @@ namespace BTokenLib
       public bool FlagDispose;
       public bool IsSynchronized;
 
-      const int COUNT_BLOCKS_DOWNLOADBATCH_INIT = 1;
-      public int CountBlocksLoad = COUNT_BLOCKS_DOWNLOADBATCH_INIT;
-
       internal HeaderDownload HeaderDownload = new();
       internal BlockDownload BlockDownload;
 
@@ -124,6 +121,12 @@ namespace BTokenLib
 
       StreamWriter LogFile;
       string PathLogFile;
+
+      public int CountStartBlockDownload;
+      public int CountInsertBlockDownload;
+      public int CountWastedBlockDownload;
+
+      long TimeCreation = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
 
 
@@ -450,8 +453,6 @@ namespace BTokenLib
       }
 
 
-      int CounterHeaders;
-
       async Task SyncToMessage()
       {
         byte[] magicByte = new byte[1];
@@ -492,6 +493,8 @@ namespace BTokenLib
               MeassageHeader.Take(CommandSize)
               .ToArray()).TrimEnd('\0');
 
+            //$"Peer {GetID()} receives message '{Command}'".Log(LogFile);
+
             PayloadLength = BitConverter.ToInt32(
               MeassageHeader,
               CommandSize);
@@ -526,7 +529,7 @@ namespace BTokenLib
 
                 if (!Blockchain.TryLock())
                 {
-                  break;
+                  continue;
                 }
 
                 Console.Beep();
@@ -553,23 +556,23 @@ namespace BTokenLib
               }
               else if (IsStateAwaitingBlockDownload())
               {
-                if (BlockDownload.IsComplete)
+                if (BlockDownload.IsComplete())
                 {
-                  string.Format(
-                    "{0}: Downloaded {1} blocks in BlockDownload {2}. {3} ... {4}",
-                    GetID(),
-                    BlockDownload.HeadersExpected.Count,
-                    BlockDownload.Index,
-                    BlockDownload.Blocks[0].Header.Hash.ToHexString(),
-                    BlockDownload.Blocks[BlockDownload.HeadersExpected.Count-1].Header.Hash.ToHexString())
-                    .Log(LogFile);
+                  //string.Format(
+                  //  "{0}: Downloaded {1} blocks in BlockDownload {2}. {3} ... {4}",
+                  //  GetID(),
+                  //  BlockDownload.HeadersExpected.Count,
+                  //  BlockDownload.Index,
+                  //  BlockDownload.Blocks[0].Header.Hash.ToHexString(),
+                  //  BlockDownload.Blocks[BlockDownload.HeadersExpected.Count-1].Header.Hash.ToHexString())
+                  //  .Log(LogFile);
 
                   Cancellation = new CancellationTokenSource();
 
                   if (!Network.InsertBlockDownloadFlagContinue(this))
                   {
-                    Release();
-                    break;
+                    Release("line 576");
+                    continue;
                   }
 
                   await GetBlock();
@@ -692,21 +695,15 @@ namespace BTokenLib
                       HeaderDownload.InsertHeader(header, Token);
                     }
 
-                    CounterHeaders += countHeaders;
-                    if (CounterHeaders > 10000)
-                    {
-                      Network.SynchronizeBlocks(this);
-                      break;
-                    }
-
                     if (countHeaders == 0)
-                    {
+                    { 
+                      $"Peer {GetID()} is flagged synchronized.".Log(LogFile);
+
                       if (HeaderDownload.HeaderTip == null)
                       {
                         lock (this)
                         {
                           State = StateProtocol.IDLE;
-                          IsSynchronized = true;
                         }
 
                         Blockchain.ReleaseLock();
@@ -719,7 +716,7 @@ namespace BTokenLib
                         if (!await Blockchain.TryFork(
                            HeaderDownload.HeaderLocatorAncestor))
                         {
-                          Release();
+                          Release("line 727");
                         }
                       }
 
@@ -888,7 +885,7 @@ namespace BTokenLib
 
         await SendMessage(invMessage);
 
-        Release();
+        Release("line 896");
       }
          
            
@@ -931,10 +928,9 @@ namespace BTokenLib
 
         BlockDownload.StopwatchBlockDownload.Restart();
 
-        $"{GetID()} Send message getBlock {inventories.First().Hash.ToHexString()}...{inventories.Last().Hash.ToHexString()}."
-          .Log(LogFile);
-
         await SendMessage(new GetDataMessage(inventories));
+
+        CountStartBlockDownload++;
 
         lock (this)
         {
@@ -977,13 +973,14 @@ namespace BTokenLib
             return false;
           }
 
+          IsSynchronized = true;
           IsBusy = true;
           return true;
         }
       }
 
 
-      public void Release()
+      public void Release(string message)
       {
         lock (this)
         {
@@ -991,7 +988,7 @@ namespace BTokenLib
           State = StateProtocol.IDLE;
         }
 
-        $"Release {GetID()}.".Log(LogFile);
+        $"Release {GetID()}: {message}.".Log(LogFile);
       }
 
       public bool IsStateIdle()
@@ -1079,6 +1076,28 @@ namespace BTokenLib
           Path.Combine(
             DirectoryLogPeersDisposed.FullName,
             GetID()));
+      }
+
+      public string GetStatus()
+      {
+        lock(this)
+        {
+          long lifeTime =
+           DateTimeOffset.UtcNow.ToUnixTimeSeconds() - TimeCreation;
+
+          return
+            "\n Status Network:\n" +
+            $"Peer: {GetID()}\n" +
+            $"lifeTime: {lifeTime}\n" +
+            $"IsBusy: {IsBusy}\n" +
+            $"State: {State}\n" +
+            $"FlagDispose: {FlagDispose}\n" +
+            $"Connection: {Connection}\n" +
+            $"CountStartBlockDownload: {CountStartBlockDownload}\n" +
+            $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
+            $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
+            $"IsSynchronized: {IsSynchronized}\n";
+        }
       }
     }
   }

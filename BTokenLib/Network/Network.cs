@@ -389,7 +389,6 @@ namespace BTokenLib
           {
             "Synchronization ended.".Log(LogFile);
 
-            peer.Release();
             break;
           }
 
@@ -428,7 +427,7 @@ namespace BTokenLib
       lock (LOCK_Peers)
       {
         Peers.Where(p => p.IsStateIdle() && p.IsBusy) 
-          .ToList().ForEach(p => p.Release());
+          .ToList().ForEach(p => p.Release("line 431"));
       }
 
       while (true)
@@ -462,14 +461,11 @@ namespace BTokenLib
       {
         if (blockDownload.Index > IndexInsertion)
         {
-          ($"Add blockDownload {blockDownload.Index} of peer {peer.GetID()} " +
-            "to queue insertion.").Log(LogFile);
-
           QueueDownloadsInsertion.Add(
             blockDownload.Index,
             blockDownload);
 
-          if (true /*QueueDownloadsInsertion.Count > COUNT_PEERS_MAX &&*/)
+          if (QueueDownloadsInsertion.Count > 2*COUNT_PEERS_MAX)
           {
             if (BlockDownloadBlocking == null)
             {
@@ -479,11 +475,6 @@ namespace BTokenLib
                 BlockDownloadBlocking = BlockDownloadBlocking.BlockDownloadIndexPrevious;
               }
             }
-
-            ($"BlockDownload {BlockDownloadBlocking.Index} of peer " +
-              $"{BlockDownloadBlocking.Peer.GetID()} is blocking.").Log(LogFile);
-
-            $"Peer {peer.GetID()} duplilcated blocking blockDownload {BlockDownloadBlocking.Index} (former {blockDownload.Index}).".Log(LogFile);
 
             if (!PoolBlockDownload.TryTake(out blockDownload))
             {
@@ -501,7 +492,7 @@ namespace BTokenLib
           }
           else
           {
-            blockDownload = null;
+            peer.BlockDownload = null;
           }
         }
         else if (blockDownload.Index == IndexInsertion)
@@ -513,6 +504,8 @@ namespace BTokenLib
             ($"Insert blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
               $"Blockchain height: {Blockchain.HeaderTip.Height}")
               .Log(LogFile);
+
+            blockDownload.Peer.CountInsertBlockDownload++;
 
             try
             {
@@ -543,9 +536,6 @@ namespace BTokenLib
               BlockDownloadBlocking.Index == blockDownload.Index)
             {
               BlockDownloadBlocking = null;
-
-              ($"BlockDownload {blockDownload.Index} of peer " +
-                $"{blockDownload.Peer.GetID()} released blockade.").Log(LogFile);
             }
 
             IndexInsertion += 1;
@@ -565,6 +555,10 @@ namespace BTokenLib
             QueueDownloadsInsertion.Remove(IndexInsertion);
             flagReturnBlockDownloadToPool = true;
           }
+        }
+        else
+        {
+          peer.CountWastedBlockDownload++;
         }
       }
 
@@ -592,8 +586,6 @@ namespace BTokenLib
 
           blockDownload.Peer = peer;
 
-          $"Peer {peer.GetID()} charged blockDownload {blockDownload.Index} from queue incomplete.".Log(LogFile);
-
           peer.BlockDownload = blockDownload;
 
           return true;
@@ -609,8 +601,6 @@ namespace BTokenLib
           {
             blockDownload = new BlockDownload(Token);
           }
-
-          $"Peer {peer.GetID()} charges blockDownload {IndexBlockDownload} (former {blockDownload.Index}) by loading headers.".Log(LogFile);
 
           blockDownload.Peer = peer;
           blockDownload.Index = IndexBlockDownload;
@@ -633,6 +623,14 @@ namespace BTokenLib
 
     void ReturnPeerBlockDownloadIncomplete(Peer peer)
     {
+      lock (LOCK_InsertBlockDownload)
+      {
+        if (BlockDownloadBlocking == peer.BlockDownload)
+        {
+          return;
+        }
+      }
+
       BlockDownload blockDownload = peer.BlockDownload;
 
       peer.BlockDownload = null;
@@ -719,8 +717,7 @@ namespace BTokenLib
 
 
     const int PEERS_COUNT_INBOUND = 8;
-    TcpListener TcpListener =
-      new TcpListener(IPAddress.Any, Port);
+    TcpListener TcpListener = new(IPAddress.Any, Port);
 
     async Task StartPeerInboundListener()
     {
@@ -763,6 +760,18 @@ namespace BTokenLib
           Peers.Add(peer);
         }
       }
+    }
+
+    public string GetStatus()
+    {
+      string statusNetwork = "\n Status Network:\n";
+      
+      lock(LOCK_Peers)
+      {
+        Peers.ForEach(p => { statusNetwork += p.GetStatus(); });
+      }
+
+      return statusNetwork;
     }
   }
 }

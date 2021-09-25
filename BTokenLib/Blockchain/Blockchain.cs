@@ -42,9 +42,9 @@ namespace BTokenLib
     public int IndexBlockArchive;
 
     byte[] HashRootFork;
-    public const int COUNT_LOADER_TASKS = 1;
+    public const int COUNT_LOADER_TASKS = 4;
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-    const int UTXOIMAGE_INTERVAL_LOADER = 50;
+    const int UTXOIMAGE_INTERVAL_LOADER = 100;
 
     int IndexBlockArchiveQueue;
 
@@ -85,15 +85,12 @@ namespace BTokenLib
       var ageBlock = TimeSpan.FromSeconds(
         DateTimeOffset.UtcNow.ToUnixTimeSeconds() - HeaderTip.UnixTimeSeconds);
 
-      return string.Format(
-        "Height: {0}\n" +
-        "Block tip: {1}\n" +
-        "Timestamp: {2}\n" +
-        "Age: {3}\n",
-        HeaderTip.Height,
-        HeaderTip.Hash.ToHexString(),
-        DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds),
-        ageBlock);
+      return 
+        "\n Status Blockchain:\n" +
+        $"Height: {HeaderTip.Height}\n" +
+        $"Block tip: {HeaderTip.Hash.ToHexString()}\n" +
+        $"Timestamp: {DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds)}\n" +
+        $"Age: {ageBlock}\n";
     }
 
     public async Task LoadImage()
