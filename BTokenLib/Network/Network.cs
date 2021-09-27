@@ -17,18 +17,22 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int UTXOIMAGE_INTERVAL_SYNC = 200;
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
     StreamWriter LogFile;
 
     const UInt16 Port = 8333;
 
-    const int COUNT_PEERS_MAX = 8;
+    int CountPeersMax = 8;
 
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
     ConcurrentBag<BlockDownload> PoolBlockDownload = new();
+
+    const int IntervalTimeMIN = 2;
+    Dictionary<long, long> BytesDownloadedInterval = new();
+    Dictionary<long, long> BytesDownloadedIntervalWasted = new();
 
     object LOCK_HeadersReceivedUnsolicited = new();
     public List<Header> HeadersReceivedUnsolicited = new();
@@ -93,7 +97,7 @@ namespace BTokenLib
             p.Dispose();
           });
 
-          countPeersCreate = COUNT_PEERS_MAX - Peers.Count;
+          countPeersCreate = CountPeersMax - Peers.Count;
         }
 
         if (countPeersCreate > 0)
@@ -221,31 +225,24 @@ namespace BTokenLib
 
     public void AddPeer()
     {
-      List<IPAddress> iPAddresses = RetrieveIPAddresses(1);
-
-      if(iPAddresses.Count < 1)
-      {
-        throw new ProtocolException(
-          "No IP address could be retrieved.");
-      }
-
-      CreatePeer(iPAddresses[0]);
+      CountPeersMax++;
     }
 
     public void RemovePeer(string iPAddress)
     {
       lock (LOCK_Peers)
       {
-        Peer peerRemove =
-          Peers.Find(p => p.GetID() == iPAddress);
+        Peer peerRemove = Peers.
+          Find(p => p.GetID() == iPAddress);
 
         if(peerRemove != null)
         {
-          Peers.Remove(peerRemove);
-          peerRemove.Dispose();
+          CountPeersMax--;
+          peerRemove.SetFlagDisposed("Manually removed peer.");
         }
       }
     }
+    
 
 
     List<IPAddress> AddressPool = new();
@@ -465,7 +462,7 @@ namespace BTokenLib
             blockDownload.Index,
             blockDownload);
 
-          if (QueueDownloadsInsertion.Count > 2 * COUNT_PEERS_MAX)
+          if (QueueDownloadsInsertion.Count > 3 * CountPeersMax)
           {
             if (BlockDownloadBlocking == null)
             {
@@ -561,13 +558,11 @@ namespace BTokenLib
         else
         {
           peer.CountWastedBlockDownload++;
-          peer.UpdateRateDownloadWastedInterval();
         }
       }
 
       return TryChargeBlockDownload(peer);
     }
-
 
     object LOCK_ChargeFromHeaderRoot = new();
 
@@ -766,26 +761,21 @@ namespace BTokenLib
       }
     }
 
-    int GetRateDownloadKBytesPerSEC()
-    {
-      return Peers.Sum(p =>
-      p.RateDownloadKBytesPerSEC - 
-      p.RateDownloadWastedKBytesPerSEC);
-    }
-
     public string GetStatus()
     {
       string statusPeers = "";
+      int countPeers;
       
       lock(LOCK_Peers)
       {
         Peers.ForEach(p => { statusPeers += p.GetStatus(); });
+        countPeers = Peers.Count;
       }
 
       return
         "\n\n Status Network:\n" +
         statusPeers +
-        $"Total Download rate:{GetRateDownloadKBytesPerSEC()}\n\n";
+        $"\n\nCount peers: {countPeers}\n";
     }
   }
 }

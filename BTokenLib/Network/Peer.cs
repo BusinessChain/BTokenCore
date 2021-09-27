@@ -127,12 +127,6 @@ namespace BTokenLib
       public int CountWastedBlockDownload;
       public int CountBlockingBlockDownload;
 
-      int IntervalTimeMIN = 3;
-      Dictionary<long,int> BytesDownloadedInterval = new();
-      public int RateDownloadKBytesPerSEC;
-      Dictionary<long, int> BytesWastedInterval = new();
-      public int RateDownloadWastedKBytesPerSEC;
-
       long TimeCreation = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
 
@@ -564,10 +558,6 @@ namespace BTokenLib
               {
                 if (BlockDownload.IsComplete())
                 {
-                  RateDownloadKBytesPerSEC =
-                    UpdateRateDownloadKiloBytesPerSEC(
-                      BytesDownloadedInterval);
-
                   Cancellation = new CancellationTokenSource();
 
                   if (!Network.InsertBlockDownloadFlagContinue(this))
@@ -580,8 +570,7 @@ namespace BTokenLib
                 }
                 else
                 {
-                  Cancellation.CancelAfter(
-                    TIMEOUT_RESPONSE_MILLISECONDS);
+                  Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
                 }
               }
             }
@@ -826,32 +815,6 @@ namespace BTokenLib
             Network.ReturnPeerBlockDownloadIncomplete(this);
           }
         }
-      }
-
-
-      public void UpdateRateDownloadWastedInterval()
-      {
-        RateDownloadWastedKBytesPerSEC = 
-          UpdateRateDownloadKiloBytesPerSEC(
-            BytesWastedInterval);
-      }
-
-      int UpdateRateDownloadKiloBytesPerSEC(
-        Dictionary<long, int> vector)
-      {
-        vector.Keys
-          .Where(k => 
-          {
-            return k < BlockDownload.TimeBlockDownloadCompletion -
-            IntervalTimeMIN * 60000;
-          }).ToList().
-          ForEach(k => vector.Remove(k));
-
-        vector.Add(
-          BlockDownload.TimeBlockDownloadCompletion,
-          BlockDownload.CountBytes);
-
-        return vector.Values.Sum() / (IntervalTimeMIN * 60000);
       }
 
 
@@ -1110,8 +1073,7 @@ namespace BTokenLib
            DateTimeOffset.UtcNow.ToUnixTimeSeconds() - TimeCreation;
 
           return
-            "\n Status Network:\n" +
-            $"Peer: {GetID()}\n" +
+            $"\n Status peer {GetID()}:\n" +
             $"lifeTime: {lifeTime}\n" +
             $"IsBusy: {IsBusy}\n" +
             $"State: {State}\n" +
@@ -1121,8 +1083,6 @@ namespace BTokenLib
             $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
             $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
             $"CountBlockingBlockDownload: {CountWastedBlockDownload}\n" +
-            $"RateDownloadLast10MINinKiloBytesPerSEC: {RateDownloadKBytesPerSEC}\n" +
-            $"RateDownloadWastedLast10MINinKiloBytesPerSEC: {RateDownloadWastedKBytesPerSEC}\n" +
             $"IsSynchronized: {IsSynchronized}\n";
         }
       }
