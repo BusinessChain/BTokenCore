@@ -21,6 +21,10 @@ namespace BTokenLib
 
       public Stopwatch StopwatchBlockDownload = new();
 
+      public long TimeBlockDownloadCompletion;
+
+      public int CountBytes;
+
       const int COUNT_BLOCK_MAX = 10;
 
 
@@ -45,6 +49,7 @@ namespace BTokenLib
 
         HeadersExpected.Clear();
         IndexHeadersExpected = 0;
+        CountBytes = 0;
 
         do
         {
@@ -78,9 +83,11 @@ namespace BTokenLib
         }
 
         IndexHeadersExpected += 1;
+        CountBytes += block.IndexBufferStop;
 
         if (IsComplete())
         {
+          TimeBlockDownloadCompletion = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
           StopwatchBlockDownload.Stop();
         }
       }

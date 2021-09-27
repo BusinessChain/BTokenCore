@@ -16,7 +16,7 @@ namespace BTokenLib
     Token Token;
     Blockchain Blockchain;
 
-    const int UTXOIMAGE_INTERVAL_SYNC = 300;
+    const int UTXOIMAGE_INTERVAL_SYNC = 200;
 
     StreamWriter LogFile;
 
@@ -465,7 +465,7 @@ namespace BTokenLib
             blockDownload.Index,
             blockDownload);
 
-          if (QueueDownloadsInsertion.Count > 2*COUNT_PEERS_MAX)
+          if (QueueDownloadsInsertion.Count > 2 * COUNT_PEERS_MAX)
           {
             if (BlockDownloadBlocking == null)
             {
@@ -474,6 +474,8 @@ namespace BTokenLib
               {
                 BlockDownloadBlocking = BlockDownloadBlocking.BlockDownloadIndexPrevious;
               }
+
+              BlockDownloadBlocking.Peer.CountBlockingBlockDownload++;
             }
 
             if (!PoolBlockDownload.TryTake(out blockDownload))
@@ -559,6 +561,7 @@ namespace BTokenLib
         else
         {
           peer.CountWastedBlockDownload++;
+          peer.UpdateRateDownloadWastedInterval();
         }
       }
 
@@ -637,6 +640,7 @@ namespace BTokenLib
 
       blockDownload.Peer = null;
       blockDownload.IndexHeadersExpected = 0;
+      blockDownload.CountBytes = 0;
 
       lock(QueueDownloadsIncomplete)
       {
@@ -762,16 +766,26 @@ namespace BTokenLib
       }
     }
 
+    int GetRateDownloadKBytesPerSEC()
+    {
+      return Peers.Sum(p =>
+      p.RateDownloadKBytesPerSEC - 
+      p.RateDownloadWastedKBytesPerSEC);
+    }
+
     public string GetStatus()
     {
-      string statusNetwork = "\n Status Network:\n";
+      string statusPeers = "";
       
       lock(LOCK_Peers)
       {
-        Peers.ForEach(p => { statusNetwork += p.GetStatus(); });
+        Peers.ForEach(p => { statusPeers += p.GetStatus(); });
       }
 
-      return statusNetwork;
+      return
+        "\n\n Status Network:\n" +
+        statusPeers +
+        $"Total Download rate:{GetRateDownloadKBytesPerSEC()}\n\n";
     }
   }
 }

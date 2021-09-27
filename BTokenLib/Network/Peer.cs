@@ -125,6 +125,13 @@ namespace BTokenLib
       public int CountStartBlockDownload;
       public int CountInsertBlockDownload;
       public int CountWastedBlockDownload;
+      public int CountBlockingBlockDownload;
+
+      int IntervalTimeMIN = 3;
+      Dictionary<long,int> BytesDownloadedInterval = new();
+      public int RateDownloadKBytesPerSEC;
+      Dictionary<long, int> BytesWastedInterval = new();
+      public int RateDownloadWastedKBytesPerSEC;
 
       long TimeCreation = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
@@ -471,6 +478,7 @@ namespace BTokenLib
         }
       }
 
+
       public async Task StartMessageListener()
       {
         try
@@ -492,8 +500,6 @@ namespace BTokenLib
             Command = Encoding.ASCII.GetString(
               MeassageHeader.Take(CommandSize)
               .ToArray()).TrimEnd('\0');
-
-            //$"Peer {GetID()} receives message '{Command}'".Log(LogFile);
 
             PayloadLength = BitConverter.ToInt32(
               MeassageHeader,
@@ -558,14 +564,9 @@ namespace BTokenLib
               {
                 if (BlockDownload.IsComplete())
                 {
-                  //string.Format(
-                  //  "{0}: Downloaded {1} blocks in BlockDownload {2}. {3} ... {4}",
-                  //  GetID(),
-                  //  BlockDownload.HeadersExpected.Count,
-                  //  BlockDownload.Index,
-                  //  BlockDownload.Blocks[0].Header.Hash.ToHexString(),
-                  //  BlockDownload.Blocks[BlockDownload.HeadersExpected.Count-1].Header.Hash.ToHexString())
-                  //  .Log(LogFile);
+                  RateDownloadKBytesPerSEC =
+                    UpdateRateDownloadKiloBytesPerSEC(
+                      BytesDownloadedInterval);
 
                   Cancellation = new CancellationTokenSource();
 
@@ -697,8 +698,6 @@ namespace BTokenLib
 
                     if (countHeaders == 0)
                     { 
-                      $"Peer {GetID()} is flagged synchronized.".Log(LogFile);
-
                       if (HeaderDownload.HeaderTip == null)
                       {
                         lock (this)
@@ -830,7 +829,32 @@ namespace BTokenLib
       }
 
 
-      
+      public void UpdateRateDownloadWastedInterval()
+      {
+        RateDownloadWastedKBytesPerSEC = 
+          UpdateRateDownloadKiloBytesPerSEC(
+            BytesWastedInterval);
+      }
+
+      int UpdateRateDownloadKiloBytesPerSEC(
+        Dictionary<long, int> vector)
+      {
+        vector.Keys
+          .Where(k => 
+          {
+            return k < BlockDownload.TimeBlockDownloadCompletion -
+            IntervalTimeMIN * 60000;
+          }).ToList().
+          ForEach(k => vector.Remove(k));
+
+        vector.Add(
+          BlockDownload.TimeBlockDownloadCompletion,
+          BlockDownload.CountBytes);
+
+        return vector.Values.Sum() / (IntervalTimeMIN * 60000);
+      }
+
+
       internal Header HeaderDuplicateReceivedLast;
       internal int CountOrphanReceived;
 
@@ -1096,6 +1120,9 @@ namespace BTokenLib
             $"CountStartBlockDownload: {CountStartBlockDownload}\n" +
             $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
             $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
+            $"CountBlockingBlockDownload: {CountWastedBlockDownload}\n" +
+            $"RateDownloadLast10MINinKiloBytesPerSEC: {RateDownloadKBytesPerSEC}\n" +
+            $"RateDownloadWastedLast10MINinKiloBytesPerSEC: {RateDownloadWastedKBytesPerSEC}\n" +
             $"IsSynchronized: {IsSynchronized}\n";
         }
       }
