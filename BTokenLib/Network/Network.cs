@@ -425,8 +425,9 @@ namespace BTokenLib
 
       lock (LOCK_Peers)
       {
-        Peers.Where(p => p.IsStateIdle() && p.IsBusy) 
-          .ToList().ForEach(p => p.Release());
+        Peers
+          .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
+          .ForEach(p => p.Release());
       }
 
       while (true)
@@ -502,10 +503,6 @@ namespace BTokenLib
 
           while (true)
           {
-            ($"Insert blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
-              $"Blockchain height: {Blockchain.HeaderTip.Height}")
-              .Log(LogFile);
-
             blockDownload.Peer.CountInsertBlockDownload++;
 
             try
@@ -520,6 +517,10 @@ namespace BTokenLib
                     blockDownload.Blocks[i],
                     UTXOIMAGE_INTERVAL_SYNC);
               }
+
+            ($"Inserted blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
+              $"Blockchain height: {Blockchain.HeaderTip.Height}")
+              .Log(LogFile);
             }
             catch (Exception ex)
             {
