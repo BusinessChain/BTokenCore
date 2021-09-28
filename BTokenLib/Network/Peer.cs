@@ -525,7 +525,7 @@ namespace BTokenLib
 
                   if (!Network.InsertBlockDownloadFlagContinue(this))
                   {
-                    Release("line 576");
+                    Release();
                     continue;
                   }
 
@@ -652,10 +652,7 @@ namespace BTokenLib
 
                       if (HeaderDownload.HeaderTip == null)
                       {
-                        lock (this)
-                        {
-                          State = StateProtocol.IDLE;
-                        }
+                        Release();
 
                         Blockchain.ReleaseLock();
 
@@ -667,7 +664,7 @@ namespace BTokenLib
                         if (!await Blockchain.TryFork(
                            HeaderDownload.HeaderLocatorAncestor))
                         {
-                          Release("line 727");
+                          Release();
                         }
                       }
 
@@ -837,7 +834,7 @@ namespace BTokenLib
 
         await SendMessage(invMessage);
 
-        Release("line 896");
+        Release();
       }
          
            
@@ -932,15 +929,13 @@ namespace BTokenLib
       }
 
 
-      public void Release(string message)
+      public void Release()
       {
         lock (this)
         {
           IsBusy = false;
           State = StateProtocol.IDLE;
         }
-
-        $"Release {GetID()}: {message}.".Log(LogFile);
       }
 
       public bool IsStateIdle()

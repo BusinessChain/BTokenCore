@@ -426,7 +426,7 @@ namespace BTokenLib
       lock (LOCK_Peers)
       {
         Peers.Where(p => p.IsStateIdle() && p.IsBusy) 
-          .ToList().ForEach(p => p.Release("line 431"));
+          .ToList().ForEach(p => p.Release());
       }
 
       while (true)

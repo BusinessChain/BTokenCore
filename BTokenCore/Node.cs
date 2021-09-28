@@ -48,6 +48,10 @@ namespace BTokenCore
             Console.WriteLine(TokenBitcoin.GetStatus());
             break;
 
+          case "statusNet":
+            Console.WriteLine(TokenBitcoin.Network.GetStatus());
+            break;
+
           case "sendtoken":
             TokenBitcoin.SendTX();
             break;
