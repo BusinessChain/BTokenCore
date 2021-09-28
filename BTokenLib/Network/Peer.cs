@@ -508,54 +508,17 @@ namespace BTokenLib
 
             if (Command == "block")
             {
-              byte[] buffer = BlockDownload.GetBufferToParse();
-
-              await ReadBytes(
-                buffer,
-                PayloadLength,
-                Cancellation.Token);
-
-              BlockDownload.Parse();
-
-              if (IsStateIdle())
+              if (IsStateAwaitingBlockDownload())
               {
-                Block block = BlockDownload.Blocks.First();
+                byte[] buffer = BlockDownload.GetBufferToParse();
 
-                string.Format(
-                  "{0}: Receives unsolicited block {1}.",
-                  GetID(),
-                  block.Header.Hash.ToHexString())
-                  .Log(LogFile);
+                await ReadBytes(
+                  buffer,
+                  PayloadLength,
+                  Cancellation.Token);
 
-                if (!Blockchain.TryLock())
-                {
-                  continue;
-                }
+                BlockDownload.Parse();
 
-                Console.Beep();
-
-                try
-                {
-                  if (block.Header.HashPrevious.IsEqual(
-                    Blockchain.HeaderTip.Hash))
-                  {
-                    Blockchain.InsertBlock(
-                       block,
-                       flagValidateHeader: true);
-                  }
-                  else
-                  {
-                    ProcessHeaderUnsolicited(block.Header);
-                  }
-                }
-                finally
-                {
-                  Blockchain.ReleaseLock();
-                  Network.ClearHeaderUnsolicitedDuplicates();
-                }
-              }
-              else if (IsStateAwaitingBlockDownload())
-              {
                 if (BlockDownload.IsComplete())
                 {
                   Cancellation = new CancellationTokenSource();
@@ -650,13 +613,11 @@ namespace BTokenLib
 
                     try
                     {
-                      if (header.HashPrevious.IsEqual(
-                        Blockchain.HeaderTip.Hash))
+                      if (header.HashPrevious.IsEqual(Blockchain.HeaderTip.Hash))
                       {
-                        await SendMessage(new GetDataMessage(
-                          new Inventory(
-                            InventoryType.MSG_BLOCK,
-                            header.Hash)));
+                        Network.SynchronizeBlocks(
+                          this, 
+                          header);
                       }
                       else
                       {
@@ -686,7 +647,9 @@ namespace BTokenLib
                     }
 
                     if (countHeaders == 0)
-                    { 
+                    {
+                      Cancellation = new CancellationTokenSource();
+
                       if (HeaderDownload.HeaderTip == null)
                       {
                         lock (this)
@@ -708,7 +671,9 @@ namespace BTokenLib
                         }
                       }
 
-                      Network.SynchronizeBlocks(this);
+                      Network.SynchronizeBlocks(
+                        this, 
+                        HeaderDownload.HeaderRoot);
                     }
                     else
                     {

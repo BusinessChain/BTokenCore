@@ -365,7 +365,9 @@ namespace BTokenLib
 
     int IndexBlockDownload;
 
-    async Task SynchronizeBlocks(Peer peer)
+    async Task SynchronizeBlocks(
+      Peer peer, 
+      Header headerRoot)
     {
       PeerSynchronizationMaster = peer;
       FlagSynchronizationAbort = false;
@@ -374,7 +376,7 @@ namespace BTokenLib
       QueueDownloadsIncomplete.Clear();
 
       IndexBlockDownload = 0;
-      HeaderRoot = peer.HeaderDownload.HeaderRoot;
+      HeaderRoot = headerRoot;
 
       while (true)
       {
