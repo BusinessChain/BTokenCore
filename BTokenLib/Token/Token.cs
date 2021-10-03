@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Diagnostics;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
@@ -12,7 +13,16 @@ namespace BTokenLib
     public Network Network;
     public Blockchain Blockchain;
 
-    //protected Miner Miner;
+    public Miner Miner;
+
+
+    public Token(string pathBlockArchive)
+    {
+      Blockchain = new Blockchain(this, pathBlockArchive);
+      Network = new Network(this, Blockchain);
+
+      Miner = new Miner(Blockchain, Network);
+    }
 
 
     public async Task Start()
@@ -22,9 +32,72 @@ namespace BTokenLib
 
       Console.WriteLine("Start network.");
       Network.Start();
-
-      //Miner.Start();
     }
+
+    CancellationTokenSource CancellationMiner = new();
+
+    public async Task StartMiner()
+    {
+    StartMiner:
+
+      while (!Blockchain.TryLock())
+      {
+        await Task.Delay(1000).ConfigureAwait(false);
+      }
+
+      Header headerNew = CreateHeaderNew(
+        Blockchain.HeaderTip);
+
+      Blockchain.ReleaseLock();
+
+      Block blockNew;
+
+      try
+      {
+        blockNew = await MineBlockNew(
+          headerNew,
+          CancellationMiner.Token);
+      }
+      catch(TaskCanceledException)
+      {
+        // maybe return TXs to pool?
+
+        CancellationMiner = new();
+        goto StartMiner;
+      }
+
+      while (!Blockchain.TryLock())
+      {
+        await Task.Delay(200).ConfigureAwait(false);
+      }
+
+      try
+      {
+        Blockchain.InsertBlock(
+          blockNew,
+          flagValidateHeader: true);
+      }
+      catch(Exception ex)
+      {
+        Debug.WriteLine(
+          $"{ex.GetType().Name} when inserting " +
+          $"mined block {blockNew.Header.Hash.ToHexString()}");
+      }
+
+      Blockchain.ReleaseLock();
+    }
+
+    public void UpdateMiner(Header header)
+    {
+
+    }
+
+    // Bei PoW wenn Hash gefunden,
+    // bei dPoW wenn bestätigt in der Carrier chain.
+    public abstract Task<Block> MineBlockNew(
+      Header header,
+      CancellationToken cancellationToken);
+    public abstract Header CreateHeaderNew(Header header);
 
     public abstract Header CreateHeaderGenesis();
     public abstract Dictionary<int, byte[]> GetCheckpoints();
