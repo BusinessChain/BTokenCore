@@ -52,6 +52,10 @@ namespace BTokenCore
             Console.WriteLine(TokenBitcoin.Network.GetStatus());
             break;
 
+          case "startMiner":
+            TokenBitcoin.StartMiner();
+            break;
+
           case "sendtoken":
             TokenBitcoin.SendTX();
             break;

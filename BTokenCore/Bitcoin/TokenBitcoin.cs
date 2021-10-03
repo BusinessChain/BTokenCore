@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
@@ -24,14 +25,10 @@ namespace BTokenCore
     UTXOTable UTXOTable;
 
 
-    public TokenBitcoin(string pathBlockArchive)
+    public TokenBitcoin(string pathBlockArchive) 
+      : base(pathBlockArchive)
     {
       UTXOTable = new UTXOTable(GetGenesisBlockBytes());
-
-      Blockchain = new Blockchain(this, pathBlockArchive);
-      Network = new Network(this, Blockchain);
-
-      //Miner = new Miner(this);
     }
 
     List<UTXOTable.TX> TXPool = new();
@@ -77,6 +74,18 @@ namespace BTokenCore
 
       tXRaw = tX.TXRaw;
       return true;
+    }
+
+
+    public override Task<Block> MineBlockNew(
+      Header header,
+      CancellationToken cancellationToken)
+    {
+      return null;
+    }
+    public override Header CreateHeaderNew(Header header)
+    {
+      return null;
     }
 
     public override Header CreateHeaderGenesis()

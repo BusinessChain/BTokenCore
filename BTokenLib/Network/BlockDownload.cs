@@ -60,9 +60,14 @@ namespace BTokenLib
         && headerLoad != null);
       }
 
-      public byte[] GetBufferToParse()
+      public Block GetBlockToParse()
       {
-        return Blocks[IndexHeadersExpected].Buffer;
+        if(IsComplete())
+        {
+          IndexHeadersExpected = 0;
+        }
+
+        return Blocks[IndexHeadersExpected];
       }
 
       public void Parse()
@@ -94,9 +99,6 @@ namespace BTokenLib
 
       public bool IsComplete() => 
         IndexHeadersExpected == HeadersExpected.Count;
-
-      public List<Block> GetBlocks() =>
-        Blocks.Take(HeadersExpected.Count).ToList();
     }
   }
 }

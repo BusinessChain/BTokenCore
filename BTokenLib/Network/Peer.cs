@@ -210,13 +210,19 @@ namespace BTokenLib
 
         TcpClient = new TcpClient();
 
+        Cancellation =
+          new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
         await TcpClient.ConnectAsync(
           IPAddress,
-          port).ConfigureAwait(false);
+          port,
+          Cancellation.Token).ConfigureAwait(false);
 
         NetworkStream = TcpClient.GetStream();
 
         await HandshakeAsync(port);
+
+        Cancellation = new();
 
         $"Network protocol handshake {GetID()}"
           .Log(LogFile);
@@ -246,16 +252,12 @@ namespace BTokenLib
 
         await SendMessage(versionMessage);
 
-        CancellationToken cancellationToken =
-          new CancellationTokenSource(TimeSpan.FromSeconds(5))
-          .Token;
-
         bool verAckReceived = false;
         bool versionReceived = false;
 
         while (!verAckReceived || !versionReceived)
         {
-          await ReadMessage(cancellationToken);
+          await ReadMessage();
 
           switch (Command)
           {
@@ -368,8 +370,7 @@ namespace BTokenLib
         return hash.Take(ChecksumSize).ToArray();
       }
 
-      async Task ReadMessage(
-        CancellationToken cancellationToken)
+      async Task ReadMessage()
       {
         byte[] magicByte = new byte[1];
 
@@ -377,8 +378,7 @@ namespace BTokenLib
         {
           await ReadBytes(
            magicByte,
-           1,
-           cancellationToken);
+           1);
 
           if (MagicBytes[i] != magicByte[0])
           {
@@ -388,8 +388,7 @@ namespace BTokenLib
 
         await ReadBytes(
           MeassageHeader,
-          MeassageHeader.Length,
-          cancellationToken);
+          MeassageHeader.Length);
 
         Command = Encoding.ASCII.GetString(
           MeassageHeader.Take(CommandSize)
@@ -408,8 +407,7 @@ namespace BTokenLib
 
         await ReadBytes(
           Payload,
-          PayloadLength,
-          cancellationToken);
+          PayloadLength);
 
         uint checksumMessage = BitConverter.ToUInt32(
           MeassageHeader, CommandSize + LengthSize);
@@ -428,8 +426,7 @@ namespace BTokenLib
 
       async Task ReadBytes(
         byte[] buffer,
-        int bytesToRead,
-        CancellationToken cancellationToken)
+        int bytesToRead)
       {
         int offset = 0;
 
@@ -439,7 +436,7 @@ namespace BTokenLib
             buffer,
             offset,
             bytesToRead,
-            cancellationToken)
+            Cancellation.Token)
             .ConfigureAwait(false);
 
           if (chunkSize == 0)
@@ -462,8 +459,7 @@ namespace BTokenLib
         {
           await ReadBytes(
            magicByte,
-           1,
-           Cancellation.Token);
+           1);
 
           if (MagicBytes[i] != magicByte[0])
           {
@@ -472,6 +468,9 @@ namespace BTokenLib
         }
       }
 
+
+      internal Header HeaderDuplicateReceivedLast;
+      internal int CountOrphanReceived;
 
       public async Task StartMessageListener()
       {
@@ -484,12 +483,19 @@ namespace BTokenLib
               return;
             }
 
-            await SyncToMessage();
+            try
+            {
+              await SyncToMessage();
 
-            await ReadBytes(
-              MeassageHeader,
-              MeassageHeader.Length,
-              Cancellation.Token);
+              await ReadBytes(
+                MeassageHeader,
+                MeassageHeader.Length);
+            }
+            catch(OperationCanceledException ex)
+            {
+              $"peer {GetID()} has OperationCanceledException on line 493".Log(LogFile);
+              throw ex;
+            }
 
             Command = Encoding.ASCII.GetString(
               MeassageHeader.Take(CommandSize)
@@ -508,20 +514,71 @@ namespace BTokenLib
 
             if (Command == "block")
             {
-              if (IsStateAwaitingBlockDownload())
+              Block block = BlockDownload.GetBlockToParse();
+              
+              try
               {
-                byte[] buffer = BlockDownload.GetBufferToParse();
-
                 await ReadBytes(
-                  buffer,
-                  PayloadLength,
-                  Cancellation.Token);
+                  block.Buffer,
+                  PayloadLength);
+              }
+              catch(OperationCanceledException ex)
+              {
+                $"peer {GetID()} has OperationCanceledException on line 523".Log(LogFile);
+                throw ex;
+              }
 
+
+              if (IsStateIdle())
+              {
+                block.Parse();
+
+                string.Format(
+                  "{0}: Receives unsolicited block {1}.",
+                  GetID(),
+                  block.Header.Hash.ToHexString())
+                  .Log(LogFile);
+
+                if (!Blockchain.TryLock())
+                {
+                  continue;
+                }
+
+                Console.Beep();
+
+                Header headerTipOld = Blockchain.HeaderTip;
+
+                try
+                {
+                  if (block.Header.HashPrevious.IsEqual(
+                    Blockchain.HeaderTip.Hash))
+                  {
+                    Blockchain.InsertBlock(
+                       block,
+                       flagValidateHeader: true);
+
+                    if (headerTipOld != Blockchain.HeaderTip)
+                    {
+                      Token.UpdateMiner(block.Header);
+                    }
+                  }
+                  else
+                  {
+                    ProcessHeaderUnsolicited(block.Header);
+                  }
+                }
+                finally
+                {
+                  Blockchain.ReleaseLock();
+                }
+              }
+              else if (IsStateAwaitingBlockDownload())
+              {
                 BlockDownload.Parse();
 
                 if (BlockDownload.IsComplete())
                 {
-                  Cancellation = new CancellationTokenSource();
+                  Cancellation = new();
 
                   if (!Network.InsertBlockDownloadFlagContinue(this))
                   {
@@ -531,18 +588,21 @@ namespace BTokenLib
 
                   await GetBlock();
                 }
-                else
-                {
-                  Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-                }
               }
             }
             else
             {
-              await ReadBytes(
-                Payload,
-                PayloadLength,
-                Cancellation.Token);
+              try
+              {
+                await ReadBytes(
+                  Payload,
+                  PayloadLength);
+              }
+              catch (OperationCanceledException ex)
+              {
+                $"peer {GetID()} has OperationCanceledException on line 523".Log(LogFile);
+                throw ex;
+              }
 
               uint checksumMessage = BitConverter.ToUInt32(
                 MeassageHeader, CommandSize + LengthSize);
@@ -601,23 +661,31 @@ namespace BTokenLib
                       header.Hash.ToHexString())
                       .Log(LogFile);
 
-                    if (Network.IsHeaderUnsolicitedDuplicate(header))
-                    {
-                      break;
-                    }
-
                     if (!Blockchain.TryLock())
                     {
+                      await Task.Delay(200).ConfigureAwait(false);
                       break;
                     }
 
                     try
                     {
-                      if (header.HashPrevious.IsEqual(Blockchain.HeaderTip.Hash))
+                      if (header.HashPrevious.IsEqual(
+                        Blockchain.HeaderTip.Hash))
                       {
-                        Network.SynchronizeBlocks(
-                          this, 
-                          header);
+                        List<Inventory> inventories = new()
+                        {
+                          new Inventory(
+                              InventoryType.MSG_BLOCK,
+                              header.Hash)
+                        };
+
+                        await SendMessage(new GetDataMessage(
+                          new List<Inventory>()
+                          {
+                            new Inventory(
+                              InventoryType.MSG_BLOCK,
+                              header.Hash)
+                          }));
                       }
                       else
                       {
@@ -648,7 +716,7 @@ namespace BTokenLib
 
                     if (countHeaders == 0)
                     {
-                      Cancellation = new CancellationTokenSource();
+                      Cancellation = new();
 
                       if (HeaderDownload.HeaderTip == null)
                       {
@@ -668,17 +736,15 @@ namespace BTokenLib
                         }
                       }
 
-                      Network.SynchronizeBlocks(
-                        this, 
-                        HeaderDownload.HeaderRoot);
+                      Network.SynchronizeBlocks(this);
                     }
                     else
                     {
-                      Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-
                       await SendMessage(new GetHeadersMessage(
                         new List<Header> { HeaderDownload.HeaderInsertedLast },
                         ProtocolVersion));
+
+                      Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
                     }
                   }
 
@@ -746,21 +812,9 @@ namespace BTokenLib
                   break;
 
                 default:
-                  //string.Format(
-                  //  "{0} received unknown message {1}.",
-                  //  GetID(),
-                  //  Command)
-                  //  .Log(LogFile);
                   break;
               }
             }
-
-            //string.Format(
-            //  "{0} received message {1}",
-            //  GetID(),
-            //  Command)
-            //  .Log(LogFile);
-
           }
         }
         catch (Exception ex)
@@ -778,10 +832,6 @@ namespace BTokenLib
           }
         }
       }
-
-
-      internal Header HeaderDuplicateReceivedLast;
-      internal int CountOrphanReceived;
 
       void ProcessHeaderUnsolicited(Header header)
       {
@@ -810,12 +860,13 @@ namespace BTokenLib
           if (CountOrphanReceived > 10)
           {
             throw new ProtocolException(
-              "Too many orphan blocks or headers received.");
+              "Too many orphan headers received.");
           }
 
           CountOrphanReceived += 1;
         }
       }
+
 
       public async Task AdvertizeToken(byte[] hash)
       {
@@ -856,11 +907,11 @@ namespace BTokenLib
           headerLocatorNext.Count > 1 ? headerLocatorNext.Last().Hash.ToHexString() : "")
           .Log(LogFile);
 
-        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-
         await SendMessage(new GetHeadersMessage(
           headerLocatorNext,
           ProtocolVersion));
+
+        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
       }
 
       public async Task GetBlock()
@@ -879,12 +930,12 @@ namespace BTokenLib
 
         await SendMessage(new GetDataMessage(inventories));
 
-        CountStartBlockDownload++;
-
         lock (this)
         {
           State = StateProtocol.AwaitingBlockDownload;
         }
+
+        CountStartBlockDownload++;
       }
 
 
@@ -928,6 +979,13 @@ namespace BTokenLib
         }
       }
 
+      public bool GetIsSynchronized()
+      {
+        lock (this)
+        {
+          return IsSynchronized && !FlagDispose;
+        }
+      }
 
       public void Release()
       {
@@ -1006,12 +1064,6 @@ namespace BTokenLib
 
       public void Dispose()
       {
-        string.Format(
-          "Dispose peer {0}.",
-          GetID()).Log(LogFile);
-
-        Cancellation.Cancel();
-
         TcpClient.Dispose();
 
         LogFile.Dispose();

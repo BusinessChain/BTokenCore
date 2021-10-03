@@ -17,7 +17,7 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int UTXOIMAGE_INTERVAL_SYNC = 200;
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 20000;
 
     StreamWriter LogFile;
 
@@ -29,13 +29,6 @@ namespace BTokenLib
     object LOCK_Peers = new();
     List<Peer> Peers = new();
     ConcurrentBag<BlockDownload> PoolBlockDownload = new();
-
-    const int IntervalTimeMIN = 2;
-    Dictionary<long, long> BytesDownloadedInterval = new();
-    Dictionary<long, long> BytesDownloadedIntervalWasted = new();
-
-    object LOCK_HeadersReceivedUnsolicited = new();
-    public List<Header> HeadersReceivedUnsolicited = new();
 
     static DirectoryInfo DirectoryLogPeers;
     static DirectoryInfo DirectoryLogPeersDisposed;
@@ -73,7 +66,9 @@ namespace BTokenLib
 
       //"Start listener for inbound connection requests."
       //  .Log(LogFile);
+
     }
+
 
     void LoadNetworkConfiguration (string pathConfigFile)
     {
@@ -317,7 +312,7 @@ namespace BTokenLib
 
       while (true)
       {
-        await Task.Delay(3000).ConfigureAwait(false);
+        await Task.Delay(5000).ConfigureAwait(false);
 
         if (!Blockchain.TryLock())
         {
@@ -365,9 +360,7 @@ namespace BTokenLib
 
     int IndexBlockDownload;
 
-    async Task SynchronizeBlocks(
-      Peer peer, 
-      Header headerRoot)
+    async Task SynchronizeBlocks(Peer peer)
     {
       PeerSynchronizationMaster = peer;
       FlagSynchronizationAbort = false;
@@ -376,7 +369,7 @@ namespace BTokenLib
       QueueDownloadsIncomplete.Clear();
 
       IndexBlockDownload = 0;
-      HeaderRoot = headerRoot;
+      HeaderRoot = peer.HeaderDownload.HeaderRoot;
 
       while (true)
       {
@@ -386,8 +379,6 @@ namespace BTokenLib
 
           if (!TryChargeBlockDownload(peer))
           {
-            "Synchronization ended.".Log(LogFile);
-
             break;
           }
 
@@ -447,6 +438,8 @@ namespace BTokenLib
       }
 
       Blockchain.ReleaseLock();
+
+      "Synchronization ended.".Log(LogFile);
     }
 
 
@@ -519,7 +512,8 @@ namespace BTokenLib
               }
 
             ($"Inserted blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
-              $"Blockchain height: {Blockchain.HeaderTip.Height}")
+              $"Height: {Blockchain.HeaderTip.Height}, " +
+              $"DownloadTime [ms]: {blockDownload.StopwatchBlockDownload.ElapsedMilliseconds}")
               .Log(LogFile);
             }
             catch (Exception ex)
@@ -692,29 +686,6 @@ namespace BTokenLib
 
       peers.Select(p => p.AdvertizeToken(hash))
         .ToArray();
-    }
-
-    public bool IsHeaderUnsolicitedDuplicate(Header header)
-    {
-      lock(LOCK_HeadersReceivedUnsolicited)
-      {
-        if(HeadersReceivedUnsolicited.Any(
-          h => h.Hash.IsEqual(header.Hash)))
-        {
-          return true;
-        }
-
-        HeadersReceivedUnsolicited.Add(header);
-        return false;
-      }
-    }
-
-    public void ClearHeaderUnsolicitedDuplicates()
-    {
-      lock (LOCK_HeadersReceivedUnsolicited)
-      {
-        HeadersReceivedUnsolicited.Clear();
-      }
     }
 
 
