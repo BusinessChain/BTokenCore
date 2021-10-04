@@ -563,6 +563,10 @@ namespace BTokenLib
                        block,
                        flagValidateHeader: true);
 
+                    Blockchain.ArchiveBlock(
+                        block,
+                        UTXOIMAGE_INTERVAL_SYNC);
+
                     if (headerTipOld != Blockchain.HeaderTip)
                     {
                       Token.UpdateMiner(block.Header);

@@ -76,6 +76,10 @@ namespace BTokenLib
         Blockchain.InsertBlock(
           blockNew,
           flagValidateHeader: true);
+
+        //Blockchain.ArchiveBlock(
+        //    blockNew,
+        //    UTXOIMAGE_INTERVAL_SYNC);
       }
       catch(Exception ex)
       {
