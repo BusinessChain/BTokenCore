@@ -514,6 +514,12 @@ namespace BTokenLib
 
             if (Command == "block")
             {
+              if (BlockDownload == null &&
+                !Network.PoolBlockDownload.TryTake(out BlockDownload))
+              {
+                BlockDownload = new(Token);
+              }
+
               Block block = BlockDownload.GetBlockToParse();
               
               try
@@ -657,7 +663,8 @@ namespace BTokenLib
                       SHA256);
 
                     string.Format(
-                      "Received unsolicited header {0}",
+                      "{0}: Receives unsolicited header {1}.",
+                      GetID(),
                       header.Hash.ToHexString())
                       .Log(LogFile);
 

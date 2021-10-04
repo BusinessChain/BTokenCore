@@ -236,8 +236,7 @@ namespace BTokenLib
           peerRemove.SetFlagDisposed("Manually removed peer.");
         }
       }
-    }
-    
+    }    
 
 
     List<IPAddress> AddressPool = new();
@@ -594,7 +593,7 @@ namespace BTokenLib
           if (blockDownload == null &&
             !PoolBlockDownload.TryTake(out blockDownload))
           {
-            blockDownload = new BlockDownload(Token);
+            blockDownload = new(Token);
           }
 
           blockDownload.Peer = peer;
