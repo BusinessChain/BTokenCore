@@ -332,6 +332,8 @@ namespace BTokenLib
         $"Start synchronization with peer {peer.GetID()}."
           .Log(LogFile);
 
+        peer.SetStateAwaitingHeader();
+
         try
         {
           await peer.GetHeaders();
@@ -344,8 +346,6 @@ namespace BTokenLib
           Blockchain.ReleaseLock();
           continue;
         }
-
-        peer.SetStateAwaitingHeader();
       }
     }
 
@@ -359,7 +359,7 @@ namespace BTokenLib
 
     int IndexBlockDownload;
 
-    async Task SynchronizeBlocks(Peer peer)
+    async Task Synchronize(Peer peer)
     {
       PeerSynchronizationMaster = peer;
       FlagSynchronizationAbort = false;
@@ -435,6 +435,8 @@ namespace BTokenLib
 
         await Task.Delay(1000).ConfigureAwait(false);
       }
+
+      PoolBlockDownload.Clear();
 
       Blockchain.ReleaseLock();
 

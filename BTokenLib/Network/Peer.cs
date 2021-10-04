@@ -539,12 +539,6 @@ namespace BTokenLib
               {
                 block.Parse();
 
-                string.Format(
-                  "{0}: Receives unsolicited block {1}.",
-                  GetID(),
-                  block.Header.Hash.ToHexString())
-                  .Log(LogFile);
-
                 if (!Blockchain.TryLock())
                 {
                   continue;
@@ -566,6 +560,12 @@ namespace BTokenLib
                     Blockchain.ArchiveBlock(
                         block,
                         UTXOIMAGE_INTERVAL_SYNC);
+
+                    string.Format(
+                      "{0}: Inserted unsolicited block {1}.",
+                      GetID(),
+                      block.Header.Hash.ToHexString())
+                      .Log(LogFile);
 
                     if (headerTipOld != Blockchain.HeaderTip)
                     {
@@ -747,7 +747,7 @@ namespace BTokenLib
                         }
                       }
 
-                      Network.SynchronizeBlocks(this);
+                      Network.Synchronize(this);
                     }
                     else
                     {
