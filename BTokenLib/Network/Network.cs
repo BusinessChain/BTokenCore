@@ -332,8 +332,6 @@ namespace BTokenLib
         $"Start synchronization with peer {peer.GetID()}."
           .Log(LogFile);
 
-        peer.SetStateAwaitingHeader();
-
         try
         {
           await peer.GetHeaders();
@@ -505,11 +503,7 @@ namespace BTokenLib
               {
                 Blockchain.InsertBlock(
                     blockDownload.Blocks[i],
-                    flagValidateHeader: false);
-
-                Blockchain.ArchiveBlock(
-                    blockDownload.Blocks[i],
-                    UTXOIMAGE_INTERVAL_SYNC);
+                    intervalArchiveImage: UTXOIMAGE_INTERVAL_SYNC);
               }
 
             ($"Inserted blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
@@ -653,6 +647,84 @@ namespace BTokenLib
       }
     }
 
+
+    async Task InsertBlockUnsolicited(Peer peer)
+    {
+      if (!TryEnqueuBlockUnsolicited(peer))
+      {
+        await Task.Delay(1000).ConfigureAwait(false);
+        return;
+      }
+
+      Console.Beep();
+
+      if (!Blockchain.TryLock())
+      {
+        return;
+      }
+
+      Block block = null;
+
+      try
+      {
+        do
+        {
+          block = peer.BlockUnsolicited;
+
+          if (block.Header.HashPrevious.IsEqual(Blockchain.HeaderTip.Hash))
+          {
+            Blockchain.InsertBlock(block);
+
+            $"{peer.GetID()}: Inserted unsolicited block {block.Header.Hash.ToHexString()}."
+              .Log(LogFile);
+          }
+          else
+          {
+            peer.ProcessHeaderUnsolicited(block.Header);
+          }
+        } while (TryDequeueBlockUnsolicited(out peer));
+      }
+      catch(ProtocolException ex)
+      {
+        peer.SetFlagDisposed(ex.Message);
+      }
+      finally
+      {
+        Blockchain.ReleaseLock();
+      }
+    }
+
+    List<Peer> InputQueuePeersBlockUnsolicited = new();
+    int MaxCountQueuePeersBlockUnsolicited = 5;
+
+    bool TryEnqueuBlockUnsolicited(Peer peer)
+    {
+      lock (InputQueuePeersBlockUnsolicited)
+      {
+        if (InputQueuePeersBlockUnsolicited.Count >=
+          MaxCountQueuePeersBlockUnsolicited)
+        {
+          return false;
+        }
+
+        if (InputQueuePeersBlockUnsolicited.Any(p =>
+          p == peer ||
+          p.BlockUnsolicited.Header.Hash.IsEqual(
+            peer.BlockUnsolicited.Header.Hash)))
+        {
+          return false;
+        }
+
+        InputQueuePeersBlockUnsolicited.Add(peer);
+
+        return InputQueuePeersBlockUnsolicited.Count == 0;
+      }
+    }
+
+    bool TryDequeueBlockUnsolicited(out Peer peer)
+    {
+      return true;
+    }
 
 
     bool TryGetPeer(out Peer peer)

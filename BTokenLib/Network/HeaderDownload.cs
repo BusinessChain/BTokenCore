@@ -36,20 +36,12 @@ namespace BTokenLib
               "Header does not connect to locator.");
           }
 
-          Debug.WriteLine(
-            string.Format(
-              "{0} is ancestor, height {1}",
-              HeaderLocatorAncestor.Hash.ToHexString(),
-              HeaderLocatorAncestor.Height));
-
           if (HeaderLocatorAncestor != Locator.First())
           {
             IsFork = true;
 
             Debug.WriteLine(
-            string.Format(
-              "{0} is fork",
-              header.Hash.ToHexString()));
+              $"{header.Hash.ToHexString()} is fork.");
           }
         }
 

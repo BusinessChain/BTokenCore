@@ -64,6 +64,7 @@ namespace BTokenLib
 
       internal HeaderDownload HeaderDownload = new();
       internal BlockDownload BlockDownload;
+      internal Block BlockUnsolicited;
 
 
       ulong FeeFilterValue;
@@ -521,66 +522,14 @@ namespace BTokenLib
               }
 
               Block block = BlockDownload.GetBlockToParse();
-              
-              try
-              {
-                await ReadBytes(
-                  block.Buffer,
-                  PayloadLength);
-              }
-              catch(OperationCanceledException ex)
-              {
-                $"peer {GetID()} has OperationCanceledException on line 523".Log(LogFile);
-                throw ex;
-              }
 
+              await ReadBytes(block.Buffer, PayloadLength);
 
               if (IsStateIdle())
               {
                 block.Parse();
 
-                if (!Blockchain.TryLock())
-                {
-                  continue;
-                }
-
-                Console.Beep();
-
-                Header headerTipOld = Blockchain.HeaderTip;
-
-                try
-                {
-                  if (block.Header.HashPrevious.IsEqual(
-                    Blockchain.HeaderTip.Hash))
-                  {
-                    Blockchain.InsertBlock(
-                       block,
-                       flagValidateHeader: true);
-
-                    Blockchain.ArchiveBlock(
-                        block,
-                        UTXOIMAGE_INTERVAL_SYNC);
-
-                    string.Format(
-                      "{0}: Inserted unsolicited block {1}.",
-                      GetID(),
-                      block.Header.Hash.ToHexString())
-                      .Log(LogFile);
-
-                    if (headerTipOld != Blockchain.HeaderTip)
-                    {
-                      Token.UpdateMiner(block.Header);
-                    }
-                  }
-                  else
-                  {
-                    ProcessHeaderUnsolicited(block.Header);
-                  }
-                }
-                finally
-                {
-                  Blockchain.ReleaseLock();
-                }
+                await Network.InsertBlockUnsolicited(this);
               }
               else if (IsStateAwaitingBlockDownload())
               {
@@ -602,26 +551,13 @@ namespace BTokenLib
             }
             else
             {
-              try
-              {
-                await ReadBytes(
-                  Payload,
-                  PayloadLength);
-              }
-              catch (OperationCanceledException ex)
-              {
-                $"peer {GetID()} has OperationCanceledException on line 523".Log(LogFile);
-                throw ex;
-              }
+              await ReadBytes(Payload, PayloadLength);
 
               uint checksumMessage = BitConverter.ToUInt32(
                 MeassageHeader, CommandSize + LengthSize);
 
               uint checksumCalculated = BitConverter.ToUInt32(
-                CreateChecksum(
-                  Payload,
-                  PayloadLength),
-                0);
+                CreateChecksum(Payload, PayloadLength), 0);
 
               if (checksumMessage != checksumCalculated)
               {
@@ -666,15 +602,11 @@ namespace BTokenLib
                       ref byteIndex,
                       SHA256);
 
-                    string.Format(
-                      "{0}: Receives unsolicited header {1}.",
-                      GetID(),
-                      header.Hash.ToHexString())
-                      .Log(LogFile);
+                    Network.
 
                     if (!Blockchain.TryLock())
                     {
-                      await Task.Delay(200).ConfigureAwait(false);
+                      await Task.Delay(1000).ConfigureAwait(false);
                       break;
                     }
 
@@ -686,17 +618,18 @@ namespace BTokenLib
                         List<Inventory> inventories = new()
                         {
                           new Inventory(
-                              InventoryType.MSG_BLOCK,
-                              header.Hash)
+                            InventoryType.MSG_BLOCK,
+                            header.Hash)
                         };
 
-                        await SendMessage(new GetDataMessage(
-                          new List<Inventory>()
-                          {
-                            new Inventory(
-                              InventoryType.MSG_BLOCK,
-                              header.Hash)
-                          }));
+                        await SendMessage(
+                          new GetDataMessage(
+                            new List<Inventory>()
+                            {
+                              new Inventory(
+                                InventoryType.MSG_BLOCK,
+                                header.Hash)
+                            }));
                       }
                       else
                       {
@@ -844,7 +777,7 @@ namespace BTokenLib
         }
       }
 
-      void ProcessHeaderUnsolicited(Header header)
+      public void ProcessHeaderUnsolicited(Header header)
       {
         if (Blockchain.TryReadHeader(
           header.Hash,
@@ -853,9 +786,8 @@ namespace BTokenLib
           if (HeaderDuplicateReceivedLast != null &&
             HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
           {
-            throw new ProtocolException(string.Format(
-              "Sent duplicate block {0}",
-              header.Hash.ToHexString()));
+            throw new ProtocolException(
+              $"Sent duplicate block {header.Hash.ToHexString()}.");
           }
 
           HeaderDuplicateReceivedLast = headerReceivedNow;
@@ -881,10 +813,7 @@ namespace BTokenLib
 
       public async Task AdvertizeToken(byte[] hash)
       {
-        string.Format(
-          "{0} advertize token {1}.",
-          GetID(),
-          hash.ToHexString())
+        $"{GetID()} advertize token {hash.ToHexString()}."
           .Log(LogFile);
 
         var inventoryTX = new Inventory(
@@ -918,6 +847,8 @@ namespace BTokenLib
           headerLocatorNext.Count > 1 ? headerLocatorNext.Last().Hash.ToHexString() : "")
           .Log(LogFile);
 
+        SetStateAwaitingHeader();
+
         await SendMessage(new GetHeadersMessage(
           headerLocatorNext,
           ProtocolVersion));
@@ -934,8 +865,7 @@ namespace BTokenLib
               h.Hash))
               .ToList();
 
-        Cancellation.CancelAfter(
-            TIMEOUT_RESPONSE_MILLISECONDS);
+        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
         BlockDownload.StopwatchBlockDownload.Restart();
 

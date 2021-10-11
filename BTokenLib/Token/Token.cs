@@ -34,74 +34,17 @@ namespace BTokenLib
       Network.Start();
     }
 
-    CancellationTokenSource CancellationMiner = new();
 
-    public async Task StartMiner()
+
+    public abstract Task StartMiner();
+
+    protected bool FlagMinerStop;
+    public void StopMiner()
     {
-    StartMiner:
-
-      while (!Blockchain.TryLock())
-      {
-        await Task.Delay(1000).ConfigureAwait(false);
-      }
-
-      Header headerNew = CreateHeaderNew(
-        Blockchain.HeaderTip);
-
-      Blockchain.ReleaseLock();
-
-      Block blockNew;
-
-      try
-      {
-        blockNew = await MineBlockNew(
-          headerNew,
-          CancellationMiner.Token);
-      }
-      catch(TaskCanceledException)
-      {
-        // maybe return TXs to pool?
-
-        CancellationMiner = new();
-        goto StartMiner;
-      }
-
-      while (!Blockchain.TryLock())
-      {
-        await Task.Delay(200).ConfigureAwait(false);
-      }
-
-      try
-      {
-        Blockchain.InsertBlock(
-          blockNew,
-          flagValidateHeader: true);
-
-        //Blockchain.ArchiveBlock(
-        //    blockNew,
-        //    UTXOIMAGE_INTERVAL_SYNC);
-      }
-      catch(Exception ex)
-      {
-        Debug.WriteLine(
-          $"{ex.GetType().Name} when inserting " +
-          $"mined block {blockNew.Header.Hash.ToHexString()}");
-      }
-
-      Blockchain.ReleaseLock();
+      FlagMinerStop = true;
     }
 
-    public void UpdateMiner(Header header)
-    {
-
-    }
-
-    // Bei PoW wenn Hash gefunden,
-    // bei dPoW wenn bestätigt in der Carrier chain.
-    public abstract Task<Block> MineBlockNew(
-      Header header,
-      CancellationToken cancellationToken);
-    public abstract Header CreateHeaderNew(Header header);
+    public abstract Header CreateHeaderNext(Header header);
 
     public abstract Header CreateHeaderGenesis();
     public abstract Dictionary<int, byte[]> GetCheckpoints();
@@ -120,15 +63,6 @@ namespace BTokenLib
     public abstract string GetStatus();
 
     public abstract void ValidateHeader(Header header);
-
-    public void ValidateHeaders(Header header)
-    {
-      do
-      {
-        ValidateHeader(header);
-        header = header.HeaderNext;
-      } while (header != null);
-    }
 
     public abstract Header ParseHeader(
       byte[] buffer,

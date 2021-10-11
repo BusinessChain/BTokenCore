@@ -205,10 +205,9 @@ namespace BTokenCore
             }
           }
 
-          throw new BitcoinException(
-            string.Format(
-              "Referenced TX {0} not found in UTXO table.",
-              tXInput.TXIDOutput.ToHexString()));
+          throw new ProtocolException(
+            $"Referenced TX {tXInput.TXIDOutput.ToHexString()} " +
+            $"not found in UTXO table.");
 
         LABEL_LoopNextInput:
           ;

@@ -18,7 +18,7 @@ namespace BTokenLib
     public Token Token;
 
     Header HeaderRoot;
-    internal Header HeaderTip;
+    public Header HeaderTip;
 
     readonly object LOCK_HeaderIndex = new();
     Dictionary<int, List<Header>> HeaderIndex = new();
@@ -184,7 +184,7 @@ namespace BTokenLib
       int indexBytesHeaderImage = 0;
       byte[] bytesHeaderImage = File.ReadAllBytes(pathFile);
 
-      Header headerPrevious = HeaderRoot;
+      HeaderTip = HeaderRoot;
       
       while(indexBytesHeaderImage < bytesHeaderImage.Length)
       {
@@ -193,20 +193,12 @@ namespace BTokenLib
          ref indexBytesHeaderImage,
          SHA256.Create());
 
-        if (!header.HashPrevious.IsEqual(
-          headerPrevious.Hash))
+        if (!header.HashPrevious.IsEqual(HeaderTip.Hash))
         {
-          throw new ProtocolException(
-            "Header image does not link to genesis header.");
+          throw new ProtocolException("Header image corrupted.");
         }
 
-        header.HeaderPrevious = headerPrevious;
-
-        Token.ValidateHeaders(header);
-
         InsertHeader(header);
-
-        headerPrevious = header;
       }
     }
 
@@ -236,27 +228,29 @@ namespace BTokenLib
 
       Token.Reset();
     }
-        
+
     public void InsertBlock(
       Block block,
-      bool flagValidateHeader)
+      int intervalArchiveImage = 3)
     {
-      block.Header.HeaderPrevious = HeaderTip;
-
-      if (flagValidateHeader)
-      {
-        Token.ValidateHeaders(block.Header);
-      }
+      InsertHeader(block.Header);
 
       Token.InsertBlock(
         block,
         IndexBlockArchive);
 
-      InsertHeader(block.Header);
+      if (intervalArchiveImage > 0)
+      {
+        ArchiveBlock(
+          block,
+          intervalArchiveImage);
+      }
     }
 
-    void InsertHeader(Header header)
+    public void InsertHeader(Header header)
     {
+      header.HeaderPrevious = HeaderTip;
+
       header.Height = HeaderTip.Height + 1;
       header.DifficultyAccumulated = 
         HeaderTip.DifficultyAccumulated + header.Difficulty;
@@ -296,24 +290,13 @@ namespace BTokenLib
       byte[] headerHash,
       out Header header)
     {
-      SHA256 sHA256 = SHA256.Create();
-
-      return TryReadHeader(
-        headerHash,
-        sHA256,
-        out header);
-    }
-
-    bool TryReadHeader(
-      byte[] headerHash,
-      SHA256 sHA256,
-      out Header header)
-    {
       int key = BitConverter.ToInt32(headerHash, 0);
 
       lock (LOCK_HeaderIndex)
       {
-        if (HeaderIndex.TryGetValue(key, out List<Header> headers))
+        if (HeaderIndex.TryGetValue(
+          key, 
+          out List<Header> headers))
         {
           foreach (Header h in headers)
           {
@@ -378,7 +361,7 @@ namespace BTokenLib
     }
 
 
-    internal bool TryLock()
+    public bool TryLock()
     {
       lock (LOCK_IsBlockchainLocked)
       {
@@ -393,7 +376,7 @@ namespace BTokenLib
       }
     }
 
-    internal void ReleaseLock()
+    public void ReleaseLock()
     {
       lock (LOCK_IsBlockchainLocked)
       {
@@ -463,9 +446,11 @@ namespace BTokenLib
         {
           try
           {
-            InsertBlock(
-             block,
-             flagValidateHeader: true);
+            InsertHeader(block.Header);
+
+            Token.InsertBlock(
+              block,
+              IndexBlockArchive);
           }
           catch
           {

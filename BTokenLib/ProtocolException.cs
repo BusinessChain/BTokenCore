@@ -6,30 +6,14 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  enum ErrorCode {
-    DUPLICATE,
-    ORPHAN,
-    INVALID };
-
-  class ProtocolException : Exception
+  public class ProtocolException : Exception
   {
-    public ErrorCode ErrorCode;
-    
-
     public ProtocolException()
     { }
 
     public ProtocolException(string message)
         : base(message)
     { }
-
-    public ProtocolException(
-      string message, 
-      ErrorCode errorCode)
-        : base(message)
-    {
-      ErrorCode = errorCode;
-    }
 
     public ProtocolException(string message, Exception inner)
         : base(message, inner)

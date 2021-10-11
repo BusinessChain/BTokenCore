@@ -56,6 +56,10 @@ namespace BTokenCore
             TokenBitcoin.StartMiner();
             break;
 
+          case "stopMiner":
+            TokenBitcoin.StopMiner();
+            break;
+
           case "sendtoken":
             TokenBitcoin.SendTX();
             break;

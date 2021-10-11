@@ -254,11 +254,8 @@ namespace BTokenCore
         uint mask = (uint)1 << (COUNT_NON_OUTPUT_BITS + outputIndex);
         if ((uTXO & mask) != 0x00)
         {
-          throw new BitcoinException(
-            string.Format(
-              "Output index {0} already spent.",
-              outputIndex),
-            ErrorCode.INVALID);
+          throw new ProtocolException(
+            $"Output index {outputIndex} already spent.");
         }
         uTXO |= mask;
 

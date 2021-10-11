@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
@@ -45,6 +45,44 @@ namespace BTokenCore
     }
 
 
+
+    public override async Task StartMiner()
+    {
+      HeaderBitcoin header;
+      Block block;
+
+      do
+      {
+        header = CreateHeaderNext(
+          Blockchain.HeaderTip);
+
+        if(FlagMinerStop)
+        {
+          return;
+        }
+
+      } while (!TryMineBlock(header, out block));
+
+      while (!Blockchain.TryLock())
+      {
+        await Task.Delay(200).ConfigureAwait(false);
+      }
+
+      try
+      {
+        Blockchain.InsertBlock(block);
+      }
+      catch (Exception ex)
+      {
+        Debug.WriteLine(
+          $"{ex.GetType().Name} when inserting " +
+          $"mined block {block.Header.Hash.ToHexString()}.");
+      }
+
+      Blockchain.ReleaseLock();
+    }
+
+
     public override Block CreateBlock()
     {
       return new BlockBitcoin();
@@ -77,13 +115,14 @@ namespace BTokenCore
     }
 
 
-    public override Task<Block> MineBlockNew(
+    bool TryMineBlock(
       Header header,
-      CancellationToken cancellationToken)
+      out Block blockNew)
     {
-      return null;
+      blockNew  = null;
+      return false;
     }
-    public override Header CreateHeaderNew(Header header)
+    public override HeaderBitcoin CreateHeaderNext(Header header)
     {
       return null;
     }
@@ -124,9 +163,11 @@ namespace BTokenCore
       Block block,
       int indexBlockArchive)
     {
+      ValidateHeader(block.Header);
+
       UTXOTable.InsertBlock(
-          ((BlockBitcoin)block).TXs,
-          indexBlockArchive);
+        ((BlockBitcoin)block).TXs,
+        indexBlockArchive);
     }
 
     public override string GetStatus()
@@ -184,13 +225,12 @@ namespace BTokenCore
         .TryGetValue(header.Height, out byte[] hashCheckpoint) &&
         !hashCheckpoint.IsEqual(header.Hash))
       {
-        throw new BitcoinException(
+        throw new ProtocolException(
           string.Format(
             "Header {0} at hight {1} not equal to checkpoint hash {2}",
             header.Hash.ToHexString(),
             header.Height,
-            hashCheckpoint.ToHexString()),
-          ErrorCode.INVALID);
+            hashCheckpoint.ToHexString()));
       }
 
       uint medianTimePast = GetMedianTimePast(
@@ -198,14 +238,13 @@ namespace BTokenCore
 
       if (header.UnixTimeSeconds < medianTimePast)
       {
-        throw new BitcoinException(
+        throw new ProtocolException(
           string.Format(
             "Header {0} with unix time {1} " +
             "is older than median time past {2}.",
             header.Hash.ToHexString(),
             DateTimeOffset.FromUnixTimeSeconds(header.UnixTimeSeconds),
-            DateTimeOffset.FromUnixTimeSeconds(medianTimePast)),
-          ErrorCode.INVALID);
+            DateTimeOffset.FromUnixTimeSeconds(medianTimePast)));
       }
 
       uint targetBitsNew;
@@ -223,13 +262,12 @@ namespace BTokenCore
 
       if (header.NBits != targetBitsNew)
       {
-        throw new BitcoinException(
+        throw new ProtocolException(
           string.Format(
             "In header {0}\n nBits {1} not equal to target nBits {2}",
             header.Hash.ToHexString(),
             header.NBits,
-            targetBitsNew),
-          ErrorCode.INVALID);
+            targetBitsNew));
       }
     }
 
@@ -238,7 +276,7 @@ namespace BTokenCore
     {
       const int MEDIAN_TIME_PAST = 11;
 
-      List<uint> timestampsPast = new List<uint>();
+      List<uint> timestampsPast = new();
 
       int depth = 0;
       while (depth < MEDIAN_TIME_PAST)

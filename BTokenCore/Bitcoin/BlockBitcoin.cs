@@ -92,7 +92,7 @@ namespace BTokenCore
         (DateTimeOffset.UtcNow.ToUnixTimeSeconds() +
         MAX_FUTURE_TIME_SECONDS))
       {
-        throw new BitcoinException(
+        throw new ProtocolException(
           string.Format("Timestamp premature {0}",
             new DateTime(unixTimeSeconds).Date));
       }
@@ -102,7 +102,7 @@ namespace BTokenCore
 
       if (hash.IsGreaterThan(nBits))
       {
-        throw new BitcoinException(
+        throw new ProtocolException(
           string.Format("header hash {0} greater than NBits {1}",
             hash.ToHexString(),
             nBits));
@@ -145,7 +145,7 @@ namespace BTokenCore
 
         if (!tX.Hash.IsEqual(hashMerkleRoot))
         {
-          throw new BitcoinException(
+          throw new ProtocolException(
             "Payload merkle root corrupted");
         }
       }
@@ -182,7 +182,7 @@ namespace BTokenCore
 
         if (!hashMerkleRoot.IsEqual(GetRoot(merkleList)))
         {
-          throw new BitcoinException(
+          throw new ProtocolException(
             "Payload hash not equal to merkle root.");
         }
       }
@@ -267,7 +267,7 @@ namespace BTokenCore
       }
       catch (ArgumentOutOfRangeException)
       {
-        throw new BitcoinException(
+        throw new ProtocolException(
           "ArgumentOutOfRangeException thrown in ParseTX.");
       }
     }
