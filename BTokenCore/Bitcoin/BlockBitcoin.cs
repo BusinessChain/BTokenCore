@@ -195,7 +195,7 @@ namespace BTokenCore
       byte[] buffer,
       ref int indexBuffer)
     {
-      UTXOTable.TX tX = new UTXOTable.TX();
+      UTXOTable.TX tX = new();
 
       try
       {

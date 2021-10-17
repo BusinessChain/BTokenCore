@@ -336,7 +336,7 @@ namespace BTokenLib
         }
       }
 
-      async Task SendMessage(NetworkMessage message)
+      public async Task SendMessage(NetworkMessage message)
       {
         //$"{GetID()} Send message {message.Command}"
         //  .Log(LogFile);
@@ -484,19 +484,11 @@ namespace BTokenLib
               return;
             }
 
-            try
-            {
-              await SyncToMessage();
+            await SyncToMessage();
 
-              await ReadBytes(
-                MeassageHeader,
-                MeassageHeader.Length);
-            }
-            catch(OperationCanceledException ex)
-            {
-              $"peer {GetID()} has OperationCanceledException on line 493".Log(LogFile);
-              throw ex;
-            }
+            await ReadBytes(
+              MeassageHeader,
+              MeassageHeader.Length);
 
             Command = Encoding.ASCII.GetString(
               MeassageHeader.Take(CommandSize)
@@ -529,7 +521,34 @@ namespace BTokenLib
               {
                 block.Parse();
 
-                await Network.InsertBlockUnsolicited(this);
+                if (await Network.EnqueuBlockUnsolicitedFlagReject(block.Header))
+                  break;
+
+                Console.Beep();
+
+                try
+                {
+                  if (block.Header.HashPrevious.IsEqual(Blockchain.HeaderTip.Hash))
+                  {
+                    Blockchain.InsertBlock(block);
+
+                    ($"{GetID()}: Inserted unsolicited " +
+                      $"block {block.Header.Hash.ToHexString()}.")
+                      .Log(LogFile);
+                  }
+                  else
+                  {
+                    ProcessHeaderUnsolicited(block.Header);
+                  }
+                }
+                catch (ProtocolException ex)
+                {
+                  SetFlagDisposed(ex.Message);
+                }
+                finally
+                {
+                  Blockchain.ReleaseLock();
+                }
               }
               else if (IsStateAwaitingBlockDownload())
               {
@@ -602,43 +621,33 @@ namespace BTokenLib
                       ref byteIndex,
                       SHA256);
 
-                    Network.
-
-                    if (!Blockchain.TryLock())
-                    {
-                      await Task.Delay(1000).ConfigureAwait(false);
-                      break;
-                    }
+                    Console.Beep();
 
                     try
                     {
                       if (header.HashPrevious.IsEqual(
                         Blockchain.HeaderTip.Hash))
                       {
-                        List<Inventory> inventories = new()
-                        {
-                          new Inventory(
-                            InventoryType.MSG_BLOCK,
-                            header.Hash)
-                        };
+                        await SendMessage(new GetDataMessage(
+                          new List<Inventory>()
+                          {
+                            new Inventory(
+                              InventoryType.MSG_BLOCK,
+                              header.Hash)
+                          }));
 
-                        await SendMessage(
-                          new GetDataMessage(
-                            new List<Inventory>()
-                            {
-                              new Inventory(
-                                InventoryType.MSG_BLOCK,
-                                header.Hash)
-                            }));
+                        ($"{GetID()}: Requested block for unsolicited " +
+                          $"header {header.Hash.ToHexString()}.")
+                          .Log(LogFile);
                       }
                       else
                       {
                         ProcessHeaderUnsolicited(header);
                       }
                     }
-                    finally
+                    catch (ProtocolException ex)
                     {
-                      Blockchain.ReleaseLock();
+                      SetFlagDisposed(ex.Message);
                     }
                   }
                   else if (IsStateGetHeaders())
@@ -799,14 +808,15 @@ namespace BTokenLib
             CountOrphanReceived = 0;
             IsSynchronized = false;
           }
-
-          if (CountOrphanReceived > 10)
+          else if (CountOrphanReceived > 10)
           {
             throw new ProtocolException(
               "Too many orphan headers received.");
           }
-
-          CountOrphanReceived += 1;
+          else
+          {
+            CountOrphanReceived += 1;
+          }
         }
       }
 

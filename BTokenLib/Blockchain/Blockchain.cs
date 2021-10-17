@@ -20,9 +20,10 @@ namespace BTokenLib
     Header HeaderRoot;
     public Header HeaderTip;
 
-    readonly object LOCK_HeaderIndex = new();
     Dictionary<int, List<Header>> HeaderIndex = new();
 
+
+    // Brauche ich das?
     Dictionary<byte[], int> BlockIndex =
       new(new EqualityComparerByteArray());
 
@@ -292,7 +293,7 @@ namespace BTokenLib
     {
       int key = BitConverter.ToInt32(headerHash, 0);
 
-      lock (LOCK_HeaderIndex)
+      lock (HeaderIndex)
       {
         if (HeaderIndex.TryGetValue(
           key, 
@@ -317,7 +318,7 @@ namespace BTokenLib
     {
       int keyHeader = BitConverter.ToInt32(header.Hash, 0);
 
-      lock (LOCK_HeaderIndex)
+      lock (HeaderIndex)
       {
         if (!HeaderIndex.TryGetValue(keyHeader, out List<Header> headers))
         {
@@ -339,7 +340,7 @@ namespace BTokenLib
       {
         if (TryReadHeader(hash, out Header header))
         {
-          List<Header> headers = new List<Header>();
+          List<Header> headers = new();
 
           while (
             header.HeaderNext != null &&
@@ -375,6 +376,24 @@ namespace BTokenLib
         return true;
       }
     }
+    public async Task<bool> TryLock(int timerMS)
+    {
+      int intervalMS = 20;
+      int timeElapsedMS = 0;
+
+      while (timeElapsedMS < timerMS)
+      {
+        if (TryLock())
+        {
+          return true;
+        }
+
+        await Task.Delay(intervalMS).ConfigureAwait(false);
+        timeElapsedMS += intervalMS;
+      }
+
+      return false;
+    }
 
     public void ReleaseLock()
     {
@@ -383,6 +402,7 @@ namespace BTokenLib
         IsBlockchainLocked = false;
       }
     }
+
 
 
     public async Task<bool> TryLoadBlocks(
