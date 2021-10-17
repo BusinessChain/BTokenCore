@@ -621,6 +621,8 @@ namespace BTokenLib
                       ref byteIndex,
                       SHA256);
 
+                    Network.ThrottleDownloadBlockUnsolicited();
+
                     Console.Beep();
 
                     try

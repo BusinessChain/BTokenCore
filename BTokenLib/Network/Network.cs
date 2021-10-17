@@ -647,6 +647,25 @@ namespace BTokenLib
     }
 
 
+    bool FlagThrottling;
+
+    void ThrottleDownloadBlockUnsolicited()
+    {
+      while(FlagThrottling)
+      {
+        Thread.Sleep(10);
+      }
+
+      StartTimerLatchFlagThrottle();
+    }
+
+    async Task StartTimerLatchFlagThrottle()
+    {
+      FlagThrottling = true;
+      await Task.Delay(250).ConfigureAwait(false);
+      FlagThrottling = false;
+    }
+
     List<Header> QueueBlocksUnsolicited = new();
 
     async Task<bool> EnqueuBlockUnsolicitedFlagReject(
