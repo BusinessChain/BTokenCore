@@ -20,7 +20,6 @@ namespace BTokenLib
     {
       Blockchain = new Blockchain(this, pathBlockArchive);
       Network = new Network(this, Blockchain);
-
       Miner = new Miner(Blockchain, Network);
     }
 

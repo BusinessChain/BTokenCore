@@ -64,7 +64,7 @@ namespace BTokenLib
 
       internal HeaderDownload HeaderDownload = new();
       internal BlockDownload BlockDownload;
-      internal Block BlockUnsolicited;
+      internal Header HeaderUnsolicited;
 
 
       ulong FeeFilterValue;
@@ -206,8 +206,7 @@ namespace BTokenLib
 
       public async Task Connect(int port)
       {
-        $"Connect peer {GetID()}"
-          .Log(LogFile);
+        $"Connect peer {GetID()}".Log(LogFile);
 
         TcpClient = new TcpClient();
 
@@ -224,9 +223,6 @@ namespace BTokenLib
         await HandshakeAsync(port);
 
         Cancellation = new();
-
-        $"Network protocol handshake {GetID()}"
-          .Log(LogFile);
 
         StartMessageListener();
       }
@@ -532,6 +528,8 @@ namespace BTokenLib
                   {
                     Blockchain.InsertBlock(block);
 
+                    Network.RelayBlock(block, this);
+
                     ($"{GetID()}: Inserted unsolicited " +
                       $"block {block.Header.Hash.ToHexString()}.")
                       .Log(LogFile);
@@ -606,8 +604,6 @@ namespace BTokenLib
                   break;
 
                 case "headers":
-
-                  Header header = null;
                   int byteIndex = 0;
 
                   int countHeaders = VarInt.GetInt32(
@@ -616,7 +612,7 @@ namespace BTokenLib
 
                   if (IsStateIdle())
                   {
-                    header = Token.ParseHeader(
+                    HeaderUnsolicited = Token.ParseHeader(
                       Payload,
                       ref byteIndex,
                       SHA256);
@@ -627,7 +623,7 @@ namespace BTokenLib
 
                     try
                     {
-                      if (header.HashPrevious.IsEqual(
+                      if (HeaderUnsolicited.HashPrevious.IsEqual(
                         Blockchain.HeaderTip.Hash))
                       {
                         await SendMessage(new GetDataMessage(
@@ -635,16 +631,16 @@ namespace BTokenLib
                           {
                             new Inventory(
                               InventoryType.MSG_BLOCK,
-                              header.Hash)
+                              HeaderUnsolicited.Hash)
                           }));
 
                         ($"{GetID()}: Requested block for unsolicited " +
-                          $"header {header.Hash.ToHexString()}.")
+                          $"header {HeaderUnsolicited.Hash.ToHexString()}.")
                           .Log(LogFile);
                       }
                       else
                       {
-                        ProcessHeaderUnsolicited(header);
+                        ProcessHeaderUnsolicited(HeaderUnsolicited);
                       }
                     }
                     catch (ProtocolException ex)
@@ -659,7 +655,7 @@ namespace BTokenLib
 
                     while (byteIndex < PayloadLength)
                     {
-                      header = Token.ParseHeader(
+                      Header header = Token.ParseHeader(
                         Payload,
                         ref byteIndex,
                         SHA256);

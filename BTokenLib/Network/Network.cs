@@ -646,14 +646,23 @@ namespace BTokenLib
       }
     }
 
-
-    bool FlagThrottling;
+    object LOCK_FlagThrottle = new();
+    bool FlagThrottle;
 
     void ThrottleDownloadBlockUnsolicited()
     {
-      while(FlagThrottling)
+      while(true)
       {
-        Thread.Sleep(10);
+        lock(LOCK_FlagThrottle)
+        {
+          if (!FlagThrottle)
+          {
+            FlagThrottle = true;
+            break;
+          }
+        }
+
+        Thread.Sleep(20);
       }
 
       StartTimerLatchFlagThrottle();
@@ -661,9 +670,10 @@ namespace BTokenLib
 
     async Task StartTimerLatchFlagThrottle()
     {
-      FlagThrottling = true;
-      await Task.Delay(250).ConfigureAwait(false);
-      FlagThrottling = false;
+      await Task.Delay(300).ConfigureAwait(false);
+
+      lock (LOCK_FlagThrottle)
+        FlagThrottle = false;
     }
 
     List<Header> QueueBlocksUnsolicited = new();
@@ -692,6 +702,7 @@ namespace BTokenLib
 
             if (countTriesLeft-- == 0)
             {
+              QueueBlocksUnsolicited.Remove(header);
               return true;
             }
           }
@@ -699,6 +710,21 @@ namespace BTokenLib
 
         await Task.Delay(500).ConfigureAwait(false);
       }
+    }
+
+     void RelayBlock(Block block, Peer peerSource)
+    {
+      foreach(Peer peer in Peers)
+      {
+        if(peer == peerSource ||
+        peer.HeaderUnsolicited != null && 
+        peer.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash))
+        {
+          continue;
+        }
+
+        peer.SendHeaders(new List<Header>() { block.Header });
+      };
     }
 
 
