@@ -35,7 +35,7 @@ namespace BTokenLib
 
 
 
-    public abstract Task StartMiner();
+    public abstract void StartMiner();
 
     protected bool FlagMinerStop;
     public void StopMiner()

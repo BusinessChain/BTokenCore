@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Linq;
-
-using BTokenLib;
 
 namespace BTokenCore
 {
@@ -53,7 +51,7 @@ namespace BTokenCore
             break;
 
           case "startMiner":
-            TokenBitcoin.StartMiner();
+            new Thread(TokenBitcoin.StartMiner).Start();
             break;
 
           case "stopMiner":

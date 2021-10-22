@@ -48,27 +48,14 @@ namespace BTokenCore
 
 
 
-    public override async Task StartMiner()
+    public override void StartMiner()
     {
       HeaderBitcoin header = new();
+      HeaderBitcoin headerBitcoinTip = null;
       BlockBitcoin block = new(header);
 
       do
       {
-        HeaderBitcoin headerBitcoinTip = (HeaderBitcoin)Blockchain.HeaderTip;
-        
-        header.Height = headerBitcoinTip.Height + 1;
-
-        header.Version = headerBitcoinTip.Version;
-
-        headerBitcoinTip.Hash.CopyTo(header.HashPrevious, 0);
-
-        header.UnixTimeSeconds =
-          (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-        header.NBits = GetNextTarget(headerBitcoinTip);
-        header.ComputeDifficultyFromNBits();
-
         header.Nonce += 1;
 
         if (FlagMinerStop)
@@ -76,7 +63,22 @@ namespace BTokenCore
           return;
         }
 
-        header.GetBytes();
+        if (headerBitcoinTip != Blockchain.HeaderTip)
+        {
+          headerBitcoinTip = (HeaderBitcoin)Blockchain.HeaderTip;
+
+          header.Height = headerBitcoinTip.Height + 1;
+
+          header.Version = headerBitcoinTip.Version;
+
+          headerBitcoinTip.Hash.CopyTo(header.HashPrevious, 0);
+
+          header.UnixTimeSeconds =
+            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+          header.NBits = GetNextTarget(headerBitcoinTip);
+          header.ComputeDifficultyFromNBits();
+        }
 
         header.Hash =
           SHA256.ComputeHash(
@@ -87,7 +89,7 @@ namespace BTokenCore
 
       while (!Blockchain.TryLock())
       {
-        await Task.Delay(100).ConfigureAwait(false);
+        Thread.Sleep(100);
       }
 
       try
