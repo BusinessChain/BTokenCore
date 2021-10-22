@@ -43,8 +43,6 @@ namespace BTokenLib
       FlagMinerStop = true;
     }
 
-    public abstract Header CreateHeaderNext(Header header);
-
     public abstract Header CreateHeaderGenesis();
     public abstract Dictionary<int, byte[]> GetCheckpoints();
 

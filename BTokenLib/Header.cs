@@ -24,6 +24,12 @@ namespace BTokenLib
     public int Height;
 
 
+    public Header()
+    {
+      Hash = new byte[32];
+      HashPrevious = new byte[32];
+      MerkleRoot = new byte[32];
+  }
 
     public Header(
       byte[] headerHash,
@@ -49,6 +55,18 @@ namespace BTokenLib
         .CopyTo(headerSerialized, 64);
 
       return headerSerialized;
+    }
+
+    public void ExtendHeaderTip(ref Header headerTip)
+    {
+      HeaderPrevious = headerTip;
+
+      Height = headerTip.Height + 1;
+      DifficultyAccumulated =
+        headerTip.DifficultyAccumulated + Difficulty;
+
+      headerTip.HeaderNext = this;
+      headerTip = this;
     }
   }
 }

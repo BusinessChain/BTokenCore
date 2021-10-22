@@ -711,20 +711,22 @@ namespace BTokenLib
         await Task.Delay(500).ConfigureAwait(false);
       }
     }
-
-     void RelayBlock(Block block, Peer peerSource)
+    public void RelayBlock(Block block)
     {
-      foreach(Peer peer in Peers)
-      {
-        if(peer == peerSource ||
-        peer.HeaderUnsolicited != null && 
-        peer.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash))
-        {
-          continue;
-        }
+      RelayBlock(block, null);
+    }
 
-        peer.SendHeaders(new List<Header>() { block.Header });
-      };
+    void RelayBlock(Block block, Peer peerSource)
+    {
+      Peers.ForEach(p =>
+      {
+        if (p != peerSource &&
+        (p.HeaderUnsolicited == null ||
+        !p.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash)))
+        {
+          p.SendHeaders(new List<Header>() { block.Header });
+        }
+      });
     }
 
 

@@ -250,14 +250,7 @@ namespace BTokenLib
 
     public void InsertHeader(Header header)
     {
-      header.HeaderPrevious = HeaderTip;
-
-      header.Height = HeaderTip.Height + 1;
-      header.DifficultyAccumulated = 
-        HeaderTip.DifficultyAccumulated + header.Difficulty;
-
-      HeaderTip.HeaderNext = header;
-      HeaderTip = header;
+      header.ExtendHeaderTip(ref HeaderTip);
 
       UpdateHeaderIndex(header);
     }
@@ -375,24 +368,6 @@ namespace BTokenLib
 
         return true;
       }
-    }
-    public async Task<bool> TryLock(int timerMS)
-    {
-      int intervalMS = 20;
-      int timeElapsedMS = 0;
-
-      while (timeElapsedMS < timerMS)
-      {
-        if (TryLock())
-        {
-          return true;
-        }
-
-        await Task.Delay(intervalMS).ConfigureAwait(false);
-        timeElapsedMS += intervalMS;
-      }
-
-      return false;
     }
 
     public void ReleaseLock()

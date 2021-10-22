@@ -13,7 +13,6 @@ namespace BTokenLib
     {
       public List<Header> Locator;
 
-      public int CountHeaders;
       public Header HeaderTip;
       public Header HeaderRoot;
       public Header HeaderLocatorAncestor;
@@ -61,9 +60,8 @@ namespace BTokenLib
             return;
           }
 
-          header.HeaderPrevious = HeaderLocatorAncestor;
-
           HeaderRoot = header;
+          HeaderTip = HeaderLocatorAncestor;
         }
         else 
         {
@@ -76,22 +74,17 @@ namespace BTokenLib
               HeaderTip.Hash.ToString(),
               header.HashPrevious.ToString()));
           }
-
-          header.HeaderPrevious = HeaderTip;
-          HeaderTip.HeaderNext = header;
         }
 
-        token.ValidateHeader(header);
+        header.ExtendHeaderTip(ref HeaderTip);
 
-        HeaderTip = header;
-        CountHeaders += 1;
+        token.ValidateHeader(HeaderTip);
       }
 
 
 
       public void Reset()
       {
-        CountHeaders = 0;
         HeaderTip = null;
         HeaderRoot = null;
         HeaderLocatorAncestor = null;

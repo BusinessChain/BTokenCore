@@ -23,6 +23,10 @@ namespace BTokenCore
     public BlockBitcoin()
     { }
 
+    public BlockBitcoin(HeaderBitcoin header) : 
+      base(header)
+    { }
+
     public BlockBitcoin(int sizeBuffer)
     {
       Buffer = new byte[sizeBuffer];

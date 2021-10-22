@@ -16,6 +16,9 @@ namespace BTokenCore
     const double MAX_TARGET = 2.695994666715064E67;
 
 
+    public HeaderBitcoin()
+    { }
+
     public HeaderBitcoin(
       byte[] headerHash,
       uint version,
@@ -34,8 +37,13 @@ namespace BTokenCore
       NBits = nBits;
       Nonce = nonce;
 
-      Difficulty = MAX_TARGET /
-        (double)UInt256.ParseFromCompact(nBits);
+      ComputeDifficultyFromNBits();
+    }
+
+    public double ComputeDifficultyFromNBits()
+    {
+      return MAX_TARGET /
+        (double)UInt256.ParseFromCompact(NBits);
     }
 
     public override byte[] GetBytes()

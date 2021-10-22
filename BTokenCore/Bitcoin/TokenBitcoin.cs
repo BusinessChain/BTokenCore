@@ -24,6 +24,8 @@ namespace BTokenCore
 
     UTXOTable UTXOTable;
 
+    SHA256 SHA256 = SHA256.Create();
+
 
     public TokenBitcoin(string pathBlockArchive) 
       : base(pathBlockArchive)
@@ -48,24 +50,44 @@ namespace BTokenCore
 
     public override async Task StartMiner()
     {
-      HeaderBitcoin header;
-      Block block;
+      HeaderBitcoin header = new();
+      BlockBitcoin block = new(header);
 
       do
       {
-        header = CreateHeaderNext(
-          Blockchain.HeaderTip);
+        HeaderBitcoin headerBitcoinTip = (HeaderBitcoin)Blockchain.HeaderTip;
+        
+        header.Height = headerBitcoinTip.Height + 1;
 
-        if(FlagMinerStop)
+        header.Version = headerBitcoinTip.Version;
+
+        headerBitcoinTip.Hash.CopyTo(header.HashPrevious, 0);
+
+        header.UnixTimeSeconds =
+          (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        header.NBits = GetNextTarget(headerBitcoinTip);
+        header.ComputeDifficultyFromNBits();
+
+        header.Nonce += 1;
+
+        if (FlagMinerStop)
         {
           return;
         }
 
-      } while (!TryMineBlock(header, out block));
+        header.GetBytes();
+
+        header.Hash =
+          SHA256.ComputeHash(
+            SHA256.ComputeHash(
+              header.GetBytes()));
+
+      } while (header.Hash.IsGreaterThan(header.NBits));
 
       while (!Blockchain.TryLock())
       {
-        await Task.Delay(200).ConfigureAwait(false);
+        await Task.Delay(100).ConfigureAwait(false);
       }
 
       try
@@ -78,8 +100,12 @@ namespace BTokenCore
           $"{ex.GetType().Name} when inserting " +
           $"mined block {block.Header.Hash.ToHexString()}.");
       }
+      finally
+      {
+        Blockchain.ReleaseLock();
+      }
 
-      Blockchain.ReleaseLock();
+      Network.RelayBlock(block);
     }
 
 
@@ -115,17 +141,6 @@ namespace BTokenCore
     }
 
 
-    bool TryMineBlock(
-      Header header,
-      out Block blockNew)
-    {
-      blockNew  = null;
-      return false;
-    }
-    public override HeaderBitcoin CreateHeaderNext(Header header)
-    {
-      return null;
-    }
 
     public override Header CreateHeaderGenesis()
     {
@@ -216,11 +231,6 @@ namespace BTokenCore
     {
       HeaderBitcoin header = (HeaderBitcoin)headerBlockchain;
 
-      header.Height = header.HeaderPrevious.Height + 1;
-      header.DifficultyAccumulated =
-        header.HeaderPrevious.DifficultyAccumulated + 
-        header.Difficulty;
-
       if (Checkpoints
         .TryGetValue(header.Height, out byte[] hashCheckpoint) &&
         !hashCheckpoint.IsEqual(header.Hash))
@@ -247,18 +257,8 @@ namespace BTokenCore
             DateTimeOffset.FromUnixTimeSeconds(medianTimePast)));
       }
 
-      uint targetBitsNew;
-
-      if ((header.Height % RETARGETING_BLOCK_INTERVAL) == 0)
-      {
-        targetBitsNew = GetNextTarget(
-          (HeaderBitcoin)header.HeaderPrevious)
-          .GetCompact();
-      }
-      else
-      {
-        targetBitsNew = header.NBits;
-      }
+      uint targetBitsNew = GetNextTarget(
+        (HeaderBitcoin)header.HeaderPrevious);
 
       if (header.NBits != targetBitsNew)
       {
@@ -302,14 +302,20 @@ namespace BTokenCore
       new UInt256("00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
 
 
-    static UInt256 GetNextTarget(HeaderBitcoin header)
+    static uint GetNextTarget(HeaderBitcoin header)
     {
+      if((header.Height % RETARGETING_BLOCK_INTERVAL) != 0)
+        return header.NBits;
+
       HeaderBitcoin headerIntervalStart = header;
       int depth = RETARGETING_BLOCK_INTERVAL;
 
-      while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
+      while (
+        --depth > 0 && 
+        headerIntervalStart.HeaderPrevious != null)
       {
-        headerIntervalStart = (HeaderBitcoin)headerIntervalStart.HeaderPrevious;
+        headerIntervalStart = 
+          (HeaderBitcoin)headerIntervalStart.HeaderPrevious;
       }
 
       ulong actualTimespan = Limit(
@@ -322,7 +328,8 @@ namespace BTokenCore
         .MultiplyBy(actualTimespan)
         .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
 
-      return UInt256.Min(DIFFICULTY_1_TARGET, targetNew);
+      return UInt256.Min(DIFFICULTY_1_TARGET, targetNew)
+        .GetCompact();
     }
 
     static ulong Limit(ulong actualTimespan)
