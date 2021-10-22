@@ -56,11 +56,17 @@ namespace BTokenCore
 
       do
       {
-        header.Nonce += 1;
-
         if (FlagMinerStop)
         {
           return;
+        }
+
+        header.Nonce += 1;
+
+        if(header.Nonce == 0)
+        {
+          header.UnixTimeSeconds =
+            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         }
 
         if (headerBitcoinTip != Blockchain.HeaderTip)
