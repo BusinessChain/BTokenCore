@@ -51,24 +51,12 @@ namespace BTokenCore
     public override void StartMiner()
     {
       HeaderBitcoin header = new();
+      byte[] bytesHeader = new byte[HeaderBitcoin.COUNT_HEADER_BYTES];
       HeaderBitcoin headerBitcoinTip = null;
       BlockBitcoin block = new(header);
 
-      do
+      while (!FlagMinerStop)
       {
-        if (FlagMinerStop)
-        {
-          return;
-        }
-
-        header.Nonce += 1;
-
-        if(header.Nonce == 0)
-        {
-          header.UnixTimeSeconds =
-            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        }
-
         if (headerBitcoinTip != Blockchain.HeaderTip)
         {
           headerBitcoinTip = (HeaderBitcoin)Blockchain.HeaderTip;
@@ -84,36 +72,53 @@ namespace BTokenCore
 
           header.NBits = GetNextTarget(headerBitcoinTip);
           header.ComputeDifficultyFromNBits();
+
+          bytesHeader = header.GetBytes();
+        }
+        else if (header.Nonce == 0)
+        {
+          header.UnixTimeSeconds =
+            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+          bytesHeader = header.GetBytes();
         }
 
         header.Hash =
           SHA256.ComputeHash(
             SHA256.ComputeHash(
-              header.GetBytes()));
+              bytesHeader));
 
-      } while (header.Hash.IsGreaterThan(header.NBits));
+        header.Nonce += 1;
 
-      while (!Blockchain.TryLock())
-      {
-        Thread.Sleep(100);
-      }
+        if (header.Hash.IsGreaterThan(header.NBits))
+        {
+          continue;
+        }
 
-      try
-      {
-        Blockchain.InsertBlock(block);
-      }
-      catch (Exception ex)
-      {
-        Debug.WriteLine(
-          $"{ex.GetType().Name} when inserting " +
-          $"mined block {block.Header.Hash.ToHexString()}.");
-      }
-      finally
-      {
-        Blockchain.ReleaseLock();
-      }
+        while (!Blockchain.TryLock())
+        {
+          Thread.Sleep(100);
+        }
 
-      Network.RelayBlock(block);
+        try
+        {
+          Blockchain.InsertBlock(block);
+        }
+        catch (ProtocolException ex)
+        {
+          Debug.WriteLine(
+            $"{ex.GetType().Name} when inserting " +
+            $"mined block {block.Header.Hash.ToHexString()}.");
+
+          continue;
+        }
+        finally
+        {
+          Blockchain.ReleaseLock();
+        }
+
+        Network.RelayBlock(block);
+      }
     }
 
 
@@ -158,7 +163,7 @@ namespace BTokenCore
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
          merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
          unixTimeSeconds: 1231006505,
-         nBits: 0x1d00ffff,
+         nBits: 0x1dffffff,
          nonce: 2083236893);
     }
 
@@ -312,7 +317,7 @@ namespace BTokenCore
 
     static uint GetNextTarget(HeaderBitcoin header)
     {
-      if((header.Height % RETARGETING_BLOCK_INTERVAL) != 0)
+      if(((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
         return header.NBits;
 
       HeaderBitcoin headerIntervalStart = header;

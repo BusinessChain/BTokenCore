@@ -7,7 +7,7 @@ namespace BTokenCore
 {
   class HeaderBitcoin : Header
   {
-    const int COUNT_HEADER_BYTES = 80;
+    public const int COUNT_HEADER_BYTES = 80;
 
     public uint Version;
     public uint NBits;

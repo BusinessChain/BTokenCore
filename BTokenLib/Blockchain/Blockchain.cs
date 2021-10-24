@@ -240,12 +240,9 @@ namespace BTokenLib
         block,
         IndexBlockArchive);
 
-      if (intervalArchiveImage > 0)
-      {
-        ArchiveBlock(
-          block,
-          intervalArchiveImage);
-      }
+      ArchiveBlock(
+        block,
+        intervalArchiveImage);
     }
 
     public void InsertHeader(Header header)

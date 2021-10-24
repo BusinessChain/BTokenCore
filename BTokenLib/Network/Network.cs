@@ -23,7 +23,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333;
 
-    int CountPeersMax = 8;
+    int CountPeersMax = 4;
 
 
     object LOCK_Peers = new();
