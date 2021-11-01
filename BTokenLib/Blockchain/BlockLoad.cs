@@ -49,13 +49,20 @@ namespace BTokenLib
             Blocks.Last().Header.Hash))
         {
           throw new ProtocolException(
-            string.Format(
-              "Headerchain out of order in blockArchive {0}.",
-              Index));
+            $"Headerchain out of order in blockArchive {Index}.");
         }
 
         Blocks.Add(block);
         CountBytes += block.Buffer.Length;
+      }
+
+      public void Initialize(int index)
+      {
+        Index = index;
+        Blocks.Clear();
+        CountBytes = 0;
+
+        IsInvalid = false;
       }
     }
   }

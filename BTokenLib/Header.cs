@@ -68,5 +68,10 @@ namespace BTokenLib
       headerTip.HeaderNext = this;
       headerTip = this;
     }
+
+    public override string ToString()
+    {
+      return Hash.ToHexString();
+    }
   }
 }

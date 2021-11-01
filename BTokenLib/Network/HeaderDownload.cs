@@ -11,6 +11,7 @@ namespace BTokenLib
   {
     class HeaderDownload
     {
+      public Peer Peer;
       public List<Header> Locator;
 
       public Header HeaderTip;
@@ -19,6 +20,14 @@ namespace BTokenLib
       public Header HeaderInsertedLast;
       public bool IsFork;
 
+
+      public HeaderDownload(
+        List<Header> locator,
+        Peer peer)
+      {
+        Peer = peer;
+        Locator = locator;
+      }
 
       public void InsertHeader(Header header, Token token)
       {
@@ -33,14 +42,6 @@ namespace BTokenLib
           {
             throw new ProtocolException(
               "Header does not connect to locator.");
-          }
-
-          if (HeaderLocatorAncestor != Locator.First())
-          {
-            IsFork = true;
-
-            Debug.WriteLine(
-              $"{header.Hash.ToHexString()} is fork.");
           }
         }
 
@@ -61,18 +62,16 @@ namespace BTokenLib
           }
 
           HeaderRoot = header;
-          HeaderTip = HeaderLocatorAncestor;
+          HeaderTip = header;
         }
         else 
         {
           if (!HeaderTip.Hash.IsEqual(header.HashPrevious))
           {
             throw new ProtocolException(
-            string.Format(
-              "Header insertion out of order. " +
-              "Previous header {0}\n Next header: {1}",
-              HeaderTip.Hash.ToString(),
-              header.HashPrevious.ToString()));
+              $"Header insertion out of order. " +
+              $"Previous header {HeaderTip}\n " +
+              $"Next header: {header.HeaderPrevious}");
           }
         }
 
@@ -81,15 +80,9 @@ namespace BTokenLib
         token.ValidateHeader(HeaderTip);
       }
 
-
-
-      public void Reset()
+      public string ToStringLocator()
       {
-        HeaderTip = null;
-        HeaderRoot = null;
-        HeaderLocatorAncestor = null;
-        HeaderInsertedLast = null;
-        IsFork = false;
+        return $"{Locator.First()} ... {Locator.Last()}";
       }
     }
   }

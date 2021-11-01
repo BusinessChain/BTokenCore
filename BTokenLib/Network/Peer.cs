@@ -62,7 +62,7 @@ namespace BTokenLib
       public bool FlagDispose;
       public bool IsSynchronized;
 
-      internal HeaderDownload HeaderDownload = new();
+      internal HeaderDownload HeaderDownload;
       internal BlockDownload BlockDownload;
       internal Header HeaderUnsolicited;
 
@@ -530,8 +530,7 @@ namespace BTokenLib
 
                     Network.RelayBlock(block, this);
 
-                    ($"{GetID()}: Inserted unsolicited " +
-                      $"block {block.Header.Hash.ToHexString()}.")
+                    $"{GetID()}: Inserted unsolicited block {block}."
                       .Log(LogFile);
                   }
                   else
@@ -556,13 +555,13 @@ namespace BTokenLib
                 {
                   Cancellation = new();
 
-                  if (!Network.InsertBlockDownloadFlagContinue(this))
+                  if (Network.InsertBlockDownloadFlagContinue(this))
                   {
-                    Release();
+                    await GetBlock();
                     continue;
                   }
 
-                  await GetBlock();
+                  Release();
                 }
               }
             }
@@ -635,7 +634,7 @@ namespace BTokenLib
                           }));
 
                         ($"{GetID()}: Requested block for unsolicited " +
-                          $"header {HeaderUnsolicited.Hash.ToHexString()}.")
+                          $"header {HeaderUnsolicited}.")
                           .Log(LogFile);
                       }
                       else
@@ -668,26 +667,9 @@ namespace BTokenLib
                     if (countHeaders == 0)
                     {
                       Cancellation = new();
+                      Release();
 
-                      if (HeaderDownload.HeaderTip == null)
-                      {
-                        Release();
-
-                        Blockchain.ReleaseLock();
-
-                        break;
-                      }
-
-                      if (HeaderDownload.IsFork)
-                      {
-                        if (!await Blockchain.TryFork(
-                           HeaderDownload.HeaderLocatorAncestor))
-                        {
-                          Release();
-                        }
-                      }
-
-                      Network.Synchronize(this);
+                      new Thread(Network.Synchronize).Start();
                     }
                     else
                     {
@@ -714,7 +696,7 @@ namespace BTokenLib
                       State = StateProtocol.IDLE;
                     }
 
-                    if (this == Network.PeerSynchronizationMaster)
+                    if (this == Network.PeerSynchronization)
                     {
                       throw new ProtocolException(
                         $"Peer has sent headers but does not deliver blocks.");
@@ -777,7 +759,7 @@ namespace BTokenLib
           {
             Blockchain.ReleaseLock();
           }
-          else if (IsStateAwaitingBlockDownload())
+          else if(IsStateAwaitingBlockDownload())
           {
             Network.ReturnPeerBlockDownloadIncomplete(this);
           }
@@ -793,8 +775,7 @@ namespace BTokenLib
           if (HeaderDuplicateReceivedLast != null &&
             HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
           {
-            throw new ProtocolException(
-              $"Sent duplicate block {header.Hash.ToHexString()}.");
+            throw new ProtocolException($"Sent duplicate header {header}.");
           }
 
           HeaderDuplicateReceivedLast = headerReceivedNow;
@@ -843,25 +824,21 @@ namespace BTokenLib
       /// </summary>
       public async Task GetHeaders()
       {
-        HeaderDownload.Reset();
-        HeaderDownload.Locator = Blockchain.GetLocator();
-        List<Header> headerLocatorNext = HeaderDownload.Locator.ToList();
-
-        string.Format(
-          "Send getheaders to peer {0}, \n" +
-          "locator: {1} ... \n{2}",
-          GetID(),
-          headerLocatorNext.First().Hash.ToHexString(),
-          headerLocatorNext.Count > 1 ? headerLocatorNext.Last().Hash.ToHexString() : "")
+        HeaderDownload = new(
+          Blockchain.GetLocator(), 
+          this);
+               
+        ($"Send getheaders to peer {GetID()},\n" +
+          $"locator: {HeaderDownload.ToStringLocator()}")
           .Log(LogFile);
 
         SetStateAwaitingHeader();
 
-        await SendMessage(new GetHeadersMessage(
-          headerLocatorNext,
-          ProtocolVersion));
-
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+        await SendMessage(new GetHeadersMessage(
+          HeaderDownload.Locator,
+          ProtocolVersion));
       }
 
       public async Task GetBlock()
@@ -871,13 +848,24 @@ namespace BTokenLib
             h => new Inventory(
               InventoryType.MSG_BLOCK,
               h.Hash))
-              .ToList();
+          .ToList();
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
         BlockDownload.StopwatchBlockDownload.Restart();
 
-        await SendMessage(new GetDataMessage(inventories));
+        try
+        {
+          await SendMessage(new GetDataMessage(inventories));
+        }
+        catch(Exception ex)
+        {
+          SetFlagDisposed(
+            $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
+
+          Network.ReturnPeerBlockDownloadIncomplete(this);
+          return;
+        }
 
         lock (this)
         {
@@ -991,11 +979,6 @@ namespace BTokenLib
         {
           return State == StateProtocol.AwaitingBlockDownload;
         }
-      }
-
-      public bool IsInbound()
-      {
-        return Connection == ConnectionType.INBOUND;
       }
 
       public string GetID()

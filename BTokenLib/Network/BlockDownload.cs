@@ -79,12 +79,9 @@ namespace BTokenLib
         if (!block.Header.Hash.IsEqual(
           HeadersExpected[IndexHeadersExpected].Hash))
         {
-          throw new ProtocolException(string.Format(
-            "Unexpected block header {0} in blockLoad {1}. \n" +
-            "Excpected {2}.",
-            block.Header.Hash.ToHexString(),
-            Index,
-            HeadersExpected[IndexHeadersExpected].Hash.ToHexString()));
+          throw new ProtocolException(
+            $"Unexpected block {block} in blockLoad {Index}. \n" +
+            $"Excpected {HeadersExpected[IndexHeadersExpected]}.");
         }
 
         IndexHeadersExpected += 1;

@@ -28,5 +28,10 @@ namespace BTokenLib
     public abstract void Parse(
       byte[] buffer,
       ref int startIndex);
+
+    public override string ToString()
+    {
+      return Header.ToString();
+    }
   }
 }

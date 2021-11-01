@@ -27,7 +27,7 @@ namespace BTokenLib
     public async Task Start()
     {
       Console.WriteLine("Load image.");
-      await Blockchain.LoadImage();
+      Blockchain.LoadImage();
 
       Console.WriteLine("Start network.");
       Network.Start();

@@ -107,8 +107,7 @@ namespace BTokenCore
         catch (ProtocolException ex)
         {
           Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting " +
-            $"mined block {block.Header.Hash.ToHexString()}.");
+            $"{ex.GetType().Name} when inserting mined block {block}.");
 
           continue;
         }
@@ -249,11 +248,8 @@ namespace BTokenCore
         !hashCheckpoint.IsEqual(header.Hash))
       {
         throw new ProtocolException(
-          string.Format(
-            "Header {0} at hight {1} not equal to checkpoint hash {2}",
-            header.Hash.ToHexString(),
-            header.Height,
-            hashCheckpoint.ToHexString()));
+            $"Header {header} at hight {header.Height} not equal " +
+            $"to checkpoint hash {hashCheckpoint.ToHexString()}");
       }
 
       uint medianTimePast = GetMedianTimePast(
@@ -263,9 +259,8 @@ namespace BTokenCore
       {
         throw new ProtocolException(
           string.Format(
-            "Header {0} with unix time {1} " +
+            $"Header {header} with unix time {1} " +
             "is older than median time past {2}.",
-            header.Hash.ToHexString(),
             DateTimeOffset.FromUnixTimeSeconds(header.UnixTimeSeconds),
             DateTimeOffset.FromUnixTimeSeconds(medianTimePast)));
       }
@@ -276,11 +271,8 @@ namespace BTokenCore
       if (header.NBits != targetBitsNew)
       {
         throw new ProtocolException(
-          string.Format(
-            "In header {0}\n nBits {1} not equal to target nBits {2}",
-            header.Hash.ToHexString(),
-            header.NBits,
-            targetBitsNew));
+          $"In header {header}\n nBits {header.NBits} " +
+          $"not equal to target nBits {targetBitsNew}");
       }
     }
 

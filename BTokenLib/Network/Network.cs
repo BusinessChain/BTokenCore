@@ -305,10 +305,12 @@ namespace BTokenLib
       }
     }
 
+
+
+    Peer PeerSynchronization;
+
     async Task StartSynchronizer()
     {
-      Peer peer;
-
       while (true)
       {
         await Task.Delay(5000).ConfigureAwait(false);
@@ -320,25 +322,25 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
         {
-          peer = Peers.Find(p => p.TryStageSynchronization());
+          PeerSynchronization = Peers.Find(p => p.TryStageSynchronization());
 
-          if (peer == null)
+          if (PeerSynchronization == null)
           {
             Blockchain.ReleaseLock();
             continue;
           }
         }
 
-        $"Start synchronization with peer {peer.GetID()}."
+        $"Start synchronization with peer {PeerSynchronization.GetID()}."
           .Log(LogFile);
 
         try
         {
-          await peer.GetHeaders();
+          await PeerSynchronization.GetHeaders();
         }
         catch (Exception ex)
         {
-          peer.SetFlagDisposed(
+          PeerSynchronization.SetFlagDisposed(
             $"{ex.GetType().Name} in getheaders: \n{ex.Message}");
 
           Blockchain.ReleaseLock();
@@ -352,95 +354,122 @@ namespace BTokenLib
     int IndexInsertion;
     Dictionary<int, BlockDownload> QueueDownloadsInsertion = new();
     List<BlockDownload> QueueDownloadsIncomplete = new();
-    Peer PeerSynchronizationMaster;
     Header HeaderRoot;
-
     int IndexBlockDownload;
 
-    async Task Synchronize(Peer peer)
+    void Synchronize()
     {
-      PeerSynchronizationMaster = peer;
+      HeaderDownload headerDownload = PeerSynchronization.HeaderDownload;
+
+      if (headerDownload.HeaderLocatorAncestor != Blockchain.HeaderTip)
+      {
+        if (
+          headerDownload.HeaderTip == null ||
+          headerDownload.HeaderTip.DifficultyAccumulated <=
+          Blockchain.HeaderTip.DifficultyAccumulated ||
+          !Blockchain.TryFork(headerDownload.HeaderLocatorAncestor))
+        {
+          Blockchain.ReleaseLock();
+          return;
+        }
+      }
+
       FlagSynchronizationAbort = false;
       IndexInsertion = 0;
       QueueDownloadsInsertion.Clear();
       QueueDownloadsIncomplete.Clear();
 
       IndexBlockDownload = 0;
-      HeaderRoot = peer.HeaderDownload.HeaderRoot;
+      HeaderRoot = headerDownload.HeaderRoot;
 
-      while (true)
-      {
-        if(peer != null)
-        {
-          $"Sync with peer {peer.GetID()}".Log(LogFile);
-
-          if (!TryChargeBlockDownload(peer))
-          {
-            break;
-          }
-
-          await peer.GetBlock();
-        }
-
-        if (FlagSynchronizationAbort)
-        {
-          string.Format("Synchronization abort.")
-            .Log(LogFile);
-
-          await Blockchain.LoadImage();
-
-          break;
-        }
-
-        if (!TryGetPeer(out peer))
-        {
-          await Task.Delay(3000).ConfigureAwait(false);
-        }
-      }
-
-      if (Blockchain.IsFork)
-      {
-        if (Blockchain.HeaderTip.Difficulty > Blockchain.DifficultyOld)
-        {
-          Blockchain.Reorganize();
-        }
-        else
-        {
-          Blockchain.DismissFork();
-          await Blockchain.LoadImage();
-        }
-      }
-
-      lock (LOCK_Peers)
-      {
-        Peers
-          .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
-          .ForEach(p => p.Release());
-      }
-
-      while (true)
-      {
-        lock (LOCK_Peers)
-        {
-          if (!Peers.Any(p => p.IsBusy))
-          {
-            break;
-          }
-        }
-
-        "Waiting for all peers to exit state 'synchronization busy'."
-          .Log(LogFile);
-
-        await Task.Delay(1000).ConfigureAwait(false);
-      }
-
-      PoolBlockDownload.Clear();
-
-      Blockchain.ReleaseLock();
-
-      "Synchronization ended.".Log(LogFile);
+      SynchronizeBlocks();
     }
 
+    async Task SynchronizeBlocks()
+    {
+      try
+      {
+        Peer peer = PeerSynchronization;
+
+        while (true)
+        {
+          if (peer != null)
+          {
+            $"Sync with peer {peer.GetID()}".Log(LogFile);
+
+            if (!TryChargeBlockDownload(peer))
+            {
+              break;
+            }
+
+            await peer.GetBlock();
+          }
+
+          if (FlagSynchronizationAbort)
+          {
+            string.Format("Synchronization abort.").Log(LogFile);
+
+            Blockchain.LoadImage();
+
+            break;
+          }
+
+          if (!TryGetPeer(out peer))
+          {
+            await Task.Delay(3000).ConfigureAwait(false);
+          }
+        }
+
+        if (Blockchain.IsFork)
+        {
+          if (Blockchain.HeaderTip.Difficulty > Blockchain.DifficultyOld)
+          {
+            Blockchain.Reorganize();
+          }
+          else
+          {
+            Blockchain.DismissFork();
+            Blockchain.LoadImage();
+          }
+        }
+
+        lock (LOCK_Peers)
+        {
+          Peers
+            .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
+            .ForEach(p => p.Release());
+        }
+
+        while (true)
+        {
+          lock (LOCK_Peers)
+          {
+            if (!Peers.Any(p => p.IsBusy))
+            {
+              break;
+            }
+          }
+
+          "Waiting for all peers to exit state 'synchronization busy'."
+            .Log(LogFile);
+
+          await Task.Delay(1000).ConfigureAwait(false);
+        }
+      }
+      catch(Exception ex)
+      {
+        $"{ex.GetType().Name} when synchronizing blocks:\n {ex.Message}"
+          .Log(LogFile);
+      }
+      finally
+      {
+        PoolBlockDownload.Clear();
+
+        Blockchain.ReleaseLock();
+
+        "Synchronization ended.".Log(LogFile);
+      }
+    }
 
     BlockDownload BlockDownloadBlocking;
     BlockDownload BlockDownloadIndexPrevious;

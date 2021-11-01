@@ -107,9 +107,7 @@ namespace BTokenCore
       if (hash.IsGreaterThan(nBits))
       {
         throw new ProtocolException(
-          string.Format("header hash {0} greater than NBits {1}",
-            hash.ToHexString(),
-            nBits));
+          $"Header hash {hash.ToHexString()} greater than NBits {nBits}");
       }
 
       uint nonce = BitConverter.ToUInt32(buffer, index);
