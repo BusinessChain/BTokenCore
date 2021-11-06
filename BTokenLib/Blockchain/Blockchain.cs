@@ -283,10 +283,10 @@ namespace BTokenLib
           }
           catch (ThreadInterruptedException)
           {
+            Debug.WriteLine($"Interrupt {Thread.CurrentThread.ManagedThreadId}.");
+
             if (FlagLoaderExit)
-            {
               return;
-            }
           }
         }
 
@@ -305,6 +305,9 @@ namespace BTokenLib
 
               continue;
             }
+
+            if (FlagLoaderExit)
+              return;
 
             ThreadsSleeping.Add(
               blockLoad.Index,
@@ -334,11 +337,7 @@ namespace BTokenLib
         }
 
         if (blockLoad.Index % UTXOIMAGE_INTERVAL_LOADER == 0)
-        {
-          CreateImage(
-            ++blockLoad.Index,
-            NameImage);
-        }
+          CreateImage(++blockLoad.Index, NameImage);
 
         lock (LOCK_IndexBlockLoadInsert)
         {
@@ -359,16 +358,18 @@ namespace BTokenLib
             out Thread threadSleeping))
           {
             ThreadsSleeping.Remove(IndexBlockArchiveInsert);
+            Debug.WriteLine($"interrupt sleeping thread {threadSleeping.ManagedThreadId}.");
             threadSleeping.Interrupt();
           }
         }
       }
 
-      FlagLoaderExit = true;
-
-      foreach (Thread threadSleeping in ThreadsSleeping.Values)
+      lock(LOCK_IndexBlockLoadInsert)
       {
-        threadSleeping.Interrupt();
+        FlagLoaderExit = true;
+
+        foreach (Thread threadSleeping in ThreadsSleeping.Values)
+          threadSleeping.Interrupt();
       }
 
       ThreadsSleeping.Clear();
@@ -399,9 +400,7 @@ namespace BTokenLib
               ArchiveBlock(blockArchiveFork, -1);
 
               if (blockArchiveFork == block)
-              {
                 break;
-              }
             }
           }
         }
