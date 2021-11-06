@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 
 
@@ -15,19 +16,19 @@ namespace BTokenLib
   {
     public Token Token;
 
-    Header HeaderRoot;
+    Header HeaderGenesis;
     public Header HeaderTip;
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
 
     // Brauche ich das?
-    Dictionary<byte[], int> BlockIndex =
-      new(new EqualityComparerByteArray());
+    Dictionary<byte[], int> BlockIndex = new(
+      new EqualityComparerByteArray());
 
     string NameFork = "Fork";
     string NameImage = "Image";
-    string NameOld = "Old";
+    string NameImageOld = "ImageOld";
 
     string FileNameIndexBlockArchiveImage = "IndexBlockArchive";
     string PathBlockArchive;
@@ -35,11 +36,9 @@ namespace BTokenLib
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
         
-    public int IndexBlockArchive;
-
     public const int COUNT_LOADER_TASKS = 4;
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-    const int UTXOIMAGE_INTERVAL_LOADER = 100;
+    const int UTXOIMAGE_INTERVAL_LOADER = 200;
 
     StreamWriter LogFile;
 
@@ -58,22 +57,15 @@ namespace BTokenLib
 
       PathBlockArchive = pathBlockArchive;
 
-      HeaderRoot = token.CreateHeaderGenesis();
-      HeaderRoot.Height = 0;
-      HeaderRoot.DifficultyAccumulated = HeaderRoot.Difficulty;
-
-      HeaderTip = HeaderRoot;
-
-      UpdateHeaderIndex(HeaderRoot);
-      
       DirectoryInfo DirectoryBlockArchive =
           Directory.CreateDirectory(PathBlockArchive);
 
       LogFile = new StreamWriter(
         Path.Combine(Token.GetName() + "LogArchiver"), 
         false);
-    }
 
+      InizializeHeaderchain();
+    }
 
     public string GetStatus()
     {
@@ -88,7 +80,6 @@ namespace BTokenLib
         $"Age: {ageBlock}\n";
     }
 
-    byte[] HashStopLoading;
 
     public void LoadImage()
     {
@@ -98,37 +89,52 @@ namespace BTokenLib
     void LoadImage(int heightMax, byte[] hashStopLoading)
     {
       string pathImage = NameImage;
-      
-      while(true)
-      {
-        if (
-          !TryLoadImageFile(pathImage) ||
-          (heightMax > 0 && HeaderTip.Height > heightMax))
-        {
-          Reset();
 
+      while (true)
+      {
+        if (!TryLoadImageFile(pathImage, heightMax))
+        {
           if (pathImage == NameImage)
           {
-            pathImage += NameOld;
+            pathImage = NameImageOld;
             continue;
+          }
+          else
+          {
+            pathImage = NameImage;
           }
         }
 
-        Console.WriteLine(
-          $"Start loading block from blockArchive {IndexBlockArchiveLoad}.");
+        HashStopLoading = hashStopLoading;
+        IndexBlockArchiveInsert = IndexBlockArchiveLoad;
+        IsLoaderFail = false;
+        FlagLoaderExit = false;
 
-        if (TryLoadBlocks(hashStopLoading))
-        {
+        if (FileBlockArchive != null)
+          FileBlockArchive.Dispose();
+
+        Parallel.For(
+          0,
+          COUNT_LOADER_TASKS,
+          i => StartLoader());
+
+        if (!IsLoaderFail)
           return;
-        }
       }
     }
 
-    bool TryLoadImageFile(string pathImage)
+    bool TryLoadImageFile(string pathImage, int heightMax)
     {
+      Reset();
+
       try
       {
         LoadImageHeaderchain(pathImage);
+
+        if(heightMax > 0 && HeaderTip.Height > heightMax)
+        {
+          return false;
+        }
 
         Token.LoadImage(pathImage);
 
@@ -151,36 +157,20 @@ namespace BTokenLib
           $"{ex.GetType().Name} when loading image {pathImage}:" +
           $"\n{ex.Message}");
 
+        Reset();
+
         return false;
       }
     }
 
-    void Reset()
-    {
-      HeaderTip = HeaderRoot;
-
-      HeaderIndex.Clear();
-      UpdateHeaderIndex(HeaderRoot);
-
-      Token.Reset();
-
-      BlockIndex.Clear();
-
-      IndexBlockArchiveLoad = 0;
-    }
-
     void LoadImageHeaderchain(string pathImage)
     {
-      string pathFile = Path.Combine(
-        pathImage, 
-        "ImageHeaderchain");
+      byte[] bytesHeaderImage = File.ReadAllBytes(
+        Path.Combine(pathImage, "ImageHeaderchain"));
 
       int indexBytesHeaderImage = 0;
-      byte[] bytesHeaderImage = File.ReadAllBytes(pathFile);
 
-      HeaderTip = HeaderRoot;
-      
-      while(indexBytesHeaderImage < bytesHeaderImage.Length)
+      while (indexBytesHeaderImage < bytesHeaderImage.Length)
       {
         Header header = Token.ParseHeader(
          bytesHeaderImage,
@@ -212,7 +202,225 @@ namespace BTokenLib
         BlockIndex.Add(key, value);
       }
     }
-        
+
+    void Reset()
+    {
+      InizializeHeaderchain();
+
+      Token.Reset();
+
+      BlockIndex.Clear();
+
+      IndexBlockArchiveLoad = 1;
+    }
+
+    void InizializeHeaderchain()
+    {
+      HeaderIndex.Clear();
+
+      HeaderGenesis = Token.CreateHeaderGenesis();
+      HeaderGenesis.Height = 0;
+      HeaderGenesis.DifficultyAccumulated = HeaderGenesis.Difficulty;
+
+      HeaderTip = HeaderGenesis;
+
+      UpdateHeaderIndex(HeaderTip);
+    }
+
+
+    byte[] HashStopLoading;
+    Dictionary<int, Thread> ThreadsSleeping = new();
+    Dictionary<int, BlockLoad> QueueBlockLoads = new();
+    bool IsLoaderFail;
+    bool FlagLoaderExit;
+    int CountBytesArchive;
+    FileStream FileBlockArchive;
+    ConcurrentBag<BlockLoad> PoolBlockLoad = new();
+
+    void StartLoader()
+    {
+      BlockLoad blockLoad = new(Token);
+
+      while (true)
+      {
+        lock (LOCK_IndexBlockArchiveLoad)
+        {
+          blockLoad.Initialize(IndexBlockArchiveLoad++);
+        }
+
+        string pathBlockArchive = Path.Combine(
+          PathBlockArchive,
+          blockLoad.Index.ToString());
+
+        try
+        {
+          blockLoad.Parse(
+            File.ReadAllBytes(pathBlockArchive));
+        }
+        catch (FileNotFoundException)
+        {
+          blockLoad.IsInvalid = true;
+        }
+        catch (ProtocolException ex)
+        {
+          blockLoad.IsInvalid = true;
+
+          ($"ProtocolException when loading file {pathBlockArchive}:\n " +
+            $"{ex.Message}")
+            .Log(LogFile);
+        }
+
+        bool flagPutThreadToSleep = false;
+
+      LABEL_PutThreadToSleep:
+
+        if (flagPutThreadToSleep)
+        {
+          try
+          {
+            Debug.WriteLine($"{Thread.CurrentThread.ManagedThreadId} sleeps.");
+            Thread.Sleep(Timeout.Infinite);
+          }
+          catch (ThreadInterruptedException)
+          {
+            if (FlagLoaderExit)
+            {
+              return;
+            }
+          }
+        }
+
+        lock (LOCK_IndexBlockLoadInsert)
+        {
+          if (blockLoad.Index != IndexBlockArchiveInsert)
+          {
+            if (
+              QueueBlockLoads.Count < COUNT_LOADER_TASKS ||
+              QueueBlockLoads.Keys.Any(k => k > blockLoad.Index))
+            {
+              QueueBlockLoads.Add(blockLoad.Index, blockLoad);
+
+              if(!PoolBlockLoad.TryTake(out blockLoad))
+                blockLoad = new(Token);
+
+              continue;
+            }
+
+            ThreadsSleeping.Add(
+              blockLoad.Index,
+              Thread.CurrentThread);
+
+            flagPutThreadToSleep = true;
+            goto LABEL_PutThreadToSleep;
+          }
+        }
+
+        if (
+          blockLoad.IsInvalid ||
+          blockLoad.Blocks.Count == 0 ||
+          !blockLoad.Blocks[0].Header.HashPrevious.IsEqual(HeaderTip.Hash) ||
+          !TryBlockLoadInsert(blockLoad))
+        {
+          CreateBlockArchive(blockLoad.Index);
+          break;
+        }
+
+        if (blockLoad.CountBytes < SIZE_BLOCK_ARCHIVE_BYTES)
+        {
+          CountBytesArchive = blockLoad.CountBytes;
+
+          OpenBlockArchive(blockLoad.Index);
+          break;
+        }
+
+        if (blockLoad.Index % UTXOIMAGE_INTERVAL_LOADER == 0)
+        {
+          CreateImage(
+            ++blockLoad.Index,
+            NameImage);
+        }
+
+        lock (LOCK_IndexBlockLoadInsert)
+        {
+          IndexBlockArchiveInsert += 1;
+
+          if(QueueBlockLoads.ContainsKey(IndexBlockArchiveInsert))
+          {
+            PoolBlockLoad.Add(blockLoad);
+
+            blockLoad = QueueBlockLoads[IndexBlockArchiveInsert];
+            QueueBlockLoads.Remove(IndexBlockArchiveInsert);
+
+            goto LABEL_PutThreadToSleep;
+          }
+
+          if (ThreadsSleeping.TryGetValue(
+            IndexBlockArchiveInsert,
+            out Thread threadSleeping))
+          {
+            ThreadsSleeping.Remove(IndexBlockArchiveInsert);
+            threadSleeping.Interrupt();
+          }
+        }
+      }
+
+      FlagLoaderExit = true;
+
+      foreach (Thread threadSleeping in ThreadsSleeping.Values)
+      {
+        threadSleeping.Interrupt();
+      }
+
+      ThreadsSleeping.Clear();
+      PoolBlockLoad.Clear();
+    }
+
+
+    bool TryBlockLoadInsert(BlockLoad blockLoad)
+    {
+      try
+      {
+        foreach (Block block in blockLoad.Blocks)
+        {
+          InsertHeader(block.Header);
+
+          Token.InsertBlock(
+            block,
+            blockLoad.Index);
+
+          if (block.Header.Hash.IsEqual(HashStopLoading))
+          {
+            FileBlockArchive.Dispose();
+
+            CreateBlockArchive(blockLoad.Index);
+
+            foreach (Block blockArchiveFork in blockLoad.Blocks)
+            {
+              ArchiveBlock(blockArchiveFork, -1);
+
+              if (blockArchiveFork == block)
+              {
+                break;
+              }
+            }
+          }
+        }
+
+        Debug.WriteLine(
+          $"Loaded blockchain height: {HeaderTip.Height}, " +
+          $"blockload Index: {blockLoad.Index}");
+      }
+      catch (ProtocolException)
+      {
+        FileBlockArchive.Dispose();
+
+        File.Delete(FileBlockArchive.Name);
+
+        IsLoaderFail = true;
+      }
+
+      return !IsLoaderFail;
+    }
 
     public void InsertBlock(
       Block block,
@@ -222,7 +430,7 @@ namespace BTokenLib
 
       Token.InsertBlock(
         block,
-        IndexBlockArchive);
+        IndexBlockArchiveInsert);
 
       ArchiveBlock(
         block,
@@ -359,174 +567,6 @@ namespace BTokenLib
       }
     }
 
-
-    Dictionary<int, Thread> ThreadsSleeping = new();
-
-    public bool TryLoadBlocks(byte[] hashStopLoading)
-    {
-      "Start archive loader".Log(LogFile);
-
-      HashStopLoading = hashStopLoading;
-      IndexBlockArchiveInsert = IndexBlockArchiveLoad;
-
-      Parallel.For(
-        0,
-        COUNT_LOADER_TASKS,
-        i => StartLoader());
-
-      return IsInserterSuccess;
-    }
-
-    void StartLoader()
-    {
-      BlockLoad blockLoad = new(Token);
-
-      while (true)
-      {
-        lock (LOCK_IndexBlockArchiveLoad)
-        {
-          blockLoad.Initialize(IndexBlockArchiveLoad++);
-        }
-
-        string pathBlockArchive = Path.Combine(
-          PathBlockArchive,
-          blockLoad.Index.ToString());
-
-        try
-        {
-          blockLoad.Parse(
-            File.ReadAllBytes(pathBlockArchive));
-        }
-        catch (FileNotFoundException)
-        {
-          blockLoad.IsInvalid = true;
-        }
-        catch (ProtocolException ex)
-        {
-          blockLoad.IsInvalid = true;
-
-          ($"ProtocolException when loading file {pathBlockArchive}:\n " +
-            $"{ex.Message}")
-            .Log(LogFile);
-        }
-
-        bool flagPutThreadToSleep = false;
-
-      LABEL_PutThreadToSleep:
-
-        if (flagPutThreadToSleep)
-        {
-          try
-          {
-            Thread.Sleep(Timeout.Infinite);
-          }
-          catch (ThreadInterruptedException)
-          {
-            ThreadsSleeping.Remove(blockLoad.Index);
-          }
-        }
-
-        lock (LOCK_IndexBlockLoadInsert)
-        {
-          if (blockLoad.Index != IndexBlockArchiveInsert)
-          {
-            ThreadsSleeping.Add(
-              blockLoad.Index,
-              Thread.CurrentThread);
-
-            flagPutThreadToSleep = true;
-            goto LABEL_PutThreadToSleep;
-          }
-        }
-
-        if (
-          blockLoad.IsInvalid ||
-          blockLoad.Blocks.Count == 0 ||
-          !blockLoad.Blocks[0].Header.HashPrevious.IsEqual(HeaderTip.Hash) ||
-          !TryBlockLoadInsert(blockLoad))
-        {
-          CreateBlockArchive(blockLoad.Index);
-          return;
-        }
-
-        if (blockLoad.CountBytes < SIZE_BLOCK_ARCHIVE_BYTES)
-        {
-          CountBytesArchive = blockLoad.CountBytes;
-
-          OpenBlockArchive(blockLoad.Index);
-          return;
-        }
-
-        IndexBlockArchiveInsert += 1;
-
-        if (IndexBlockArchive % UTXOIMAGE_INTERVAL_LOADER == 0)
-        {
-          CreateImage(
-            IndexBlockArchive,
-            NameImage);
-        }
-
-        if (ThreadsSleeping.TryGetValue(
-          IndexBlockArchiveInsert,
-          out Thread threadSleeping))
-        {
-          threadSleeping.Interrupt();
-        }
-      }
-    }
-
-
-    bool TryBlockLoadInsert(BlockLoad blockLoad)
-    {
-      try
-      {
-        foreach (Block block in blockLoad.Blocks)
-        {
-          InsertHeader(block.Header);
-
-          Token.InsertBlock(
-            block,
-            IndexBlockArchive);
-
-          if (block.Header.Hash.IsEqual(HashStopLoading))
-          {
-            FileBlockArchive.Dispose();
-
-            CreateBlockArchive(blockLoad.Index);
-
-            foreach (Block blockArchiveFork in blockLoad.Blocks)
-            {
-              ArchiveBlock(blockArchiveFork, -1);
-
-              if (blockArchiveFork == block)
-              {
-                break;
-              }
-            }
-          }
-        }
-
-        Debug.WriteLine(
-          $"Loaded blockchain height: {HeaderTip.Height}, " +
-          $"blockload Index: {blockLoad.Index}");
-
-        return true;
-      }
-      catch (ProtocolException)
-      {
-        File.Delete(
-          Path.Combine(
-            PathBlockArchive,
-            blockLoad.Index.ToString()));
-
-        return false;
-      }
-    }
-
-
-    int CountBytesArchive;
-    FileStream FileBlockArchive;
-
     public void ArchiveBlock(
       Block block,
       int intervalImage)
@@ -562,20 +602,20 @@ namespace BTokenLib
       {
         FileBlockArchive.Dispose();
 
-        IndexBlockArchive += 1;
+        IndexBlockArchiveInsert += 1;
 
-        if (IndexBlockArchive % intervalImage == 0)
+        if (IndexBlockArchiveInsert % intervalImage == 0)
         {
           string pathImage = IsFork ? 
             Path.Combine(NameFork, NameImage) : 
             NameImage;
 
           CreateImage(
-            IndexBlockArchive, 
+            IndexBlockArchiveInsert, 
             pathImage);
         }
 
-        CreateBlockArchive();
+        CreateBlockArchive(IndexBlockArchiveInsert);
       }
     }
     
@@ -599,7 +639,7 @@ namespace BTokenLib
       int indexBlockArchive,
       string pathImage)
     {
-      string pathimageOld = pathImage + NameOld;
+      string pathimageOld = pathImage + NameImageOld;
 
       try
       {
@@ -665,7 +705,7 @@ namespace BTokenLib
             FileShare.None,
             bufferSize: 65536))
         {
-          Header header = HeaderRoot.HeaderNext;
+          Header header = HeaderGenesis.HeaderNext;
 
           while (header != null)
           {
@@ -800,11 +840,11 @@ namespace BTokenLib
       string pathImageForkOld = Path.Combine(
         NameFork,
         NameImage,
-        NameOld);
+        NameImageOld);
 
       string pathImageOld = Path.Combine(
         NameImage,
-        NameOld);
+        NameImageOld);
 
       if (Directory.Exists(pathImageForkOld))
       {
@@ -849,7 +889,7 @@ namespace BTokenLib
         archiveFork.MoveTo(PathBlockArchive);
       }
 
-      OpenBlockArchive();
+      OpenBlockArchive(IndexBlockArchiveInsert);
 
       Directory.Delete(pathBlockArchiveFork);
       DismissFork();

@@ -197,7 +197,7 @@ namespace BTokenLib
           catch (Exception ex)
           {
             Console.WriteLine(
-              $"Cannot create logfile file peer {GetID()}: {ex.Message}");
+              $"Cannot create logfile file peer {this}: {ex.Message}");
 
             Thread.Sleep(10000);
           }
@@ -206,7 +206,7 @@ namespace BTokenLib
 
       public async Task Connect(int port)
       {
-        $"Connect peer {GetID()}".Log(LogFile);
+        $"Connect peer {this}".Log(LogFile);
 
         TcpClient = new TcpClient();
 
@@ -530,7 +530,7 @@ namespace BTokenLib
 
                     Network.RelayBlock(block, this);
 
-                    $"{GetID()}: Inserted unsolicited block {block}."
+                    $"{this}: Inserted unsolicited block {block}."
                       .Log(LogFile);
                   }
                   else
@@ -633,7 +633,7 @@ namespace BTokenLib
                               HeaderUnsolicited.Hash)
                           }));
 
-                        ($"{GetID()}: Requested block for unsolicited " +
+                        ($"{this}: Requested block for unsolicited " +
                           $"header {HeaderUnsolicited}.")
                           .Log(LogFile);
                       }
@@ -649,7 +649,7 @@ namespace BTokenLib
                   }
                   else if (IsStateGetHeaders())
                   {
-                    $"{GetID()}: Receiving {countHeaders} headers."
+                    $"{this}: Receiving {countHeaders} headers."
                       .Log(LogFile);
 
                     while (byteIndex < PayloadLength)
@@ -667,7 +667,6 @@ namespace BTokenLib
                     if (countHeaders == 0)
                     {
                       Cancellation = new();
-                      Release();
 
                       new Thread(Network.Synchronize).Start();
                     }
@@ -730,7 +729,7 @@ namespace BTokenLib
 
                         string.Format(
                           "{0} received getData {1} and sent tXMessage {2}.",
-                          GetID(),
+                          this,
                           getDataMessage.Inventories[0].Hash.ToHexString(),
                           inventory.Hash.ToHexString())
                           .Log(LogFile);
@@ -802,7 +801,7 @@ namespace BTokenLib
 
       public async Task AdvertizeToken(byte[] hash)
       {
-        $"{GetID()} advertize token {hash.ToHexString()}."
+        $"{this} advertize token {hash.ToHexString()}."
           .Log(LogFile);
 
         var inventoryTX = new Inventory(
@@ -828,7 +827,7 @@ namespace BTokenLib
           Blockchain.GetLocator(), 
           this);
                
-        ($"Send getheaders to peer {GetID()},\n" +
+        ($"Send getheaders to peer {this},\n" +
           $"locator: {HeaderDownload.ToStringLocator()}")
           .Log(LogFile);
 
@@ -981,14 +980,15 @@ namespace BTokenLib
         }
       }
 
-      public string GetID()
+
+      public override string ToString()
       {
         return IPAddress.ToString();
       }
 
       public void SetFlagDisposed(string message)
       {
-        $"Set flag dispose on peer {GetID()}: {message}"
+        $"Set flag dispose on peer {this}: {message}"
           .Log(LogFile);
 
         FlagDispose = true;
@@ -1003,10 +1003,10 @@ namespace BTokenLib
         File.Move(
           Path.Combine(
             DirectoryLogPeers.FullName,
-            GetID()),
+            ToString()),
           Path.Combine(
             DirectoryLogPeersDisposed.FullName,
-            GetID()));
+            ToString()));
       }
 
       public string GetStatus()
@@ -1017,7 +1017,7 @@ namespace BTokenLib
            DateTimeOffset.UtcNow.ToUnixTimeSeconds() - TimeCreation;
 
           return
-            $"\n Status peer {GetID()}:\n" +
+            $"\n Status peer {this}:\n" +
             $"lifeTime: {lifeTime}\n" +
             $"IsBusy: {IsBusy}\n" +
             $"State: {State}\n" +

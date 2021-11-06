@@ -24,7 +24,7 @@ namespace BTokenLib
     }
 
 
-    public async Task Start()
+    public void Start()
     {
       Console.WriteLine("Load image.");
       Blockchain.LoadImage();

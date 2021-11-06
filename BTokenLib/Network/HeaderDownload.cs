@@ -62,7 +62,7 @@ namespace BTokenLib
           }
 
           HeaderRoot = header;
-          HeaderTip = header;
+          HeaderTip = HeaderLocatorAncestor;
         }
         else 
         {
@@ -76,6 +76,9 @@ namespace BTokenLib
         }
 
         header.ExtendHeaderTip(ref HeaderTip);
+
+        if (HeaderTip.ToString() == "00000000000000B6C55833B80C07894F4C4D3BB686E5DDBC1B1D162E22752CA3")
+        { }
 
         token.ValidateHeader(HeaderTip);
       }

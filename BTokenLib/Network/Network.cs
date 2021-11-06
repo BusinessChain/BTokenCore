@@ -138,7 +138,7 @@ namespace BTokenLib
           lock (LOCK_Peers)
           {
             AddressPool.RemoveAll(
-              a => Peers.Any(p => p.GetID() == a.ToString()));
+              a => Peers.Any(p => p.ToString() == a.ToString()));
           }
 
           foreach (FileInfo file in
@@ -228,7 +228,7 @@ namespace BTokenLib
       lock (LOCK_Peers)
       {
         Peer peerRemove = Peers.
-          Find(p => p.GetID() == iPAddress);
+          Find(p => p.ToString() == iPAddress);
 
         if(peerRemove != null)
         {
@@ -331,7 +331,7 @@ namespace BTokenLib
           }
         }
 
-        $"Start synchronization with peer {PeerSynchronization.GetID()}."
+        $"Start synchronization with peer {PeerSynchronization}."
           .Log(LogFile);
 
         try
@@ -369,6 +369,8 @@ namespace BTokenLib
           Blockchain.HeaderTip.DifficultyAccumulated ||
           !Blockchain.TryFork(headerDownload.HeaderLocatorAncestor))
         {
+          // Wo wird hier PeerSynchronization released?
+
           Blockchain.ReleaseLock();
           return;
         }
@@ -391,27 +393,16 @@ namespace BTokenLib
       {
         Peer peer = PeerSynchronization;
 
-        while (true)
+        while (!FlagSynchronizationAbort)
         {
           if (peer != null)
           {
-            $"Sync with peer {peer.GetID()}".Log(LogFile);
+            $"Sync with peer {peer}".Log(LogFile);
 
             if (!TryChargeBlockDownload(peer))
-            {
               break;
-            }
 
             await peer.GetBlock();
-          }
-
-          if (FlagSynchronizationAbort)
-          {
-            string.Format("Synchronization abort.").Log(LogFile);
-
-            Blockchain.LoadImage();
-
-            break;
           }
 
           if (!TryGetPeer(out peer))
@@ -429,8 +420,14 @@ namespace BTokenLib
           else
           {
             Blockchain.DismissFork();
-            Blockchain.LoadImage();
+            FlagSynchronizationAbort = true;
           }
+        }
+
+        if(FlagSynchronizationAbort)
+        {
+          string.Format("Synchronization abort. Reload Image").Log(LogFile);
+          Blockchain.LoadImage();
         }
 
         lock (LOCK_Peers)
@@ -535,7 +532,7 @@ namespace BTokenLib
                     intervalArchiveImage: UTXOIMAGE_INTERVAL_SYNC);
               }
 
-            ($"Inserted blockDownload {blockDownload.Index} from peer {blockDownload.Peer.GetID()}. " +
+            ($"Inserted blockDownload {blockDownload.Index} from peer {blockDownload.Peer}. " +
               $"Height: {Blockchain.HeaderTip.Height}, " +
               $"DownloadTime [ms]: {blockDownload.StopwatchBlockDownload.ElapsedMilliseconds}")
               .Log(LogFile);
@@ -825,7 +822,7 @@ namespace BTokenLib
           string.Format(
             "Failed to start listening to inbound peer {0}: " +
             "\n{1}: {2}",
-            peer.GetID(),
+            peer,
             ex.GetType().Name,
             ex.Message)
             .Log(LogFile);
