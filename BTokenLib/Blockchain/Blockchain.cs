@@ -36,7 +36,7 @@ namespace BTokenLib
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
         
-    public const int COUNT_LOADER_TASKS = 4;
+    public const int COUNT_LOADER_TASKS = 6;
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
     const int UTXOIMAGE_INTERVAL_LOADER = 200;
 
@@ -278,15 +278,14 @@ namespace BTokenLib
         {
           try
           {
-            Debug.WriteLine($"{Thread.CurrentThread.ManagedThreadId} sleeps.");
             Thread.Sleep(Timeout.Infinite);
           }
           catch (ThreadInterruptedException)
           {
-            Debug.WriteLine($"Interrupt {Thread.CurrentThread.ManagedThreadId}.");
-
             if (FlagLoaderExit)
               return;
+
+            flagPutThreadToSleep = false;
           }
         }
 
@@ -358,7 +357,6 @@ namespace BTokenLib
             out Thread threadSleeping))
           {
             ThreadsSleeping.Remove(IndexBlockArchiveInsert);
-            Debug.WriteLine($"interrupt sleeping thread {threadSleeping.ManagedThreadId}.");
             threadSleeping.Interrupt();
           }
         }

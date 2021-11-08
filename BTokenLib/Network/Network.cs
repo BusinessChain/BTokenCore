@@ -369,8 +369,7 @@ namespace BTokenLib
           Blockchain.HeaderTip.DifficultyAccumulated ||
           !Blockchain.TryFork(headerDownload.HeaderLocatorAncestor))
         {
-          // Wo wird hier PeerSynchronization released?
-
+          PeerSynchronization.Release();
           Blockchain.ReleaseLock();
           return;
         }
