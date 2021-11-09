@@ -76,7 +76,7 @@ namespace BTokenLib
         ServiceFlags.NODE_NETWORK;
 
       const string UserAgent = "/BTokenCore:0.0.0/";
-      const Byte RelayOption = 0x01;
+      const Byte RelayOption = 0x00;
       readonly static ulong Nonce = CreateNonce();
       static ulong CreateNonce()
       {

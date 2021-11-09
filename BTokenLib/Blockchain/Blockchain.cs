@@ -35,8 +35,8 @@ namespace BTokenLib
 
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
-        
-    public const int COUNT_LOADER_TASKS = 6;
+
+    int COUNT_LOADER_TASKS = Math.Min(Environment.ProcessorCount - 1, 6);
     int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
     const int UTXOIMAGE_INTERVAL_LOADER = 200;
 
@@ -409,10 +409,6 @@ namespace BTokenLib
       }
       catch (ProtocolException)
       {
-        FileBlockArchive.Dispose();
-
-        File.Delete(FileBlockArchive.Name);
-
         IsLoaderFail = true;
       }
 

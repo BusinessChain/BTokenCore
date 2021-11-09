@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Security.Cryptography;
 
 using BTokenLib;
 
@@ -8,6 +7,7 @@ namespace BTokenCore
   class HeaderBitcoin : Header
   {
     public const int COUNT_HEADER_BYTES = 80;
+    public byte[] Buffer = new byte[COUNT_HEADER_BYTES];
 
     public uint Version;
     public uint NBits;
@@ -46,28 +46,31 @@ namespace BTokenCore
         (double)UInt256.ParseFromCompact(NBits);
     }
 
+    public void IncrementNonce()
+    {
+      Nonce += 1;
+      Buffer.Increment(76, 4);
+    }
+
     public override byte[] GetBytes()
     {
-      byte[] headerSerialized = 
-        new byte[COUNT_HEADER_BYTES];
-
       BitConverter.GetBytes(Version)
-        .CopyTo(headerSerialized, 0);
+        .CopyTo(Buffer, 0);
 
-      HashPrevious.CopyTo(headerSerialized, 4);
+      HashPrevious.CopyTo(Buffer, 4);
 
-      MerkleRoot.CopyTo(headerSerialized, 36);
+      MerkleRoot.CopyTo(Buffer, 36);
 
       BitConverter.GetBytes(UnixTimeSeconds)
-        .CopyTo(headerSerialized, 68);
+        .CopyTo(Buffer, 68);
 
       BitConverter.GetBytes(NBits)
-        .CopyTo(headerSerialized, 72);
+        .CopyTo(Buffer, 72);
 
       BitConverter.GetBytes(Nonce)
-        .CopyTo(headerSerialized, 76);
+        .CopyTo(Buffer, 76);
 
-      return headerSerialized;
+      return Buffer;
     }
   }
 }

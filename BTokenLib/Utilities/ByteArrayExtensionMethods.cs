@@ -124,5 +124,26 @@ namespace BTokenLib
 
       return false;
     }
+
+    public static void Increment(
+      this byte[] array,
+      int startIndex,
+      int length)
+    {
+      int offset = 0;
+      int index;
+
+      while (offset < length)
+      {
+        index = startIndex + offset;
+
+        array[index] += 1;
+
+        if (array[index] != 0) 
+          return;
+
+        offset += 1;
+      }
+    }
   }
 }

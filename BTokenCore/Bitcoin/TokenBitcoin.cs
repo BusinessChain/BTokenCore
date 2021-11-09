@@ -24,8 +24,6 @@ namespace BTokenCore
 
     UTXOTable UTXOTable;
 
-    SHA256 SHA256 = SHA256.Create();
-
 
     public TokenBitcoin(string pathBlockArchive) 
       : base(pathBlockArchive)
@@ -46,14 +44,25 @@ namespace BTokenCore
       //Network.AdvertizeToken(tXAnchorToken.Hash);
     }
 
-
-
     public override void StartMiner()
     {
+      int numberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
+      long nonceSegment = uint.MaxValue / numberOfProcesses;
+
+      Parallel.For(
+        0,
+        numberOfProcesses,
+        i => StartMinerProcess(i * nonceSegment));
+    }
+
+    void StartMinerProcess(long nonceStart)
+    {
       HeaderBitcoin header = new();
-      byte[] bytesHeader = new byte[HeaderBitcoin.COUNT_HEADER_BYTES];
-      HeaderBitcoin headerBitcoinTip = null;
       BlockBitcoin block = new(header);
+      HeaderBitcoin headerBitcoinTip = null;
+      SHA256 sHA256 = SHA256.Create();
+
+      FlagMinerStop = false;
 
       while (!FlagMinerStop)
       {
@@ -73,32 +82,43 @@ namespace BTokenCore
           header.NBits = GetNextTarget(headerBitcoinTip);
           header.ComputeDifficultyFromNBits();
 
-          bytesHeader = header.GetBytes();
+          header.Nonce = (uint)nonceStart;
+
+          header.Buffer = header.GetBytes();
         }
         else if (header.Nonce == 0)
         {
           header.UnixTimeSeconds =
             (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-          bytesHeader = header.GetBytes();
+          header.Nonce = (uint)nonceStart;
+
+          header.Buffer = header.GetBytes();
         }
 
         header.Hash =
-          SHA256.ComputeHash(
-            SHA256.ComputeHash(
-              bytesHeader));
-
-        header.Nonce += 1;
+          sHA256.ComputeHash(
+            sHA256.ComputeHash(header.Buffer));
 
         if (header.Hash.IsGreaterThan(header.NBits))
         {
+          header.IncrementNonce();
           continue;
         }
 
+        block.Buffer = header.Buffer;
+
         while (!Blockchain.TryLock())
         {
-          Thread.Sleep(100);
+          if (FlagMinerStop)
+            return;
+
+          Console.WriteLine("Miner awaiting retrievement of Blockchain LOCK.");
+          
+          Thread.Sleep(1000);
         }
+
+        Console.Beep();
 
         try
         {
@@ -117,9 +137,11 @@ namespace BTokenCore
         }
 
         Network.RelayBlock(block);
+
+        header = new();
+        block = new(header);
       }
     }
-
 
     public override Block CreateBlock()
     {
@@ -276,7 +298,6 @@ namespace BTokenCore
       }
     }
 
-
     static uint GetMedianTimePast(HeaderBitcoin header)
     {
       const int MEDIAN_TIME_PAST = 11;
@@ -305,7 +326,6 @@ namespace BTokenCore
 
     static readonly UInt256 DIFFICULTY_1_TARGET =
       new UInt256("00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
-
 
     static uint GetNextTarget(HeaderBitcoin header)
     {
