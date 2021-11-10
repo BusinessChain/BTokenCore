@@ -66,9 +66,14 @@ namespace BTokenCore
             TokenBitcoin.Network.AddPeer();
             break;
 
+          case "addPeerIP":
+            string iPAddPeer = Console.ReadLine();
+            TokenBitcoin.Network.AddPeer(iPAddPeer);
+            break;
+
           case "removePeer":
-            string iPAddress = Console.ReadLine();
-            TokenBitcoin.Network.RemovePeer(iPAddress);
+            string iPRemove = Console.ReadLine();
+            TokenBitcoin.Network.RemovePeer(iPRemove);
             break;
 
           default:

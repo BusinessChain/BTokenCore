@@ -141,7 +141,7 @@ namespace BTokenLib
            network,
            blockchain,
            token,
-           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address.ToString())
+           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address)
       {
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
@@ -153,28 +153,16 @@ namespace BTokenLib
         Network network,
         Blockchain blockchain,
         Token token,
-        IPAddress iPAddress) 
-        :this(
-           network,
-           blockchain,
-           token,
-           iPAddress.ToString())
-      {
-        Connection = ConnectionType.OUTBOUND;
-        IPAddress = iPAddress;
-      }
-
-      Peer(
-        Network network,
-        Blockchain blockchain,
-        Token token,
-        string name)
+        IPAddress ip)
       {
         Network = network;
         Blockchain = blockchain;
         Token = token;
 
-        CreateLogFile(name);
+        IPAddress = ip;
+        Connection = ConnectionType.OUTBOUND;
+
+        CreateLogFile(ip.ToString());
 
         State = StateProtocol.IDLE;
       }

@@ -63,9 +63,7 @@ namespace BTokenLib
 
       StartSynchronizer();
 
-      //"Start listener for inbound connection requests."
-      //  .Log(LogFile);
-
+      StartPeerInboundListener();
     }
 
 
@@ -156,9 +154,7 @@ namespace BTokenLib
           }
 
           if (AddressPool.Count == 0)
-          {
             return iPAddresses;
-          }
         }
 
         int randomIndex = RandomGenerator
@@ -167,11 +163,8 @@ namespace BTokenLib
         IPAddress iPAddress = AddressPool[randomIndex];
         AddressPool.Remove(iPAddress);
 
-        if (iPAddresses.Any(
-          ip => ip.ToString() == iPAddress.ToString()))
-        {
+        if (iPAddresses.Any(ip => ip == iPAddress))
           continue;
-        }
 
         iPAddresses.Add(iPAddress);
       }
@@ -179,7 +172,7 @@ namespace BTokenLib
       return iPAddresses;
     }
 
-    async Task CreatePeer(IPAddress iPAddress)
+    async Task CreatePeer(IPAddress iP)
     {
       Peer peer;
 
@@ -189,12 +182,12 @@ namespace BTokenLib
           this,
           Blockchain,
           Token,
-          iPAddress);
+          iP);
       }
       catch (Exception ex)
       {
 
-        ($"{ex.GetType()} when creating peer {iPAddress}: " +
+        ($"{ex.GetType()} when creating peer {iP}: " +
         $"\n{ex.Message}")
         .Log(LogFile);
 
@@ -218,6 +211,10 @@ namespace BTokenLib
     }
 
     public void AddPeer()
+    {
+      CountPeersMax++;
+    }
+    public void AddPeer(string iP)
     {
       CountPeersMax++;
     }
