@@ -107,7 +107,8 @@ namespace BTokenCore
       if (hash.IsGreaterThan(nBits))
       {
         throw new ProtocolException(
-          $"Header hash {hash.ToHexString()} greater than NBits {nBits}");
+          $"Header hash {hash.ToHexString()} " +
+          $"greater than NBits {nBits}");
       }
 
       uint nonce = BitConverter.ToUInt32(buffer, index);
@@ -122,7 +123,6 @@ namespace BTokenCore
         nBits,
         nonce);
     }
-
 
     List<UTXOTable.TX> ParseTXs(
       byte[] hashMerkleRoot,

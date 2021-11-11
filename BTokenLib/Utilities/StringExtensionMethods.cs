@@ -50,10 +50,8 @@ namespace BTokenLib
 
       string logString = dateTime + " --- " + message;
 
-      lock(logFile)
-      {
+      lock (logFile)
         logFile.WriteLine(logString);
-      }
 
       Debug.WriteLine(logString);
     }

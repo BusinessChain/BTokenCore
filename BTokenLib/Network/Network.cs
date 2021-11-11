@@ -214,9 +214,10 @@ namespace BTokenLib
     {
       CountPeersMax++;
     }
+
     public void AddPeer(string iP)
     {
-      CountPeersMax++;
+      CreatePeer(IPAddress.Parse(iP));
     }
 
     public void RemovePeer(string iPAddress)
@@ -798,8 +799,8 @@ namespace BTokenLib
         TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync().
           ConfigureAwait(false);
 
-        string.Format("Received inbound request from {0}",
-          tcpClient.Client.RemoteEndPoint.ToString())
+        ($"Received inbound request from " +
+          $"{tcpClient.Client.RemoteEndPoint}")
           .Log(LogFile);
 
         var peer = new Peer(
@@ -814,21 +815,15 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          string.Format(
-            "Failed to start listening to inbound peer {0}: " +
-            "\n{1}: {2}",
-            peer,
-            ex.GetType().Name,
-            ex.Message)
+          ($"Failed to start listening to inbound peer {peer}: " +
+            $"\n{ex.GetType().Name}: {ex.Message}")
             .Log(LogFile);
 
           continue;
         }
 
         lock (LOCK_Peers)
-        {
           Peers.Add(peer);
-        }
       }
     }
 

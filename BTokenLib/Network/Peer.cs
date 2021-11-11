@@ -223,7 +223,7 @@ namespace BTokenLib
           NetworkServicesLocal = (long)NetworkServicesLocal,
           UnixTimeSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
           NetworkServicesRemote = (long)NetworkServicesRemoteRequired,
-          IPAddressRemote = IPAddress.Loopback.MapToIPv6(),
+          IPAddressRemote = IPAddress.Loopback.MapToIPv6(), // why not iPv4
           PortRemote = (ushort)port,
           IPAddressLocal = IPAddress.Loopback.MapToIPv6(),
           PortLocal = (ushort)port,
@@ -892,7 +892,8 @@ namespace BTokenLib
           if (
             IsSynchronized ||
             FlagDispose ||
-            IsBusy)
+            IsBusy ||
+            Connection == ConnectionType.INBOUND)
           {
             return false;
           }
