@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
@@ -18,42 +17,6 @@ namespace BTokenLib
   {
     partial class Peer
     {
-      public enum ServiceFlags : UInt64
-      {
-        // Nothing
-        NODE_NONE = 0,
-        // NODE_NETWORK means that the node is capable of serving the complete block chain. It is currently
-        // set by all Bitcoin Core non pruned nodes, and is unset by SPV clients or other light clients.
-        NODE_NETWORK = (1 << 0),
-        // NODE_GETUTXO means the node is capable of responding to the getutxo protocol request.
-        // Bitcoin Core does not support this but a patch set called Bitcoin XT does.
-        // See BIP 64 for details on how this is implemented.
-        NODE_GETUTXO = (1 << 1),
-        // NODE_BLOOM means the node is capable and willing to handle bloom-filtered connections.
-        // Bitcoin Core nodes used to support this by default, without advertising this bit,
-        // but no longer do as of protocol version 70011 (= NO_BLOOM_VERSION)
-        NODE_BLOOM = (1 << 2),
-        // NODE_WITNESS indicates that a node can be asked for blocks and transactions including
-        // witness data.
-        NODE_WITNESS = (1 << 3),
-        // NODE_XTHIN means the node supports Xtreme Thinblocks
-        // If this is turned off then the node will not service nor make xthin requests
-        NODE_XTHIN = (1 << 4),
-        // NODE_NETWORK_LIMITED means the same as NODE_NETWORK with the limitation of only
-        // serving the last 288 (2 day) blocks
-        // See BIP159 for details on how this is implemented.
-        NODE_NETWORK_LIMITED = (1 << 10),
-
-
-        // Bits 24-31 are reserved for temporary experiments. Just pick a bit that
-        // isn't getting used, or one not being used much, and notify the
-        // bitcoin-development mailing list. Remember that service bits are just
-        // unauthenticated advertisements, so your code must be robust against
-        // collisions and other cases where nodes may be advertising a service they
-        // do not actually support. Other service bits should be allocated via the
-        // BIP process.
-      }
-
       Network Network;
       Blockchain Blockchain;
       Token Token;
@@ -66,29 +29,12 @@ namespace BTokenLib
       internal BlockDownload BlockDownload;
       internal Header HeaderUnsolicited;
 
-
       ulong FeeFilterValue;
 
-      const ServiceFlags NetworkServicesRemoteRequired =
-        ServiceFlags.NODE_NONE;
-
-      const ServiceFlags NetworkServicesLocal =
-        ServiceFlags.NODE_NETWORK;
-
       const string UserAgent = "/BTokenCore:0.0.0/";
-      const Byte RelayOption = 0x00;
-      readonly static ulong Nonce = CreateNonce();
-      static ulong CreateNonce()
-      {
-        Random rnd = new Random();
-
-        ulong number = (ulong)rnd.Next();
-        number = number << 32;
-        return number |= (uint)rnd.Next();
-      }
       public enum ConnectionType { OUTBOUND, INBOUND };
       ConnectionType Connection;
-      const UInt32 ProtocolVersion = 70015;
+      const UInt32 ProtocolVersion = 70013;
       public IPAddress IPAddress;
       TcpClient TcpClient;
       NetworkStream NetworkStream;
@@ -192,132 +138,34 @@ namespace BTokenLib
         }
       }
 
-      public async Task Connect(int port)
+      public async Task Connect()
       {
         $"Connect peer {this}".Log(LogFile);
 
-        TcpClient = new TcpClient();
+        TcpClient = new();
 
-        Cancellation =
-          new CancellationTokenSource(TimeSpan.FromSeconds(5));
-
-        await TcpClient.ConnectAsync(
-          IPAddress,
-          port,
-          Cancellation.Token).ConfigureAwait(false);
+        await TcpClient.ConnectAsync(IPAddress, Port)
+          .ConfigureAwait(false);
 
         NetworkStream = TcpClient.GetStream();
 
-        await HandshakeAsync(port);
+        await SendMessage(new VersionMessage(
+          protocolVersion: ProtocolVersion,
+          networkServicesLocal: 0,
+          unixTimeSeconds: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+          networkServicesRemote: 0,
+          iPAddressRemote: IPAddress.Loopback,
+          portRemote: Port,
+          iPAddressLocal: IPAddress.Loopback,
+          portLocal: Port,
+          nonce: 0,
+          userAgent: UserAgent,
+          blockchainHeight: Blockchain.HeaderTip.Height,
+          relayOption: 0x01));
 
-        Cancellation = new();
+        await SendMessage(new VerAckMessage());
 
         StartMessageListener();
-      }
-
-      async Task HandshakeAsync(int port)
-      {
-        VersionMessage versionMessage = new()
-        {
-          ProtocolVersion = ProtocolVersion,
-          NetworkServicesLocal = (long)NetworkServicesLocal,
-          UnixTimeSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-          NetworkServicesRemote = (long)NetworkServicesRemoteRequired,
-          IPAddressRemote = IPAddress.Loopback.MapToIPv6(), // why not iPv4
-          PortRemote = (ushort)port,
-          IPAddressLocal = IPAddress.Loopback.MapToIPv6(),
-          PortLocal = (ushort)port,
-          Nonce = Nonce,
-          UserAgent = UserAgent,
-          BlockchainHeight = Blockchain.HeaderTip.Height,
-          RelayOption = RelayOption
-        };
-
-        versionMessage.SerializePayload();
-
-        await SendMessage(versionMessage);
-
-        bool verAckReceived = false;
-        bool versionReceived = false;
-
-        while (!verAckReceived || !versionReceived)
-        {
-          await ReadMessage();
-
-          switch (Command)
-          {
-            case "verack":
-              verAckReceived = true;
-              break;
-
-            case "version":
-              var versionMessageRemote = new VersionMessage(Payload);
-
-              versionReceived = true;
-              string rejectionReason = "";
-
-              if (versionMessageRemote.ProtocolVersion < ProtocolVersion)
-              {
-                rejectionReason = string.Format(
-                  "Outdated version '{0}', minimum expected version is '{1}'.",
-                  versionMessageRemote.ProtocolVersion,
-                  ProtocolVersion);
-              }
-
-              if (!((ServiceFlags)versionMessageRemote.NetworkServicesLocal)
-                .HasFlag(NetworkServicesRemoteRequired))
-              {
-                rejectionReason = string.Format(
-                  "Network services '{0}' do not meet requirement '{1}'.",
-                  versionMessageRemote.NetworkServicesLocal,
-                  NetworkServicesRemoteRequired);
-              }
-
-              if (versionMessageRemote.UnixTimeSeconds -
-                DateTimeOffset.UtcNow.ToUnixTimeSeconds() > 2 * 60 * 60)
-              {
-                rejectionReason = string.Format(
-                  "Unix time '{0}' more than 2 hours in the " +
-                  "future compared to local time '{1}'.",
-                  versionMessageRemote.NetworkServicesLocal,
-                  NetworkServicesRemoteRequired);
-              }
-
-              if (versionMessageRemote.Nonce == Nonce)
-              {
-                rejectionReason = string.Format(
-                  "Duplicate Nonce '{0}'.",
-                  Nonce);
-              }
-
-              if (rejectionReason != "")
-              {
-                await SendMessage(
-                  new RejectMessage(
-                    "version",
-                    RejectMessage.RejectCode.OBSOLETE,
-                    rejectionReason));
-
-                throw new ProtocolException(
-                  "Remote peer rejected: " + rejectionReason);
-              }
-
-              await SendMessage(new VerAckMessage());
-              break;
-
-            case "reject":
-              RejectMessage rejectMessage = new RejectMessage(Payload);
-
-              throw new ProtocolException(
-                string.Format("Peer rejected handshake: '{0}'",
-                rejectMessage.RejectionReason));
-
-            default:
-              throw new ProtocolException(string.Format(
-                "Received improper message '{0}' during handshake session.",
-                Command));
-          }
-        }
       }
 
       public async Task SendMessage(NetworkMessage message)
@@ -463,10 +311,8 @@ namespace BTokenLib
         {
           while (true)
           {
-            if (FlagDispose)
-            {
+            if (FlagDispose) 
               return;
-            }
 
             await SyncToMessage();
 
@@ -703,7 +549,7 @@ namespace BTokenLib
 
                 case "getdata":
 
-                  getDataMessage = new GetDataMessage(Payload);
+                  getDataMessage = new(Payload);
 
                   foreach (Inventory inventory in getDataMessage.Inventories)
                   {
@@ -743,13 +589,9 @@ namespace BTokenLib
             $"{ex.GetType().Name} in listener: \n{ex.Message}");
 
           if (IsStateAwaitingHeader())
-          {
             Blockchain.ReleaseLock();
-          }
           else if(IsStateAwaitingBlockDownload())
-          {
             Network.ReturnPeerBlockDownloadIncomplete(this);
-          }
         }
       }
 
@@ -862,12 +704,10 @@ namespace BTokenLib
         CountStartBlockDownload++;
       }
 
-
       public async Task SendHeaders(List<Header> headers)
       {
         await SendMessage(new HeadersMessage(headers));
       }
-
 
       public bool TryGetBusy()
       {
@@ -968,7 +808,6 @@ namespace BTokenLib
           return State == StateProtocol.AwaitingBlockDownload;
         }
       }
-
 
       public override string ToString()
       {
