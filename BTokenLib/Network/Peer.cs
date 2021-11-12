@@ -25,6 +25,15 @@ namespace BTokenLib
       public bool FlagDispose;
       public bool IsSynchronized;
 
+      public enum StateProtocol
+      {
+        IDLE = 0,
+        AwaitingBlockDownload,
+        AwaitingHeader,
+        AwaitingGetData
+      }
+      public StateProtocol State;
+
       internal HeaderDownload HeaderDownload;
       internal BlockDownload BlockDownload;
       internal Header HeaderUnsolicited;
@@ -40,15 +49,6 @@ namespace BTokenLib
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
 
-      public StateProtocol State;
-
-      public enum StateProtocol
-      {
-        IDLE = 0,
-        AwaitingBlockDownload,
-        AwaitingHeader,
-        AwaitingGetData
-      }
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -273,10 +273,8 @@ namespace BTokenLib
             .ConfigureAwait(false);
 
           if (chunkSize == 0)
-          {
             throw new IOException(
               "Stream returns 0 bytes signifying end of stream.");
-          }
 
           offset += chunkSize;
           bytesToRead -= chunkSize;
@@ -295,9 +293,7 @@ namespace BTokenLib
            1);
 
           if (MagicBytes[i] != magicByte[0])
-          {
             i = magicByte[0] == MagicBytes[0] ? 0 : -1;
-          }
         }
       }
 
@@ -329,11 +325,9 @@ namespace BTokenLib
               CommandSize);
             
             if (PayloadLength > SIZE_MESSAGE_PAYLOAD_BUFFER)
-            {
-              throw new ProtocolException(string.Format(
-                "Message payload too big exceeding {0} bytes.",
-                SIZE_MESSAGE_PAYLOAD_BUFFER));
-            }
+              throw new ProtocolException(
+                $"Message payload too big exceeding " +
+                $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
 
             if (Command == "block")
             {
@@ -410,9 +404,7 @@ namespace BTokenLib
                 CreateChecksum(Payload, PayloadLength), 0);
 
               if (checksumMessage != checksumCalculated)
-              {
                 throw new ProtocolException("Invalid Message checksum.");
-              }
 
               switch (Command)
               {
@@ -516,6 +508,34 @@ namespace BTokenLib
 
                   break;
 
+                case "getheaders":
+                  byte[] hashHeaderAncestor = new byte[32];
+      
+                  int startIndex = 4;
+
+                  int headersCount = VarInt.GetInt32(Payload, ref startIndex);
+                  for (int i = 0; i < headersCount; i++)
+                  {
+                    Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
+                    startIndex += 32;
+
+                    List<Header> headers = new();
+
+                    if(Blockchain.TryReadHeader(
+                      hashHeaderAncestor,
+                      out Header header))
+                    {
+                      while(header.HeaderNext != null && headers.Count < 2000)
+                      {
+                        headers.Add(header.HeaderNext);
+                      }
+
+                      SendHeaders(headers);
+                    }
+                  }
+
+                  break;
+
                 case "notfound":
 
                   "Received meassage notfound.".Log(LogFile);
@@ -525,15 +545,11 @@ namespace BTokenLib
                     Network.ReturnPeerBlockDownloadIncomplete(this);
 
                     lock (this)
-                    {
                       State = StateProtocol.IDLE;
-                    }
 
                     if (this == Network.PeerSynchronization)
-                    {
                       throw new ProtocolException(
                         $"Peer has sent headers but does not deliver blocks.");
-                    }
                   }
 
                   break;
