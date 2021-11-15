@@ -10,7 +10,8 @@ namespace BTokenLib
   {
     class SendHeadersMessage : NetworkMessage
     {
-      public SendHeadersMessage() : base("sendheaders") { }
+      public SendHeadersMessage() 
+        : base("sendheaders") { }
     }
   }
 }

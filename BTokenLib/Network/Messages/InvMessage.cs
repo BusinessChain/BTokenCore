@@ -10,7 +10,7 @@ namespace BTokenLib
   {
     class InvMessage : NetworkMessage
     {
-      public List<Inventory> Inventories = new List<Inventory>();
+      public List<Inventory> Inventories = new();
 
 
       public InvMessage(List<Inventory> inventories)
@@ -18,7 +18,7 @@ namespace BTokenLib
       {
         Inventories = inventories;
 
-        List<byte> payload = new List<byte>();
+        List<byte> payload = new();
 
         payload.AddRange(VarInt.GetBytes(inventories.Count));
 
@@ -26,6 +26,7 @@ namespace BTokenLib
           i => payload.AddRange(i.GetBytes()));
 
         Payload = payload.ToArray();
+        LengthPayload = Payload.Length;
       }
 
       public InvMessage(byte[] buffer)
@@ -40,12 +41,9 @@ namespace BTokenLib
           ref startIndex);
 
         for (int i = 0; i < inventoryCount; i++)
-        {
-          Inventories.Add(
-            Inventory.Parse(
-              Payload,
-              ref startIndex));
-        }
+          Inventories.Add(Inventory.Parse(
+            Payload,
+            ref startIndex));
       }
     }
   }

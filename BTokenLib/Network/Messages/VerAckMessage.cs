@@ -10,9 +10,9 @@ namespace BTokenLib
   {
     class VerAckMessage : NetworkMessage
     {
-      public VerAckMessage() : base("verack")
-      {
-      }
+      public VerAckMessage() 
+        : base("verack")
+      { }
     }
   }
 }

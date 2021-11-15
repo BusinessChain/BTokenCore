@@ -21,8 +21,6 @@ namespace BTokenLib
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-
-    // Brauche ich das?
     Dictionary<byte[], int> BlockIndex = new(
       new EqualityComparerByteArray());
 
@@ -178,9 +176,7 @@ namespace BTokenLib
          SHA256.Create());
 
         if (!header.HashPrevious.IsEqual(HeaderTip.Hash))
-        {
           throw new ProtocolException("Header image corrupted.");
-        }
 
         InsertHeader(header);
       }
@@ -248,14 +244,10 @@ namespace BTokenLib
           blockLoad.Initialize(IndexBlockArchiveLoad++);
         }
 
-        string pathBlockArchive = Path.Combine(
-          PathBlockArchive,
-          blockLoad.Index.ToString());
-
         try
         {
           blockLoad.Parse(
-            File.ReadAllBytes(pathBlockArchive));
+            LoadBlockArchive(blockLoad.Index));
         }
         catch (FileNotFoundException)
         {
@@ -265,7 +257,7 @@ namespace BTokenLib
         {
           blockLoad.IsInvalid = true;
 
-          ($"ProtocolException when loading file {pathBlockArchive}:\n " +
+          ($"ProtocolException when loading blockArchive {blockLoad.Index}:\n " +
             $"{ex.Message}")
             .Log(LogFile);
         }
@@ -374,6 +366,14 @@ namespace BTokenLib
       PoolBlockLoad.Clear();
     }
 
+    public byte[] LoadBlockArchive(int index)
+    {
+      string pathBlockArchive = Path.Combine(
+        PathBlockArchive,
+        index.ToString());
+
+      return File.ReadAllBytes(pathBlockArchive);
+    }
 
     bool TryBlockLoadInsert(BlockLoad blockLoad)
     {
@@ -389,17 +389,8 @@ namespace BTokenLib
 
           if (block.Header.Hash.IsEqual(HashStopLoading))
           {
-            FileBlockArchive.Dispose();
-
-            CreateBlockArchive(blockLoad.Index);
-
-            foreach (Block blockArchiveFork in blockLoad.Blocks)
-            {
-              ArchiveBlock(blockArchiveFork, -1);
-
-              if (blockArchiveFork == block)
-                break;
-            }
+            FileBlockArchive.SetLength(0);
+            break;
           }
         }
 
@@ -424,6 +415,8 @@ namespace BTokenLib
       Token.InsertBlock(
         block,
         IndexBlockArchiveInsert);
+
+      block.Header.IndexBlockArchive = IndexBlockArchiveInsert;
 
       ArchiveBlock(
         block,
@@ -560,36 +553,40 @@ namespace BTokenLib
       }
     }
 
-    public void ArchiveBlock(
-      Block block,
-      int intervalImage)
+    public void ArchiveBuffer(byte[] buffer, int length)
     {
       while (true)
       {
         try
         {
           FileBlockArchive.Write(
-            block.Buffer,
+            buffer,
             0,
-            block.IndexBufferStop);
-
-          FileBlockArchive.Flush();
+            length);
 
           break;
         }
         catch (Exception ex)
         {
           Console.WriteLine(
-            $"{ex.GetType().Name} when writing block {block} to " +
-            $"file {FileBlockArchive.Name}:\n" +
+            $"{ex.GetType().Name} when writing to file {FileBlockArchive.Name}:\n" +
             $"{ex.Message}\n " +
             $"Try again in 10 seconds ...");
 
           Thread.Sleep(10000);
         }
       }
+    }
 
-      CountBytesArchive += block.IndexBufferStop;
+    public void ArchiveBlock(
+      Block block,
+      int intervalImage)
+    {
+      //block.Header.StartIndexBufferArchive = FileBlockArchive.
+              
+      ArchiveBuffer(block.Buffer, block.CountBlockBytes);
+
+      CountBytesArchive += block.CountBlockBytes;
 
       if (CountBytesArchive >= SIZE_BLOCK_ARCHIVE_BYTES)
       {

@@ -23,11 +23,12 @@ namespace BTokenLib
         for (int i = 0; i < headerLocator.Count(); i++)
           payload.AddRange(headerLocator.ElementAt(i).Hash);
 
-        payload.AddRange(
-          ("00000000000000000000000000000000" +
+        payload.AddRange((
+          "00000000000000000000000000000000" +
           "00000000000000000000000000000000").ToBinary());
 
         Payload = payload.ToArray();
+        LengthPayload = Payload.Length;
       }
     }
   }

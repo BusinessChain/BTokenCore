@@ -96,7 +96,7 @@ namespace BTokenCore
           header.Buffer = header.GetBytes();
         }
 
-        header.Hash =
+        header.Hash = 
           sHA256.ComputeHash(
             sHA256.ComputeHash(header.Buffer));
 

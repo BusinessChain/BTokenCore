@@ -170,9 +170,6 @@ namespace BTokenLib
 
       public async Task SendMessage(NetworkMessage message)
       {
-        //$"{GetID()} Send message {message.Command}"
-        //  .Log(LogFile);
-
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
         byte[] command = Encoding.ASCII.GetBytes(
@@ -180,81 +177,22 @@ namespace BTokenLib
 
         NetworkStream.Write(command, 0, command.Length);
 
-        byte[] payloadLength = BitConverter.GetBytes(message.Payload.Length);
+        byte[] payloadLength = BitConverter.GetBytes(message.LengthPayload);
         NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
-        byte[] checksum = CreateChecksum(
-          message.Payload,
-          message.Payload.Length);
-        NetworkStream.Write(checksum, 0, checksum.Length);
+        byte[] checksum = SHA256.ComputeHash(
+          SHA256.ComputeHash(
+            message.Payload,
+            message.OffsetPayload,
+            message.LengthPayload));
+
+        NetworkStream.Write(checksum, 0, ChecksumSize);
 
         await NetworkStream.WriteAsync(
           message.Payload,
-          0,
-          message.Payload.Length)
+          message.OffsetPayload,
+          message.LengthPayload)
           .ConfigureAwait(false);
-      }
-
-      byte[] CreateChecksum(byte[] payload, int count)
-      {
-        byte[] hash = SHA256.ComputeHash(
-          SHA256.ComputeHash(payload, 0, count));
-
-        return hash.Take(ChecksumSize).ToArray();
-      }
-
-      async Task ReadMessage()
-      {
-        byte[] magicByte = new byte[1];
-
-        for (int i = 0; i < MagicBytes.Length; i++)
-        {
-          await ReadBytes(
-           magicByte,
-           1);
-
-          if (MagicBytes[i] != magicByte[0])
-          {
-            i = magicByte[0] == MagicBytes[0] ? 0 : -1;
-          }
-        }
-
-        await ReadBytes(
-          MeassageHeader,
-          MeassageHeader.Length);
-
-        Command = Encoding.ASCII.GetString(
-          MeassageHeader.Take(CommandSize)
-          .ToArray()).TrimEnd('\0');
-
-        PayloadLength = BitConverter.ToInt32(
-          MeassageHeader,
-          CommandSize);
-
-        if (PayloadLength > SIZE_MESSAGE_PAYLOAD_BUFFER)
-        {
-          throw new ProtocolException(string.Format(
-            "Message payload too big exceeding {0} bytes.",
-            SIZE_MESSAGE_PAYLOAD_BUFFER));
-        }
-
-        await ReadBytes(
-          Payload,
-          PayloadLength);
-
-        uint checksumMessage = BitConverter.ToUInt32(
-          MeassageHeader, CommandSize + LengthSize);
-
-        uint checksumCalculated = BitConverter.ToUInt32(
-          CreateChecksum(
-            Payload,
-            PayloadLength),
-          0);
-
-        if (checksumMessage != checksumCalculated)
-        {
-          throw new ProtocolException("Invalid Message checksum.");
-        }
       }
 
       async Task ReadBytes(
@@ -280,7 +218,6 @@ namespace BTokenLib
           bytesToRead -= chunkSize;
         }
       }
-
 
       async Task SyncToMessage()
       {
@@ -352,7 +289,8 @@ namespace BTokenLib
 
                 try
                 {
-                  if (block.Header.HashPrevious.IsEqual(Blockchain.HeaderTip.Hash))
+                  if (block.Header.HashPrevious.IsEqual(
+                    Blockchain.HeaderTip.Hash))
                   {
                     Blockchain.InsertBlock(block);
 
@@ -362,9 +300,7 @@ namespace BTokenLib
                       .Log(LogFile);
                   }
                   else
-                  {
                     ProcessHeaderUnsolicited(block.Header);
-                  }
                 }
                 catch (ProtocolException ex)
                 {
@@ -396,15 +332,6 @@ namespace BTokenLib
             else
             {
               await ReadBytes(Payload, PayloadLength);
-
-              uint checksumMessage = BitConverter.ToUInt32(
-                MeassageHeader, CommandSize + LengthSize);
-
-              uint checksumCalculated = BitConverter.ToUInt32(
-                CreateChecksum(Payload, PayloadLength), 0);
-
-              if (checksumMessage != checksumCalculated)
-                throw new ProtocolException("Invalid Message checksum.");
 
               switch (Command)
               {
@@ -510,7 +437,7 @@ namespace BTokenLib
 
                 case "getheaders":
                   byte[] hashHeaderAncestor = new byte[32];
-      
+
                   int startIndex = 4;
 
                   int headersCount = VarInt.GetInt32(Payload, ref startIndex);
@@ -521,13 +448,14 @@ namespace BTokenLib
 
                     List<Header> headers = new();
 
-                    if(Blockchain.TryReadHeader(
+                    if (Blockchain.TryReadHeader(
                       hashHeaderAncestor,
                       out Header header))
                     {
-                      while(header.HeaderNext != null && headers.Count < 2000)
+                      while (header.HeaderNext != null && headers.Count < 2000)
                       {
                         headers.Add(header.HeaderNext);
+                        header = header.HeaderNext;
                       }
 
                       SendHeaders(headers);
@@ -557,9 +485,7 @@ namespace BTokenLib
                 case "inv":
 
                   InvMessage invMessage = new(Payload);
-
-                  GetDataMessage getDataMessage =
-                    new(invMessage.Inventories);
+                  GetDataMessage getDataMessage = new(invMessage.Inventories);
 
                   break;
 
@@ -588,6 +514,34 @@ namespace BTokenLib
                       {
                         // Send notfound
                       }
+                    }
+                    else if(inventory.Type == InventoryType.MSG_BLOCK)
+                    {
+                      //if(Blockchain.TryReadHeader(
+                      //  inventory.Hash, 
+                      //  out Header header))
+                      //{
+                      //  byte[] blockArchive;
+
+                      //  if (cache)
+                      //  {
+                      //    blockArchive = null;
+                      //  }
+                      //  else
+                      //  {
+                      //    blockArchive = Blockchain.LoadBlockArchive(
+                      //     header.IndexBlockArchive);
+                      //  }
+
+                      //  await SendMessage(new BlockMessage(
+                      //    blockArchive,
+                      //    header.StartIndexBufferArchive,
+                      //    header.StopIndexBufferArchive));
+                      //}
+                      //else
+                      //{
+                      //  await SendMessage(new RejectMessage(inventory));
+                      //}
                     }
                   }
 

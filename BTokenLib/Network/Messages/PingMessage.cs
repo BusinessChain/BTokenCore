@@ -14,14 +14,19 @@ namespace BTokenLib
 
 
       public PingMessage(NetworkMessage networkMessage)
-        : base("ping", networkMessage.Payload)
+        : base(
+            "ping", 
+            networkMessage.Payload)
       {
         Nonce = BitConverter.ToUInt64(Payload, 0);
       }
-      public PingMessage(UInt64 nonce) : base("ping")
+
+      public PingMessage(UInt64 nonce) 
+        : base("ping")
       {
         Nonce = nonce;
         Payload = BitConverter.GetBytes(nonce);
+        LengthPayload = Payload.Length;
       }
     }
   }

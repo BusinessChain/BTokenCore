@@ -11,8 +11,7 @@ namespace BTokenLib
   {
     class GetDataMessage : NetworkMessage
     {
-      public List<Inventory> Inventories =
-        new List<Inventory>();
+      public List<Inventory> Inventories = new();
 
 
 
@@ -26,17 +25,10 @@ namespace BTokenLib
           ref startIndex);
 
         for (int i = 0; i < inventoryCount; i += 1)
-        {
-          Inventories.Add(
-            Inventory.Parse(
-              Payload,
-              ref startIndex));
-        }
+          Inventories.Add(Inventory.Parse(
+            Payload,
+            ref startIndex));
       }
-
-      public GetDataMessage(Inventory inventory)
-        : this(new List<Inventory> { inventory })
-      { }
 
 
       public GetDataMessage(List<Inventory> inventories)
@@ -44,16 +36,15 @@ namespace BTokenLib
       {
         Inventories = inventories;
 
-        List<byte> payload = new List<byte>();
+        List<byte> payload = new();
 
         payload.AddRange(VarInt.GetBytes(Inventories.Count()));
 
         for (int i = 0; i < Inventories.Count(); i++)
-        {
           payload.AddRange(Inventories[i].GetBytes());
-        }
 
         Payload = payload.ToArray();
+        LengthPayload = Payload.Length;
       }
     }
   }

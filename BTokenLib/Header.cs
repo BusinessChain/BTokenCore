@@ -13,8 +13,6 @@ namespace BTokenLib
     public byte[] MerkleRoot;
     public uint UnixTimeSeconds;
 
-
-    // Eigentlich müsste Difficulty im Bitcoin Header definiert werden
     public double Difficulty;
     public double DifficultyAccumulated;
 
@@ -23,13 +21,17 @@ namespace BTokenLib
 
     public int Height;
 
+    public int IndexBlockArchive;
+    public int StartIndexBufferArchive;
+    public int StopIndexBufferArchive;
+
 
     public Header()
     {
       Hash = new byte[32];
       HashPrevious = new byte[32];
       MerkleRoot = new byte[32];
-  }
+    }
 
     public Header(
       byte[] headerHash,

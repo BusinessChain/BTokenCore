@@ -16,7 +16,7 @@ namespace BTokenCore
 
     public Node(string pathBlockArchive)
     {
-      TokenBitcoin = new TokenBitcoin(pathBlockArchive);
+      TokenBitcoin = new(pathBlockArchive);
 
       //BToken = new TokenBitcoin(
       //  "configurationNetworkBToken",
@@ -29,7 +29,6 @@ namespace BTokenCore
 
       RunConsole();
     }
-
 
 
     void RunConsole()

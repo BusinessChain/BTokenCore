@@ -11,18 +11,14 @@ namespace BTokenLib
   {
     class HeadersMessage : NetworkMessage
     {
-      public List<Header> Headers = new List<Header>();
+      public List<Header> Headers = new();
 
 
-      public HeadersMessage(
-        List<Header> headers)
+      public HeadersMessage(List<Header> headers)
         : base("headers")
       {
         Headers = headers;
-        SerializePayload();
-      }
-      void SerializePayload()
-      {
+
         var payload = new List<byte>();
 
         payload.AddRange(VarInt.GetBytes(Headers.Count));
@@ -34,6 +30,7 @@ namespace BTokenLib
         }
 
         Payload = payload.ToArray();
+        LengthPayload = Payload.Length;
       }
     }
   }

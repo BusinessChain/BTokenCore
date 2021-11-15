@@ -10,9 +10,11 @@ namespace BTokenLib
   {
     public class TXMessage : NetworkMessage
     {
-      public TXMessage(byte[] tXRaw) : base("tx")
+      public TXMessage(byte[] tXRaw) 
+        : base("tx")
       {
         Payload = tXRaw;
+        LengthPayload = Payload.Length;
       }
     }
   }

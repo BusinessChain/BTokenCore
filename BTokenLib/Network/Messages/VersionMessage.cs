@@ -18,10 +18,10 @@ namespace BTokenLib
         IPAddress iPAddressLocal,
         ushort portLocal,
         ulong nonce,
-        String userAgent,
+        string userAgent,
         int blockchainHeight,
-        byte relayOption) : 
-        base("version")
+        byte relayOption) 
+        : base("version")
       {
         List<byte> versionPayload = new();
 
@@ -40,6 +40,7 @@ namespace BTokenLib
         versionPayload.Add(relayOption);
 
         Payload = versionPayload.ToArray();
+        LengthPayload = Payload.Length;
       }
 
       byte[] GetBytes(UInt16 uint16)

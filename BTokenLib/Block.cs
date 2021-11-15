@@ -9,7 +9,7 @@ namespace BTokenLib
   public abstract class Block
   {
     public byte[] Buffer;
-    public int IndexBufferStop;
+    public int CountBlockBytes;
 
     public Header Header;
 

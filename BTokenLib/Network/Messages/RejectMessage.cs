@@ -26,51 +26,69 @@ namespace BTokenLib
 
       Byte RejectionCode;
       string MessageTypeRejected;
-      public string RejectionReason { get; private set; }
+      string RejectionReason;
       byte[] ExtraData;
 
 
-      public RejectMessage(byte[] payload) : base("reject", payload)
-      {
-        deserializePayload();
-      }
-      void deserializePayload()
+      public RejectMessage(byte[] payload) 
+        : base("reject", payload)
       {
         int startIndex = 0;
 
-        MessageTypeRejected = VarString.GetString(Payload, ref startIndex);
+        MessageTypeRejected = VarString.GetString(
+          Payload, 
+          ref startIndex);
 
         RejectionCode = Payload[startIndex];
         startIndex += 1;
 
-        RejectionReason = VarString.GetString(Payload, ref startIndex);
+        RejectionReason = VarString.GetString(
+          Payload, 
+          ref startIndex);
 
-        deserializeExtraData(ref startIndex);
-      }
-      void deserializeExtraData(ref int startIndex)
-      {
         if (startIndex == Payload.Length)
-        {
-          return; // No more data in Payload: Peer did not attach any extra data
-        }
+          return;
 
-        if (MessageTypeRejected == "tx" || MessageTypeRejected == "block")
+        if (
+          MessageTypeRejected == "tx" ||
+          MessageTypeRejected == "block")
         {
           int extraDataLength = Payload.Length - startIndex;
           if (extraDataLength != TXAndBlockExtraDataLength)
           {
-            throw new ProtocolException(string.Format("Provided extra data length '{0}' not consistent with protocol '{1}'", extraDataLength, TXAndBlockExtraDataLength));
+            throw new ProtocolException(
+              $"Provided extra data length '{extraDataLength}' " +
+              $"not consistent with protocol '{TXAndBlockExtraDataLength}'.");
           }
 
           ExtraData = new byte[TXAndBlockExtraDataLength];
-          Array.Copy(Payload, startIndex, ExtraData, 0, TXAndBlockExtraDataLength);
-        }
 
+          Array.Copy(
+            Payload,
+            startIndex,
+            ExtraData,
+            0,
+            TXAndBlockExtraDataLength);
+        }
       }
 
-      public RejectMessage(string messageTypeRejected, RejectCode rejectionCode, string rejectionReason)
-        : this(messageTypeRejected, rejectionCode, rejectionReason, new byte[0]) { }
-      public RejectMessage(string messageTypeRejected, RejectCode rejectionCode, string rejectionReason, byte[] extraData) : base("reject")
+      public RejectMessage(
+        string messageTypeRejected, 
+        RejectCode rejectionCode, 
+        string rejectionReason)
+        : this(
+            messageTypeRejected, 
+            rejectionCode, 
+            rejectionReason, 
+            new byte[0]) 
+      { }
+
+      public RejectMessage(
+        string messageTypeRejected,
+        RejectCode rejectionCode,
+        string rejectionReason,
+        byte[] extraData) 
+        : base("reject")
       {
         RejectionCode = (Byte)rejectionCode;
         MessageTypeRejected = messageTypeRejected;
@@ -79,9 +97,10 @@ namespace BTokenLib
 
         createRejectPayload();
       }
+
       void createRejectPayload()
       {
-        List<byte> rejectPayload = new List<byte>();
+        List<byte> rejectPayload = new();
 
         rejectPayload.AddRange(VarString.GetBytes(MessageTypeRejected));
         rejectPayload.Add((byte)RejectionCode);

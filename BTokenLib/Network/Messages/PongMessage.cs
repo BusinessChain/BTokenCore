@@ -10,9 +10,11 @@ namespace BTokenLib
   {
     class PongMessage : NetworkMessage
     {
-      public PongMessage(UInt64 nonce) : base("pong")
+      public PongMessage(ulong nonce) 
+        : base("pong")
       {
         Payload = BitConverter.GetBytes(nonce);
+        LengthPayload = Payload.Length;
       }
     }
   }

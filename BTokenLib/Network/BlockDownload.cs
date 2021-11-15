@@ -85,7 +85,7 @@ namespace BTokenLib
         }
 
         IndexHeadersExpected += 1;
-        CountBytes += block.IndexBufferStop;
+        CountBytes += block.CountBlockBytes;
 
         if (IsComplete())
         {
