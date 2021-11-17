@@ -65,6 +65,29 @@ namespace BTokenLib
       InizializeHeaderchain();
     }
 
+    public bool TryLock()
+    {
+      lock (LOCK_IsBlockchainLocked)
+      {
+        if (IsBlockchainLocked)
+        {
+          return false;
+        }
+
+        IsBlockchainLocked = true;
+
+        return true;
+      }
+    }
+
+    public void ReleaseLock()
+    {
+      lock (LOCK_IsBlockchainLocked)
+      {
+        IsBlockchainLocked = false;
+      }
+    }
+
     public string GetStatus()
     {
       var ageBlock = TimeSpan.FromSeconds(
@@ -377,6 +400,7 @@ namespace BTokenLib
 
     bool TryBlockLoadInsert(BlockLoad blockLoad)
     {
+      int index = 0;
       try
       {
         foreach (Block block in blockLoad.Blocks)
@@ -389,9 +413,11 @@ namespace BTokenLib
 
           if (block.Header.Hash.IsEqual(HashStopLoading))
           {
-            FileBlockArchive.SetLength(0);
+            FileBlockArchive.SetLength(index);
             break;
           }
+
+          index += block.Header.CountBlockBytes;
         }
 
         Debug.WriteLine(
@@ -406,29 +432,6 @@ namespace BTokenLib
       return !IsLoaderFail;
     }
 
-    public void InsertBlock(
-      Block block,
-      int intervalArchiveImage = 3)
-    {
-      InsertHeader(block.Header);
-
-      Token.InsertBlock(
-        block,
-        IndexBlockArchiveInsert);
-
-      block.Header.IndexBlockArchive = IndexBlockArchiveInsert;
-
-      ArchiveBlock(
-        block,
-        intervalArchiveImage);
-    }
-
-    public void InsertHeader(Header header)
-    {
-      header.ExtendHeaderTip(ref HeaderTip);
-
-      UpdateHeaderIndex(header);
-    }
 
     internal List<Header> GetLocator()
     {
@@ -453,6 +456,60 @@ namespace BTokenLib
       locator.Add(header);
 
       return locator;
+    }
+
+    public List<Header> GetHeaders(
+      IEnumerable<byte[]> locatorHashes,
+      int count,
+      byte[] stopHash)
+    {
+      foreach (byte[] hash in locatorHashes)
+      {
+        if (TryReadHeader(hash, out Header header))
+        {
+          List<Header> headers = new();
+
+          while (
+            header.HeaderNext != null &&
+            headers.Count < count &&
+            !header.Hash.IsEqual(stopHash))
+          {
+            Header nextHeader = header.HeaderNext;
+
+            headers.Add(nextHeader);
+            header = nextHeader;
+          }
+
+          return headers;
+        }
+      }
+
+      throw new ProtocolException(string.Format(
+        "Locator does not root in headerchain."));
+    }
+
+    public void InsertBlock(
+      Block block,
+      int intervalArchiveImage = 3)
+    {
+      InsertHeader(block.Header);
+
+      Token.InsertBlock(
+        block,
+        IndexBlockArchiveInsert);
+
+      block.Header.IndexBlockArchive = IndexBlockArchiveInsert;
+
+      ArchiveBlock(
+        block,
+        intervalArchiveImage);
+    }
+
+    public void InsertHeader(Header header)
+    {
+      header.ExtendHeaderTip(ref HeaderTip);
+
+      UpdateHeaderIndex(header);
     }
 
     public bool TryReadHeader(
@@ -499,57 +556,34 @@ namespace BTokenLib
     }
 
 
-    public List<Header> GetHeaders(
-      IEnumerable<byte[]> locatorHashes,
-      int count,
-      byte[] stopHash)
+    public void ArchiveBlock(
+      Block block,
+      int intervalImage)
     {
-      foreach (byte[] hash in locatorHashes)
+      block.Header.StartIndexBlockArchive = (int)FileBlockArchive.Position;
+              
+      ArchiveBuffer(block.Buffer, block.Header.CountBlockBytes);
+
+      CountBytesArchive += block.Header.CountBlockBytes;
+
+      if (CountBytesArchive >= SIZE_BLOCK_ARCHIVE_BYTES)
       {
-        if (TryReadHeader(hash, out Header header))
+        FileBlockArchive.Dispose();
+
+        IndexBlockArchiveInsert += 1;
+
+        if (IndexBlockArchiveInsert % intervalImage == 0)
         {
-          List<Header> headers = new();
+          string pathImage = IsFork ? 
+            Path.Combine(NameFork, NameImage) : 
+            NameImage;
 
-          while (
-            header.HeaderNext != null &&
-            headers.Count < count &&
-            !header.Hash.IsEqual(stopHash))
-          {
-            Header nextHeader = header.HeaderNext;
-
-            headers.Add(nextHeader);
-            header = nextHeader;
-          }
-
-          return headers;
-        }
-      }
-
-      throw new ProtocolException(string.Format(
-        "Locator does not root in headerchain."));
-    }
-
-
-    public bool TryLock()
-    {
-      lock (LOCK_IsBlockchainLocked)
-      {
-        if (IsBlockchainLocked)
-        {
-          return false;
+          CreateImage(
+            IndexBlockArchiveInsert, 
+            pathImage);
         }
 
-        IsBlockchainLocked = true;
-
-        return true;
-      }
-    }
-
-    public void ReleaseLock()
-    {
-      lock (LOCK_IsBlockchainLocked)
-      {
-        IsBlockchainLocked = false;
+        CreateBlockArchive(IndexBlockArchiveInsert);
       }
     }
 
@@ -578,37 +612,6 @@ namespace BTokenLib
       }
     }
 
-    public void ArchiveBlock(
-      Block block,
-      int intervalImage)
-    {
-      //block.Header.StartIndexBufferArchive = FileBlockArchive.
-              
-      ArchiveBuffer(block.Buffer, block.CountBlockBytes);
-
-      CountBytesArchive += block.CountBlockBytes;
-
-      if (CountBytesArchive >= SIZE_BLOCK_ARCHIVE_BYTES)
-      {
-        FileBlockArchive.Dispose();
-
-        IndexBlockArchiveInsert += 1;
-
-        if (IndexBlockArchiveInsert % intervalImage == 0)
-        {
-          string pathImage = IsFork ? 
-            Path.Combine(NameFork, NameImage) : 
-            NameImage;
-
-          CreateImage(
-            IndexBlockArchiveInsert, 
-            pathImage);
-        }
-
-        CreateBlockArchive(IndexBlockArchiveInsert);
-      }
-    }
-    
     void OpenBlockArchive(int index)
     {
       $"Open BlockArchive {index}.".Log(LogFile);

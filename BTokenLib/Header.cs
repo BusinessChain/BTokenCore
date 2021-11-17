@@ -22,8 +22,8 @@ namespace BTokenLib
     public int Height;
 
     public int IndexBlockArchive;
-    public int StartIndexBufferArchive;
-    public int StopIndexBufferArchive;
+    public int StartIndexBlockArchive;
+    public int CountBlockBytes;
 
 
     public Header()

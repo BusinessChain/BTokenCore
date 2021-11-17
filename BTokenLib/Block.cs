@@ -8,10 +8,9 @@ namespace BTokenLib
 {
   public abstract class Block
   {
-    public byte[] Buffer;
-    public int CountBlockBytes;
-
     public Header Header;
+
+    public byte[] Buffer;
 
 
     public Block()

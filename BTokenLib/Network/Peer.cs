@@ -517,31 +517,34 @@ namespace BTokenLib
                     }
                     else if(inventory.Type == InventoryType.MSG_BLOCK)
                     {
-                      //if(Blockchain.TryReadHeader(
-                      //  inventory.Hash, 
-                      //  out Header header))
-                      //{
-                      //  byte[] blockArchive;
+                      if (Blockchain.TryReadHeader(
+                        inventory.Hash,
+                        out Header header))
+                      {
+                        byte[] blockArchive;
 
-                      //  if (cache)
-                      //  {
-                      //    blockArchive = null;
-                      //  }
-                      //  else
-                      //  {
-                      //    blockArchive = Blockchain.LoadBlockArchive(
-                      //     header.IndexBlockArchive);
-                      //  }
+                        //if (cache)
+                        //{
+                        //  blockArchive = null;
+                        //}
+                        //else
+                        //{
+                        //  blockArchive = Blockchain.LoadBlockArchive(
+                        //   header.IndexBlockArchive);
+                        //}
 
-                      //  await SendMessage(new BlockMessage(
-                      //    blockArchive,
-                      //    header.StartIndexBufferArchive,
-                      //    header.StopIndexBufferArchive));
-                      //}
-                      //else
-                      //{
-                      //  await SendMessage(new RejectMessage(inventory));
-                      //}
+                        blockArchive = Blockchain.LoadBlockArchive(
+                         header.IndexBlockArchive);
+
+                        await SendMessage(new BlockMessage(
+                          blockArchive,
+                          header.StartIndexBlockArchive,
+                          header.CountBlockBytes));
+                      }
+                      else
+                      {
+                        await SendMessage(new RejectMessage(inventory.Hash));
+                      }
                     }
                   }
 
