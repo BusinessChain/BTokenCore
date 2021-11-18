@@ -280,8 +280,8 @@ namespace BTokenLib
         {
           blockLoad.IsInvalid = true;
 
-          ($"ProtocolException when loading blockArchive {blockLoad.Index}:\n " +
-            $"{ex.Message}")
+          ($"ProtocolException when loading " +
+            $"blockArchive {blockLoad.Index}:\n {ex.Message}")
             .Log(LogFile);
         }
 

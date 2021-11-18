@@ -33,6 +33,7 @@ namespace BTokenLib
           Block block = Token.CreateBlock();
 
           block.Parse(buffer, ref startIndex);
+          block.Header.IndexBlockArchive = Index;
 
           InsertBlock(block);
         }

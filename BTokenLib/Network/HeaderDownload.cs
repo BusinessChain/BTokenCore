@@ -18,12 +18,10 @@ namespace BTokenLib
       public Header HeaderRoot;
       public Header HeaderLocatorAncestor;
       public Header HeaderInsertedLast;
-      public bool IsFork;
 
 
       public HeaderDownload(
-        List<Header> locator,
-        Peer peer)
+        List<Header> locator, Peer peer)
       {
         Peer = peer;
         Locator = locator;

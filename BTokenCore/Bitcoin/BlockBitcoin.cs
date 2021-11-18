@@ -45,7 +45,7 @@ namespace BTokenCore
         Header.MerkleRoot,
         ref bufferIndex);
 
-      CountBlockBytes = bufferIndex;
+      Header.CountBlockBytes = bufferIndex;
     }
 
     public override void Parse(

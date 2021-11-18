@@ -14,12 +14,11 @@ namespace BTokenCore
   {
     public partial class WalletUTXO
     {
-      Crypto Crypto = new Crypto();
+      Crypto Crypto = new();
 
       string PrivKeyDec;
       
-      List<TXOutputWallet> TXOutputsSpendable =
-        new List<TXOutputWallet>();
+      List<TXOutputWallet> TXOutputsSpendable = new();
 
 
       readonly byte[] PREFIX_OP_RETURN =
@@ -28,15 +27,14 @@ namespace BTokenCore
       byte[] PREFIX_P2PKH =
         new byte[] { 0x76, 0xA9, 0x14 };
 
-      byte[] POSTFIX_P2PKH =
-        new byte[] { 0x88, 0xAC };
+      byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
 
       byte OP_RETURN = 0x6A;
 
       const int LENGTH_P2PKH = 25;
 
       SHA256 SHA256 = SHA256.Create();
-      readonly RipeMD160Digest RIPEMD160 = new RipeMD160Digest();
+      readonly RipeMD160Digest RIPEMD160 = new();
       byte[] PublicKeyHash160 = new byte[20];
 
 
@@ -65,9 +63,9 @@ namespace BTokenCore
 
         foreach(var output in TXOutputsSpendable)
         {
-          outputsSpendable += "TXID: " + output.TXID.ToHexString() + "\n";
-          outputsSpendable += "Output Index: " + output.OutputIndex + "\n";
-          outputsSpendable += "Value: " + output.Value + "\n";
+          outputsSpendable += $"TXID: {output.TXID.ToHexString()}\n";
+          outputsSpendable += $"Output Index: {output.OutputIndex}\n";
+          outputsSpendable += $"Value: {output.Value}\n";
         }
 
         return outputsSpendable;
@@ -80,11 +78,11 @@ namespace BTokenCore
 
         int index = 0;
 
-        Console.WriteLine("Read file {0}.", pathFile);
+        Console.WriteLine($"Read file {pathFile}.");
 
         byte[] buffer = File.ReadAllBytes(pathFile);
 
-        Console.WriteLine("Succeeded read file {0}.", pathFile);
+        Console.WriteLine($"Succeeded read file {pathFile}.");
 
         while (index < buffer.Length)
         {
