@@ -22,11 +22,15 @@ namespace BTokenLib
     }
 
 
-    public abstract void Parse();
+    public void Parse()
+    {
+      int index = 0;
+      Parse(Buffer, ref index);
+    }
 
     public abstract void Parse(
       byte[] buffer,
-      ref int startIndex);
+      ref int index);
 
     public override string ToString()
     {

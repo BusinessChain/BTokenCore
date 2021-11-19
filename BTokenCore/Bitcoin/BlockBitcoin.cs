@@ -32,36 +32,23 @@ namespace BTokenCore
       Buffer = new byte[sizeBuffer];
     }
 
-    public override void Parse()
-    {
-      int bufferIndex = 0;
-
-      Header = ParseHeader(
-        Buffer,
-        ref bufferIndex,
-        SHA256);
-
-      TXs = ParseTXs(
-        Header.MerkleRoot,
-        ref bufferIndex);
-
-      Header.CountBlockBytes = bufferIndex;
-    }
-
     public override void Parse(
       byte[] buffer,
-      ref int startIndex)
+      ref int index)
     {
       Buffer = buffer;
+      int startIndex = index;
 
       Header = ParseHeader(
         Buffer,
-        ref startIndex,
+        ref index,
         SHA256);
 
       TXs = ParseTXs(
         Header.MerkleRoot,
-        ref startIndex);
+        ref index);
+
+      Header.CountBlockBytes = index - startIndex;
     }
 
     public static HeaderBitcoin ParseHeader(

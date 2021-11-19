@@ -624,7 +624,7 @@ namespace BTokenLib
        pathFileArchive,
        FileMode.Append,
        FileAccess.Write,
-       FileShare.None,
+       FileShare.Read,
        bufferSize: 65536);
     }
 
