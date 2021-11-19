@@ -403,6 +403,10 @@ namespace BTokenLib
         }
         catch(FileNotFoundException ex)
         {
+          throw ex;
+        }
+        catch(Exception ex)
+        {
           if (
             FileBlockArchive != null &&
             Path.GetFileName(FileBlockArchive.Name) == index.ToString())
@@ -412,10 +416,6 @@ namespace BTokenLib
             return buffer;
           }
 
-          throw ex;
-        }
-        catch(Exception ex)
-        {
           Console.WriteLine($"{ex.GetType().Name}: {ex.Message}.\n" +
             $"Retry to load block archive {pathBlockArchive} in 10 seconds.");
 
