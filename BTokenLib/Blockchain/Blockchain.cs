@@ -30,6 +30,7 @@ namespace BTokenLib
 
     string FileNameIndexBlockArchiveImage = "IndexBlockArchive";
     string PathBlockArchive;
+    FileStream FileBlockArchive;
 
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
@@ -253,7 +254,6 @@ namespace BTokenLib
     bool IsLoaderFail;
     bool FlagLoaderExit;
     int CountBytesArchive;
-    FileStream FileBlockArchive;
     ConcurrentBag<BlockLoad> PoolBlockLoad = new();
 
     void StartLoader()
@@ -395,7 +395,19 @@ namespace BTokenLib
         PathBlockArchive,
         index.ToString());
 
-      return File.ReadAllBytes(pathBlockArchive);
+      // This is not solid (e.g. with regards to disposal)
+      // work with FileBlockArchive instead.
+      FileStream file = new(
+        pathBlockArchive,
+        FileMode.Open,
+        FileAccess.Read,
+        FileShare.ReadWrite);
+
+      var byteFile = new byte[file.Length];
+
+      file.Read(byteFile, 0, byteFile.Length);
+
+      return byteFile;
     }
 
     bool TryBlockLoadInsert(BlockLoad blockLoad)
