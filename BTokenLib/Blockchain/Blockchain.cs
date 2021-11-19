@@ -395,19 +395,33 @@ namespace BTokenLib
         PathBlockArchive,
         index.ToString());
 
-      // This is not solid (e.g. with regards to disposal)
-      // work with FileBlockArchive instead.
-      FileStream file = new(
-        pathBlockArchive,
-        FileMode.Open,
-        FileAccess.Read,
-        FileShare.ReadWrite);
+      while(true)
+      {
+        try
+        {
+          return File.ReadAllBytes(pathBlockArchive);
+        }
+        catch(FileNotFoundException ex)
+        {
+          if (
+            FileBlockArchive != null &&
+            Path.GetFileName(FileBlockArchive.Name) == index.ToString())
+          {
+            byte[] buffer = new byte[FileBlockArchive.Length];
+            FileBlockArchive.Read(buffer, 0, buffer.Length);
+            return buffer;
+          }
 
-      var byteFile = new byte[file.Length];
+          throw ex;
+        }
+        catch(Exception ex)
+        {
+          Console.WriteLine($"{ex.GetType().Name}: {ex.Message}.\n" +
+            $"Retry to load block archive {pathBlockArchive} in 10 seconds.");
 
-      file.Read(byteFile, 0, byteFile.Length);
-
-      return byteFile;
+          Thread.Sleep(10000);
+        }
+      }
     }
 
     bool TryBlockLoadInsert(BlockLoad blockLoad)

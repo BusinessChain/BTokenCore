@@ -523,18 +523,18 @@ namespace BTokenLib
                       {
                         byte[] blockArchive;
 
-                        //if (cache)
-                        //{
-                        //  blockArchive = null;
-                        //}
-                        //else
-                        //{
-                        //  blockArchive = Blockchain.LoadBlockArchive(
-                        //   header.IndexBlockArchive);
-                        //}
+                        if(IndexBlockArchiveCache == header.IndexBlockArchive)
+                        {
+                          blockArchive = CacheBlockArchive;
+                        }
+                        else
+                        {
+                          blockArchive = Blockchain.LoadBlockArchive(
+                           header.IndexBlockArchive);
 
-                        blockArchive = Blockchain.LoadBlockArchive(
-                         header.IndexBlockArchive);
+                          IndexBlockArchiveCache = header.IndexBlockArchive;
+                          CacheBlockArchive = blockArchive;
+                        }
 
                         await SendMessage(new BlockMessage(
                           blockArchive,
@@ -567,6 +567,9 @@ namespace BTokenLib
             Network.ReturnPeerBlockDownloadIncomplete(this);
         }
       }
+
+      int IndexBlockArchiveCache = -1;
+      byte[] CacheBlockArchive;
 
       public void ProcessHeaderUnsolicited(Header header)
       {
