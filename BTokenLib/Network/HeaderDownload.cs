@@ -73,7 +73,7 @@ namespace BTokenLib
           }
         }
 
-        header.ExtendHeaderTip(ref HeaderTip);
+        header.ExtendHeaderchain(ref HeaderTip);
 
         token.ValidateHeader(HeaderTip);
       }

@@ -208,15 +208,13 @@ namespace BTokenCore
       UTXOTable.Clear();
     }
 
-    public override void InsertBlock(
-      Block block,
-      int indexBlockArchive)
+    public override void InsertBlock(Block block)
     {
       ValidateHeader(block.Header);
 
       UTXOTable.InsertBlock(
         ((BlockBitcoin)block).TXs,
-        indexBlockArchive);
+        block.Header.IndexBlockArchive);
     }
 
     public override string GetStatus()

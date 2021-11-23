@@ -421,7 +421,7 @@ namespace BTokenLib
                     {
                       Cancellation = new();
 
-                      new Thread(Network.Synchronize).Start();
+                      Network.Synchronize();
                     }
                     else
                     {
@@ -529,7 +529,7 @@ namespace BTokenLib
                         }
                         else
                         {
-                          blockArchive = Blockchain.LoadBlockArchive(
+                          blockArchive = Blockchain.Archiver.LoadBlockArchive(
                            header.IndexBlockArchive);
 
                           IndexBlockArchiveCache = header.IndexBlockArchive;

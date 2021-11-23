@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace BTokenLib
@@ -28,14 +28,21 @@ namespace BTokenLib
       {
         int startIndex = 0;
 
-        while (startIndex < buffer.Length)
+        try
         {
-          Block block = Token.CreateBlock();
+          while (startIndex < buffer.Length)
+          {
+            Block block = Token.CreateBlock();
 
-          block.Parse(buffer, ref startIndex);
-          block.Header.IndexBlockArchive = Index;
+            block.Parse(buffer, ref startIndex);
+            block.Header.IndexBlockArchive = Index;
 
-          InsertBlock(block);
+            InsertBlock(block);
+          }
+        }
+        catch(Exception ex)
+        {
+
         }
 
         CountBytes = buffer.Length;

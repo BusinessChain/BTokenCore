@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 namespace BTokenLib
@@ -53,9 +51,7 @@ namespace BTokenLib
     public abstract Block CreateBlock();
     public abstract Block CreateBlock(int sizeBlockBuffer);
 
-    public abstract void InsertBlock(
-      Block block,
-      int indexBlockArchive);
+    public abstract void InsertBlock(Block block);
 
     public abstract string GetStatus();
 

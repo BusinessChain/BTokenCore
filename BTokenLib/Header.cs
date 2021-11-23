@@ -59,8 +59,12 @@ namespace BTokenLib
       return headerSerialized;
     }
 
-    public void ExtendHeaderTip(ref Header headerTip)
+    public void ExtendHeaderchain(ref Header headerTip)
     {
+      if (!HashPrevious.IsEqual(headerTip.Hash))
+        throw new ProtocolException(
+          $"Wrong header previous when extending headerchain.");
+
       HeaderPrevious = headerTip;
 
       Height = headerTip.Height + 1;
