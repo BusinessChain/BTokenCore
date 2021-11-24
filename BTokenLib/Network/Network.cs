@@ -457,6 +457,7 @@ namespace BTokenLib
                 BlockDownloadBlocking = BlockDownloadBlocking.BlockDownloadIndexPrevious;
               }
 
+              // Sometimes .Peer is null
               BlockDownloadBlocking.Peer.CountBlockingBlockDownload++;
             }
 

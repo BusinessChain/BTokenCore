@@ -255,11 +255,21 @@ namespace BTokenLib
     {
       InsertHeader(block.Header);
 
-      Archiver.ArchiveBlock(
+      bool flagCreateImage = Archiver.ArchiveBlockFlagCreateImage(
         block,
         intervalArchiveImage);
 
       Token.InsertBlock(block);
+
+      if(flagCreateImage)
+      {
+        string pathImage = IsFork ?
+          Path.Combine(NameFork, NameImage) : NameImage;
+
+        CreateImage(
+          Archiver.IndexBlockArchiveInsert,
+          pathImage);
+      }
     }
 
     public void InsertHeader(Header header)

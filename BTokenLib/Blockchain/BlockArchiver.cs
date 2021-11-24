@@ -17,10 +17,7 @@ namespace BTokenLib
       Blockchain Blockchain;
 
       int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-      int COUNT_LOADER_TASKS = 4;// Math.Min(Environment.ProcessorCount - 1, 6);
-
-      object LOCK_IndexBlockLoadInsert = new();
-      int IndexBlockArchiveInsert;
+      int COUNT_LOADER_TASKS = 1;// Math.Min(Environment.ProcessorCount - 1, 6);
 
       bool IsLoaderFail;
       bool FlagLoaderExit;
@@ -32,6 +29,9 @@ namespace BTokenLib
       Dictionary<int, BlockLoad> QueueBlockLoads = new();
       int CountBytesArchive;
       ConcurrentBag<BlockLoad> PoolBlockLoad = new();
+
+      object LOCK_IndexBlockLoadInsert = new();
+      public int IndexBlockArchiveInsert;
 
       object LOCK_IndexBlockArchiveLoad = new();
       int IndexBlockArchiveLoad;
@@ -278,7 +278,7 @@ namespace BTokenLib
         }
       }
 
-      public void ArchiveBlock(
+      public bool ArchiveBlockFlagCreateImage(
         Block block,
         int intervalImage)
       {
@@ -317,19 +317,12 @@ namespace BTokenLib
 
           IndexBlockArchiveInsert += 1;
 
-          if (IndexBlockArchiveInsert % intervalImage == 0)
-          {
-            string pathImage = Blockchain.IsFork ?
-              Path.Combine(NameFork, NameImage) :
-              NameImage;
-
-            Blockchain.CreateImage(
-              IndexBlockArchiveInsert,
-              pathImage);
-          }
-
           CreateBlockArchive(IndexBlockArchiveInsert);
+
+          return IndexBlockArchiveInsert % intervalImage == 0;
         }
+
+        return false;
       }
 
 

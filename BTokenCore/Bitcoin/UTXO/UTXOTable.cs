@@ -31,7 +31,7 @@ namespace BTokenCore
 
     StreamWriter LogFile;
 
-    public WalletUTXO Wallet;
+    WalletUTXO Wallet;
 
 
 
@@ -56,27 +56,18 @@ namespace BTokenCore
 
       for (int c = 0; c < Tables.Length; c += 1)
       {
-        string.Format("Load UTXO Table {0}.",
-          Tables[c].GetType().Name)
-          .Log(LogFile);
-
+        $"Load UTXO Table {Tables[c].GetType().Name}.".Log(LogFile);
         Tables[c].LoadImage(pathImage);
       }
 
-      string.Format(
-        "Load UTXO Image from {0}",
-        pathImage)
-        .Log(LogFile);
-
+      $"Load UTXO Image from {pathImage}".Log(LogFile);
       Wallet.LoadImage(pathImage);
     }
 
     public void Clear()
     {
       for (int c = 0; c < Tables.Length; c += 1)
-      {
         Tables[c].Clear();
-      }
     }
 
 
@@ -95,9 +86,7 @@ namespace BTokenCore
           uint uTXOIndex = 0;
 
           if (LENGTH_BITS_UINT > lengthUTXOBits)
-          {
             uTXOIndex |= (uint.MaxValue << lengthUTXOBits);
-          }
 
           TableUInt32.UTXO =
             uTXOIndex | ((uint)indexArchive & MaskBatchIndexUInt32);
@@ -124,9 +113,7 @@ namespace BTokenCore
           ulong uTXOIndex = 0;
 
           if (LENGTH_BITS_ULONG > lengthUTXOBits)
-          {
             uTXOIndex |= (ulong.MaxValue << lengthUTXOBits);
-          }
 
           TableULong64.UTXO =
             uTXOIndex |
@@ -143,13 +130,10 @@ namespace BTokenCore
 
           int countUTXORemainderBits = lengthUTXOBits % 32;
           if (countUTXORemainderBits > 0)
-          {
             uTXOIndex[uTXOIndex.Length - 1] |= (uint.MaxValue << countUTXORemainderBits);
-          }
 
           TableUInt32Array.UTXO = uTXOIndex;
-          TableUInt32Array.UTXO[0] |=
-            (uint)indexArchive & MaskBatchIndexUInt32;
+          TableUInt32Array.UTXO[0] |= (uint)indexArchive & MaskBatchIndexUInt32;
 
           InsertUTXO(
             tX.Hash,
@@ -179,11 +163,8 @@ namespace BTokenCore
                 {
                   tableCollision = Tables[cc];
 
-                  if (tableCollision
-                    .TrySpendCollision(tXInput, tablePrimary))
-                  {
+                  if (tableCollision.TrySpendCollision(tXInput, tablePrimary))
                     goto LABEL_LoopNextInput;
-                  }
                 }
               }
 
@@ -196,9 +177,7 @@ namespace BTokenCore
                 tablePrimary.RemovePrimary();
 
                 if (tableCollision != null)
-                {
                   tableCollision.ResolveCollision(tablePrimary);
-                }
               }
 
               goto LABEL_LoopNextInput;
