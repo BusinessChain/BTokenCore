@@ -23,7 +23,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333;
 
-    int CountPeersMax = 4; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 8; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
@@ -603,12 +603,8 @@ namespace BTokenLib
     void ReturnPeerBlockDownloadIncomplete(Peer peer)
     {
       lock (LOCK_InsertBlockDownload)
-      {
         if (BlockDownloadBlocking == peer.BlockDownload)
-        {
           return;
-        }
-      }
 
       BlockDownload blockDownload = peer.BlockDownload;
 

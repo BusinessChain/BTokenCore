@@ -326,15 +326,13 @@ namespace BTokenLib
       int indexBlockArchive,
       string pathImage)
     {
-      string pathimageOld = pathImage + NameImageOld;
-
       try
       {
         while (true)
         {
           try
           {
-            Directory.Delete(pathimageOld, true);
+            Directory.Delete(NameImageOld, true);
 
             break;
           }
@@ -359,7 +357,7 @@ namespace BTokenLib
           {
             Directory.Move(
               pathImage,
-              pathimageOld);
+              NameImageOld);
 
             break;
           }
