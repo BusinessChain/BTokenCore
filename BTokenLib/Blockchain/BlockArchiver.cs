@@ -80,9 +80,7 @@ namespace BTokenLib
         while (true)
         {
           lock (LOCK_IndexBlockArchiveLoad)
-          {
             blockLoad.Initialize(IndexBlockArchiveLoad++);
-          }
 
           try
           {

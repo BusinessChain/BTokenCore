@@ -19,7 +19,7 @@ namespace BTokenLib
       {
         Headers = headers;
 
-        var payload = new List<byte>();
+        List<byte> payload = new();
 
         payload.AddRange(VarInt.GetBytes(Headers.Count));
 

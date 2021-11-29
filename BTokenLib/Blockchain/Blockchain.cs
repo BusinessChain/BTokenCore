@@ -171,9 +171,6 @@ namespace BTokenLib
          ref indexBytesHeaderImage,
          SHA256.Create());
 
-        if (!header.HashPrevious.IsEqual(HeaderTip.Hash))
-          throw new ProtocolException("Header image corrupted.");
-
         InsertHeader(header);
       }
     }
@@ -274,7 +271,7 @@ namespace BTokenLib
 
     public void InsertHeader(Header header)
     {
-      header.ExtendHeaderchain(ref HeaderTip);
+      header.AppendToHeader(ref HeaderTip);
 
       UpdateHeaderIndex(header);
     }
@@ -333,7 +330,6 @@ namespace BTokenLib
           try
           {
             Directory.Delete(NameImageOld, true);
-
             break;
           }
           catch (DirectoryNotFoundException)
@@ -387,8 +383,7 @@ namespace BTokenLib
             pathimageHeaderchain,
             FileMode.Create,
             FileAccess.Write,
-            FileShare.None,
-            bufferSize: 65536))
+            FileShare.None))
         {
           Header header = HeaderGenesis.HeaderNext;
 
@@ -398,6 +393,18 @@ namespace BTokenLib
 
             fileImageHeaderchain.Write(
               headerBytes, 0, headerBytes.Length);
+
+            byte[] bytesIndexBlockArchive = 
+              BitConverter.GetBytes(header.IndexBlockArchive);
+
+            fileImageHeaderchain.Write(
+              bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
+
+            byte[] bytesStartIndexBlockArchive =
+              BitConverter.GetBytes(header.IndexBlockArchive);
+
+            fileImageHeaderchain.Write(
+              bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
 
             header = header.HeaderNext;
           }
@@ -447,13 +454,10 @@ namespace BTokenLib
       if (IsFork)
       {
         if (HeaderTip.Difficulty > DifficultyOld)
-        {
           Archiver.Reorganize();
-        }
         else
         {
           IsFork = false;
-
           flagBlockchainCorrupted = true;
         }
       }

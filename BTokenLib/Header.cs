@@ -4,7 +4,7 @@
 
 namespace BTokenLib
 {
-  public class Header
+  public abstract class Header
   {
     const int COUNT_HEADER_BYTES = 68;
 
@@ -45,34 +45,34 @@ namespace BTokenLib
       UnixTimeSeconds = unixTimeSeconds;
     }
 
-    public virtual byte[] GetBytes()
+    public abstract byte[] GetBytes();
+    //{
+    //  var headerSerialized = new byte[COUNT_HEADER_BYTES];
+
+    //  HashPrevious.CopyTo(headerSerialized, 0);
+
+    //  MerkleRoot.CopyTo(headerSerialized, 32);
+
+    //  BitConverter.GetBytes(UnixTimeSeconds)
+    //    .CopyTo(headerSerialized, 64);
+
+    //  return headerSerialized;
+    //}
+
+    public void AppendToHeader(ref Header headerPrevious)
     {
-      var headerSerialized = new byte[COUNT_HEADER_BYTES];
-
-      HashPrevious.CopyTo(headerSerialized, 0);
-
-      MerkleRoot.CopyTo(headerSerialized, 32);
-
-      BitConverter.GetBytes(UnixTimeSeconds)
-        .CopyTo(headerSerialized, 64);
-
-      return headerSerialized;
-    }
-
-    public void ExtendHeaderchain(ref Header headerTip)
-    {
-      if (!HashPrevious.IsEqual(headerTip.Hash))
+      if (!HashPrevious.IsEqual(headerPrevious.Hash))
         throw new ProtocolException(
           $"Wrong header previous when extending headerchain.");
 
-      HeaderPrevious = headerTip;
+      HeaderPrevious = headerPrevious;
 
-      Height = headerTip.Height + 1;
+      Height = headerPrevious.Height + 1;
       DifficultyAccumulated =
-        headerTip.DifficultyAccumulated + Difficulty;
+        headerPrevious.DifficultyAccumulated + Difficulty;
 
-      headerTip.HeaderNext = this;
-      headerTip = this;
+      headerPrevious.HeaderNext = this;
+      headerPrevious = this;
     }
 
     public override string ToString()

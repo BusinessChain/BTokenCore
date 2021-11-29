@@ -23,7 +23,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333;
 
-    int CountPeersMax = 8; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 0; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
@@ -113,9 +113,7 @@ namespace BTokenLib
             await Task.WhenAll(createPeerTasks);
           }
           else
-          {
             "No peer found to connect.".Log(LogFile);
-          }
         }
 
         await Task.Delay(10000).ConfigureAwait(false);
@@ -133,24 +131,15 @@ namespace BTokenLib
           DownloadIPAddressesFromSeeds();
 
           lock (LOCK_Peers)
-          {
             AddressPool.RemoveAll(
               a => Peers.Any(p => p.ToString() == a.ToString()));
-          }
 
-          foreach (FileInfo file in
-            DirectoryLogPeersDisposed.GetFiles())
+          foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
           {
-            if (DateTime.Now.Subtract(
-              file.LastAccessTime).TotalHours > 24)
-            {
+            if (DateTime.Now.Subtract(file.LastAccessTime).TotalHours > 24)
               file.Delete();
-            }
             else
-            {
-              AddressPool.RemoveAll(
-                a => a.ToString() == file.Name);
-            }
+              AddressPool.RemoveAll(a => a.ToString() == file.Name);
           }
 
           if (AddressPool.Count == 0)
@@ -267,9 +256,7 @@ namespace BTokenLib
       foreach (string dnsSeed in dnsSeeds)
       {
         if (dnsSeed.Substring(0, 2) == "//")
-        {
           continue;
-        }
 
         List<IPAddress> dnsSeedAddresses;
 
@@ -311,9 +298,7 @@ namespace BTokenLib
         await Task.Delay(5000).ConfigureAwait(false);
 
         if (!Blockchain.TryLock())
-        {
           continue;
-        }
 
         lock (LOCK_Peers)
         {
@@ -393,30 +378,22 @@ namespace BTokenLib
         }
 
         if (!TryGetPeer(out peer))
-        {
           await Task.Delay(3000).ConfigureAwait(false);
-        }
       }
 
       Blockchain.FinalizeBlockchain(
         flagBlockchainCorrupted: FlagSynchronizationAbort);
 
       lock (LOCK_Peers)
-      {
         Peers
           .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
           .ForEach(p => p.Release());
-      }
 
       while (true)
       {
         lock (LOCK_Peers)
-        {
           if (!Peers.Any(p => p.IsBusy))
-          {
             break;
-          }
-        }
 
         "Waiting for all peers to exit state 'synchronization busy'."
           .Log(LogFile);
@@ -476,9 +453,7 @@ namespace BTokenLib
             return true;
           }
           else
-          {
             peer.BlockDownload = null;
-          }
         }
         else if (blockDownload.Index == IndexInsertion)
         {
@@ -491,11 +466,9 @@ namespace BTokenLib
             try
             {
               for (int i = 0; i < blockDownload.HeadersExpected.Count; i += 1)
-              {
                 Blockchain.InsertBlock(
                     blockDownload.Blocks[i],
                     intervalArchiveImage: UTXOIMAGE_INTERVAL_SYNC);
-              }
 
               ($"Inserted blockDownload {blockDownload.Index} from peer " +
                 $"{blockDownload.Peer}. Height: {Blockchain.HeaderTip.Height}.")
@@ -538,9 +511,7 @@ namespace BTokenLib
           }
         }
         else
-        {
           peer.CountWastedBlockDownload++;
-        }
       }
 
       return TryChargeBlockDownload(peer);
@@ -557,9 +528,7 @@ namespace BTokenLib
         if (QueueDownloadsIncomplete.Any())
         {
           if (blockDownload != null)
-          {
             PoolBlockDownload.Add(blockDownload);
-          }
 
           blockDownload = QueueDownloadsIncomplete.First();
           QueueDownloadsIncomplete.RemoveAt(0);
@@ -620,15 +589,11 @@ namespace BTokenLib
           .FindIndex(b => blockDownload.Index < b.Index);
 
         if (indexInsertInQueue == -1)
-        {
           QueueDownloadsIncomplete.Add(blockDownload);
-        }
         else
-        {
           QueueDownloadsIncomplete.Insert(
             indexInsertInQueue,
             blockDownload);
-        }
       }
     }
 
@@ -668,9 +633,7 @@ namespace BTokenLib
       Header header)
     {
       lock (QueueBlocksUnsolicited)
-      {
         QueueBlocksUnsolicited.Add(header);
-      }
 
       int countTriesLeft = 10;
 
@@ -697,6 +660,7 @@ namespace BTokenLib
         await Task.Delay(500).ConfigureAwait(false);
       }
     }
+
     public void RelayBlock(Block block)
     {
       RelayBlock(block, null);
@@ -719,9 +683,7 @@ namespace BTokenLib
     bool TryGetPeer(out Peer peer)
     {
       lock (LOCK_Peers)
-      {
         peer = Peers.Find(p => p.TryGetBusy());
-      }
 
       return peer != null;
     }
@@ -735,13 +697,9 @@ namespace BTokenLib
       while (true)
       {
         if (TryGetPeer(out Peer peer))
-        {
           peers.Add(peer);
-        }
         else if (peers.Any())
-        {
           break;
-        }
 
         await Task.Delay(1000);
       }

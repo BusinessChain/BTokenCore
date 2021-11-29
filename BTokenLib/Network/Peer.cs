@@ -91,7 +91,6 @@ namespace BTokenLib
       {
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
-
         Connection = ConnectionType.INBOUND;
       }
 
@@ -125,7 +124,6 @@ namespace BTokenLib
           try
           {
             LogFile = new StreamWriter(PathLogFile, true);
-
             break;
           }
           catch (Exception ex)
@@ -225,9 +223,7 @@ namespace BTokenLib
 
         for (int i = 0; i < MagicBytes.Length; i++)
         {
-          await ReadBytes(
-           magicByte,
-           1);
+          await ReadBytes(magicByte, 1);
 
           if (MagicBytes[i] != magicByte[0])
             i = magicByte[0] == MagicBytes[0] ? 0 : -1;

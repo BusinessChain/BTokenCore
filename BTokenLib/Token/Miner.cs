@@ -21,7 +21,6 @@ namespace BTokenLib
     }
 
     internal async Task Start()
-    {
-    }
+    { }
   }
 }

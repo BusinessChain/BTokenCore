@@ -17,5 +17,10 @@ namespace BTokenCore
         merkleRootHash,
         unixTimeSeconds)
     { }
+
+    public override byte[] GetBytes()
+    {
+      return null;
+    }
   }
 }
