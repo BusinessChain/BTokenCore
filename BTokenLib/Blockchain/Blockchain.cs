@@ -171,6 +171,16 @@ namespace BTokenLib
          ref indexBytesHeaderImage,
          SHA256.Create());
 
+        header.IndexBlockArchive = BitConverter.ToInt32(
+          bytesHeaderImage, indexBytesHeaderImage);
+
+        indexBytesHeaderImage += 4;
+
+        header.StartIndexBlockArchive = BitConverter.ToInt32(
+          bytesHeaderImage, indexBytesHeaderImage);
+
+        indexBytesHeaderImage += 4;
+
         InsertHeader(header);
       }
     }
