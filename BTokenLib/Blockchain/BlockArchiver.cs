@@ -11,7 +11,7 @@ namespace BTokenLib
 {
   public partial class Blockchain
   {
-    public class BlockArchiver
+    public partial class BlockArchiver
     {
       Token Token;
       Blockchain Blockchain;
@@ -261,7 +261,7 @@ namespace BTokenLib
           {
             if (
               FileBlockArchive != null &&
-              Path.GetFileName(FileBlockArchive.Name) == index.ToString())
+              FileBlockArchive.Name == pathBlockArchive)
             {
               byte[] buffer = new byte[FileBlockArchive.Length];
               FileBlockArchive.Read(buffer, 0, buffer.Length);
