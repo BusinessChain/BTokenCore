@@ -184,6 +184,8 @@ namespace BTokenLib
         header.CountBlockBytes = BitConverter.ToInt32(
           bytesHeaderImage, index);
 
+        index += 4;
+
         InsertHeader(header);
       }
     }
