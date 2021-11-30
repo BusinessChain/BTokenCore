@@ -163,6 +163,10 @@ namespace BTokenLib
 
     async Task CreatePeer(IPAddress iP)
     {
+      lock (LOCK_Peers)
+        if (Peers.Any(p => p.IPAddress.Equals(iP)))
+          return;
+
       Peer peer;
 
       try
@@ -175,9 +179,7 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-
-        ($"{ex.GetType()} when creating peer {iP}: " +
-        $"\n{ex.Message}")
+        $"{ex.GetType().Name} when creating peer {iP}: \n{ex.Message}"
         .Log(LogFile);
 
         return;
@@ -242,12 +244,9 @@ namespace BTokenLib
         catch (Exception ex)
         {
           Console.WriteLine(
-            "{0} when reading file with DNS seeds {1} \n" +
-            "{2} \n" +
-            "Try again in 10 seconds ...",
-            ex.GetType().Name,
-            pathFileSeeds,
-            ex.Message);
+            $"{ex.GetType().Name} when reading file with DNS seeds {pathFileSeeds} \n" +
+            $"{ex.Message} \n" +
+            $"Try again in 10 seconds ...");
 
           Thread.Sleep(10000);
         }
@@ -721,11 +720,16 @@ namespace BTokenLib
         TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync().
           ConfigureAwait(false);
 
-        ($"Received inbound request from " +
-          $"{tcpClient.Client.RemoteEndPoint}")
-          .Log(LogFile);
+        IPAddress remoteIP = 
+          ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
-        var peer = new Peer(
+        lock (LOCK_Peers)
+          if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+            continue;
+
+        $"Accept inbound request from {remoteIP}.".Log(LogFile);
+
+        Peer peer = new(
           this, 
           Blockchain,
           Token,

@@ -354,9 +354,8 @@ namespace BTokenLib
           catch (Exception ex)
           {
             Console.WriteLine(
-              "Cannot delete directory old due to {0}:\n{1}",
-              ex.GetType().Name,
-              ex.Message);
+              $"Cannot delete directory old due to " +
+              $"{ex.GetType().Name}:\n{ex.Message}");
 
             Thread.Sleep(3000);
           }
@@ -379,9 +378,8 @@ namespace BTokenLib
           catch (Exception ex)
           {
             Console.WriteLine(
-              "Cannot move new image to old due to {0}:\n{1}",
-              ex.GetType().Name,
-              ex.Message);
+              $"Cannot move new image to old due to " +
+              $"{ex.GetType().Name}:\n{ex.Message}");
 
             Thread.Sleep(3000);
           }

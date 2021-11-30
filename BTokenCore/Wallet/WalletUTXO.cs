@@ -78,11 +78,7 @@ namespace BTokenCore
 
         int index = 0;
 
-        Console.WriteLine($"Read file {pathFile}.");
-
         byte[] buffer = File.ReadAllBytes(pathFile);
-
-        Console.WriteLine($"Succeeded read file {pathFile}.");
 
         while (index < buffer.Length)
         {

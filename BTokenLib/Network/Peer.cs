@@ -801,12 +801,8 @@ namespace BTokenLib
         LogFile.Dispose();
 
         File.Move(
-          Path.Combine(
-            DirectoryLogPeers.FullName,
-            ToString()),
-          Path.Combine(
-            DirectoryLogPeersDisposed.FullName,
-            ToString()));
+          Path.Combine(DirectoryLogPeers.FullName, ToString()),
+          Path.Combine(DirectoryLogPeersDisposed.FullName, ToString()));
       }
 
       public string GetStatus()
