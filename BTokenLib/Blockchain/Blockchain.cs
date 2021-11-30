@@ -162,24 +162,27 @@ namespace BTokenLib
       byte[] bytesHeaderImage = File.ReadAllBytes(
         Path.Combine(pathImage, "ImageHeaderchain"));
 
-      int indexBytesHeaderImage = 0;
+      int index = 0;
 
-      while (indexBytesHeaderImage < bytesHeaderImage.Length)
+      while (index < bytesHeaderImage.Length)
       {
         Header header = Token.ParseHeader(
          bytesHeaderImage,
-         ref indexBytesHeaderImage,
+         ref index,
          SHA256.Create());
 
         header.IndexBlockArchive = BitConverter.ToInt32(
-          bytesHeaderImage, indexBytesHeaderImage);
+          bytesHeaderImage, index);
 
-        indexBytesHeaderImage += 4;
+        index += 4;
 
         header.StartIndexBlockArchive = BitConverter.ToInt32(
-          bytesHeaderImage, indexBytesHeaderImage);
+          bytesHeaderImage, index);
 
-        indexBytesHeaderImage += 4;
+        index += 4;
+
+        header.CountBlockBytes = BitConverter.ToInt32(
+          bytesHeaderImage, index);
 
         InsertHeader(header);
       }
@@ -411,10 +414,16 @@ namespace BTokenLib
               bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
 
             byte[] bytesStartIndexBlockArchive =
-              BitConverter.GetBytes(header.IndexBlockArchive);
+              BitConverter.GetBytes(header.StartIndexBlockArchive);
 
             fileImageHeaderchain.Write(
               bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
+
+            byte[] bytesCountBlockBytes =
+              BitConverter.GetBytes(header.CountBlockBytes);
+
+            fileImageHeaderchain.Write(
+              bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
 
             header = header.HeaderNext;
           }
