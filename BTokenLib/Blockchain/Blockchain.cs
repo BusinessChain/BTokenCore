@@ -298,21 +298,17 @@ namespace BTokenLib
       int key = BitConverter.ToInt32(headerHash, 0);
 
       lock (HeaderIndex)
-      {
         if (HeaderIndex.TryGetValue(
-          key, 
+          key,
           out List<Header> headers))
         {
           foreach (Header h in headers)
-          {
             if (headerHash.IsEqual(h.Hash))
             {
               header = h;
               return true;
             }
-          }
         }
-      }
 
       header = null;
       return false;

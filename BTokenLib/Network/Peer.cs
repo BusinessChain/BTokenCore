@@ -23,7 +23,7 @@ namespace BTokenLib
 
       public bool IsBusy;
       public bool FlagDispose;
-      public bool IsSynchronized;
+      public bool FlagSynchronizationScheduled;
 
       public enum StateProtocol
       {
@@ -106,6 +106,7 @@ namespace BTokenLib
 
         IPAddress = ip;
         Connection = ConnectionType.OUTBOUND;
+        FlagSynchronizationScheduled = true;
 
         CreateLogFile(ip.ToString());
 
@@ -233,6 +234,9 @@ namespace BTokenLib
 
       internal Header HeaderDuplicateReceivedLast;
       internal int CountOrphanReceived;
+
+      int IndexBlockArchiveCache = -1;
+      byte[] CacheBlockArchive;
 
       public async Task StartMessageListener()
       {
@@ -387,9 +391,7 @@ namespace BTokenLib
                           .Log(LogFile);
                       }
                       else
-                      {
                         ProcessHeaderUnsolicited(HeaderUnsolicited);
-                      }
                     }
                     catch (ProtocolException ex)
                     {
@@ -437,12 +439,16 @@ namespace BTokenLib
                   int startIndex = 4;
 
                   int headersCount = VarInt.GetInt32(Payload, ref startIndex);
-                  for (int i = 0; i < headersCount; i++)
+
+                  int i = 0;
+                  List<Header> headers = new();
+
+                  while (i < headersCount)
                   {
+                    i += 1;
+
                     Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
                     startIndex += 32;
-
-                    List<Header> headers = new();
 
                     if (Blockchain.TryReadHeader(
                       hashHeaderAncestor,
@@ -454,7 +460,15 @@ namespace BTokenLib
                         header = header.HeaderNext;
                       }
 
-                      SendHeaders(headers);
+                      await SendHeaders(headers);
+
+                      break;
+                    }
+                    else if (i == headersCount)
+                    {
+                      await SendHeaders(headers);
+
+                      FlagSynchronizationScheduled = true;
                     }
                   }
 
@@ -564,9 +578,6 @@ namespace BTokenLib
         }
       }
 
-      int IndexBlockArchiveCache = -1;
-      byte[] CacheBlockArchive;
-
       public void ProcessHeaderUnsolicited(Header header)
       {
         if (Blockchain.TryReadHeader(
@@ -583,23 +594,18 @@ namespace BTokenLib
         }
         else
         {
-          if (IsSynchronized)
+          if (!FlagSynchronizationScheduled)
           {
             CountOrphanReceived = 0;
-            IsSynchronized = false;
+            FlagSynchronizationScheduled = true;
           }
           else if (CountOrphanReceived > 10)
-          {
             throw new ProtocolException(
               "Too many orphan headers received.");
-          }
           else
-          {
             CountOrphanReceived += 1;
-          }
         }
       }
-
 
       public async Task AdvertizeToken(byte[] hash)
       {
@@ -617,17 +623,10 @@ namespace BTokenLib
 
         Release();
       }
-         
-           
-
-      /// <summary>
-      /// Request all headers from peer returning the root header.
-      /// </summary>
+                            
       public async Task GetHeaders()
       {
-        HeaderDownload = new(
-          Blockchain.GetLocator(), 
-          this);
+        HeaderDownload = new(Blockchain.GetLocator(), this);
                
         ($"Send getheaders to peer {this},\n" +
           $"locator: {HeaderDownload.ToStringLocator()}")
@@ -702,25 +701,16 @@ namespace BTokenLib
         lock(this)
         {
           if (
-            IsSynchronized ||
+            !FlagSynchronizationScheduled ||
             FlagDispose ||
-            IsBusy ||
-            Connection == ConnectionType.INBOUND)
+            IsBusy)
           {
             return false;
           }
 
-          IsSynchronized = true;
+          FlagSynchronizationScheduled = false;
           IsBusy = true;
           return true;
-        }
-      }
-
-      public bool GetIsSynchronized()
-      {
-        lock (this)
-        {
-          return IsSynchronized && !FlagDispose;
         }
       }
 
@@ -823,7 +813,7 @@ namespace BTokenLib
             $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
             $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
             $"CountBlockingBlockDownload: {CountWastedBlockDownload}\n" +
-            $"IsSynchronized: {IsSynchronized}\n";
+            $"FlagSynchronizationScheduled: {FlagSynchronizationScheduled}\n";
         }
       }
     }

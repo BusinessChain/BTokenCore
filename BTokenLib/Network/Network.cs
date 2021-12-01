@@ -179,7 +179,7 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        $"{ex.GetType().Name} when creating peer {iP}: \n{ex.Message}"
+        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
         .Log(LogFile);
 
         return;
@@ -639,7 +639,6 @@ namespace BTokenLib
       while (true)
       {
         lock (QueueBlocksUnsolicited)
-        {
           if (QueueBlocksUnsolicited[0] == header)
           {
             if (Blockchain.TryLock())
@@ -654,7 +653,6 @@ namespace BTokenLib
               return true;
             }
           }
-        }
 
         await Task.Delay(500).ConfigureAwait(false);
       }
