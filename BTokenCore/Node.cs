@@ -66,7 +66,7 @@ namespace BTokenCore
             break;
 
           case "addPeerIP":
-            TokenBitcoin.Network.AddPeer("3.67.200.137"); //"84.75.2.239"
+            TokenBitcoin.Network.AddPeer("3.67.200.137"); // "84.75.2.239"
             break;
 
           case "removePeer":
@@ -75,7 +75,7 @@ namespace BTokenCore
             break;
 
           default:
-            Console.WriteLine($"Unknown command {inputCommand}");
+            Console.WriteLine($"Unknown command {inputCommand}.");
             break;
         }
       }

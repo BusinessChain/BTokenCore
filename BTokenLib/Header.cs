@@ -6,8 +6,6 @@ namespace BTokenLib
 {
   public abstract class Header
   {
-    const int COUNT_HEADER_BYTES = 68;
-
     public byte[] Hash;
     public byte[] HashPrevious;
     public byte[] MerkleRoot;

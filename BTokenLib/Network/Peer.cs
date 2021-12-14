@@ -235,9 +235,6 @@ namespace BTokenLib
       internal Header HeaderDuplicateReceivedLast;
       internal int CountOrphanReceived;
 
-      int IndexBlockArchiveCache = -1;
-      byte[] CacheBlockArchive;
-
       public async Task StartMessageListener()
       {
         try
@@ -531,20 +528,8 @@ namespace BTokenLib
                         inventory.Hash,
                         out Header header))
                       {
-                        byte[] blockArchive;
-
-                        if(IndexBlockArchiveCache == header.IndexBlockArchive)
-                        {
-                          blockArchive = CacheBlockArchive;
-                        }
-                        else
-                        {
-                          blockArchive = Blockchain.Archiver.LoadBlockArchive(
-                           header.IndexBlockArchive);
-
-                          IndexBlockArchiveCache = header.IndexBlockArchive;
-                          CacheBlockArchive = blockArchive;
-                        }
+                        byte[] blockArchive = Blockchain.Archiver.LoadBlockArchive(
+                         header.IndexBlockArchive);
 
                         await SendMessage(new BlockMessage(
                           blockArchive,

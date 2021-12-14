@@ -17,7 +17,7 @@ namespace BTokenLib
       Blockchain Blockchain;
 
       int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-      int COUNT_LOADER_TASKS = Math.Min(Environment.ProcessorCount - 1, 6);
+      int COUNT_LOADER_TASKS = 1;// Math.Min(Environment.ProcessorCount - 1, 6);
 
       bool IsLoaderFail;
       bool FlagLoaderExit;
@@ -264,6 +264,7 @@ namespace BTokenLib
               FileBlockArchive.Name == pathBlockArchive)
             {
               byte[] buffer = new byte[FileBlockArchive.Length];
+              FileBlockArchive.Position = 0;
               FileBlockArchive.Read(buffer, 0, buffer.Length);
               return buffer;
             }
@@ -340,7 +341,6 @@ namespace BTokenLib
          bufferSize: 65536);
       }
 
-
       void CreateBlockArchive(int index)
       {
         string pathFileArchive = Path.Combine(
@@ -351,8 +351,8 @@ namespace BTokenLib
         FileBlockArchive = new FileStream(
          pathFileArchive,
          FileMode.Create,
-         FileAccess.Write,
-         FileShare.None,
+         FileAccess.ReadWrite,
+         FileShare.Read,
          bufferSize: 65536);
 
         CountBytesArchive = 0;

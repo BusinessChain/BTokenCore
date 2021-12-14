@@ -230,7 +230,21 @@ namespace BTokenCore
 
         return true;
       }
-      
+
+
+      public byte[] GetReceptionScript()
+      {
+        byte[] script = new byte[26];
+
+        script[0] = LENGTH_P2PKH;
+
+        PREFIX_P2PKH.CopyTo(script, 1);
+        PublicKeyHash160.CopyTo(script, 4);
+        POSTFIX_P2PKH.CopyTo(script, 24);
+
+        return script;
+      }
+
       //public TX CreateAnchorToken(
       //  byte[] dataOPReturn)
       //{
@@ -240,11 +254,9 @@ namespace BTokenCore
       //    TXOutputsSpendable.Find(t => t.Value > fee);
 
       //  if (outputSpendable == null)
-      //  {
-      //    throw new BitcoinException("No spendable output found.");
-      //  }
-        
-      //  List<byte> tXRaw = new List<byte>();
+      //    throw new ProtocolException("No spendable output found.");
+
+      //  List<byte> tXRaw = new();
 
       //  byte[] version = { 0x01, 0x00, 0x00, 0x00 };
       //  tXRaw.AddRange(version);
@@ -256,7 +268,7 @@ namespace BTokenCore
 
       //  tXRaw.AddRange(BitConverter.GetBytes(
       //    outputSpendable.OutputIndex));
-        
+
       //  int indexScriptSig = tXRaw.Count;
 
       //  tXRaw.Add(LENGTH_P2PKH);
@@ -265,7 +277,7 @@ namespace BTokenCore
 
       //  byte[] sequence = { 0xFF, 0xFF, 0xFF, 0xFF };
       //  tXRaw.AddRange(sequence);
-        
+
       //  byte countOutputs = 2; //(byte)(valueChange == 0 ? 1 : 2);
       //  tXRaw.Add(countOutputs);
 
@@ -292,7 +304,7 @@ namespace BTokenCore
 
       //  byte[] sigHashType = { 0x01, 0x00, 0x00, 0x00 };
       //  tXRaw.AddRange(sigHashType);
-        
+
       //  byte[] signature = Crypto.GetSignature(
       //  PrivKeyDec,
       //  tXRaw.ToArray());
@@ -303,7 +315,7 @@ namespace BTokenCore
       //  scriptSig.Add(0x01);
 
       //  byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
-        
+
       //  scriptSig.Add((byte)publicKey.Length);
       //  scriptSig.AddRange(publicKey);
 
@@ -329,9 +341,8 @@ namespace BTokenCore
 
       //  tX.TXRaw = tXRawArray;
 
-      //  return tX;        
+      //  return tX;
       //}
-
     }
   }
 }

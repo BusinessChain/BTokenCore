@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
@@ -121,8 +120,7 @@ namespace BTokenCore
         Buffer,
         ref bufferIndex);
 
-      if (tXCount == 0)
-      { }
+      if (tXCount == 0) ;
       else if (tXCount == 1)
       {
         UTXOTable.TX tX = ParseTX(
@@ -133,10 +131,8 @@ namespace BTokenCore
         tXs.Add(tX);
 
         if (!tX.Hash.IsEqual(hashMerkleRoot))
-        {
           throw new ProtocolException(
             "Payload merkle root corrupted");
-        }
       }
       else
       {
@@ -165,15 +161,11 @@ namespace BTokenCore
         }
 
         if (tXsLengthMod2 != 0)
-        {
           merkleList[tXCount] = merkleList[tXCount - 1];
-        }
 
         if (!hashMerkleRoot.IsEqual(GetRoot(merkleList)))
-        {
           throw new ProtocolException(
             "Payload hash not equal to merkle root.");
-        }
       }
 
       return tXs;
@@ -201,34 +193,27 @@ namespace BTokenCore
         }
 
         int countInputs = VarInt.GetInt32(
-          buffer, ref indexBuffer);
+          buffer, 
+          ref indexBuffer);
 
         if (isCoinbase)
-        {
           new UTXOTable.TXInput(buffer, ref indexBuffer);
-        }
         else
-        {
           for (int i = 0; i < countInputs; i += 1)
-          {
             tX.TXInputs.Add(
               new UTXOTable.TXInput(
                 buffer,
                 ref indexBuffer));
-          }
-        }
 
         int countTXOutputs = VarInt.GetInt32(
           buffer,
           ref indexBuffer);
 
         for (int i = 0; i < countTXOutputs; i += 1)
-        {
           tX.TXOutputs.Add(
             new UTXOTable.TXOutput(
               buffer,
               ref indexBuffer));
-        }
 
         //if (isWitnessFlagPresent)
         //{

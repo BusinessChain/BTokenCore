@@ -46,6 +46,11 @@ namespace BTokenCore
 
     public override void StartMiner()
     {
+      if (!FlagMinerStop)
+        return;
+
+      FlagMinerStop = false;
+
       int numberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
       long nonceSegment = uint.MaxValue / numberOfProcesses;
 
@@ -55,14 +60,110 @@ namespace BTokenCore
         i => StartMinerProcess(i * nonceSegment));
     }
 
+
     void StartMinerProcess(long nonceStart)
     {
-      HeaderBitcoin header = new();
-      BlockBitcoin block = new(header);
-      HeaderBitcoin headerBitcoinTip = null;
       SHA256 sHA256 = SHA256.Create();
 
-      FlagMinerStop = false;
+      while (!FlagMinerStop)
+      {
+        HeaderBitcoin header = new();
+        BlockBitcoin block = new(header);
+
+        ComputePoW(
+          block, 
+          sHA256, 
+          nonceStart);
+
+        block.Buffer = header.Buffer
+          .Concat(VarInt.GetBytes(block.TXs.Count))
+          .Concat(block.TXs[0].TXRaw).ToArray();
+
+        header.CountBlockBytes = block.Buffer.Length;
+
+        while (!Blockchain.TryLock())
+        {
+          if (FlagMinerStop)
+            return;
+
+          Console.WriteLine("Miner awaiting access of Blockchain LOCK.");
+
+          Thread.Sleep(1000);
+        }
+
+        Console.Beep();
+
+        try
+        {
+          Blockchain.InsertBlock(block);
+
+          Debug.WriteLine($"Mined block {block}.");
+        }
+        catch (Exception ex)
+        {
+          Debug.WriteLine(
+            $"{ex.GetType().Name} when inserting mined block {block}.");
+
+          continue;
+        }
+        finally
+        {
+          Blockchain.ReleaseLock();
+        }
+
+        Network.RelayBlock(block);
+      }
+    }
+
+    void LoadTXs(BlockBitcoin block)
+    {
+      List<byte> tXRaw = new();
+
+      tXRaw.AddRange(new byte[4] { 0x01, 0x00, 0x00, 0x00 }); // version
+
+      tXRaw.Add(0x01); // #TxIn
+
+      tXRaw.AddRange(new byte[32]); // TxOutHash
+
+      tXRaw.AddRange("FFFFFFFF".ToBinary()); // TxOutIndex
+
+      List<byte> blockHeight = VarInt.GetBytes(block.Header.Height); // Script coinbase
+      tXRaw.Add((byte)blockHeight.Count);
+      tXRaw.AddRange(blockHeight);
+
+      tXRaw.AddRange("FFFFFFFF".ToBinary()); // sequence
+
+      tXRaw.Add(0x01); // #TxOut
+
+      ulong valueChange = (ulong)(50000 * 100e8);
+      tXRaw.AddRange(BitConverter.GetBytes(valueChange));
+
+      tXRaw.AddRange(UTXOTable.GetReceptionScript());
+
+      tXRaw.AddRange(new byte[4]);
+
+
+      int indexTXRaw = 0;
+      byte[] tXRawArray = tXRaw.ToArray();
+
+      UTXOTable.TX tX = block.ParseTX(
+        false,
+        tXRawArray,
+        ref indexTXRaw);
+
+      tX.TXRaw = tXRawArray;
+
+      block.TXs = new List<UTXOTable.TX>() { tX };
+      block.Header.MerkleRoot = tX.Hash;
+    }
+
+    void ComputePoW(
+      BlockBitcoin block,
+      SHA256 sHA256,
+      long nonceStart)
+    {
+      HeaderBitcoin headerBitcoinTip = null;
+      HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
       while (!FlagMinerStop)
       {
@@ -71,6 +172,8 @@ namespace BTokenCore
           headerBitcoinTip = (HeaderBitcoin)Blockchain.HeaderTip;
 
           header.Height = headerBitcoinTip.Height + 1;
+
+          LoadTXs(block);
 
           header.Version = headerBitcoinTip.Version;
 
@@ -96,7 +199,7 @@ namespace BTokenCore
           header.Buffer = header.GetBytes();
         }
 
-        header.Hash = 
+        header.Hash =
           sHA256.ComputeHash(
             sHA256.ComputeHash(header.Buffer));
 
@@ -106,40 +209,7 @@ namespace BTokenCore
           continue;
         }
 
-        block.Buffer = header.Buffer;
-
-        while (!Blockchain.TryLock())
-        {
-          if (FlagMinerStop)
-            return;
-
-          Console.WriteLine("Miner awaiting retrievement of Blockchain LOCK.");
-          
-          Thread.Sleep(1000);
-        }
-
-        Console.Beep();
-
-        try
-        {
-          Blockchain.InsertBlock(block);
-        }
-        catch (ProtocolException ex)
-        {
-          Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting mined block {block}.");
-
-          continue;
-        }
-        finally
-        {
-          Blockchain.ReleaseLock();
-        }
-
-        Network.RelayBlock(block);
-
-        header = new();
-        block = new(header);
+        break;
       }
     }
 
@@ -184,7 +254,7 @@ namespace BTokenCore
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
          merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
          unixTimeSeconds: 1231006505,
-         nBits: 0x1d00ffff,
+         nBits: 0x1dffffff,
          nonce: 2083236893);
     }
 
