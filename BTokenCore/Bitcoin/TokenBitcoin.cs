@@ -147,7 +147,7 @@ namespace BTokenCore
       byte[] tXRawArray = tXRaw.ToArray();
 
       UTXOTable.TX tX = block.ParseTX(
-        false,
+        true,
         tXRawArray,
         ref indexTXRaw);
 
