@@ -44,20 +44,21 @@ namespace BTokenCore
       //Network.AdvertizeToken(tXAnchorToken.Hash);
     }
 
-    CancellationTokenSource CancellationMiner;
+    bool IsMinerRunning;
+    bool FlagMinerCancel;
 
     public override void StopMiner()
     {
-      CancellationMiner.Cancel();
-      CancellationMiner = null;
+      if (IsMinerRunning)
+        FlagMinerCancel = true;
     }
 
     public override void StartMiner()
     {
-      if (CancellationMiner != null)
+      if (IsMinerRunning)
         return;
 
-      CancellationMiner = new();
+      IsMinerRunning = true;
 
       int numberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
       long nonceSegment = uint.MaxValue / numberOfProcesses;
@@ -66,6 +67,11 @@ namespace BTokenCore
         0,
         numberOfProcesses,
         i => StartMinerProcess(i * nonceSegment));
+
+      IsMinerRunning = false;
+      FlagMinerCancel = false;
+
+      Console.WriteLine("Miner canceled.");
     }
 
 
@@ -73,53 +79,59 @@ namespace BTokenCore
     {
       SHA256 sHA256 = SHA256.Create();
 
-      while (true)
+      try
       {
-        HeaderBitcoin header = new();
-        BlockBitcoin block = new(header);
-
-        ComputePoW(
-          block,
-          sHA256,
-          nonceStart);
-
-        block.Buffer = header.Buffer
-          .Concat(VarInt.GetBytes(block.TXs.Count))
-          .Concat(block.TXs[0].TXRaw).ToArray();
-
-        header.CountBlockBytes = block.Buffer.Length;
-
-        while (!Blockchain.TryLock())
+        while (true)
         {
-          if (CancellationMiner.IsCancellationRequested)
-            return;
+          HeaderBitcoin header = new();
+          BlockBitcoin block = new(header);
 
-          Console.WriteLine("Miner awaiting access of Blockchain LOCK.");
+          ComputePoW(
+            block,
+            sHA256,
+            nonceStart);
 
-          Thread.Sleep(1000);
+          block.Buffer = header.Buffer
+            .Concat(VarInt.GetBytes(block.TXs.Count))
+            .Concat(block.TXs[0].TXRaw).ToArray();
+
+          header.CountBlockBytes = block.Buffer.Length;
+
+          while (!Blockchain.TryLock())
+          {
+            if (FlagMinerCancel)
+              return;
+
+            Console.WriteLine("Miner awaiting access of Blockchain LOCK.");
+            Thread.Sleep(1000);
+          }
+
+          Console.Beep();
+
+          try
+          {
+            Blockchain.InsertBlock(block);
+
+            Debug.WriteLine($"Mined block {block}.");
+          }
+          catch (Exception ex)
+          {
+            Debug.WriteLine(
+              $"{ex.GetType().Name} when inserting mined block {block}.");
+
+            continue;
+          }
+          finally
+          {
+            Blockchain.ReleaseLock();
+          }
+
+          Network.RelayBlock(block);
         }
-
-        Console.Beep();
-
-        try
-        {
-          Blockchain.InsertBlock(block);
-
-          Debug.WriteLine($"Mined block {block}.");
-        }
-        catch (Exception ex)
-        {
-          Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting mined block {block}.");
-
-          continue;
-        }
-        finally
-        {
-          Blockchain.ReleaseLock();
-        }
-
-        Network.RelayBlock(block);
+      }
+      catch (TaskCanceledException)
+      {
+        return;
       }
     }
 
@@ -165,6 +177,7 @@ namespace BTokenCore
       block.Header.MerkleRoot = tX.Hash;
     }
 
+
     void ComputePoW(
       BlockBitcoin block,
       SHA256 sHA256,
@@ -175,7 +188,7 @@ namespace BTokenCore
 
       do
       {
-        if (CancellationMiner.IsCancellationRequested)
+        if (FlagMinerCancel)
           throw new TaskCanceledException();
 
         header.IncrementNonce();

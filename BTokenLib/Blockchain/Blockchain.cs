@@ -58,12 +58,9 @@ namespace BTokenLib
       lock (LOCK_IsBlockchainLocked)
       {
         if (IsBlockchainLocked)
-        {
           return false;
-        }
 
         IsBlockchainLocked = true;
-
         return true;
       }
     }
