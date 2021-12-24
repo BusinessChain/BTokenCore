@@ -32,14 +32,8 @@ namespace BTokenLib
     }
 
 
-
     public abstract void StartMiner();
-
-    protected bool FlagMinerStop = true;
-    public void StopMiner()
-    {
-      FlagMinerStop = true;
-    }
+    public abstract void StopMiner();
 
     public abstract Header CreateHeaderGenesis();
     public abstract Dictionary<int, byte[]> GetCheckpoints();

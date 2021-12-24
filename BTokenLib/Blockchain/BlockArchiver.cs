@@ -17,7 +17,7 @@ namespace BTokenLib
       Blockchain Blockchain;
 
       int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
-      int COUNT_LOADER_TASKS = 1;// Math.Min(Environment.ProcessorCount - 1, 6);
+      int COUNT_LOADER_TASKS = Math.Min(Environment.ProcessorCount - 1, 6);
 
       bool IsLoaderFail;
       bool FlagLoaderExit;

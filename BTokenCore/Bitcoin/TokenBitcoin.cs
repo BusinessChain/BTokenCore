@@ -44,12 +44,20 @@ namespace BTokenCore
       //Network.AdvertizeToken(tXAnchorToken.Hash);
     }
 
+    CancellationTokenSource CancellationMiner;
+
+    public override void StopMiner()
+    {
+      CancellationMiner.Cancel();
+      CancellationMiner = null;
+    }
+
     public override void StartMiner()
     {
-      if (!FlagMinerStop)
+      if (CancellationMiner != null)
         return;
 
-      FlagMinerStop = false;
+      CancellationMiner = new();
 
       int numberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
       long nonceSegment = uint.MaxValue / numberOfProcesses;
@@ -65,14 +73,14 @@ namespace BTokenCore
     {
       SHA256 sHA256 = SHA256.Create();
 
-      while (!FlagMinerStop)
+      while (true)
       {
         HeaderBitcoin header = new();
         BlockBitcoin block = new(header);
 
         ComputePoW(
-          block, 
-          sHA256, 
+          block,
+          sHA256,
           nonceStart);
 
         block.Buffer = header.Buffer
@@ -83,7 +91,7 @@ namespace BTokenCore
 
         while (!Blockchain.TryLock())
         {
-          if (FlagMinerStop)
+          if (CancellationMiner.IsCancellationRequested)
             return;
 
           Console.WriteLine("Miner awaiting access of Blockchain LOCK.");
@@ -165,8 +173,13 @@ namespace BTokenCore
       HeaderBitcoin headerBitcoinTip = null;
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
-      while (!FlagMinerStop)
+      do
       {
+        if (CancellationMiner.IsCancellationRequested)
+          throw new TaskCanceledException();
+
+        header.IncrementNonce();
+
         if (headerBitcoinTip != Blockchain.HeaderTip)
         {
           headerBitcoinTip = (HeaderBitcoin)Blockchain.HeaderTip;
@@ -203,14 +216,7 @@ namespace BTokenCore
           sHA256.ComputeHash(
             sHA256.ComputeHash(header.Buffer));
 
-        if (header.Hash.IsGreaterThan(header.NBits))
-        {
-          header.IncrementNonce();
-          continue;
-        }
-
-        break;
-      }
+      } while (header.Hash.IsGreaterThan(header.NBits));
     }
 
     public override Block CreateBlock()

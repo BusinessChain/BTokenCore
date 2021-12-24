@@ -6,3 +6,4 @@
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Usage", "CA2200:Rethrow to preserve stack details", Justification = "<Pending>", Scope = "member", Target = "~M:BTokenLib.Blockchain.LoadBlockArchive(System.Int32)~System.Byte[]")]
+[assembly: SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Pending>", Scope = "member", Target = "~M:BTokenLib.Network.Peer.StartMessageListener~System.Threading.Tasks.Task")]

@@ -29,6 +29,7 @@ namespace BTokenLib
       {
         IDLE = 0,
         AwaitingBlockDownload,
+        AwaitingBlockUnsolicited,
         AwaitingHeader,
         AwaitingGetData
       }
@@ -233,6 +234,7 @@ namespace BTokenLib
 
 
       internal Header HeaderDuplicateReceivedLast;
+      internal List<Header> QueueHeadersUnsolicited = new();
       internal int CountOrphanReceived;
 
       public async Task StartMessageListener()
@@ -279,10 +281,22 @@ namespace BTokenLib
               {
                 block.Parse();
 
-                if (await Network.EnqueuBlockUnsolicitedFlagReject(block.Header))
+                if (!await Network.TryEnqueuBlockUnsolicited(block.Header))
                   break;
 
-                Console.Beep();
+                Console.Beep(1600, 100);
+
+                if (QueueHeadersUnsolicited.Any())
+                {
+                  if (!block.Header.Hash.IsEqual(QueueHeadersUnsolicited[0].Hash))
+                    throw new ProtocolException(
+                      $"Requested unsolicited block {QueueHeadersUnsolicited[0]}\n" +
+                      $"instead received {block.Header}");
+
+                  QueueHeadersUnsolicited.RemoveAt(0);
+
+                  Cancellation = new();
+                }
 
                 try
                 {
@@ -295,9 +309,18 @@ namespace BTokenLib
 
                     $"{this}: Inserted unsolicited block {block}."
                       .Log(LogFile);
+
+                    if(QueueHeadersUnsolicited.Any())
+                    {
+                      HeaderUnsolicited = QueueHeadersUnsolicited[0];
+                      ProcessHeaderUnsolicited();
+                    }
                   }
                   else
-                    ProcessHeaderUnsolicited(block.Header);
+                  {
+                    QueueHeadersUnsolicited.Clear();
+                    HandleHeaderUnsolicitedDuplicateOrOrphan(block.Header);
+                  }
                 }
                 catch (ProtocolException ex)
                 {
@@ -308,7 +331,8 @@ namespace BTokenLib
                   Blockchain.ReleaseLock();
                 }
               }
-              else if (IsStateAwaitingBlockDownload())
+              
+              if (IsStateAwaitingBlockDownload())
               {
                 BlockDownload.Parse();
 
@@ -355,61 +379,26 @@ namespace BTokenLib
                 case "headers":
                   int byteIndex = 0;
 
+                  
                   int countHeaders = VarInt.GetInt32(
                     Payload,
                     ref byteIndex);
 
-                  if (IsStateIdle())
+                  $"{this}: Receiving {countHeaders} headers."
+                    .Log(LogFile);
+
+                  if (IsStateGetHeaders())
                   {
-                    HeaderUnsolicited = Token.ParseHeader(
-                      Payload,
-                      ref byteIndex,
-                      SHA256);
-
-                    Network.ThrottleDownloadBlockUnsolicited();
-
-                    Console.Beep();
-
-                    try
-                    {
-                      if (HeaderUnsolicited.HashPrevious.IsEqual(
-                        Blockchain.HeaderTip.Hash))
-                      {
-                        await SendMessage(new GetDataMessage(
-                          new List<Inventory>()
-                          {
-                            new Inventory(
-                              InventoryType.MSG_BLOCK,
-                              HeaderUnsolicited.Hash)
-                          }));
-
-                        ($"{this}: Requested block for unsolicited " +
-                          $"header {HeaderUnsolicited}.")
-                          .Log(LogFile);
-                      }
-                      else
-                        ProcessHeaderUnsolicited(HeaderUnsolicited);
-                    }
-                    catch (ProtocolException ex)
-                    {
-                      SetFlagDisposed(ex.Message);
-                    }
-                  }
-                  else if (IsStateGetHeaders())
-                  {
-                    $"{this}: Receiving {countHeaders} headers."
-                      .Log(LogFile);
-
                     while (byteIndex < PayloadLength)
                     {
-                      Header header = Token.ParseHeader(
+                      HeaderUnsolicited = Token.ParseHeader(
                         Payload,
                         ref byteIndex,
                         SHA256);
 
                       byteIndex += 1;
 
-                      HeaderDownload.InsertHeader(header, Token);
+                      HeaderDownload.InsertHeader(HeaderUnsolicited, Token);
                     }
 
                     if (countHeaders == 0)
@@ -426,6 +415,28 @@ namespace BTokenLib
 
                       Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
                     }
+                  }
+                  else
+                  {
+                    HeaderUnsolicited = Token.ParseHeader(
+                      Payload,
+                      ref byteIndex,
+                      SHA256);
+
+                    Network.ThrottleDownloadBlockUnsolicited();
+
+                    QueueHeadersUnsolicited.Add(HeaderUnsolicited);
+                                         
+                    if (QueueHeadersUnsolicited.Count > 10)
+                      throw new ProtocolException(
+                        $"Too many ({QueueHeadersUnsolicited.Count}) headers unsolicited.");
+
+                    if (QueueHeadersUnsolicited.Count > 1)
+                      break;
+
+                    Console.Beep();
+
+                    ProcessHeaderUnsolicited();
                   }
 
                   break;
@@ -563,7 +574,37 @@ namespace BTokenLib
         }
       }
 
-      public void ProcessHeaderUnsolicited(Header header)
+      async Task ProcessHeaderUnsolicited()
+      {
+        try
+        {
+          if (HeaderUnsolicited.HashPrevious.IsEqual(
+            Blockchain.HeaderTip.Hash))
+          {
+            await SendMessage(new GetDataMessage(
+              new List<Inventory>()
+              {
+                new Inventory(
+                  InventoryType.MSG_BLOCK,
+                  HeaderUnsolicited.Hash)
+              }));
+
+            Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+            ($"{this}: Requested block for unsolicited " +
+              $"header {HeaderUnsolicited}.")
+              .Log(LogFile);
+          }
+          else
+            HandleHeaderUnsolicitedDuplicateOrOrphan(HeaderUnsolicited);
+        }
+        catch (ProtocolException ex)
+        {
+          SetFlagDisposed(ex.Message);
+        }
+      }
+
+      public void HandleHeaderUnsolicitedDuplicateOrOrphan(Header header)
       {
         if (Blockchain.TryReadHeader(
           header.Hash,
@@ -652,10 +693,7 @@ namespace BTokenLib
           return;
         }
 
-        lock (this)
-        {
-          State = StateProtocol.AwaitingBlockDownload;
-        }
+        SetStateAwaitingBlockDownload();
 
         CountStartBlockDownload++;
       }
@@ -669,12 +707,8 @@ namespace BTokenLib
       {
         lock (this)
         {
-          if (
-            FlagDispose ||
-            IsBusy)
-          {
+          if ( FlagDispose || IsBusy)
             return false;
-          }
 
           IsBusy = true;
           return true;
@@ -711,49 +745,49 @@ namespace BTokenLib
       public bool IsStateIdle()
       {
         lock (this)
-        {
           return State == StateProtocol.IDLE;
-        }
       }
 
       public void SetStateAwaitingHeader()
       {
         lock (this)
-        {
           State = StateProtocol.AwaitingHeader;
-        }
+      }
+
+      public void SetStateAwaitingBlockDownload()
+      {
+        lock (this)
+          State = StateProtocol.AwaitingBlockDownload;
       }
 
       bool IsStateGetHeaders()
       {
         lock (this)
-        {
           return State == StateProtocol.AwaitingHeader;
-        }
       }
 
       bool IsStateAwaitingGetDataTX()
       {
         lock (this)
-        {
           return State == StateProtocol.AwaitingGetData;
-        }
       }
 
       public bool IsStateAwaitingHeader()
       {
         lock (this)
-        {
           return State == StateProtocol.AwaitingHeader;
-        }
       }
 
       public bool IsStateAwaitingBlockDownload()
       {
         lock (this)
-        {
           return State == StateProtocol.AwaitingBlockDownload;
-        }
+      }
+
+      public bool IsStateAwaitingBlockUnsolicited()
+      {
+        lock (this)
+          return State == StateProtocol.AwaitingBlockUnsolicited;
       }
 
       public override string ToString()

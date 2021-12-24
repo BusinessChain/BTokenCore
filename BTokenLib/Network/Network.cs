@@ -343,14 +343,14 @@ namespace BTokenLib
       if (headerDownload.HeaderLocatorAncestor != Blockchain.HeaderTip)
       {
         if (
-          headerDownload.HeaderTip == null || // why can HeaderTip be null?
+          headerDownload.HeaderTip == null ||
           headerDownload.HeaderTip.DifficultyAccumulated <=
           Blockchain.HeaderTip.DifficultyAccumulated ||
           !Blockchain.TryFork(headerDownload.HeaderLocatorAncestor))
         {
           PeerSynchronization.Release();
-          Blockchain.ReleaseLock();
-          return;
+
+          goto LABEL_ExitSynchronization;
         }
       }
 
@@ -401,6 +401,8 @@ namespace BTokenLib
       }
 
       PoolBlockDownload.Clear();
+            
+    LABEL_ExitSynchronization:
 
       Blockchain.ReleaseLock();
 
@@ -604,15 +606,13 @@ namespace BTokenLib
       while(true)
       {
         lock(LOCK_FlagThrottle)
-        {
           if (!FlagThrottle)
           {
             FlagThrottle = true;
             break;
           }
-        }
 
-        Thread.Sleep(20);
+        Thread.Sleep(100);
       }
 
       StartTimerLatchFlagThrottle();
@@ -628,13 +628,13 @@ namespace BTokenLib
 
     List<Header> QueueBlocksUnsolicited = new();
 
-    async Task<bool> EnqueuBlockUnsolicitedFlagReject(
+    async Task<bool> TryEnqueuBlockUnsolicited(
       Header header)
     {
+      int countTriesLeft = 10;
+
       lock (QueueBlocksUnsolicited)
         QueueBlocksUnsolicited.Add(header);
-
-      int countTriesLeft = 10;
 
       while (true)
       {
@@ -644,13 +644,13 @@ namespace BTokenLib
             if (Blockchain.TryLock())
             {
               QueueBlocksUnsolicited.Remove(header);
-              return false;
+              return true;
             }
 
             if (countTriesLeft-- == 0)
             {
               QueueBlocksUnsolicited.Remove(header);
-              return true;
+              return false;
             }
           }
 
