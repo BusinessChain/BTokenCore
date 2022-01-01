@@ -29,8 +29,14 @@ namespace BTokenLib
     List<Peer> Peers = new();
     ConcurrentBag<BlockDownload> PoolBlockDownload = new();
 
-    static DirectoryInfo DirectoryLogPeers;
-    static DirectoryInfo DirectoryLogPeersDisposed;
+    static readonly DirectoryInfo DirectoryLogPeers =
+      Directory.CreateDirectory("logPeers");
+
+    static readonly DirectoryInfo DirectoryLogPeersDisposed =
+      Directory.CreateDirectory(
+        Path.Combine(
+          DirectoryLogPeers.FullName,
+          "disposed"));
 
 
 
@@ -44,14 +50,6 @@ namespace BTokenLib
       LogFile = new StreamWriter(
         Path.Combine(pathRoot + "LogNetwork"),
         false);
-
-      DirectoryLogPeers = Directory.CreateDirectory(
-        "logPeers");
-
-      DirectoryLogPeersDisposed = Directory.CreateDirectory(
-        Path.Combine(
-          DirectoryLogPeers.FullName,
-          "disposed"));
 
       LoadNetworkConfiguration(pathRoot);
     }
@@ -733,20 +731,22 @@ namespace BTokenLib
             continue;
 
         $"Accept inbound request from {remoteIP}.".Log(LogFile);
-
-        Peer peer = new(
-          this, 
-          Blockchain,
-          Token,
-          tcpClient);
+        
+        Peer peer = null;
 
         try
         {
+          peer = new(
+            this,
+            Blockchain,
+            Token,
+            tcpClient);
+
           peer.StartMessageListener();
         }
         catch (Exception ex)
         {
-          ($"Failed to start listening to inbound peer {peer}: " +
+          ($"Failed to start listening to inbound peer {remoteIP}: " +
             $"\n{ex.GetType().Name}: {ex.Message}")
             .Log(LogFile);
 

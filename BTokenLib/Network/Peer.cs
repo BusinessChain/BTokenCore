@@ -116,8 +116,8 @@ namespace BTokenLib
 
       void CreateLogFile(string name)
       {
-        string pathLogFile = Path.Combine(DirectoryLogPeers.Name, name);
-        string pathLogFileDisposed = Path.Combine(DirectoryLogPeersDisposed.Name, name);
+        string pathLogFile = Path.Combine(DirectoryLogPeers.FullName, name);
+        string pathLogFileDisposed = Path.Combine(DirectoryLogPeersDisposed.FullName, name);
 
         int SECONDS_PEER_BANNED = 24 * 3600;
 
