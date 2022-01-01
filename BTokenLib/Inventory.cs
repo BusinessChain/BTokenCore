@@ -56,5 +56,10 @@ namespace BTokenLib
     {
       return Type == InventoryType.MSG_TX;
     }
+
+    public override string ToString()
+    {
+      return Hash.ToHexString();
+    }
   }
 }

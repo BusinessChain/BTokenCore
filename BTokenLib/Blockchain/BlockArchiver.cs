@@ -335,10 +335,12 @@ namespace BTokenLib
 
         FileBlockArchive = new FileStream(
          pathFileArchive,
-         FileMode.Append,
-         FileAccess.Write,
-         FileShare.Read,
+         FileMode.Open,
+         FileAccess.ReadWrite,
+         FileShare.ReadWrite,
          bufferSize: 65536);
+
+        FileBlockArchive.Seek(0, SeekOrigin.End);
       }
 
       void CreateBlockArchive(int index)
@@ -352,7 +354,7 @@ namespace BTokenLib
          pathFileArchive,
          FileMode.Create,
          FileAccess.ReadWrite,
-         FileShare.Read,
+         FileShare.ReadWrite,
          bufferSize: 65536);
 
         CountBytesArchive = 0;

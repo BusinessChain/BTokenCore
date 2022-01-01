@@ -68,7 +68,6 @@ namespace BTokenLib
       SHA256 SHA256 = SHA256.Create();
 
       StreamWriter LogFile;
-      string PathLogFile;
 
       public int CountStartBlockDownload;
       public int CountInsertBlockDownload;
@@ -117,15 +116,27 @@ namespace BTokenLib
 
       void CreateLogFile(string name)
       {
-        PathLogFile = Path.Combine(
-          DirectoryLogPeers.Name,
-          name);
+        string pathLogFile = Path.Combine(DirectoryLogPeers.Name, name);
+        string pathLogFileDisposed = Path.Combine(DirectoryLogPeersDisposed.Name, name);
 
-        while(true)
+        int SECONDS_PEER_BANNED = 24 * 3600;
+
+        if (File.Exists(pathLogFileDisposed))
+        {
+          TimeSpan timeSpanLogFileDisposed = File.GetLastWriteTime(pathLogFile) - File.GetLastWriteTime(pathLogFileDisposed);
+          if (timeSpanLogFileDisposed.Seconds < 24 * 3600)
+          {
+            throw new ProtocolException($"Peer {ToString()} is banned for {SECONDS_PEER_BANNED} seconds.");
+          }
+
+          File.Move(pathLogFileDisposed, pathLogFile);
+        }
+
+        while (true)
         {
           try
           {
-            LogFile = new StreamWriter(PathLogFile, true);
+            LogFile = new StreamWriter(pathLogFile, true);
             break;
           }
           catch (Exception ex)
@@ -434,7 +445,7 @@ namespace BTokenLib
                     if (QueueHeadersUnsolicited.Count > 1)
                       break;
 
-                    Console.Beep();
+                    Console.Beep(800, 100);
 
                     ProcessHeaderUnsolicited();
                   }
@@ -524,8 +535,8 @@ namespace BTokenLib
                         string.Format(
                           "{0} received getData {1} and sent tXMessage {2}.",
                           this,
-                          getDataMessage.Inventories[0].Hash.ToHexString(),
-                          inventory.Hash.ToHexString())
+                          getDataMessage.Inventories[0],
+                          inventory)
                           .Log(LogFile);
                       }
                       else
@@ -534,7 +545,6 @@ namespace BTokenLib
                       }
                     }
                     else if(inventory.Type == InventoryType.MSG_BLOCK)
-                    {
                       if (Blockchain.TryReadHeader(
                         inventory.Hash,
                         out Header header))
@@ -548,10 +558,7 @@ namespace BTokenLib
                           header.CountBlockBytes));
                       }
                       else
-                      {
                         await SendMessage(new RejectMessage(inventory.Hash));
-                      }
-                    }
                   }
 
                   break;

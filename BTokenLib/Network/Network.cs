@@ -76,47 +76,54 @@ namespace BTokenLib
     {
       int countPeersCreate;
 
-      while (true)
+      try
       {
-        lock (LOCK_Peers)
+        while (true)
         {
-          List<Peer> peersDispose = Peers.FindAll(
-            p => p.FlagDispose);
-
-          peersDispose.ForEach(p =>
+          lock (LOCK_Peers)
           {
-            Peers.Remove(p);
-            p.Dispose();
-          });
+            List<Peer> peersDispose = Peers.FindAll(
+              p => p.FlagDispose);
 
-          countPeersCreate = CountPeersMax - Peers.Count;
-        }
+            peersDispose.ForEach(p =>
+            {
+              Peers.Remove(p);
+              p.Dispose();
+            });
 
-        if (countPeersCreate > 0)
-        {
-          ($"Connect with {countPeersCreate} new peers. " +
-            $"{Peers.Count} peers connected currently.")
-            .Log(LogFile);
-
-          List<IPAddress> iPAddresses =
-            RetrieveIPAddresses(countPeersCreate);
-
-          if (iPAddresses.Count > 0)
-          {
-            var createPeerTasks = new Task[iPAddresses.Count];
-
-            Parallel.For(
-              0,
-              iPAddresses.Count,
-              i => createPeerTasks[i] = CreatePeer(iPAddresses[i]));
-
-            await Task.WhenAll(createPeerTasks);
+            countPeersCreate = CountPeersMax - Peers.Count;
           }
-          else
-            "No peer found to connect.".Log(LogFile);
-        }
 
-        await Task.Delay(10000).ConfigureAwait(false);
+          if (countPeersCreate > 0)
+          {
+            ($"Connect with {countPeersCreate} new peers. " +
+              $"{Peers.Count} peers connected currently.")
+              .Log(LogFile);
+
+            List<IPAddress> iPAddresses =
+              RetrieveIPAddresses(countPeersCreate);
+
+            if (iPAddresses.Count > 0)
+            {
+              var createPeerTasks = new Task[iPAddresses.Count];
+
+              Parallel.For(
+                0,
+                iPAddresses.Count,
+                i => createPeerTasks[i] = CreatePeer(iPAddresses[i]));
+
+              await Task.WhenAll(createPeerTasks);
+            }
+            else
+              "No peer found to connect.".Log(LogFile);
+          }
+
+          await Task.Delay(10000).ConfigureAwait(false);
+        }
+      }
+      catch (Exception ex)
+      {
+        $"{ex.GetType().Name} in StartPeerConnector.".Log(LogFile);
       }
     }
 
