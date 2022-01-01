@@ -124,9 +124,13 @@ namespace BTokenLib
         if (File.Exists(pathLogFileDisposed))
         {
           TimeSpan timeSpanLogFileDisposed = File.GetLastWriteTime(pathLogFile) - File.GetLastWriteTime(pathLogFileDisposed);
-          if (timeSpanLogFileDisposed.Seconds < 24 * 3600)
+          int secondsBannedRemaining = timeSpanLogFileDisposed.Seconds - SECONDS_PEER_BANNED;
+
+          if (secondsBannedRemaining < 0)
           {
-            throw new ProtocolException($"Peer {ToString()} is banned for {SECONDS_PEER_BANNED} seconds.");
+            throw new ProtocolException(
+              $"Peer {ToString()} is banned for {SECONDS_PEER_BANNED} seconds.\n" +
+              $"{secondsBannedRemaining} seconds remaining.");
           }
 
           File.Move(pathLogFileDisposed, pathLogFile);
