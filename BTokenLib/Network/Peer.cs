@@ -74,7 +74,7 @@ namespace BTokenLib
       public int CountWastedBlockDownload;
       public int CountBlockingBlockDownload;
 
-      long TimeCreation = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+      DateTime TimePeerCreation = DateTime.Now;
 
 
 
@@ -119,12 +119,12 @@ namespace BTokenLib
         string pathLogFile = Path.Combine(DirectoryLogPeers.FullName, name);
         string pathLogFileDisposed = Path.Combine(DirectoryLogPeersDisposed.FullName, name);
 
-        int SECONDS_PEER_BANNED = 24 * 3600;
+        int SECONDS_PEER_BANNED = 300;
 
         if (File.Exists(pathLogFileDisposed))
         {
-          TimeSpan timeSpanLogFileDisposed = File.GetLastWriteTime(pathLogFile) - File.GetLastWriteTime(pathLogFileDisposed);
-          int secondsBannedRemaining = timeSpanLogFileDisposed.Seconds - SECONDS_PEER_BANNED;
+          TimeSpan secondsSincePeerDisposal = TimePeerCreation - File.GetLastWriteTime(pathLogFileDisposed);
+          int secondsBannedRemaining = (int)secondsSincePeerDisposal.TotalSeconds - SECONDS_PEER_BANNED;
 
           if (secondsBannedRemaining < 0)
           {
@@ -829,8 +829,7 @@ namespace BTokenLib
       {
         lock(this)
         {
-          long lifeTime =
-           DateTimeOffset.UtcNow.ToUnixTimeSeconds() - TimeCreation;
+          int lifeTime = (DateTime.Now - TimePeerCreation).Seconds;
 
           return
             $"\n Status peer {this}:\n" +
