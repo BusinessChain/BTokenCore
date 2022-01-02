@@ -76,6 +76,8 @@ namespace BTokenLib
 
       DateTime TimePeerCreation = DateTime.Now;
 
+      const int SECONDS_PEER_BANNED = 10;
+
 
 
       public Peer(
@@ -119,14 +121,12 @@ namespace BTokenLib
         string pathLogFile = Path.Combine(DirectoryLogPeers.FullName, name);
         string pathLogFileDisposed = Path.Combine(DirectoryLogPeersDisposed.FullName, name);
 
-        int SECONDS_PEER_BANNED = 300;
-
         if (File.Exists(pathLogFileDisposed))
         {
           TimeSpan secondsSincePeerDisposal = TimePeerCreation - File.GetLastWriteTime(pathLogFileDisposed);
-          int secondsBannedRemaining = (int)secondsSincePeerDisposal.TotalSeconds - SECONDS_PEER_BANNED;
+          int secondsBannedRemaining = SECONDS_PEER_BANNED - (int)secondsSincePeerDisposal.TotalSeconds;
 
-          if (secondsBannedRemaining < 0)
+          if (secondsBannedRemaining > 0)
           {
             throw new ProtocolException(
               $"Peer {ToString()} is banned for {SECONDS_PEER_BANNED} seconds.\n" +
@@ -404,16 +404,23 @@ namespace BTokenLib
 
                   if (IsStateGetHeaders())
                   {
-                    while (byteIndex < PayloadLength)
+                    try
                     {
-                      HeaderUnsolicited = Token.ParseHeader(
-                        Payload,
-                        ref byteIndex,
-                        SHA256);
+                      while (byteIndex < PayloadLength)
+                      {
+                        Header header = Token.ParseHeader(
+                          Payload,
+                          ref byteIndex,
+                          SHA256);
 
-                      byteIndex += 1;
+                        byteIndex += 1;
 
-                      HeaderDownload.InsertHeader(HeaderUnsolicited, Token);
+                        HeaderDownload.InsertHeader(header, Token);
+                      }
+                    }
+                    catch (ProtocolException)
+                    {
+                      continue;
                     }
 
                     if (countHeaders == 0)

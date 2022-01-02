@@ -17,7 +17,7 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int UTXOIMAGE_INTERVAL_SYNC = 200;
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 20000;
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
 
     StreamWriter LogFile;
 
@@ -116,7 +116,7 @@ namespace BTokenLib
               "No peer found to connect.".Log(LogFile);
           }
 
-          await Task.Delay(10000).ConfigureAwait(false);
+          await Task.Delay(3000).ConfigureAwait(false);
         }
       }
       catch (Exception ex)
