@@ -78,7 +78,7 @@ namespace BTokenLib
         token.ValidateHeader(HeaderTip);
       }
 
-      public string ToStringLocator()
+      public override string ToString()
       {
         return $"{Locator.First()} ... {Locator.Last()}";
       }

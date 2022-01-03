@@ -413,6 +413,8 @@ namespace BTokenLib
                           ref byteIndex,
                           SHA256);
 
+                        $"Parsed requested header {header}.".Log(LogFile);
+
                         byteIndex += 1;
 
                         HeaderDownload.InsertHeader(header, Token);
@@ -445,6 +447,8 @@ namespace BTokenLib
                       ref byteIndex,
                       SHA256);
 
+                    $"Parsed unsolicited header {HeaderUnsolicited}.".Log(LogFile);
+
                     Network.ThrottleDownloadBlockUnsolicited();
 
                     QueueHeadersUnsolicited.Add(HeaderUnsolicited);
@@ -470,6 +474,8 @@ namespace BTokenLib
 
                   int headersCount = VarInt.GetInt32(Payload, ref startIndex);
 
+                  $"Received getHeaders with {headersCount} headers.".Log(LogFile);
+
                   int i = 0;
                   List<Header> headers = new();
 
@@ -484,6 +490,8 @@ namespace BTokenLib
                       hashHeaderAncestor,
                       out Header header))
                     {
+                      $"In getheaders locator common ancestor is {header}.".Log(LogFile);
+
                       while (header.HeaderNext != null && headers.Count < 2000)
                       {
                         headers.Add(header.HeaderNext);
@@ -496,6 +504,8 @@ namespace BTokenLib
                     }
                     else if (i == headersCount)
                     {
+                      $"Found no common ancestor in getheaders locator... Schedule synchronization ".Log(LogFile);
+
                       await SendHeaders(headers);
 
                       FlagSynchronizationScheduled = true;
@@ -642,6 +652,8 @@ namespace BTokenLib
           {
             CountOrphanReceived = 0;
             FlagSynchronizationScheduled = true;
+
+            $"Schedule synchronization because received orphan header {header}".Log(LogFile);
           }
           else if (CountOrphanReceived > 10)
             throw new ProtocolException(
@@ -673,8 +685,7 @@ namespace BTokenLib
         HeaderDownload = new(Blockchain.GetLocator(), this);
                
         ($"Send getheaders to peer {this},\n" +
-          $"locator: {HeaderDownload.ToStringLocator()}")
-          .Log(LogFile);
+          $"locator: {HeaderDownload}").Log(LogFile);
 
         SetStateAwaitingHeader();
 

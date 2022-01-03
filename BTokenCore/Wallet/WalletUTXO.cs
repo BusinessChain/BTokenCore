@@ -197,12 +197,12 @@ namespace BTokenCore
                 ScriptPubKey = scriptPubKey
               });
 
-            Console.WriteLine(
-              "Detected spendable output {0} " +
-              "in tx {1} with {2} satoshis.",
-              i,
-              tX.Hash.ToHexString(),
-              tXOutput.Value);
+            //Console.WriteLine(
+            //  "Detected spendable output {0} " +
+            //  "in tx {1} with {2} satoshis.",
+            //  i,
+            //  tX.Hash.ToHexString(),
+            //  tXOutput.Value);
           }
         }
       }
