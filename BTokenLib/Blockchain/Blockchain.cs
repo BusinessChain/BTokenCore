@@ -82,6 +82,8 @@ namespace BTokenLib
         "\n Status Blockchain:\n" +
         $"Height: {HeaderTip.Height}\n" +
         $"Block tip: {HeaderTip}\n" +
+        $"Difficulty Tip: {HeaderTip.Difficulty}\n" +
+        $"Acc. Difficulty: {HeaderTip.DifficultyAccumulated}\n" +
         $"Timestamp: {DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds)}\n" +
         $"Age: {ageBlock}\n";
     }
@@ -193,8 +195,6 @@ namespace BTokenLib
       HeaderIndex.Clear();
 
       HeaderGenesis = Token.CreateHeaderGenesis();
-      HeaderGenesis.Height = 0;
-      HeaderGenesis.DifficultyAccumulated = HeaderGenesis.Difficulty;
 
       HeaderTip = HeaderGenesis;
 

@@ -40,9 +40,9 @@ namespace BTokenCore
       ComputeDifficultyFromNBits();
     }
 
-    public double ComputeDifficultyFromNBits()
+    public void ComputeDifficultyFromNBits()
     {
-      return MAX_TARGET /
+      Difficulty = MAX_TARGET /
         (double)UInt256.ParseFromCompact(NBits);
     }
 

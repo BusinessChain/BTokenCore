@@ -267,7 +267,7 @@ namespace BTokenCore
 
     public override Header CreateHeaderGenesis()
     {
-      return new HeaderBitcoin(
+      HeaderBitcoin header = new(
          headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
          version: 0x01,
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
@@ -275,6 +275,11 @@ namespace BTokenCore
          unixTimeSeconds: 1231006505,
          nBits: 0x1dffffff,
          nonce: 2083236893);
+
+      header.Height = 0;
+      header.DifficultyAccumulated = header.Difficulty;
+
+      return header;
     }
 
     public override int GetCheckpointHeight()
@@ -309,8 +314,8 @@ namespace BTokenCore
     public override string GetStatus()
     {
       return
-        Blockchain.GetStatus() +
-        UTXOTable.GetStatus();
+        Blockchain.GetStatus();
+        //+ UTXOTable.GetStatus();
     }
 
     byte[] GetGenesisBlockBytes()
