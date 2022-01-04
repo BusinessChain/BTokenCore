@@ -18,8 +18,8 @@ namespace BTokenCore
   {
     Dictionary<int, byte[]> Checkpoints = new()
     {
-      { 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
-      { 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }
+      //{ 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
+      //{ 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }
     };
 
     UTXOTable UTXOTable;
@@ -277,9 +277,9 @@ namespace BTokenCore
          nonce: 2083236893);
     }
 
-    public override Dictionary<int, byte[]> GetCheckpoints()
+    public override int GetCheckpointHeight()
     {
-      return Checkpoints;
+      return Checkpoints.Any() ? Checkpoints.Keys.Max() : 0;
     }
 
     public override void LoadImage(string pathImage)

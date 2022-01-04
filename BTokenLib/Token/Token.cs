@@ -36,7 +36,7 @@ namespace BTokenLib
     public abstract void StopMiner();
 
     public abstract Header CreateHeaderGenesis();
-    public abstract Dictionary<int, byte[]> GetCheckpoints();
+    public abstract int GetCheckpointHeight();
 
     public abstract void LoadImage(string pathImage);
     public abstract void CreateImage(string pathImage);

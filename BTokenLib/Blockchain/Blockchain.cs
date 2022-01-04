@@ -206,7 +206,7 @@ namespace BTokenLib
     {
       Header header = HeaderTip;
       List<Header> locator = new();
-      int heightCheckpoint = Token.GetCheckpoints().Keys.Max();
+      int heightCheckpoint = Token.GetCheckpointHeight();
       int depth = 0;
       int nextLocationDepth = 0;
 
