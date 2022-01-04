@@ -468,6 +468,9 @@ namespace BTokenLib
                   break;
 
                 case "getheaders":
+
+                  FlagSynchronizationScheduled = false;
+
                   byte[] hashHeaderAncestor = new byte[32];
 
                   int startIndex = 4;
