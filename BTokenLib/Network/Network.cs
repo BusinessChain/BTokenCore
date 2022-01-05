@@ -353,6 +353,9 @@ namespace BTokenLib
           Blockchain.HeaderTip.DifficultyAccumulated ||
           !Blockchain.TryFork(headerDownload.HeaderLocatorAncestor))
         {
+          PeerSynchronization.SendHeaders(
+            new List<Header>() { Blockchain.HeaderTip });
+
           PeerSynchronization.Release();
 
           goto LABEL_ExitSynchronization;
