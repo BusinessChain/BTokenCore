@@ -94,6 +94,7 @@ namespace BTokenLib
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
         Connection = ConnectionType.INBOUND;
+        FlagSynchronizationScheduled = false;
       }
 
       public Peer(
@@ -484,10 +485,12 @@ namespace BTokenLib
 
                   while (i < headersCount)
                   {
-                    i += 1;
-
                     Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
                     startIndex += 32;
+
+                    $"Scan locator for common ancestor index {i}, {hashHeaderAncestor.ToHexString()}".Log(LogFile);
+
+                    i += 1;
 
                     if (Blockchain.TryReadHeader(
                       hashHeaderAncestor,
@@ -501,6 +504,7 @@ namespace BTokenLib
                         header = header.HeaderNext;
                       }
 
+                      $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
                       await SendHeaders(headers);
 
                       break;
