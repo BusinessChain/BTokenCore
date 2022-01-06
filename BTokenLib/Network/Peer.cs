@@ -504,7 +504,15 @@ namespace BTokenLib
                         header = header.HeaderNext;
                       }
 
-                      $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
+                      if(headers.Any())
+                      {
+                        $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
+                      }
+                      else
+                      {
+                        $"Send empty headers".Log(LogFile);
+                      }
+
                       await SendHeaders(headers);
 
                       break;
