@@ -55,6 +55,9 @@ namespace BTokenLib
         int indexBlockArchiveLoad,
         byte[] hashBlockArchiveLoad)
       {
+        QueueBlockLoads.Clear();
+        ThreadsSleeping.Clear();
+
         IndexBlockArchiveLoad = indexBlockArchiveLoad;
         IndexBlockArchiveInsert = indexBlockArchiveLoad;
         HashStopLoading = hashBlockArchiveLoad;
