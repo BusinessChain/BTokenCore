@@ -198,7 +198,7 @@ namespace BTokenLib
 
       HeaderTip = HeaderGenesis;
 
-      UpdateHeaderIndex(HeaderTip);
+      IndexingHeaderTip();
     }
 
 
@@ -283,9 +283,12 @@ namespace BTokenLib
 
     public void InsertHeader(Header header)
     {
-      header.AppendToHeader(ref HeaderTip);
+      header.AppendToHeader(HeaderTip);
 
-      UpdateHeaderIndex(header);
+      HeaderTip.HeaderNext = header;
+      HeaderTip = header;
+
+      IndexingHeaderTip();
     }
 
     public bool TryReadHeader(
@@ -311,9 +314,9 @@ namespace BTokenLib
       return false;
     }
 
-    void UpdateHeaderIndex(Header header)
+    void IndexingHeaderTip()
     {
-      int keyHeader = BitConverter.ToInt32(header.Hash, 0);
+      int keyHeader = BitConverter.ToInt32(HeaderTip.Hash, 0);
 
       lock (HeaderIndex)
       {
@@ -323,7 +326,7 @@ namespace BTokenLib
           HeaderIndex.Add(keyHeader, headers);
         }
 
-        headers.Add(header);
+        headers.Add(HeaderTip);
       }
     }
 
@@ -476,7 +479,7 @@ namespace BTokenLib
 
       if (flagBlockchainCorrupted)
       {
-        "Synchronization was abort. Reload Image".Log(LogFile);
+        "Synchronization was abort. Reload Image.".Log(LogFile);
         LoadImage();
       }
     }

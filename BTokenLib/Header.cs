@@ -57,7 +57,7 @@ namespace BTokenLib
     //  return headerSerialized;
     //}
 
-    public void AppendToHeader(ref Header headerPrevious)
+    public void AppendToHeader(Header headerPrevious)
     {
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
         throw new ProtocolException(
@@ -68,9 +68,6 @@ namespace BTokenLib
       Height = headerPrevious.Height + 1;
       DifficultyAccumulated =
         headerPrevious.DifficultyAccumulated + Difficulty;
-
-      headerPrevious.HeaderNext = this;
-      headerPrevious = this;
     }
 
     public override string ToString()

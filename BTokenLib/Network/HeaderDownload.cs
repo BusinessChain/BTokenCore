@@ -16,7 +16,7 @@ namespace BTokenLib
 
       public Header HeaderTip;
       public Header HeaderRoot;
-      public Header HeaderLocatorAncestor;
+      public Header HeaderAncestor;
       public Header HeaderInsertedLast;
 
 
@@ -31,51 +31,41 @@ namespace BTokenLib
       {
         HeaderInsertedLast = header;
 
-        if (HeaderLocatorAncestor == null)
+        if (HeaderRoot == null)
         {
-          HeaderLocatorAncestor = Locator.Find(
-            h => h.Hash.IsEqual(header.HashPrevious));
-
-          if (HeaderLocatorAncestor == null)
+          if(HeaderAncestor == null)
           {
-            throw new ProtocolException(
-              "Header does not connect to locator.");
-          }
-        }
+            HeaderAncestor = Locator.Find(
+              h => h.Hash.IsEqual(header.HashPrevious));
 
-        if (HeaderTip == null)
-        {
-          if (
-            HeaderLocatorAncestor.HeaderNext != null &&
-            HeaderLocatorAncestor.HeaderNext.Hash.IsEqual(header.Hash))
+            if (HeaderAncestor == null)
+              throw new ProtocolException(
+                "Header does not connect to locator.");
+          }
+
+          if (HeaderAncestor.HeaderNext != null &&
+            HeaderAncestor.HeaderNext.Hash.IsEqual(header.Hash))
           {
             if (Locator.Any(h => h.Hash.IsEqual(header.Hash)))
-            {
               throw new ProtocolException(
                 "Received redundant headers from peer.");
-            }
 
-            HeaderLocatorAncestor = HeaderLocatorAncestor.HeaderNext;
+            HeaderAncestor = HeaderAncestor.HeaderNext;
             return;
           }
 
+          header.AppendToHeader(HeaderAncestor);
           HeaderRoot = header;
-          HeaderTip = HeaderLocatorAncestor;
+          HeaderTip = header;
         }
-        else 
+        else
         {
-          if (!HeaderTip.Hash.IsEqual(header.HashPrevious))
-          {
-            throw new ProtocolException(
-              $"Header insertion out of order. " +
-              $"Previous header {HeaderTip}\n " +
-              $"Next header: {header.HeaderPrevious}");
-          }
+          header.AppendToHeader(HeaderTip);
+          HeaderTip.HeaderNext = header;
+          HeaderTip = header;
+
+          token.ValidateHeader(HeaderTip);
         }
-
-        header.AppendToHeader(ref HeaderTip);
-
-        token.ValidateHeader(HeaderTip);
       }
 
       public override string ToString()

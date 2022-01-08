@@ -283,7 +283,8 @@ namespace BTokenLib
 
             if (Command == "block")
             {
-              if (BlockDownload == null &&
+              if (
+                BlockDownload == null &&
                 !Network.PoolBlockDownload.TryTake(out BlockDownload))
               {
                 BlockDownload = new(Token);
@@ -414,11 +415,11 @@ namespace BTokenLib
                           ref byteIndex,
                           SHA256);
 
-                        $"Parsed requested header {header}.".Log(LogFile);
-
                         byteIndex += 1;
 
                         HeaderDownload.InsertHeader(header, Token);
+
+                        $"Parsed requested header {header}.".Log(LogFile);
                       }
                     }
                     catch (ProtocolException)
@@ -505,13 +506,9 @@ namespace BTokenLib
                       }
 
                       if(headers.Any())
-                      {
                         $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
-                      }
                       else
-                      {
                         $"Send empty headers".Log(LogFile);
-                      }
 
                       await SendHeaders(headers);
 
