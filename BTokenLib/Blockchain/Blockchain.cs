@@ -112,13 +112,9 @@ namespace BTokenLib
         {
           LoadImageHeaderchain(pathImage);
 
-          if (
-            heightStopLoading > 0 && 
-            HeaderTip.Height > heightStopLoading)
-          {
+          if (heightStopLoading > 0 &&  HeaderTip.Height > heightStopLoading)
             throw new ProtocolException(
               $"Headerchain not loading up to desired height {heightStopLoading}.");
-          }
 
           Token.LoadImage(pathImage);
 
@@ -141,9 +137,7 @@ namespace BTokenLib
             continue;
           }
           else
-          {
             pathImage = NameImage;
-          }
         }
 
         if (Archiver.TryLoadBlocks(
