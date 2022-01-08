@@ -50,7 +50,7 @@ namespace BTokenLib
         Path.Combine(Token.GetName() + "LogBlockchain"), 
         false);
 
-      InizializeHeaderchain();
+      InitializeHeaderchain();
     }
 
     public bool TryLock()
@@ -104,7 +104,7 @@ namespace BTokenLib
 
       while (true)
       {
-        InizializeHeaderchain();
+        InitializeHeaderchain();
         Token.Reset();
         int indexBlockArchiveLoad;
 
@@ -127,7 +127,7 @@ namespace BTokenLib
         }
         catch
         {
-          InizializeHeaderchain();
+          InitializeHeaderchain();
           Token.Reset();
           indexBlockArchiveLoad = 1;
 
@@ -184,7 +184,7 @@ namespace BTokenLib
     }
 
 
-    void InizializeHeaderchain()
+    void InitializeHeaderchain()
     {
       HeaderIndex.Clear();
 
@@ -440,9 +440,15 @@ namespace BTokenLib
     {
       DifficultyOld = HeaderTip.Difficulty;
 
-      LoadImage(
-        headerAncestor.Hash,
-        headerAncestor.Height);
+      if(headerAncestor.Height > 0)
+        LoadImage(
+          headerAncestor.Hash,
+          headerAncestor.Height);
+      else
+      {
+        InitializeHeaderchain();
+        Token.Reset();
+      }
 
       IsFork = HeaderTip.Height == headerAncestor.Height;
 

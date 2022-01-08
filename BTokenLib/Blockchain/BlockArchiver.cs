@@ -53,14 +53,14 @@ namespace BTokenLib
 
       public bool TryLoadBlocks(
         int indexBlockArchiveLoad,
-        byte[] hashBlockArchiveLoad)
+        byte[] hashStopLoading)
       {
         QueueBlockLoads.Clear();
         ThreadsSleeping.Clear();
 
         IndexBlockArchiveLoad = indexBlockArchiveLoad;
         IndexBlockArchiveInsert = indexBlockArchiveLoad;
-        HashStopLoading = hashBlockArchiveLoad;
+        HashStopLoading = hashStopLoading;
         IsLoaderFail = false;
         FlagLoaderExit = false;
 

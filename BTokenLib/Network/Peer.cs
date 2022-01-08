@@ -435,6 +435,9 @@ namespace BTokenLib
                     }
                     else
                     {
+                      ($"Send getheaders to peer {this},\n" +
+                        $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
+
                       await SendMessage(new GetHeadersMessage(
                         new List<Header> { HeaderDownload.HeaderInsertedLast },
                         ProtocolVersion));
