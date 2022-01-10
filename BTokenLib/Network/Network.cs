@@ -227,8 +227,13 @@ namespace BTokenLib
           peerRemove.SetFlagDisposed("Manually removed peer.");
         }
       }
-    }    
+    }
 
+    public void ScheduleSynchronization()
+    {
+      lock (LOCK_Peers)
+        Peers.ForEach(p => p.FlagSynchronizationScheduled = true);
+    }
 
     List<IPAddress> AddressPool = new();
     Random RandomGenerator = new();
@@ -369,43 +374,53 @@ namespace BTokenLib
 
         Peer peer = PeerSynchronization;
 
-        while (!FlagSynchronizationAbort)
+        while (true)
         {
+          if(FlagSynchronizationAbort)
+          {
+            "Synchronization was abort. Reload Image.".Log(LogFile);
+            Blockchain.LoadImage();
+
+            lock (LOCK_Peers)
+              Peers
+                .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
+                .ForEach(p => p.Release());
+
+            while (true)
+            {
+              lock (LOCK_Peers)
+                if (!Peers.Any(p => p.IsBusy))
+                  break;
+
+              "Waiting for all peers to exit state 'synchronization busy'."
+                .Log(LogFile);
+
+              await Task.Delay(1000).ConfigureAwait(false);
+            }
+
+            break;
+          }
+
           if (peer != null)
           {
-            $"Sync with peer {peer}".Log(LogFile);
+            if (TryChargeBlockDownload(peer))
+            {
+              $"Start Block downloading with peer {peer}".Log(LogFile);
 
-            if (!TryChargeBlockDownload(peer))
+              await peer.GetBlock();
+            }
+            else if(Peers.Any(p => p.IsStateBlockDownload()))
+              peer.Release();
+            else
+            {
+              Blockchain.FinalizeBlockchain();
               break;
-
-            await peer.GetBlock();
+            }
           }
 
           if (!TryGetPeer(out peer))
             await Task.Delay(3000).ConfigureAwait(false);
         }
-
-        Blockchain.FinalizeBlockchain(
-          flagBlockchainCorrupted: FlagSynchronizationAbort);
-
-        lock (LOCK_Peers)
-          Peers
-            .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
-            .ForEach(p => p.Release());
-
-        while (true)
-        {
-          lock (LOCK_Peers)
-            if (!Peers.Any(p => p.IsBusy))
-              break;
-
-          "Waiting for all peers to exit state 'synchronization busy'."
-            .Log(LogFile);
-
-          await Task.Delay(1000).ConfigureAwait(false);
-        }
-
-        PoolBlockDownload.Clear();
       }
       else
       {
@@ -537,7 +552,6 @@ namespace BTokenLib
       BlockDownload blockDownload = peer.BlockDownload;
 
       lock(QueueDownloadsIncomplete)
-      {
         if (QueueDownloadsIncomplete.Any())
         {
           if (blockDownload != null)
@@ -552,10 +566,8 @@ namespace BTokenLib
 
           return true;
         }
-      }
-      
-      lock(LOCK_ChargeFromHeaderRoot)
-      {
+
+      lock (LOCK_ChargeFromHeaderRoot)
         if (HeaderRoot != null)
         {
           if (blockDownload == null &&
@@ -577,7 +589,6 @@ namespace BTokenLib
 
           return true;
         }
-      }
 
       return false;
     }

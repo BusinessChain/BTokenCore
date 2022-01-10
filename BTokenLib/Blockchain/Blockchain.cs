@@ -463,8 +463,7 @@ namespace BTokenLib
       IsFork = false;
     }
 
-    internal void FinalizeBlockchain(
-      bool flagBlockchainCorrupted)
+    internal void FinalizeBlockchain()
     {
       if (IsFork)
       {
@@ -473,14 +472,7 @@ namespace BTokenLib
         else
         {
           IsFork = false;
-          flagBlockchainCorrupted = true;
         }
-      }
-
-      if (flagBlockchainCorrupted)
-      {
-        "Synchronization was abort. Reload Image.".Log(LogFile);
-        LoadImage();
       }
     }
   }

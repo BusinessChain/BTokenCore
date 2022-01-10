@@ -69,6 +69,10 @@ namespace BTokenCore
             TokenBitcoin.Network.AddPeer("3.67.200.137"); // "84.75.2.239"
             break;
 
+          case "sync":
+            TokenBitcoin.Network.ScheduleSynchronization();
+            break;
+
           case "removePeer":
             string iPRemove = Console.ReadLine();
             TokenBitcoin.Network.RemovePeer(iPRemove);

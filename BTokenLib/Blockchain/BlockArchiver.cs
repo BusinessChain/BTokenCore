@@ -169,7 +169,7 @@ namespace BTokenLib
           catch(Exception ex)
           {
             ($"Unhandled {ex.GetType().Name} when " +
-              $"inserting blockload {blockLoad.Index}.")
+              $"inserting blockload {blockLoad.Index}.\n{ex.Message}")
               .Log(Blockchain.LogFile);
           }
 

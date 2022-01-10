@@ -28,10 +28,9 @@ namespace BTokenLib
       public enum StateProtocol
       {
         IDLE = 0,
-        AwaitingBlockDownload,
-        AwaitingBlockUnsolicited,
-        AwaitingHeader,
-        AwaitingGetData
+        BlockDownload,
+        HeaderDownload,
+        GetData
       }
       public StateProtocol State;
 
@@ -349,7 +348,7 @@ namespace BTokenLib
                 }
               }
               
-              if (IsStateAwaitingBlockDownload())
+              if (IsStateBlockDownload())
               {
                 BlockDownload.Parse();
 
@@ -358,12 +357,9 @@ namespace BTokenLib
                   Cancellation = new();
 
                   if (Network.InsertBlockDownloadFlagContinue(this))
-                  {
                     await GetBlock();
-                    continue;
-                  }
-
-                  Release();
+                  else
+                    Release();
                 }
               }
             }
@@ -533,7 +529,7 @@ namespace BTokenLib
 
                   "Received meassage notfound.".Log(LogFile);
 
-                  if (IsStateAwaitingBlockDownload())
+                  if (IsStateBlockDownload())
                   {
                     Network.ReturnPeerBlockDownloadIncomplete(this);
 
@@ -612,7 +608,7 @@ namespace BTokenLib
 
           if (IsStateAwaitingHeader())
             Blockchain.ReleaseLock();
-          else if(IsStateAwaitingBlockDownload())
+          else if(IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
         }
       }
@@ -702,7 +698,7 @@ namespace BTokenLib
         ($"Send getheaders to peer {this},\n" +
           $"locator: {HeaderDownload}").Log(LogFile);
 
-        SetStateAwaitingHeader();
+        SetStateHeaderDownload();
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
@@ -713,6 +709,8 @@ namespace BTokenLib
 
       public async Task GetBlock()
       {
+        SetStateBlockDownload();
+
         List<Inventory> inventories =
           BlockDownload.HeadersExpected.Select(
             h => new Inventory(
@@ -736,8 +734,6 @@ namespace BTokenLib
           Network.ReturnPeerBlockDownloadIncomplete(this);
           return;
         }
-
-        SetStateAwaitingBlockDownload();
 
         CountStartBlockDownload++;
       }
@@ -792,46 +788,40 @@ namespace BTokenLib
           return State == StateProtocol.IDLE;
       }
 
-      public void SetStateAwaitingHeader()
+      public void SetStateHeaderDownload()
       {
         lock (this)
-          State = StateProtocol.AwaitingHeader;
+          State = StateProtocol.HeaderDownload;
       }
 
-      public void SetStateAwaitingBlockDownload()
+      public void SetStateBlockDownload()
       {
         lock (this)
-          State = StateProtocol.AwaitingBlockDownload;
+          State = StateProtocol.BlockDownload;
       }
 
       bool IsStateGetHeaders()
       {
         lock (this)
-          return State == StateProtocol.AwaitingHeader;
+          return State == StateProtocol.HeaderDownload;
       }
 
       bool IsStateAwaitingGetDataTX()
       {
         lock (this)
-          return State == StateProtocol.AwaitingGetData;
+          return State == StateProtocol.GetData;
       }
 
       public bool IsStateAwaitingHeader()
       {
         lock (this)
-          return State == StateProtocol.AwaitingHeader;
+          return State == StateProtocol.HeaderDownload;
       }
 
-      public bool IsStateAwaitingBlockDownload()
+      public bool IsStateBlockDownload()
       {
         lock (this)
-          return State == StateProtocol.AwaitingBlockDownload;
-      }
-
-      public bool IsStateAwaitingBlockUnsolicited()
-      {
-        lock (this)
-          return State == StateProtocol.AwaitingBlockUnsolicited;
+          return State == StateProtocol.BlockDownload;
       }
 
       public override string ToString()
