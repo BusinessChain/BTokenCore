@@ -136,21 +136,7 @@ namespace BTokenLib
           File.Move(pathLogFileDisposed, pathLogFile);
         }
 
-        while (true)
-        {
-          try
-          {
-            LogFile = new StreamWriter(pathLogFile, true);
-            break;
-          }
-          catch (Exception ex)
-          {
-            Console.WriteLine(
-              $"Cannot create logfile file peer {this}: {ex.Message}");
-
-            Thread.Sleep(10000);
-          }
-        }
+        LogFile = new StreamWriter(pathLogFile, true);
       }
 
       public async Task Connect()
