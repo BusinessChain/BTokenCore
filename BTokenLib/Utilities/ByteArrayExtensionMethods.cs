@@ -97,29 +97,22 @@ namespace BTokenLib
     {
       int i = array1.Length;
 
-      while(i > array2.Length)
+      while(i-- > array2.Length)
       {
         i -= 1;
 
-        if (array1[i] > 0)
-        {
+        if (array1[i] > 0) 
           return true;
-        }
       }
 
-      while(i > 0)
+      while (i > 0)
       {
         i -= 1;
 
-        if (array1[i] > array2[i])
-        {
-          return true;
-        }
+        if (array1[i] == array2[i])
+          continue;
 
-        if (array1[i] < array2[i])
-        {
-          return false;
-        }
+        return array1[i] > array2[i];
       }
 
       return false;
@@ -144,6 +137,19 @@ namespace BTokenLib
 
         offset += 1;
       }
+    }
+
+    public static byte[] SubtractByteWise(this byte[] array1, byte[] array2)
+    {
+      if (array1.Length != array2.Length)
+        throw new ArgumentException("Array length should be equal.");
+
+      byte[] difference = new byte[array1.Length];
+
+      for (int i = 0; i < array1.Length; i += 1)
+        difference[i] = (byte)(array1[i] - array2[i]);
+
+      return difference;
     }
   }
 }

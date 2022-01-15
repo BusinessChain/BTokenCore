@@ -10,6 +10,8 @@ namespace BTokenLib
   {
     public Header Header;
 
+    public List<TX> TXs = new();
+
     public byte[] Buffer;
 
 

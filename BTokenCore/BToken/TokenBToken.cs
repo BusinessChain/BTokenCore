@@ -63,7 +63,7 @@ namespace BTokenCore
     {
       SHA256 sHA256 = SHA256.Create();
 
-      while (true)
+      while (!FlagMinerCancel)
       {
         BlockBToken block = await MineBlock(sHA256);
 
@@ -102,56 +102,74 @@ namespace BTokenCore
 
     async Task<BlockBToken> MineBlock(SHA256 sHA256)
     {
-      HeaderBToken header = new();
-      BlockBToken block = new(header);
+      HeaderBToken headerBToken = new();
+      BlockBToken blockBToken = new(headerBToken);
 
       HeaderBToken headerBTokenTip = (HeaderBToken)Blockchain.HeaderTip;
       
       Block blockAnchor;
-      UTXOTable.TX tXAnchor;
+      byte[] tXAnchorHash;
 
       do
       {
         if (FlagMinerCancel)
           throw new TaskCanceledException();
 
-        header.Height = headerBTokenTip.Height + 1;
+        headerBToken.Height = headerBTokenTip.Height + 1;
 
-        LoadTXs(block);
+        LoadTXs(blockBToken);
 
-        headerBTokenTip.Hash.CopyTo(header.HashPrevious, 0);
+        headerBTokenTip.Hash.CopyTo(headerBToken.HashPrevious, 0);
 
-        header.UnixTimeSeconds =
+        headerBToken.UnixTimeSeconds =
           (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        header.Buffer = header.GetBytes();
+        headerBToken.Buffer = headerBToken.GetBytes();
 
-        header.Hash =
+        headerBToken.Hash =
           sHA256.ComputeHash(
-            sHA256.ComputeHash(header.Buffer));
+            sHA256.ComputeHash(headerBToken.Buffer));
 
-        tXAnchor = new();
-        TokenAnchor.SendTX(tXAnchor);
+        tXAnchorHash = TokenAnchor.SendDataTX("BToken" + headerBToken.Hash);
 
         blockAnchor = await TokenAnchor.AwaitNextBlock();
 
-      } while (!IsTXAnchorWinner(blockAnchor, tXAnchor.Hash));
+      } while (!IsHashTXAnchorWinner(
+        blockAnchor,
+        tXAnchorHash,
+        sHA256));
 
 
-      block.Buffer = header.Buffer
-        .Concat(VarInt.GetBytes(block.TXs.Count))
-        .Concat(block.TXs[0].TXRaw).ToArray();
+      blockBToken.Buffer = headerBToken.Buffer
+        .Concat(VarInt.GetBytes(blockBToken.TXs.Count))
+        .Concat(blockBToken.TXs[0].TXRaw).ToArray();
 
-      header.CountBlockBytes = block.Buffer.Length;
+      headerBToken.CountBlockBytes = blockBToken.Buffer.Length;
 
-      return block;
+      return blockBToken;
     }
 
-    bool IsTXAnchorWinner(
+    bool IsHashTXAnchorWinner(
       Block blockAnchor, 
-      byte[] hashTXAnchor)
+      byte[] hashTXAnchor,
+      SHA256 sHA256)
     {
+      byte[] hashBlockAnchor = sHA256.ComputeHash(blockAnchor.Header.Hash);
+      byte[] hashTXWinner = null;
+      byte[] largestDifference = new byte[32];
 
+      blockAnchor.TXs.ForEach( tX =>
+      {
+        byte[] difference = hashBlockAnchor.SubtractByteWise(tX.Hash);
+
+        if (difference.IsGreaterThan(largestDifference))
+        {
+          largestDifference = difference;
+          hashTXWinner = tX.Hash;
+        }
+      });
+
+      return hashTXWinner.IsEqual(hashTXAnchor);
     }
 
     void LoadTXs(BlockBToken block)
@@ -195,7 +213,6 @@ namespace BTokenCore
       block.TXs = new List<UTXOTable.TX>() { tX };
       block.Header.MerkleRoot = tX.Hash;
     }
-
 
     public override void CreateImage(string pathImage)
     {

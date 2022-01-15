@@ -170,7 +170,7 @@ namespace BTokenCore
 
       tX.TXRaw = tXRawArray;
 
-      block.TXs = new List<UTXOTable.TX>() { tX };
+      block.TXs.Add(tX);
       block.Header.MerkleRoot = tX.Hash;
     }
 
@@ -289,7 +289,7 @@ namespace BTokenCore
     protected override void InsertInDatabase(Block block)
     {
       UTXOTable.InsertBlock(
-        ((BlockBitcoin)block).TXs,
+        block.TXs,
         block.Header.IndexBlockArchive);
     }
 

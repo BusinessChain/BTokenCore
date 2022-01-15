@@ -98,14 +98,16 @@ namespace BTokenCore
     }
 
     public void InsertBlock(
-      List<TX> tXs,
+      List<BTokenLib.TX> tXs,
       int indexArchive)
     {
       for (int t = 0; t < tXs.Count; t++)
       {
+        TX tX = (TX)tXs[t];
+
         int lengthUTXOBits =
           COUNT_NON_OUTPUT_BITS +
-          tXs[t].TXOutputs.Count;
+          tX.TXOutputs.Count;
 
         if (LENGTH_BITS_UINT >= lengthUTXOBits)
         {
@@ -120,15 +122,15 @@ namespace BTokenCore
           try
           {
             InsertUTXO(
-              tXs[t].Hash,
-              tXs[t].TXIDShort,
+              tX.Hash,
+              tX.TXIDShort,
               TableUInt32);
           }
           catch (ArgumentException)
           {
             // BIP 30
-            if (tXs[t].Hash.ToHexString() == "D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599" ||
-               tXs[t].Hash.ToHexString() == "E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468")
+            if (tX.Hash.ToHexString() == "D5D27987D2A3DFC724E359870C6644B40E497BDC0589A033220FE15429D88599" ||
+               tX.Hash.ToHexString() == "E3BF3D07D4B0375638D5F1DB5255FE07BA2C4CB067CD81B84EE974B6585FB468")
             {
               Console.WriteLine("Implement BIP 30.");
             }
@@ -145,8 +147,8 @@ namespace BTokenCore
             uTXOIndex | (ulong)indexArchive & MaskBatchIndexULong64;
 
           InsertUTXO(
-            tXs[t].Hash,
-            tXs[t].TXIDShort,
+            tX.Hash,
+            tX.TXIDShort,
             TableULong64);
         }
         else
@@ -161,24 +163,26 @@ namespace BTokenCore
           TableUInt32Array.UTXO[0] |= (uint)indexArchive & MaskBatchIndexUInt32;
 
           InsertUTXO(
-            tXs[t].Hash,
-            tXs[t].TXIDShort,
+            tX.Hash,
+            tX.TXIDShort,
             TableUInt32Array);
         }
 
-        Wallet.DetectTXOutputsSpendable(tXs[t]);
+        Wallet.DetectTXOutputsSpendable(tX);
       }
 
       for (int t = 0; t < tXs.Count; t++)
       {
-        for (int i = 0; i < tXs[t].TXInputs.Count; i++)
+        TX tX = (TX)tXs[t];
+
+        for (int i = 0; i < tX.TXInputs.Count; i++)
         {
-          bool checkSig = Wallet.TrySpend(tXs[t].TXInputs[i]);
+          bool checkSig = Wallet.TrySpend(tX.TXInputs[i]);
 
           for (int tb = 0; tb < Tables.Length; tb++)
           {
             if (Tables[tb].TryGetValueInPrimaryTable(
-              tXs[t].TXInputs[i].TXIDOutputShort))
+              tX.TXInputs[i].TXIDOutputShort))
             {
               UTXOIndex tableCollision = null;
 
@@ -188,7 +192,7 @@ namespace BTokenCore
                   tableCollision = Tables[cc];
 
                   if (tableCollision.TrySpendCollision(
-                    tXs[t].TXInputs[i],
+                    tX.TXInputs[i],
                     Tables[tb]))
                   {
                     goto LABEL_LoopNextInput;
@@ -196,7 +200,7 @@ namespace BTokenCore
                 }
 
               Tables[tb].SpendPrimaryUTXO(
-                tXs[t].TXInputs[i],
+                tX.TXInputs[i],
                 out bool allOutputsSpent);
 
               if (allOutputsSpent)
@@ -212,7 +216,7 @@ namespace BTokenCore
           }
 
           throw new ProtocolException(
-            $"Referenced TX {tXs[t].TXInputs[i].TXIDOutput.ToHexString()} " +
+            $"Referenced TX {tX.TXInputs[i].TXIDOutput.ToHexString()} " +
             $"not found in UTXO table.");
 
         LABEL_LoopNextInput:;

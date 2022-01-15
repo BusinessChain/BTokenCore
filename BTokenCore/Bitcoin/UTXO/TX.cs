@@ -4,14 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace BTokenCore
 {
   partial class UTXOTable
   {
-    public class TX
+    public class TX : BTokenLib.TX
     {
-      public byte[] TXRaw;
-      public byte[] Hash;
       public int TXIDShort;
       public List<TXInput> TXInputs = new List<TXInput>();
       public List<TXOutput> TXOutputs = new List<TXOutput>();

@@ -14,8 +14,6 @@ namespace BTokenCore
     const int HASH_BYTE_SIZE = 32;
     public const int COUNT_HEADER_BYTES = 80;
 
-    public List<UTXOTable.TX> TXs = new();
-
     SHA256 SHA256 = SHA256.Create();
 
 
@@ -43,7 +41,7 @@ namespace BTokenCore
         ref index,
         SHA256);
 
-      TXs = ParseTXs(
+      ParseTXs(
         Header.MerkleRoot,
         ref index);
 
@@ -110,12 +108,10 @@ namespace BTokenCore
         nonce);
     }
 
-    List<UTXOTable.TX> ParseTXs(
+    void ParseTXs(
       byte[] hashMerkleRoot,
       ref int bufferIndex)
     {
-      List<UTXOTable.TX> tXs = new();
-
       int tXCount = VarInt.GetInt32(
         Buffer,
         ref bufferIndex);
@@ -128,7 +124,7 @@ namespace BTokenCore
           Buffer,
           ref bufferIndex);
 
-        tXs.Add(tX);
+        TXs.Add(tX);
 
         if (!tX.Hash.IsEqual(hashMerkleRoot))
           throw new ProtocolException(
@@ -144,7 +140,7 @@ namespace BTokenCore
           Buffer,
           ref bufferIndex);
 
-        tXs.Add(tX);
+        TXs.Add(tX);
 
         merkleList[0] = tX.Hash;
 
@@ -155,7 +151,7 @@ namespace BTokenCore
           Buffer,
           ref bufferIndex);
 
-          tXs.Add(tX);
+          TXs.Add(tX);
 
           merkleList[t] = tX.Hash;
         }
@@ -167,8 +163,6 @@ namespace BTokenCore
           throw new ProtocolException(
             "Payload hash not equal to merkle root.");
       }
-
-      return tXs;
     }
 
     public UTXOTable.TX ParseTX(

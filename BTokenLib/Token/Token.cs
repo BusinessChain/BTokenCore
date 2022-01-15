@@ -61,6 +61,9 @@ namespace BTokenLib
       return await SignalBlockInsertion.Task;
     }
 
+    public abstract byte[] SendDataTX(string data);
+    public abstract byte[] SendTokenTX(string data);
+
     protected abstract void InsertInDatabase(Block block);
 
     public abstract string GetStatus();
