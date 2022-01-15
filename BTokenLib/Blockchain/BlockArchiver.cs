@@ -19,6 +19,8 @@ namespace BTokenLib
       int SIZE_BLOCK_ARCHIVE_BYTES = 0x1000000;
       int COUNT_LOADER_TASKS = Math.Min(Environment.ProcessorCount - 1, 6);
 
+      const int UTXOIMAGE_INTERVAL_LOADER = 100;
+
       bool IsLoaderFail;
       bool FlagLoaderExit;
 

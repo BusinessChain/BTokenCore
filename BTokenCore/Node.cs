@@ -4,32 +4,33 @@ using System.Diagnostics;
 using System.Threading;
 using System.Linq;
 
+
+
 namespace BTokenCore
 {
   partial class Node
   {
-    TokenBitcoin TokenBitcoin;
+    TokenBitcoin Bitcoin;
 
-    //TokenBToken BToken;
+    TokenBToken BToken;
 
     
 
     public Node(string pathBlockArchive)
     {
-      TokenBitcoin = new(pathBlockArchive);
+      Bitcoin = new(pathBlockArchive);
 
-      //BToken = new TokenBitcoin(
-      //  "configurationNetworkBToken",
-      //  TokenBitcoin);
+      BToken = new TokenBToken(
+        pathBlockArchive,
+        Bitcoin);
     }
 
     public void Start()
     {
-      TokenBitcoin.Start();
+      Bitcoin.Start();
 
       RunConsole();
     }
-
 
     void RunConsole()
     {
@@ -42,40 +43,40 @@ namespace BTokenCore
         switch(inputCommand)
         {
           case "status":
-            Console.WriteLine(TokenBitcoin.GetStatus());
+            Console.WriteLine(Bitcoin.GetStatus());
             break;
 
           case "statusNet":
-            Console.WriteLine(TokenBitcoin.Network.GetStatus());
+            Console.WriteLine(Bitcoin.Network.GetStatus());
             break;
 
           case "startMiner":
-            new Thread(TokenBitcoin.StartMiner).Start();
+            new Thread(Bitcoin.StartMiner).Start();
             break;
 
           case "stopMiner":
-            TokenBitcoin.StopMiner();
+            Bitcoin.StopMiner();
             break;
 
           case "sendtoken":
-            TokenBitcoin.SendTX();
+            Bitcoin.SendTX();
             break;
 
           case "addPeer":
-            TokenBitcoin.Network.AddPeer();
+            Bitcoin.Network.AddPeer();
             break;
 
           case "addPeerIP":
-            TokenBitcoin.Network.AddPeer("84.75.2.239"); // "84.75.2.239"
+            Bitcoin.Network.AddPeer("3.67.200.137"); // "84.75.2.239"
             break;
 
           case "sync":
-            TokenBitcoin.Network.ScheduleSynchronization();
+            Bitcoin.Network.ScheduleSynchronization();
             break;
 
           case "removePeer":
             string iPRemove = Console.ReadLine();
-            TokenBitcoin.Network.RemovePeer(iPRemove);
+            Bitcoin.Network.RemovePeer(iPRemove);
             break;
 
           default:

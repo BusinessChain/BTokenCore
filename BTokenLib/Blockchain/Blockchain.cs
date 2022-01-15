@@ -17,6 +17,7 @@ namespace BTokenLib
 
     Header HeaderGenesis;
     public Header HeaderTip;
+    public Dictionary<int, byte[]> Checkpoints = new();
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
@@ -28,8 +29,6 @@ namespace BTokenLib
 
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
-
-    const int UTXOIMAGE_INTERVAL_LOADER = 200;
 
     StreamWriter LogFile;
 
@@ -186,12 +185,11 @@ namespace BTokenLib
 
     void InitializeHeaderchain()
     {
-      HeaderIndex.Clear();
-
       HeaderGenesis = Token.CreateHeaderGenesis();
 
       HeaderTip = HeaderGenesis;
 
+      HeaderIndex.Clear();
       IndexingHeaderTip();
     }
 
@@ -200,7 +198,7 @@ namespace BTokenLib
     {
       Header header = HeaderTip;
       List<Header> locator = new();
-      int heightCheckpoint = Token.GetCheckpointHeight();
+      int heightCheckpoint = Checkpoints.Any() ? Checkpoints.Keys.Max() : 0;
       int depth = 0;
       int nextLocationDepth = 0;
 
@@ -277,6 +275,15 @@ namespace BTokenLib
 
     public void InsertHeader(Header header)
     {
+      if (Checkpoints
+        .TryGetValue(header.Height, out byte[] hashCheckpoint) &&
+        !hashCheckpoint.IsEqual(header.Hash))
+      {
+        throw new ProtocolException(
+            $"Header {header} at hight {header.Height} not equal " +
+            $"to checkpoint hash {hashCheckpoint.ToHexString()}");
+      }
+
       header.AppendToHeader(HeaderTip);
 
       HeaderTip.HeaderNext = header;

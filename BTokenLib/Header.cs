@@ -6,6 +6,8 @@ namespace BTokenLib
 {
   public abstract class Header
   {
+    public byte[] Buffer;
+
     public byte[] Hash;
     public byte[] HashPrevious;
     public byte[] MerkleRoot;

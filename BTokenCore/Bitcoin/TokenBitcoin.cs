@@ -16,18 +16,16 @@ namespace BTokenCore
 
   class TokenBitcoin : Token
   {
-    Dictionary<int, byte[]> Checkpoints = new()
-    {
-      //{ 11111, "0000000069e244f73d78e8fd29ba2fd2ed618bd6fa2ee92559f542fdb26e7c1d".ToBinary() },
-      //{ 250000, "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary() }
-    };
-
     UTXOTable UTXOTable;
 
 
-    public TokenBitcoin(string pathBlockArchive) 
+    public TokenBitcoin(string pathBlockArchive)
       : base(pathBlockArchive)
     {
+      Blockchain.Checkpoints.Add(
+        250000, 
+        "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary());
+
       UTXOTable = new UTXOTable(GetGenesisBlockBytes());
     }
 
@@ -74,7 +72,6 @@ namespace BTokenCore
       Console.WriteLine("Miner canceled.");
     }
 
-
     void StartMinerProcess(long nonceStart)
     {
       SHA256 sHA256 = SHA256.Create();
@@ -102,7 +99,7 @@ namespace BTokenCore
             if (FlagMinerCancel)
               return;
 
-            Console.WriteLine("Miner awaiting access of Blockchain LOCK.");
+            Console.WriteLine("Miner awaiting access of Bitcoin blockchain LOCK.");
             Thread.Sleep(1000);
           }
 
@@ -112,7 +109,7 @@ namespace BTokenCore
           {
             Blockchain.InsertBlock(block);
 
-            Debug.WriteLine($"Mined block {block}.");
+            Debug.WriteLine($"Mined Bitcon block {block}.");
           }
           catch (Exception ex)
           {
@@ -176,7 +173,6 @@ namespace BTokenCore
       block.TXs = new List<UTXOTable.TX>() { tX };
       block.Header.MerkleRoot = tX.Hash;
     }
-
 
     void ComputePoW(
       BlockBitcoin block,
@@ -242,11 +238,6 @@ namespace BTokenCore
       return new BlockBitcoin(sizeBuffer);
     }
 
-    public override string GetName()
-    {
-      return GetType().Name;
-    }
-
     public override bool TryRequestTX(
       byte[] hash, 
       out byte[] tXRaw)
@@ -263,8 +254,6 @@ namespace BTokenCore
       return true;
     }
 
-
-
     public override Header CreateHeaderGenesis()
     {
       HeaderBitcoin header = new(
@@ -273,18 +262,13 @@ namespace BTokenCore
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
          merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
          unixTimeSeconds: 1231006505,
-         nBits: 0x1dffffff,
+         nBits: 0x1d00ffff,
          nonce: 2083236893);
 
       header.Height = 0;
       header.DifficultyAccumulated = header.Difficulty;
 
       return header;
-    }
-
-    public override int GetCheckpointHeight()
-    {
-      return Checkpoints.Any() ? Checkpoints.Keys.Max() : 0;
     }
 
     public override void LoadImage(string pathImage)
@@ -302,10 +286,8 @@ namespace BTokenCore
       UTXOTable.Clear();
     }
 
-    public override void InsertBlock(Block block)
+    protected override void InsertInDatabase(Block block)
     {
-      ValidateHeader(block.Header);
-
       UTXOTable.InsertBlock(
         ((BlockBitcoin)block).TXs,
         block.Header.IndexBlockArchive);
@@ -356,15 +338,6 @@ namespace BTokenCore
       Header headerBlockchain)
     {
       HeaderBitcoin header = (HeaderBitcoin)headerBlockchain;
-
-      if (Checkpoints
-        .TryGetValue(header.Height, out byte[] hashCheckpoint) &&
-        !hashCheckpoint.IsEqual(header.Hash))
-      {
-        throw new ProtocolException(
-            $"Header {header} at hight {header.Height} not equal " +
-            $"to checkpoint hash {hashCheckpoint.ToHexString()}");
-      }
 
       uint medianTimePast = GetMedianTimePast(
       (HeaderBitcoin)header.HeaderPrevious);

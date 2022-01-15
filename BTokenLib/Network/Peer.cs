@@ -621,7 +621,10 @@ namespace BTokenLib
               .Log(LogFile);
           }
           else
+          {
+            QueueHeadersUnsolicited.Remove(HeaderUnsolicited);
             HandleHeaderUnsolicitedDuplicateOrOrphan(HeaderUnsolicited);
+          }
         }
         catch (ProtocolException ex)
         {

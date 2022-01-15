@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Diagnostics;
+using System.Threading.Tasks;
+using System.IO;
 using System.Security.Cryptography;
 
 namespace BTokenLib
@@ -12,11 +11,13 @@ namespace BTokenLib
     public Blockchain Blockchain;
 
     public Miner Miner;
-
-
+    
     public Token(string pathBlockArchive)
     {
-      Blockchain = new Blockchain(this, pathBlockArchive);
+      Blockchain = new Blockchain(
+        this, 
+        Path.Combine( pathBlockArchive, GetName()));
+
       Network = new Network(this, Blockchain);
       Miner = new Miner(Blockchain, Network);
     }
@@ -31,12 +32,10 @@ namespace BTokenLib
       Network.Start();
     }
 
-
     public abstract void StartMiner();
     public abstract void StopMiner();
 
     public abstract Header CreateHeaderGenesis();
-    public abstract int GetCheckpointHeight();
 
     public abstract void LoadImage(string pathImage);
     public abstract void CreateImage(string pathImage);
@@ -45,7 +44,24 @@ namespace BTokenLib
     public abstract Block CreateBlock();
     public abstract Block CreateBlock(int sizeBlockBuffer);
 
-    public abstract void InsertBlock(Block block);
+
+    TaskCompletionSource<Block> SignalBlockInsertion;
+
+    public void InsertBlock(Block block)
+    {
+      ValidateHeader(block.Header);
+      InsertInDatabase(block);
+
+      SignalBlockInsertion.SetResult(block);
+    }
+
+    public async Task<Block> AwaitNextBlock()
+    {
+      SignalBlockInsertion = new();
+      return await SignalBlockInsertion.Task;
+    }
+
+    protected abstract void InsertInDatabase(Block block);
 
     public abstract string GetStatus();
 
@@ -56,7 +72,10 @@ namespace BTokenLib
       ref int index,
       SHA256 sHA256);
 
-    public abstract string GetName();
+    public string GetName()
+    {
+      return GetType().Name;
+    }
 
     public abstract bool TryRequestTX(
       byte[] hash,

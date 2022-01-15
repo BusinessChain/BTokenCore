@@ -23,7 +23,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333;
 
-    int CountPeersMax = 0; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = Math.Max(Environment.ProcessorCount - 1, 4);
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
@@ -376,7 +376,7 @@ namespace BTokenLib
 
         while (true)
         {
-          if(FlagSynchronizationAbort)
+          if (FlagSynchronizationAbort)
           {
             "Synchronization was abort. Reload Image.".Log(LogFile);
             Blockchain.LoadImage();
@@ -409,7 +409,7 @@ namespace BTokenLib
 
               await peer.GetBlock();
             }
-            else if(Peers.Any(p => p.IsStateBlockDownload()))
+            else if (Peers.Any(p => p.IsStateBlockDownload()))
               peer.Release();
             else
             {
@@ -418,8 +418,9 @@ namespace BTokenLib
             }
           }
 
-          if (!TryGetPeer(out peer))
-            await Task.Delay(3000).ConfigureAwait(false);
+          TryGetPeer(out peer);
+
+          await Task.Delay(1000).ConfigureAwait(false);
         }
       }
       else

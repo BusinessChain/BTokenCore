@@ -7,6 +7,13 @@ namespace BTokenCore
 {
   class HeaderBToken : Header
   {
+    public const int COUNT_HEADER_BYTES = 80;
+
+    public HeaderBToken()
+    {
+      Buffer = new byte[COUNT_HEADER_BYTES];
+    }
+
     public HeaderBToken(
       byte[] headerHash,
       byte[] hashPrevious,

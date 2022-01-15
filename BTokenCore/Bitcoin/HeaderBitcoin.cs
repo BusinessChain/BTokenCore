@@ -7,7 +7,6 @@ namespace BTokenCore
   class HeaderBitcoin : Header
   {
     public const int COUNT_HEADER_BYTES = 80;
-    public byte[] Buffer = new byte[COUNT_HEADER_BYTES];
 
     public uint Version;
     public uint NBits;
@@ -17,7 +16,9 @@ namespace BTokenCore
 
 
     public HeaderBitcoin()
-    { }
+    {
+      Buffer = new byte[COUNT_HEADER_BYTES];
+    }
 
     public HeaderBitcoin(
       byte[] headerHash,
@@ -26,8 +27,8 @@ namespace BTokenCore
       byte[] merkleRootHash,
       uint unixTimeSeconds,
       uint nBits,
-      uint nonce
-      ) : base(
+      uint nonce ) 
+      : base(
         headerHash,
         hashPrevious,
         merkleRootHash,
