@@ -64,6 +64,14 @@ namespace BTokenLib
       StartPeerInboundListener();
     }
 
+    public bool IsSynchronized()
+    {
+      lock(LOCK_Peers)
+        return
+          Peers.Count > 0 &&
+          Peers.All(p => !p.FlagSynchronizationScheduled);
+    }
+
 
     void LoadNetworkConfiguration (string pathConfigFile)
     {

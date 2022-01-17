@@ -21,11 +21,13 @@ namespace BTokenLib
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    static string NameFork = "Fork";
-    static string NameImage = "Image";
-    static string NameImageOld = "ImageOld";
+    static string PathRoot;
+    static string NameFork = Path.Combine(PathRoot, "Fork");
+    static string NameImage = Path.Combine(PathRoot, "Image");
+    static string NameImageOld = Path.Combine(PathRoot, "ImageOld");
 
-    string FileNameIndexBlockArchiveLoad = "IndexBlockArchive";
+    string FileNameIndexBlockArchive = 
+      Path.Combine(PathRoot, "IndexBlockArchive");
 
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
@@ -36,9 +38,12 @@ namespace BTokenLib
 
     public Blockchain(
       Token token,
+      string pathRootSystem,
       string pathBlockArchive)
     {
       Token = token;
+
+      PathRoot = pathRootSystem;
 
       Archiver = new BlockArchiver(
         this, 
@@ -46,7 +51,7 @@ namespace BTokenLib
         pathBlockArchive);
 
       LogFile = new StreamWriter(
-        Path.Combine(Token.GetName() + "LogBlockchain"), 
+        Path.Combine(PathRoot, "LogBlockchain"), 
         false);
 
       InitializeHeaderchain();
@@ -105,7 +110,7 @@ namespace BTokenLib
       {
         InitializeHeaderchain();
         Token.Reset();
-        int indexBlockArchiveLoad;
+        int indexBlockArchive;
 
         try
         {
@@ -117,18 +122,18 @@ namespace BTokenLib
 
           Token.LoadImage(pathImage);
 
-          indexBlockArchiveLoad = BitConverter.ToInt32(
+          indexBlockArchive = BitConverter.ToInt32(
             File.ReadAllBytes(
               Path.Combine(
                 pathImage,
-                FileNameIndexBlockArchiveLoad)),
+                FileNameIndexBlockArchive)),
             0);
         }
         catch
         {
           InitializeHeaderchain();
           Token.Reset();
-          indexBlockArchiveLoad = 1;
+          indexBlockArchive = 1;
 
           if (pathImage == NameImage)
           {
@@ -139,12 +144,8 @@ namespace BTokenLib
             pathImage = NameImage;
         }
 
-        if (Archiver.TryLoadBlocks(
-          indexBlockArchiveLoad,
-          hashStopLoading))
-        {
+        if (Archiver.TryLoadBlocks(indexBlockArchive,hashStopLoading))
           return;
-        }
       }
     }
 
@@ -275,16 +276,16 @@ namespace BTokenLib
 
     public void InsertHeader(Header header)
     {
-      if (Checkpoints
-        .TryGetValue(header.Height, out byte[] hashCheckpoint) &&
+      if (
+        Checkpoints.TryGetValue(header.Height, out byte[] hashCheckpoint) &&
         !hashCheckpoint.IsEqual(header.Hash))
       {
         throw new ProtocolException(
-            $"Header {header} at hight {header.Height} not equal " +
-            $"to checkpoint hash {hashCheckpoint.ToHexString()}");
+          $"Header {header} at hight {header.Height} not equal " +
+          $"to checkpoint hash {hashCheckpoint.ToHexString()}");
       }
 
-      header.AppendToHeader(HeaderTip);
+      header.AppendToHeader(HeaderTip);      
 
       HeaderTip.HeaderNext = header;
       HeaderTip = header;
@@ -429,7 +430,7 @@ namespace BTokenLib
         File.WriteAllBytes(
           Path.Combine(
             pathImage,
-            FileNameIndexBlockArchiveLoad),
+            FileNameIndexBlockArchive),
           BitConverter.GetBytes(indexBlockArchive));
 
         Token.CreateImage(pathImage);

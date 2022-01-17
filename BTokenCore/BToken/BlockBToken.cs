@@ -14,7 +14,6 @@ namespace BTokenCore
     const int HASH_BYTE_SIZE = 32;
     public const int COUNT_HEADER_BYTES = 80;
 
-    public List<UTXOTable.TX> TXs = new();
 
     SHA256 SHA256 = SHA256.Create();
 
@@ -102,12 +101,9 @@ namespace BTokenCore
 
       return new HeaderBToken(
         hash,
-        version,
         previousHeaderHash,
         merkleRootHash,
-        unixTimeSeconds,
-        nBits,
-        nonce);
+        unixTimeSeconds);
     }
 
     List<UTXOTable.TX> ParseTXs(

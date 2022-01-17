@@ -13,9 +13,6 @@ namespace BTokenLib
     public byte[] MerkleRoot;
     public uint UnixTimeSeconds;
 
-    public double Difficulty;
-    public double DifficultyAccumulated;
-
     public Header HeaderPrevious;
     public Header HeaderNext;
 
@@ -59,18 +56,20 @@ namespace BTokenLib
     //  return headerSerialized;
     //}
 
-    public void AppendToHeader(Header headerPrevious)
+    public virtual void AppendToHeader(Header headerPrevious)
     {
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
         throw new ProtocolException(
-          $"Wrong header previous when extending headerchain.");
+          $"Wrong header previous when appending to headerchain.");
 
       HeaderPrevious = headerPrevious;
 
       Height = headerPrevious.Height + 1;
-      DifficultyAccumulated =
-        headerPrevious.DifficultyAccumulated + Difficulty;
+
+      ValidateHeader();
     }
+
+    public abstract void ValidateHeader();
 
     public override string ToString()
     {

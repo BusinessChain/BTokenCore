@@ -27,7 +27,7 @@ namespace BTokenLib
         Locator = locator;
       }
 
-      public void InsertHeader(Header header, Token token)
+      public void InsertHeader(Header header)
       {
         HeaderInsertedLast = header;
 
@@ -63,8 +63,6 @@ namespace BTokenLib
           header.AppendToHeader(HeaderTip);
           HeaderTip.HeaderNext = header;
           HeaderTip = header;
-
-          token.ValidateHeader(HeaderTip);
         }
       }
 

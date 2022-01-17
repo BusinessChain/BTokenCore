@@ -20,7 +20,7 @@ namespace BTokenCore
     {
       Bitcoin = new(pathBlockArchive);
 
-      BToken = new TokenBToken(
+      BToken = new(
         pathBlockArchive,
         Bitcoin);
     }
@@ -28,6 +28,7 @@ namespace BTokenCore
     public void Start()
     {
       Bitcoin.Start();
+      BToken.Start();
 
       RunConsole();
     }

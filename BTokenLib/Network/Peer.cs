@@ -399,7 +399,7 @@ namespace BTokenLib
 
                         byteIndex += 1;
 
-                        HeaderDownload.InsertHeader(header, Token);
+                        HeaderDownload.InsertHeader(header);
 
                         $"Parsed requested header {header}.".Log(LogFile);
                       }

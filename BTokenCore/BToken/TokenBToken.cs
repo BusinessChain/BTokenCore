@@ -25,6 +25,15 @@ namespace BTokenCore
       TokenAnchor = tokenAnchor;
     }
 
+
+    public override void Start()
+    {
+      while(!TokenAnchor.IsSynchronized())
+        Thread.Sleep(3000);
+
+      base.Start();
+    }
+
     public override Header CreateHeaderGenesis()
     {
       HeaderBToken header = new HeaderBToken(
@@ -70,7 +79,7 @@ namespace BTokenCore
         while (!Blockchain.TryLock())
         {
           if (FlagMinerCancel)
-            return;
+            goto LABEL_ExitMinerProcess;
 
           Console.WriteLine("Miner awaiting access of BToken blockchain LOCK.");
           Thread.Sleep(1000);
@@ -98,6 +107,10 @@ namespace BTokenCore
 
         Network.RelayBlock(block);
       }
+
+    LABEL_ExitMinerProcess:
+
+      Console.WriteLine("Miner canceled.");
     }
 
     async Task<BlockBToken> MineBlock(SHA256 sHA256)
@@ -138,7 +151,6 @@ namespace BTokenCore
         blockAnchor,
         tXAnchorHash,
         sHA256));
-
 
       blockBToken.Buffer = headerBToken.Buffer
         .Concat(VarInt.GetBytes(blockBToken.TXs.Count))
@@ -243,12 +255,6 @@ namespace BTokenCore
         buffer,
         ref index,
         sHA256);
-    }
-
-    public override void ValidateHeader(
-     Header headerBlockchain)
-    {
-      throw new NotImplementedException();
     }
 
     public override Block CreateBlock()
