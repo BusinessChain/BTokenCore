@@ -22,6 +22,10 @@ namespace BTokenLib
     public int StartIndexBlockArchive;
     public int CountBlockBytes;
 
+    public double Difficulty;
+    public double DifficultyAccumulated;
+
+
 
     public Header()
     {
@@ -66,10 +70,10 @@ namespace BTokenLib
 
       Height = headerPrevious.Height + 1;
 
-      ValidateHeader();
+      DifficultyAccumulated = 
+        headerPrevious.DifficultyAccumulated
+        + Difficulty;
     }
-
-    public abstract void ValidateHeader();
 
     public override string ToString()
     {

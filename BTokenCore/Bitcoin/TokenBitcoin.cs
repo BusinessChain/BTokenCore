@@ -29,7 +29,7 @@ namespace BTokenCore
       UTXOTable = new UTXOTable(GetGenesisBlockBytes());
     }
 
-    List<UTXOTable.TX> TXPool = new();
+    List<TX> TXPool = new();
 
     internal void SendTX()
     {
@@ -163,7 +163,7 @@ namespace BTokenCore
       int indexTXRaw = 0;
       byte[] tXRawArray = tXRaw.ToArray();
 
-      UTXOTable.TX tX = block.ParseTX(
+      TX tX = block.ParseTX(
         true,
         tXRawArray,
         ref indexTXRaw);
@@ -242,7 +242,7 @@ namespace BTokenCore
       byte[] hash, 
       out byte[] tXRaw)
     {
-      UTXOTable.TX tX = TXPool.Find(t => t.Hash.IsEqual(hash));
+      TX tX = TXPool.Find(t => t.Hash.IsEqual(hash));
 
       if(tX == null)
       {
@@ -325,13 +325,13 @@ namespace BTokenCore
 
     public override Header ParseHeader(
         byte[] buffer,
-        ref int index,
-        SHA256 sHA256)
+        ref int index)
     {
-      return BlockBitcoin.ParseHeader(
+      BlockBitcoin bitcoinBlock = new();
+
+      return bitcoinBlock.ParseHeader(
         buffer, 
-        ref index,
-        sHA256);
+        ref index);
     }
   }
 }

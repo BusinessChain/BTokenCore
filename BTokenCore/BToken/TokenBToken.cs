@@ -215,14 +215,14 @@ namespace BTokenCore
       int indexTXRaw = 0;
       byte[] tXRawArray = tXRaw.ToArray();
 
-      UTXOTable.TX tX = block.ParseTX(
+      TX tX = block.ParseTX(
         true,
         tXRawArray,
         ref indexTXRaw);
 
       tX.TXRaw = tXRawArray;
 
-      block.TXs = new List<UTXOTable.TX>() { tX };
+      block.TXs = new List<TX>() { tX };
       block.Header.MerkleRoot = tX.Hash;
     }
 
@@ -248,13 +248,13 @@ namespace BTokenCore
 
     public override Header ParseHeader(
         byte[] buffer,
-        ref int index,
-        SHA256 sHA256)
+        ref int index)
     {
-      return BlockBitcoin.ParseHeader(
+      BlockBToken bTokenBlock = new();
+
+      return bTokenBlock.ParseHeader(
         buffer,
-        ref index,
-        sHA256);
+        ref index);
     }
 
     public override Block CreateBlock()

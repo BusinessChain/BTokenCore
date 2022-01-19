@@ -282,7 +282,7 @@ namespace BTokenLib
       {
         throw new ProtocolException(
           $"Header {header} at hight {header.Height} not equal " +
-          $"to checkpoint hash {hashCheckpoint.ToHexString()}");
+          $"to checkpoint hash {hashCheckpoint.ToHexString()}.");
       }
 
       header.AppendToHeader(HeaderTip);      

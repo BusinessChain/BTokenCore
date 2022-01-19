@@ -6,9 +6,13 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  public abstract class TX
+  public class TX
   {
     public byte[] TXRaw;
     public byte[] Hash;
+
+    public int TXIDShort;
+    public List<TXInput> TXInputs = new();
+    public List<TXOutput> TXOutputs = new();
   }
 }

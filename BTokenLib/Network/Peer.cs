@@ -394,8 +394,7 @@ namespace BTokenLib
                       {
                         Header header = Token.ParseHeader(
                           Payload,
-                          ref byteIndex,
-                          SHA256);
+                          ref byteIndex);
 
                         byteIndex += 1;
 
@@ -431,8 +430,7 @@ namespace BTokenLib
                   {
                     HeaderUnsolicited = Token.ParseHeader(
                       Payload,
-                      ref byteIndex,
-                      SHA256);
+                      ref byteIndex);
 
                     $"Parsed unsolicited header {HeaderUnsolicited}.".Log(LogFile);
 

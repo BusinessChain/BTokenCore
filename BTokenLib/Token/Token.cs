@@ -75,8 +75,7 @@ namespace BTokenLib
 
     public abstract Header ParseHeader(
       byte[] buffer,
-      ref int index,
-      SHA256 sHA256);
+      ref int index);
 
     public string GetName()
     {

@@ -11,10 +11,7 @@ namespace BTokenCore
 {
   class BlockBitcoin : Block
   {
-    const int HASH_BYTE_SIZE = 32;
     public const int COUNT_HEADER_BYTES = 80;
-
-    SHA256 SHA256 = SHA256.Create();
 
 
     public BlockBitcoin()
@@ -29,33 +26,13 @@ namespace BTokenCore
       Buffer = new byte[sizeBuffer];
     }
 
-    public override void Parse(
+    public override HeaderBitcoin ParseHeader(
       byte[] buffer,
       ref int index)
     {
-      Buffer = buffer;
-      int startIndex = index;
-
-      Header = ParseHeader(
-        Buffer,
-        ref index,
-        SHA256);
-
-      ParseTXs(
-        Header.MerkleRoot,
-        ref index);
-
-      Header.CountBlockBytes = index - startIndex;
-    }
-
-    public static HeaderBitcoin ParseHeader(
-      byte[] buffer,
-      ref int index,
-      SHA256 sHA256)
-    {
       byte[] hash =
-        sHA256.ComputeHash(
-          sHA256.ComputeHash(
+        SHA256.ComputeHash(
+          SHA256.ComputeHash(
             buffer,
             index,
             COUNT_HEADER_BYTES));
@@ -108,69 +85,12 @@ namespace BTokenCore
         nonce);
     }
 
-    void ParseTXs(
-      byte[] hashMerkleRoot,
-      ref int bufferIndex)
-    {
-      int tXCount = VarInt.GetInt32(
-        Buffer,
-        ref bufferIndex);
-
-      if (tXCount == 0) ;
-      else if (tXCount == 1)
-      {
-        UTXOTable.TX tX = ParseTX(
-          isCoinbase: true,
-          Buffer,
-          ref bufferIndex);
-
-        TXs.Add(tX);
-
-        if (!tX.Hash.IsEqual(hashMerkleRoot))
-          throw new ProtocolException(
-            "Payload merkle root corrupted");
-      }
-      else
-      {
-        int tXsLengthMod2 = tXCount & 1;
-        var merkleList = new byte[tXCount + tXsLengthMod2][];
-
-        UTXOTable.TX tX = ParseTX(
-          isCoinbase: true,
-          Buffer,
-          ref bufferIndex);
-
-        TXs.Add(tX);
-
-        merkleList[0] = tX.Hash;
-
-        for (int t = 1; t < tXCount; t += 1)
-        {
-          tX = ParseTX(
-          isCoinbase: false,
-          Buffer,
-          ref bufferIndex);
-
-          TXs.Add(tX);
-
-          merkleList[t] = tX.Hash;
-        }
-
-        if (tXsLengthMod2 != 0)
-          merkleList[tXCount] = merkleList[tXCount - 1];
-
-        if (!hashMerkleRoot.IsEqual(GetRoot(merkleList)))
-          throw new ProtocolException(
-            "Payload hash not equal to merkle root.");
-      }
-    }
-
-    public UTXOTable.TX ParseTX(
+    public override TX ParseTX(
       bool isCoinbase,
       byte[] buffer,
       ref int indexBuffer)
     {
-      UTXOTable.TX tX = new();
+      TX tX = new();
 
       try
       {
@@ -240,46 +160,5 @@ namespace BTokenCore
       }
     }
 
-    byte[] GetRoot(byte[][] merkleList)
-    {
-      int merkleIndex = merkleList.Length;
-
-      while (true)
-      {
-        merkleIndex >>= 1;
-
-        if (merkleIndex == 1)
-        {
-          ComputeNextMerkleList(merkleList, merkleIndex);
-          return merkleList[0];
-        }
-
-        ComputeNextMerkleList(merkleList, merkleIndex);
-
-        if ((merkleIndex & 1) != 0)
-        {
-          merkleList[merkleIndex] = merkleList[merkleIndex - 1];
-          merkleIndex += 1;
-        }
-      }
-    }
-
-    void ComputeNextMerkleList(
-      byte[][] merkleList,
-      int merkleIndex)
-    {
-      byte[] leafPair = new byte[2 * HASH_BYTE_SIZE];
-
-      for (int i = 0; i < merkleIndex; i++)
-      {
-        int i2 = i << 1;
-        merkleList[i2].CopyTo(leafPair, 0);
-        merkleList[i2 + 1].CopyTo(leafPair, HASH_BYTE_SIZE);
-
-        merkleList[i] =
-          SHA256.ComputeHash(
-            SHA256.ComputeHash(leafPair));
-      }
-    }
   }
 }

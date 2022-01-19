@@ -13,9 +13,6 @@ namespace BTokenCore
     public uint NBits;
     public uint Nonce;
 
-    public double Difficulty;
-    public double DifficultyAccumulated;
-
     const double MAX_TARGET = 2.695994666715064E67;
     const int RETARGETING_BLOCK_INTERVAL = 2016;
     const ulong RETARGETING_TIMESPAN_INTERVAL_SECONDS = 14 * 24 * 60 * 60;
@@ -65,12 +62,8 @@ namespace BTokenCore
 
     public override void AppendToHeader(Header headerPrevious)
     {
-      DifficultyAccumulated =
-        headerPrevious.DifficultyAccumulated + Difficulty;
-    }
+      base.AppendToHeader(headerPrevious);
 
-    public override void ValidateHeader()
-    {
       uint medianTimePast = GetMedianTimePast(HeaderPrevious);
 
       if (UnixTimeSeconds < medianTimePast)
@@ -85,9 +78,10 @@ namespace BTokenCore
 
       if (NBits != targetBitsNew)
         throw new ProtocolException(
-          $"In header {this}\n nBits {NBits} " +
-          $"not equal to target nBits {targetBitsNew}");
+          $"nBits {NBits} not equal to target nBits {targetBitsNew}\n" +
+          $"in header {this}.");
     }
+
 
     static uint GetMedianTimePast(Header header)
     {

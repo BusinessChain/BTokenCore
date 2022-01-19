@@ -98,12 +98,12 @@ namespace BTokenCore
     }
 
     public void InsertBlock(
-      List<BTokenLib.TX> tXs,
+      List<TX> tXs,
       int indexArchive)
     {
       for (int t = 0; t < tXs.Count; t++)
       {
-        TX tX = (TX)tXs[t];
+        TX tX = tXs[t];
 
         int lengthUTXOBits =
           COUNT_NON_OUTPUT_BITS +
@@ -173,7 +173,7 @@ namespace BTokenCore
 
       for (int t = 0; t < tXs.Count; t++)
       {
-        TX tX = (TX)tXs[t];
+        TX tX = tXs[t];
 
         for (int i = 0; i < tX.TXInputs.Count; i++)
         {
