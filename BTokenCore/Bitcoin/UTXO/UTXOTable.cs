@@ -103,7 +103,7 @@ namespace BTokenCore
     {
       for (int t = 0; t < tXs.Count; t++)
       {
-        TX tX = tXs[t];
+        TXBitcoin tX = (TXBitcoin)tXs[t];
 
         int lengthUTXOBits =
           COUNT_NON_OUTPUT_BITS +
@@ -173,7 +173,7 @@ namespace BTokenCore
 
       for (int t = 0; t < tXs.Count; t++)
       {
-        TX tX = tXs[t];
+        TXBitcoin tX = (TXBitcoin)tXs[t];
 
         for (int i = 0; i < tX.TXInputs.Count; i++)
         {

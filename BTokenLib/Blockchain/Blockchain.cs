@@ -161,8 +161,7 @@ namespace BTokenLib
       {
         Header header = Token.ParseHeader(
          bytesHeaderImage,
-         ref index,
-         SHA256.Create());
+         ref index);
 
         header.IndexBlockArchive = BitConverter.ToInt32(
           bytesHeaderImage, index);

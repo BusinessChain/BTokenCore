@@ -69,53 +69,34 @@ namespace BTokenCore
       byte[] buffer,
       ref int indexBuffer)
     {
-      TX tX = new();
+      TXBToken tX = new();
 
       try
       {
         int tXStartIndex = indexBuffer;
 
-        indexBuffer += 4; // BYTE_LENGTH_VERSION
-
-        bool isWitnessFlagPresent = buffer[indexBuffer] == 0x00;
-        if (isWitnessFlagPresent)
-        {
-          throw new NotImplementedException(
-            "Parsing of segwit txs not implemented");
-          //BufferIndex += 2;
-        }
-
         int countInputs = VarInt.GetInt32(
           buffer,
           ref indexBuffer);
 
-        if (isCoinbase)
-          new UTXOTable.TXInput(buffer, ref indexBuffer);
-        else
-          for (int i = 0; i < countInputs; i += 1)
-            tX.TXInputs.Add(
-              new UTXOTable.TXInput(
-                buffer,
-                ref indexBuffer));
+        //if (isCoinbase)
+        //  new UTXOTable.TXInput(buffer, ref indexBuffer);
+        //else
+        //  for (int i = 0; i < countInputs; i += 1)
+        //    tX.TXInputs.Add(
+        //      new UTXOTable.TXInput(
+        //        buffer,
+        //        ref indexBuffer));
 
         int countTXOutputs = VarInt.GetInt32(
           buffer,
           ref indexBuffer);
 
-        for (int i = 0; i < countTXOutputs; i += 1)
-          tX.TXOutputs.Add(
-            new UTXOTable.TXOutput(
-              buffer,
-              ref indexBuffer));
-
-        //if (isWitnessFlagPresent)
-        //{
-        //var witnesses = new TXWitness[countInputs];
-        //for (int i = 0; i < countInputs; i += 1)
-        //{
-        //  witnesses[i] = TXWitness.Parse(Buffer, ref BufferIndex);
-        //}
-        //}
+        //for (int i = 0; i < countTXOutputs; i += 1)
+        //  tX.TXOutputs.Add(
+        //    new UTXOTable.TXOutput(
+        //      buffer,
+        //      ref indexBuffer));
 
         indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
 

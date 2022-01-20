@@ -90,7 +90,7 @@ namespace BTokenCore
       byte[] buffer,
       ref int indexBuffer)
     {
-      TX tX = new();
+      TXBitcoin tX = new();
 
       try
       {

@@ -143,7 +143,7 @@ namespace BTokenCore
         }
       }
 
-      public void DetectTXOutputsSpendable(TX tX)
+      public void DetectTXOutputsSpendable(TXBitcoin tX)
       {
         for (int i = 0; i < tX.TXOutputs.Count; i += 1)
         {
