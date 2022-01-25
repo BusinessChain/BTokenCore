@@ -405,7 +405,8 @@ namespace BTokenLib
                     }
                     catch (ProtocolException)
                     {
-                      continue;
+                      continue; 
+                      // Don't disconnect on parser exception but on timeout instead.
                     }
 
                     if (countHeaders == 0)
@@ -678,9 +679,9 @@ namespace BTokenLib
         Release();
       }
                             
-      public async Task GetHeaders()
+      public async Task GetHeaders(List<Header> headerLocator)
       {
-        HeaderDownload = new(Blockchain.GetLocator(), this);
+        HeaderDownload = new(headerLocator, this);
                
         ($"Send getheaders to peer {this},\n" +
           $"locator: {HeaderDownload}").Log(LogFile);

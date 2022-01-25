@@ -26,7 +26,7 @@ namespace BTokenCore
         250000, 
         "000000000000003887df1f29024b06fc2200b55f8af8f35453d7be294df2d214".ToBinary());
 
-      UTXOTable = new UTXOTable(GetGenesisBlockBytes());
+      UTXOTable = new(GetGenesisBlockBytes());
     }
 
     List<TX> TXPool = new();

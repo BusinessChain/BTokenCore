@@ -1,42 +1,40 @@
 ﻿using System;
 using System.Threading.Tasks;
 using System.IO;
-using System.Security.Cryptography;
+using System.Diagnostics;
+
 
 namespace BTokenLib
 {
   public abstract partial class Token
   {
-    public Network Network;
-    public Blockchain Blockchain;
+    public Token TokenChild;
+    public Token TokenParent;
 
-    public Miner Miner;
+    public Blockchain Blockchain;
     
-    public Token(string pathBlockArchive)
+
+    public Token(
+      string pathBlockArchive,
+      Token tokenChild,
+      Token tokenParent)
     {
       Blockchain = new Blockchain(
         this,
         pathRootSystem: GetType().Name,
         pathBlockArchive: Path.Combine(pathBlockArchive, GetName()));
 
-      Network = new Network(this, Blockchain);
-      Miner = new Miner(Blockchain, Network);
+      TokenChild = tokenChild;
+      TokenParent = tokenParent;
     }
 
 
-    public virtual void Start()
+    public virtual void LoadImage()
     {
-      Console.WriteLine($"Load image {GetType().Name}.");
+      Debug.WriteLine($"Load image {GetType().Name}.");
       Blockchain.LoadImage();
-
-      Console.WriteLine($"Start network {GetType().Name}.");
-      Network.Start();
     }
 
-    public bool IsSynchronized()
-    {
-      return Network.IsSynchronized();
-    }
 
     public abstract void StartMiner();
     public abstract void StopMiner();

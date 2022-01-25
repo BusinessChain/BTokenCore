@@ -4,31 +4,31 @@ using System.Diagnostics;
 using System.Threading;
 using System.Linq;
 
-
+using BTokenLib;
 
 namespace BTokenCore
 {
-  partial class Node
+  partial class NodeBToken
   {
-    TokenBitcoin Bitcoin;
-
     TokenBToken BToken;
+    Network Network;
 
-    
 
-    public Node(string pathBlockArchive)
+    public NodeBToken(string pathBlockArchive)
     {
-      Bitcoin = new(pathBlockArchive);
-
       BToken = new(
         pathBlockArchive,
-        Bitcoin);
+        new TokenBitcoin(pathBlockArchive),
+        null);
+
+      //Child - Parent Verknüpfun nicht über constructor machen.
+
+      Network = new(BToken);
     }
 
     public void Start()
     {
-      Bitcoin.Start();
-      BToken.Start();
+      Network.Start();
 
       RunConsole();
     }
@@ -52,6 +52,7 @@ namespace BTokenCore
             break;
 
           case "startMiner":
+            Miner miner = new(Blockchain, Network, );
             new Thread(Bitcoin.StartMiner).Start();
             break;
 

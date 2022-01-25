@@ -11,7 +11,6 @@ namespace BTokenCore
 {
   class BlockBToken : Block
   {
-    const int HASH_BYTE_SIZE = 32;
     public const int COUNT_HEADER_BYTES = 80;
 
 

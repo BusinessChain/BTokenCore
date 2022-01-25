@@ -11,6 +11,8 @@ namespace BTokenCore
 
     public byte[] HashAnchorPrevious;
 
+    Header HeaderAnchor;
+
 
     public HeaderBToken()
     {
@@ -32,6 +34,22 @@ namespace BTokenCore
       Difficulty = 1;
     }
 
+    public override void AppendToHeader(Header headerPrevious)
+    {
+      base.AppendToHeader(headerPrevious);
+
+      HeaderAnchor = ((HeaderBToken)headerPrevious).HeaderAnchor.HeaderNext;
+
+      if (HeaderAnchor == null)
+        throw new ProtocolException($"No anchor header found for {this}.");
+
+      // Aus diesem Grund muss jeder BToken Peer auch ein Bitcoin Peer sein.
+    }
+
+    public override void Validate()
+    {
+      // Look into HeaderAnchor and check if the winner Token corresponds to this Header.
+    }
 
     public override byte[] GetBytes()
     {

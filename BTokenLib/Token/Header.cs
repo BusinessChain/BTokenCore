@@ -47,24 +47,13 @@ namespace BTokenLib
     }
 
     public abstract byte[] GetBytes();
-    //{
-    //  var headerSerialized = new byte[COUNT_HEADER_BYTES];
-
-    //  HashPrevious.CopyTo(headerSerialized, 0);
-
-    //  MerkleRoot.CopyTo(headerSerialized, 32);
-
-    //  BitConverter.GetBytes(UnixTimeSeconds)
-    //    .CopyTo(headerSerialized, 64);
-
-    //  return headerSerialized;
-    //}
 
     public virtual void AppendToHeader(Header headerPrevious)
     {
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
-        throw new ProtocolException(
-          $"Wrong header previous when appending to headerchain.");
+        throw new InvalidOperationException(
+          $"Header {this} references header previous {HashPrevious.ToHexString()} " +
+          $"but attempts to append {headerPrevious}.");
 
       HeaderPrevious = headerPrevious;
 
@@ -73,7 +62,11 @@ namespace BTokenLib
       DifficultyAccumulated = 
         headerPrevious.DifficultyAccumulated
         + Difficulty;
+
+      Validate();
     }
+
+    public abstract void Validate();
 
     public override string ToString()
     {

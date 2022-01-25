@@ -40,10 +40,10 @@ namespace BTokenLib
 
 
 
-    public Network(Token token, Blockchain blockchain)
+    public Network(token token)
     {
       Token = token;
-      Blockchain = blockchain;
+      Blockchain = token.Blockchain;
 
       string pathRoot = token.GetName();
 
@@ -57,21 +57,13 @@ namespace BTokenLib
 
     public void Start()
     {
-      StartPeerConnector();
+      StartPeerConnector(); 
 
-      StartSynchronizer();
+      StartSynchronizer(); // Synchronisiert zuerst AnchorToken, dann Parent Token
 
-      StartPeerInboundListener();
+      StartPeerInboundListener(); // Falls einer anfragt, wird angenommen, dass er nur 
+      // Bitcoin versteht, falls er nicht aktiv nach BToken fragt.
     }
-
-    public bool IsSynchronized()
-    {
-      lock(LOCK_Peers)
-        return
-          Peers.Count > 0 &&
-          Peers.All(p => !p.FlagSynchronizationScheduled);
-    }
-
 
     void LoadNetworkConfiguration (string pathConfigFile)
     {
@@ -80,6 +72,10 @@ namespace BTokenLib
 
     async Task StartPeerConnector()
     {
+      // Connecte zuerst mit BToken und falls zuwenige mit Bitcoin Knoten
+      // Keine DNS server verwenden für BToken sondern hinterlegt IP addressen.
+      // Diese liste muss als Konfigurations File ganz am anfang eingelesen werden.
+
       int countPeersCreate;
 
       try
@@ -332,9 +328,11 @@ namespace BTokenLib
         $"Start synchronization with peer {PeerSynchronization}."
           .Log(LogFile);
 
+
+
         try
         {
-          await PeerSynchronization.GetHeaders();
+          await PeerSynchronization.GetHeaders(Blockchain.GetLocator()); // von Bitcoin
         }
         catch (Exception ex)
         {
@@ -432,12 +430,10 @@ namespace BTokenLib
         }
       }
       else
-      {
         PeerSynchronization.SendHeaders(
           new List<Header>() { Blockchain.HeaderTip });
-      }
 
-    LABEL_ExitSynchronization:
+      LABEL_ExitSynchronization:
 
       PeerSynchronization.Release();
 

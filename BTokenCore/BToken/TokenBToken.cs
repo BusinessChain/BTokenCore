@@ -13,30 +13,18 @@ namespace BTokenCore
 {
   class TokenBToken : Token
   {
-    HeaderBToken HeaderGenesis;
-    Token TokenAnchor;
-
-
     public TokenBToken(
       string pathBlockArchive,
-      Token tokenAnchor) 
-      : base(pathBlockArchive)
+      Token tokenParent,
+      Token tokenChild) 
+      : base(pathBlockArchive, tokenParent)
     {
-      TokenAnchor = tokenAnchor;
-    }
-
-
-    public override void Start()
-    {
-      while(!TokenAnchor.IsSynchronized())
-        Thread.Sleep(3000);
-
-      base.Start();
+      TokenParent = tokenParent;
     }
 
     public override Header CreateHeaderGenesis()
     {
-      HeaderBToken header = new HeaderBToken(
+      HeaderBToken header = new(
          headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
          hashAnchorPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
@@ -67,7 +55,6 @@ namespace BTokenCore
 
       StartMinerProcess();
     }
-
 
     async Task StartMinerProcess()
     {
@@ -235,11 +222,6 @@ namespace BTokenCore
     public override void LoadImage(string pathImage)
     {
       throw new NotImplementedException();
-    }
-
-    public Header GetHeaderGenesis()
-    {
-      return HeaderGenesis;
     }
 
     public Dictionary<int, byte[]> GetCheckpoints()

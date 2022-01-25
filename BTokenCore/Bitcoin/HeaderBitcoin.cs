@@ -60,19 +60,17 @@ namespace BTokenCore
       Buffer.Increment(76, 4);
     }
 
-    public override void AppendToHeader(Header headerPrevious)
+    public override void Validate()
     {
-      base.AppendToHeader(headerPrevious);
+      uint medianTimePastSeconds = GetMedianTimePastSeconds(HeaderPrevious);
 
-      uint medianTimePast = GetMedianTimePast(HeaderPrevious);
-
-      if (UnixTimeSeconds < medianTimePast)
+      if (UnixTimeSeconds < medianTimePastSeconds)
         throw new ProtocolException(
           string.Format(
             $"Header {this} with unix time {1} " +
             "is older than median time past {2}.",
             DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds),
-            DateTimeOffset.FromUnixTimeSeconds(medianTimePast)));
+            DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)));
 
       uint targetBitsNew = GetNextTarget((HeaderBitcoin)HeaderPrevious);
 
@@ -83,7 +81,7 @@ namespace BTokenCore
     }
 
 
-    static uint GetMedianTimePast(Header header)
+    static uint GetMedianTimePastSeconds(Header header)
     {
       const int MEDIAN_TIME_PAST = 11;
 
