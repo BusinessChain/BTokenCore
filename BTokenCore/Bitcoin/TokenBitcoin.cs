@@ -42,21 +42,14 @@ namespace BTokenCore
       //Network.AdvertizeToken(tXAnchorToken.Hash);
     }
 
-    bool IsMinerRunning;
-    bool FlagMinerCancel;
 
-    public override void StopMiner()
-    {
-      if (IsMinerRunning)
-        FlagMinerCancel = true;
-    }
 
-    public override void StartMiner()
+    public override void StartMining(object network)
     {
-      if (IsMinerRunning)
+      if (IsMining)
         return;
 
-      IsMinerRunning = true;
+      IsMining = true;
 
       int numberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
       long nonceSegment = uint.MaxValue / numberOfProcesses;
@@ -64,75 +57,36 @@ namespace BTokenCore
       Parallel.For(
         0,
         numberOfProcesses,
-        i => StartMinerProcess(i * nonceSegment));
+        i => RunMining((Network)network, i * nonceSegment));
 
-      IsMinerRunning = false;
-      FlagMinerCancel = false;
+      IsMining = false;
+      FlagMiningCancel = false;
 
       Console.WriteLine("Miner canceled.");
     }
 
-    void StartMinerProcess(long nonceStart)
+
+    protected async override Task<Block> MineBlock(
+      SHA256 sHA256, 
+      long nonceStart)
     {
-      SHA256 sHA256 = SHA256.Create();
+      BlockBitcoin block = new();
 
-      try
-      {
-        while (true)
-        {
-          HeaderBitcoin header = new();
-          BlockBitcoin block = new(header);
+      ComputePoW(
+        block,
+        sHA256,
+        nonceStart);
 
-          ComputePoW(
-            block,
-            sHA256,
-            nonceStart);
+      block.Buffer = block.Header.Buffer
+        .Concat(VarInt.GetBytes(block.TXs.Count))
+        .Concat(block.TXs[0].TXRaw).ToArray();
 
-          block.Buffer = header.Buffer
-            .Concat(VarInt.GetBytes(block.TXs.Count))
-            .Concat(block.TXs[0].TXRaw).ToArray();
+      block.Header.CountBlockBytes = block.Buffer.Length;
 
-          header.CountBlockBytes = block.Buffer.Length;
-
-          while (!Blockchain.TryLock())
-          {
-            if (FlagMinerCancel)
-              return;
-
-            Console.WriteLine("Miner awaiting access of Bitcoin blockchain LOCK.");
-            Thread.Sleep(1000);
-          }
-
-          Console.Beep();
-
-          try
-          {
-            Blockchain.InsertBlock(block);
-
-            Debug.WriteLine($"Mined Bitcon block {block}.");
-          }
-          catch (Exception ex)
-          {
-            Debug.WriteLine(
-              $"{ex.GetType().Name} when inserting mined block {block}.");
-
-            continue;
-          }
-          finally
-          {
-            Blockchain.ReleaseLock();
-          }
-
-          Network.RelayBlock(block);
-        }
-      }
-      catch (TaskCanceledException)
-      {
-        return;
-      }
+      return block;
     }
 
-    void LoadTXs(BlockBitcoin block)
+    byte[] LoadTXs(BlockBitcoin block)
     {
       List<byte> tXRaw = new();
 
@@ -184,7 +138,7 @@ namespace BTokenCore
 
       do
       {
-        if (FlagMinerCancel)
+        if (FlagMiningCancel)
           throw new TaskCanceledException();
 
         header.IncrementNonce();
@@ -193,16 +147,14 @@ namespace BTokenCore
         {
           headerTip = (HeaderBitcoin)Blockchain.HeaderTip;
 
+          header.MerkleRoot = LoadTXs(block);
           header.Height = headerTip.Height + 1;
-
-          LoadTXs(block);
-
-          header.Version = headerTip.Version;
-
           headerTip.Hash.CopyTo(header.HashPrevious, 0);
-
           header.UnixTimeSeconds =
             (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+          header.Buffer = header.GetBytes();
+
+          header.Version = headerTip.Version;
 
           header.NBits = HeaderBitcoin.GetNextTarget(headerTip);
           header.ComputeDifficultyFromNBits();

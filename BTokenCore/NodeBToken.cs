@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Linq;
 using System.Linq;
 
 using BTokenLib;
@@ -18,10 +20,7 @@ namespace BTokenCore
     {
       BToken = new(
         pathBlockArchive,
-        new TokenBitcoin(pathBlockArchive),
-        null);
-
-      //Child - Parent Verknüpfun nicht über constructor machen.
+        new TokenBitcoin(pathBlockArchive));
 
       Network = new(BToken);
     }
@@ -35,6 +34,13 @@ namespace BTokenCore
 
     void RunConsole()
     {
+      // Alle Kommandos sollten ein Objekt sein und über
+      // einen Dictionär <string, Command> direkt selektiert werden.
+      // Command command = DictCommands[inputCommand];
+      // command. Excecute();
+      //
+      // Das help kommando listet alle Keys vom Dict auf.
+
       Console.WriteLine("Start console.");
 
       while (true)
@@ -44,41 +50,47 @@ namespace BTokenCore
         switch(inputCommand)
         {
           case "status":
-            Console.WriteLine(Bitcoin.GetStatus());
+            Console.WriteLine(BToken.GetStatus());
             break;
 
           case "statusNet":
-            Console.WriteLine(Bitcoin.Network.GetStatus());
+            Console.WriteLine(Network.GetStatus());
             break;
 
-          case "startMiner":
-            Miner miner = new(Blockchain, Network, );
-            new Thread(Bitcoin.StartMiner).Start();
+          case "startBTokenMiner":
+            new Thread(BToken.StartMining)
+              .Start(Network);
             break;
 
-          case "stopMiner":
-            Bitcoin.StopMiner();
+          case "startBitcoinMiner":
+            new Thread(BToken.TokenParent.StartMining)
+              .Start(Network);
+            break;
+
+          case "stopBTokenMiner":
+            BToken.StopMining();
+            BToken.TokenParent.StopMining();
             break;
 
           case "sendtoken":
-            Bitcoin.SendTX();
+            //BToken.TokenParent.SendTX();
             break;
 
           case "addPeer":
-            Bitcoin.Network.AddPeer();
+            Network.AddPeer();
             break;
 
           case "addPeerIP":
-            Bitcoin.Network.AddPeer("3.67.200.137"); // "84.75.2.239"
+            Network.AddPeer("3.67.200.137"); // "84.75.2.239"
             break;
 
           case "sync":
-            Bitcoin.Network.ScheduleSynchronization();
+            Network.ScheduleSynchronization();
             break;
 
           case "removePeer":
             string iPRemove = Console.ReadLine();
-            Bitcoin.Network.RemovePeer(iPRemove);
+            Network.RemovePeer(iPRemove);
             break;
 
           default:

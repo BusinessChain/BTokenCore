@@ -40,7 +40,7 @@ namespace BTokenLib
 
 
 
-    public Network(token token)
+    public Network(Token token)
     {
       Token = token;
       Blockchain = token.Blockchain;
@@ -59,7 +59,7 @@ namespace BTokenLib
     {
       StartPeerConnector(); 
 
-      StartSynchronizer(); // Synchronisiert zuerst AnchorToken, dann Parent Token
+      StartSync();
 
       StartPeerInboundListener(); // Falls einer anfragt, wird angenommen, dass er nur 
       // Bitcoin versteht, falls er nicht aktiv nach BToken fragt.
@@ -72,10 +72,6 @@ namespace BTokenLib
 
     async Task StartPeerConnector()
     {
-      // Connecte zuerst mit BToken und falls zuwenige mit Bitcoin Knoten
-      // Keine DNS server verwenden für BToken sondern hinterlegt IP addressen.
-      // Diese liste muss als Konfigurations File ganz am anfang eingelesen werden.
-
       int countPeersCreate;
 
       try
@@ -93,7 +89,8 @@ namespace BTokenLib
               p.Dispose();
             });
 
-            countPeersCreate = CountPeersMax - Peers.Count;
+            countPeersCreate = CountPeersMax - 
+              Peers.Count(p => Token.DoesPeerSupportProtocol(p.ToString()));
           }
 
           if (countPeersCreate > 0)
@@ -131,43 +128,36 @@ namespace BTokenLib
 
     List<IPAddress> RetrieveIPAddresses(int countMax)
     {
-      List<IPAddress> iPAddresses = new();
+      List<string> listExclusion = Peers.Select(p => p.ToString()).ToList();
 
-      while (iPAddresses.Count < countMax)
+      foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
+        if (DateTime.Now.Subtract(file.LastAccessTime).TotalHours > 4)
+          file.Delete();
+        else
+          listExclusion.Add(file.Name);
+
+      Token tokenIPAddresses = Token;
+
+      List<string> iPAddresses = new();
+
+      while (true)
       {
-        if (AddressPool.Count == 0)
+        List<string> iPAddressesToken = tokenIPAddresses.RetrieveIPAdresses(
+          countMax - iPAddresses.Count,
+          listExclusion);
+
+        iPAddresses.AddRange(iPAddressesToken);
+        listExclusion.AddRange(iPAddressesToken);
+
+        if (
+          iPAddresses.Count == countMax || 
+          tokenIPAddresses.TokenParent != null)
         {
-          DownloadIPAddressesFromSeeds();
-
-          lock (LOCK_Peers)
-            AddressPool.RemoveAll(
-              a => Peers.Any(p => p.ToString() == a.ToString()));
-
-          foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
-          {
-            if (DateTime.Now.Subtract(file.LastAccessTime).TotalHours > 24)
-              file.Delete();
-            else
-              AddressPool.RemoveAll(a => a.ToString() == file.Name);
-          }
-
-          if (AddressPool.Count == 0)
-            return iPAddresses;
+          return iPAddresses.Select(ip => IPAddress.Parse(ip)).ToList();
         }
 
-        int randomIndex = RandomGenerator
-          .Next(AddressPool.Count);
-
-        IPAddress iPAddress = AddressPool[randomIndex];
-        AddressPool.Remove(iPAddress);
-
-        if (iPAddresses.Any(ip => ip == iPAddress))
-          continue;
-
-        iPAddresses.Add(iPAddress);
+        tokenIPAddresses = Token.TokenParent;
       }
-
-      return iPAddresses;
     }
 
     async Task CreatePeer(IPAddress iP)
@@ -236,75 +226,14 @@ namespace BTokenLib
     public void ScheduleSynchronization()
     {
       lock (LOCK_Peers)
-        Peers.ForEach(p => p.FlagSynchronizationScheduled = true);
-    }
-
-    List<IPAddress> AddressPool = new();
-    Random RandomGenerator = new();
-
-    void DownloadIPAddressesFromSeeds()
-    {
-      string pathFileSeeds = "DNSSeeds";
-      string[] dnsSeeds;
-
-      while (true)
-      {
-        try
-        {
-          dnsSeeds = File.ReadAllLines(pathFileSeeds);
-
-          break;
-        }
-        catch (Exception ex)
-        {
-          Console.WriteLine(
-            $"{ex.GetType().Name} when reading file with DNS seeds {pathFileSeeds} \n" +
-            $"{ex.Message} \n" +
-            $"Try again in 10 seconds ...");
-
-          Thread.Sleep(10000);
-        }
-      }
-
-      foreach (string dnsSeed in dnsSeeds)
-      {
-        if (dnsSeed.Substring(0, 2) == "//")
-          continue;
-
-        List<IPAddress> dnsSeedAddresses;
-
-        try
-        {
-          dnsSeedAddresses =
-            Dns.GetHostEntry(dnsSeed).AddressList.ToList();
-        }
-        catch (Exception ex)
-        {
-          // If error persists, remove seed from file.
-
-          string.Format(
-            "Cannot get peer address from dns server {0}: \n{1}",
-            dnsSeed,
-            ex.Message)
-            .Log(LogFile);
-
-          continue;
-        }
-
-        dnsSeedAddresses.RemoveAll(ip => 
-        ip.AddressFamily == AddressFamily.InterNetworkV6);
-
-        AddressPool = AddressPool.Union(
-          dnsSeedAddresses.Distinct())
-          .ToList();
-      }
+        Peers.ForEach(p => p.FlagSyncScheduled = true);
     }
 
 
+    Token TokenSync;
+    Peer PeerSync;
 
-    Peer PeerSynchronization;
-
-    async Task StartSynchronizer()
+    async Task StartSync()
     {
       while (true)
       {
@@ -315,28 +244,28 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
         {
-          PeerSynchronization = Peers.Find(
-            p => p.TryStageSynchronization());
+          PeerSync = Peers.Find(
+            p => p.TryStageSync());
 
-          if (PeerSynchronization == null)
+          if (PeerSync == null)
           {
             Blockchain.ReleaseLock();
             continue;
           }
         }
 
-        $"Start synchronization with peer {PeerSynchronization}."
+        $"Start synchronization with peer {PeerSync}."
           .Log(LogFile);
 
-
+        TokenSync = Token.GetParentRoot();
 
         try
         {
-          await PeerSynchronization.GetHeaders(Blockchain.GetLocator()); // von Bitcoin
+          await PeerSync.GetHeaders(TokenSync);
         }
         catch (Exception ex)
         {
-          PeerSynchronization.SetFlagDisposed(
+          PeerSync.SetFlagDisposed(
             $"{ex.GetType().Name} in getheaders: \n{ex.Message}");
 
           Blockchain.ReleaseLock();
@@ -345,7 +274,7 @@ namespace BTokenLib
       }
     }
 
-    bool FlagSynchronizationAbort;
+    bool FlagSyncAbort;
     object LOCK_InsertBlockDownload = new();
     int IndexInsertion;
     Dictionary<int, BlockDownload> QueueDownloadsInsertion = new();
@@ -353,9 +282,9 @@ namespace BTokenLib
     Header HeaderRoot;
     int IndexBlockDownload;
 
-    async Task Synchronize()
+    async Task Sync()
     {
-      HeaderDownload headerDownload = PeerSynchronization.HeaderDownload;
+      HeaderDownload headerDownload = PeerSync.HeaderDownload;
 
       if (
         headerDownload.HeaderTip != null &&
@@ -366,11 +295,11 @@ namespace BTokenLib
           headerDownload.HeaderAncestor != Blockchain.HeaderTip &&
           !Blockchain.TryFork(headerDownload.HeaderAncestor))
         {
-          PeerSynchronization.FlagSynchronizationScheduled = true;
-          goto LABEL_ExitSynchronization;
+          PeerSync.FlagSyncScheduled = true;
+          goto LABEL_ExitSync;
         }
 
-        FlagSynchronizationAbort = false;
+        FlagSyncAbort = false;
         IndexInsertion = 0;
         QueueDownloadsInsertion.Clear();
         QueueDownloadsIncomplete.Clear();
@@ -378,11 +307,11 @@ namespace BTokenLib
         IndexBlockDownload = 0;
         HeaderRoot = headerDownload.HeaderRoot;
 
-        Peer peer = PeerSynchronization;
+        Peer peer = PeerSync;
 
         while (true)
         {
-          if (FlagSynchronizationAbort)
+          if (FlagSyncAbort)
           {
             "Synchronization was abort. Reload Image.".Log(LogFile);
             Blockchain.LoadImage();
@@ -430,16 +359,37 @@ namespace BTokenLib
         }
       }
       else
-        PeerSynchronization.SendHeaders(
+        PeerSync.SendHeaders(
           new List<Header>() { Blockchain.HeaderTip });
 
-      LABEL_ExitSynchronization:
+      LABEL_ExitSync:
 
-      PeerSynchronization.Release();
+      $"Synchronization of {TokenSync.GetType().Name} completed.".Log(LogFile);
+
+      if (TokenSync.TokenChild != null)
+      {
+        TokenSync = TokenSync.TokenChild;
+
+        try
+        {
+          await PeerSync.GetHeaders(TokenSync);
+          return;
+        }
+        catch (Exception ex)
+        {
+          PeerSync.SetFlagDisposed(
+            $"{ex.GetType().Name} in {TokenSync.GetType().Name} getheaders: " +
+            $"\n{ex.Message}");
+        }
+      }
+
+      $"End Synchronization.".Log(LogFile);
+
+      TokenSync = null;
+
+      PeerSync.Release();
 
       Blockchain.ReleaseLock();
-
-      "Synchronization ended.".Log(LogFile);
     }
 
 
@@ -513,7 +463,7 @@ namespace BTokenLib
                 $"Insertion of block download {blockDownload.Index} failed:\n" +
                 $"{ex.Message}.");
 
-              FlagSynchronizationAbort = true;
+              FlagSyncAbort = true;
 
               return false;
             }

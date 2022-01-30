@@ -15,11 +15,11 @@ namespace BTokenCore
   {
     public TokenBToken(
       string pathBlockArchive,
-      Token tokenParent,
-      Token tokenChild) 
-      : base(pathBlockArchive, tokenParent)
+      Token tokenParent) 
+      : base(pathBlockArchive)
     {
       TokenParent = tokenParent;
+      tokenParent.TokenChild = this;
     }
 
     public override Header CreateHeaderGenesis()
@@ -37,130 +37,70 @@ namespace BTokenCore
       return header;
     }
 
-    bool IsMinerRunning;
-    bool FlagMinerCancel;
-
-    public override void StopMiner()
+    public override void StartMining(object network)
     {
-      if (IsMinerRunning)
-        FlagMinerCancel = true;
-    }
-
-    public override void StartMiner()
-    {
-      if (IsMinerRunning)
+      if (IsMining)
         return;
 
-      IsMinerRunning = true;
+      IsMining = true;
 
-      StartMinerProcess();
+      RunMining((Network)network);
     }
 
-    async Task StartMinerProcess()
+    protected async override Task<Block> MineBlock(
+      SHA256 sHA256, 
+      long seed)
     {
-      SHA256 sHA256 = SHA256.Create();
-
-      while (!FlagMinerCancel)
-      {
-        BlockBToken block = await MineBlock(sHA256);
-
-        while (!Blockchain.TryLock())
-        {
-          if (FlagMinerCancel)
-            goto LABEL_ExitMinerProcess;
-
-          Console.WriteLine("Miner awaiting access of BToken blockchain LOCK.");
-          Thread.Sleep(1000);
-        }
-
-        Console.Beep();
-
-        try
-        {
-          Blockchain.InsertBlock(block);
-
-          Debug.WriteLine($"Mined block {block}.");
-        }
-        catch (Exception ex)
-        {
-          Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting mined block {block}.");
-
-          continue;
-        }
-        finally
-        {
-          Blockchain.ReleaseLock();
-        }
-
-        Network.RelayBlock(block);
-      }
-
-    LABEL_ExitMinerProcess:
-
-      Console.WriteLine("Miner canceled.");
-    }
-
-    async Task<BlockBToken> MineBlock(SHA256 sHA256)
-    {
-      HeaderBToken headerBToken = new();
-      BlockBToken blockBToken = new(headerBToken);
-
-      HeaderBToken headerBTokenTip = (HeaderBToken)Blockchain.HeaderTip;
-      
-      Block blockAnchor;
-      byte[] tXAnchorHash;
+      Block block = new BlockBToken();
+      Header header = block.Header;
 
       do
       {
-        if (FlagMinerCancel)
+        if (FlagMiningCancel)
           throw new TaskCanceledException();
 
-        headerBToken.Height = headerBTokenTip.Height + 1;
+        Header headerTip = Blockchain.HeaderTip;
 
-        LoadTXs(blockBToken);
-
-        headerBTokenTip.Hash.CopyTo(headerBToken.HashPrevious, 0);
-
-        headerBToken.UnixTimeSeconds =
+        header.MerkleRoot = LoadTXs(block);
+        header.Height = headerTip.Height + 1;
+        headerTip.Hash.CopyTo(header.HashPrevious, 0);
+        header.UnixTimeSeconds =
           (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        header.Buffer = header.GetBytes();
 
-        headerBToken.Buffer = headerBToken.GetBytes();
-
-        headerBToken.Hash =
+        header.Hash =
           sHA256.ComputeHash(
-            sHA256.ComputeHash(headerBToken.Buffer));
+            sHA256.ComputeHash(header.Buffer));
 
-        tXAnchorHash = TokenAnchor.SendDataTX("BToken" + headerBToken.Hash);
-
-        blockAnchor = await TokenAnchor.AwaitNextBlock();
-
-      } while (!IsHashTXAnchorWinner(
-        blockAnchor,
-        tXAnchorHash,
+      } while (!await ValidateBlockMined(
+        block,
         sHA256));
 
-      blockBToken.Buffer = headerBToken.Buffer
-        .Concat(VarInt.GetBytes(blockBToken.TXs.Count))
-        .Concat(blockBToken.TXs[0].TXRaw).ToArray();
+      block.Buffer = header.Buffer
+        .Concat(VarInt.GetBytes(block.TXs.Count))
+        .Concat(block.TXs[0].TXRaw).ToArray();
 
-      headerBToken.CountBlockBytes = blockBToken.Buffer.Length;
+      header.CountBlockBytes = block.Buffer.Length;
 
-      return blockBToken;
+      return block;
     }
 
-    bool IsHashTXAnchorWinner(
-      Block blockAnchor, 
-      byte[] hashTXAnchor,
+    public async Task<bool> ValidateBlockMined(
+      Block block,
       SHA256 sHA256)
     {
-      byte[] hashBlockAnchor = sHA256.ComputeHash(blockAnchor.Header.Hash);
+      byte[] hashTXAnchor =
+        TokenParent.SendDataTX("BToken" + block.Header.Hash);
+
+      Block blockAnchor = await TokenParent.AwaitNextBlock();
+
+      byte[] hashBlockAnchorHashed = sHA256.ComputeHash(blockAnchor.Header.Hash);
       byte[] hashTXWinner = null;
       byte[] largestDifference = new byte[32];
 
-      blockAnchor.TXs.ForEach( tX =>
+      blockAnchor.TXs.ForEach(tX =>
       {
-        byte[] difference = hashBlockAnchor.SubtractByteWise(tX.Hash);
+        byte[] difference = hashBlockAnchorHashed.SubtractByteWise(tX.Hash);
 
         if (difference.IsGreaterThan(largestDifference))
         {
@@ -172,7 +112,7 @@ namespace BTokenCore
       return hashTXWinner.IsEqual(hashTXAnchor);
     }
 
-    void LoadTXs(BlockBToken block)
+    public byte[] LoadTXs(Block block)
     {
       List<byte> tXRaw = new();
 
@@ -211,8 +151,10 @@ namespace BTokenCore
       tX.TXRaw = tXRawArray;
 
       block.TXs = new List<TX>() { tX };
-      block.Header.MerkleRoot = tX.Hash;
+      return tX.Hash;
     }
+
+
 
     public override void CreateImage(string pathImage)
     {
@@ -252,8 +194,20 @@ namespace BTokenCore
 
     public override string GetStatus()
     {
-      return
-        Blockchain.GetStatus();
+      Token tokenStatus = this;
+      string statusMessage = "";
+
+      do
+      {
+        statusMessage += 
+          $"Status {tokenStatus.GetType().Name}:\n" +
+          $"{tokenStatus.Blockchain.GetStatus()}";
+
+        tokenStatus = tokenStatus.TokenParent;
+      } while (tokenStatus != null);
+
+
+      return statusMessage;
     }
 
     byte[] GetGenesisBlockBytes()
@@ -283,7 +237,6 @@ namespace BTokenCore
     {
       throw new NotImplementedException();
     }
-
 
     public override bool TryRequestTX(
       byte[] hash,

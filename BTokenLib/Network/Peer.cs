@@ -23,7 +23,7 @@ namespace BTokenLib
 
       public bool IsBusy;
       public bool FlagDispose;
-      public bool FlagSynchronizationScheduled;
+      public bool FlagSyncScheduled;
 
       public enum StateProtocol
       {
@@ -93,7 +93,7 @@ namespace BTokenLib
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
         Connection = ConnectionType.INBOUND;
-        FlagSynchronizationScheduled = false;
+        FlagSyncScheduled = false;
       }
 
       public Peer(
@@ -108,7 +108,7 @@ namespace BTokenLib
 
         IPAddress = ip;
         Connection = ConnectionType.OUTBOUND;
-        FlagSynchronizationScheduled = true;
+        FlagSyncScheduled = true;
 
         CreateLogFile(ip.ToString());
 
@@ -392,7 +392,7 @@ namespace BTokenLib
                     {
                       while (byteIndex < PayloadLength)
                       {
-                        Header header = Token.ParseHeader(
+                        Header header = Network.TokenSync.ParseHeader(
                           Payload,
                           ref byteIndex);
 
@@ -413,7 +413,7 @@ namespace BTokenLib
                     {
                       Cancellation = new();
 
-                      Network.Synchronize();
+                      Network.Sync();
                     }
                     else
                     {
@@ -455,7 +455,7 @@ namespace BTokenLib
 
                 case "getheaders":
 
-                  FlagSynchronizationScheduled = false;
+                  FlagSyncScheduled = false;
 
                   byte[] hashHeaderAncestor = new byte[32];
 
@@ -504,7 +504,7 @@ namespace BTokenLib
 
                       await SendHeaders(headers);
 
-                      FlagSynchronizationScheduled = true;
+                      FlagSyncScheduled = true;
                     }
                   }
 
@@ -521,7 +521,7 @@ namespace BTokenLib
                     lock (this)
                       State = StateProtocol.IDLE;
 
-                    if (this == Network.PeerSynchronization)
+                    if (this == Network.PeerSync)
                       throw new ProtocolException(
                         $"Peer has sent headers but does not deliver blocks.");
                   }
@@ -647,10 +647,10 @@ namespace BTokenLib
         }
         else
         {
-          if (!FlagSynchronizationScheduled)
+          if (!FlagSyncScheduled)
           {
             CountOrphanReceived = 0;
-            FlagSynchronizationScheduled = true;
+            FlagSyncScheduled = true;
 
             $"Schedule synchronization because received orphan header {header}".Log(LogFile);
           }
@@ -679,11 +679,13 @@ namespace BTokenLib
         Release();
       }
                             
-      public async Task GetHeaders(List<Header> headerLocator)
+      public async Task GetHeaders(Token tokenSync)
       {
-        HeaderDownload = new(headerLocator, this);
+        HeaderDownload = new(
+          tokenSync.Blockchain.GetLocator(), 
+          this);
                
-        ($"Send getheaders to peer {this},\n" +
+        ($"Send {tokenSync.GetType().Name} getheaders to peer {this},\n" +
           $"locator: {HeaderDownload}").Log(LogFile);
 
         SetStateHeaderDownload();
@@ -743,19 +745,19 @@ namespace BTokenLib
         }
       }
 
-      public bool TryStageSynchronization()
+      public bool TryStageSync()
       {
         lock(this)
         {
           if (
-            !FlagSynchronizationScheduled ||
+            !FlagSyncScheduled ||
             FlagDispose ||
             IsBusy)
           {
             return false;
           }
 
-          FlagSynchronizationScheduled = false;
+          FlagSyncScheduled = false;
           IsBusy = true;
           return true;
         }
@@ -853,7 +855,7 @@ namespace BTokenLib
             $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
             $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
             $"CountBlockingBlockDownload: {CountWastedBlockDownload}\n" +
-            $"FlagSynchronizationScheduled: {FlagSynchronizationScheduled}\n";
+            $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
         }
       }
     }
