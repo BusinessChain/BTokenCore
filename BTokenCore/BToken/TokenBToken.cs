@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
+using System.Text;
 using System.Security.Cryptography;
 
 
@@ -59,18 +59,12 @@ namespace BTokenCore
         if (FlagMiningCancel)
           throw new TaskCanceledException();
 
-        Header headerTip = Blockchain.HeaderTip;
+        byte[] merkleRoot = LoadTXs(block);
 
-        header.MerkleRoot = LoadTXs(block);
-        header.Height = headerTip.Height + 1;
-        headerTip.Hash.CopyTo(header.HashPrevious, 0);
-        header.UnixTimeSeconds =
-          (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        header.Buffer = header.GetBytes();
-
-        header.Hash =
-          sHA256.ComputeHash(
-            sHA256.ComputeHash(header.Buffer));
+        header.CreateAppendingHeader(
+          sHA256,
+          merkleRoot,
+          Blockchain.HeaderTip);
 
       } while (!await ValidateBlockMined(
         block,
@@ -89,8 +83,9 @@ namespace BTokenCore
       Block block,
       SHA256 sHA256)
     {
-      byte[] hashTXAnchor =
-        TokenParent.SendDataTX("BToken" + block.Header.Hash);
+      byte[] hashTXAnchor = TokenParent.SendDataTX(
+        Encoding.ASCII.GetBytes("BToken")
+        .Concat(block.Header.Hash).ToArray());
 
       Block blockAnchor = await TokenParent.AwaitNextBlock();
 

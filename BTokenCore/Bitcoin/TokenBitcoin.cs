@@ -11,12 +11,11 @@ using BTokenLib;
 
 namespace BTokenCore
 {
-  // compose token of componenents like PoW, dPow, UTXO, Parser
-  // exposes IHeader for the blockchain Syncer
-
   class TokenBitcoin : Token
   {
     UTXOTable UTXOTable;
+    Crypto Crypto = new();
+
 
 
     public TokenBitcoin(string pathBlockArchive)
@@ -29,17 +28,100 @@ namespace BTokenCore
       UTXOTable = new(GetGenesisBlockBytes());
     }
 
-    List<TX> TXPool = new();
 
-    internal void SendTX()
+    const int LENGTH_P2PKH = 25;
+    byte[] PREFIX_OP_RETURN = new byte[] { 0x6A, 0x50 };
+    byte OP_RETURN = 0x6A;
+    byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
+
+    byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
+    byte[] PublicKeyHash160 = new byte[20];
+
+    public override TX CreateDataTX(
+      byte[] dataOPReturn)
     {
-      //UTXOTable.TX tXAnchorToken =
-      //  UTXOTable.Wallet.CreateAnchorToken(
-      //  "BB66AA55AA55AA55AA55AA55AA55AA55AA55AA55AA55EE11EE11EE11EE11EE11EE11EE11EE11EE11".ToBinary());
+      ulong fee = 10000;
 
-      //TXPool.Add(tXAnchorToken);
+      TXOutputWallet outputSpendable = Wallet.GetTXOutputWallet(fee);        
 
-      //Network.AdvertizeToken(tXAnchorToken.Hash);
+      if (outputSpendable == null)
+        throw new ProtocolException("No spendable output found.");
+
+      List<byte> tXRaw = new();
+
+      byte[] version = { 0x01, 0x00, 0x00, 0x00 };
+      tXRaw.AddRange(version);
+
+      byte countInputs = 1;
+      tXRaw.Add(countInputs);
+
+      tXRaw.AddRange(outputSpendable.TXID);
+
+      tXRaw.AddRange(BitConverter.GetBytes(
+        outputSpendable.OutputIndex));
+
+      int indexScriptSig = tXRaw.Count;
+
+      tXRaw.Add(LENGTH_P2PKH);
+
+      tXRaw.AddRange(outputSpendable.ScriptPubKey);
+
+      byte[] sequence = { 0xFF, 0xFF, 0xFF, 0xFF };
+      tXRaw.AddRange(sequence);
+
+      byte countOutputs = 2; //(byte)(valueChange == 0 ? 1 : 2);
+      tXRaw.Add(countOutputs);
+
+      ulong valueChange = outputSpendable.Value - fee;
+      tXRaw.AddRange(BitConverter.GetBytes(
+        valueChange));
+
+      tXRaw.Add(LENGTH_P2PKH);
+
+      tXRaw.AddRange(PREFIX_P2PKH);
+      tXRaw.AddRange(PublicKeyHash160);
+      tXRaw.AddRange(POSTFIX_P2PKH);
+
+      tXRaw.AddRange(BitConverter.GetBytes(
+        (ulong)0));
+
+      tXRaw.Add((byte)(dataOPReturn.Length + 2));
+      tXRaw.Add(OP_RETURN);
+      tXRaw.Add((byte)dataOPReturn.Length);
+      tXRaw.AddRange(dataOPReturn);
+
+      var lockTime = new byte[4];
+      tXRaw.AddRange(lockTime);
+
+      byte[] sigHashType = { 0x01, 0x00, 0x00, 0x00 };
+      tXRaw.AddRange(sigHashType);
+
+      var tXRawPreScriptSig = tXRaw.Take(indexScriptSig);
+      var tXRawPostScriptSig = tXRaw.Skip(indexScriptSig + LENGTH_P2PKH + 1);
+
+      List<byte> scriptSig = Wallet.GetScriptSignature(
+        tXRaw.ToArray());
+
+      tXRaw = tXRawPreScriptSig
+        .Concat(new byte[] { (byte)scriptSig.Count })
+        .Concat(scriptSig)
+        .Concat(tXRawPostScriptSig)
+        .ToList();
+
+      tXRaw.RemoveRange(tXRaw.Count - 4, 4);
+
+      var parser = new ParserBitcoin();
+      int indexTXRaw = 0;
+      byte[] tXRawArray = tXRaw.ToArray();
+
+      TX tX = parser.ParseTX(
+        false,
+        tXRawArray,
+        ref indexTXRaw);
+
+      tX.TXRaw = tXRawArray;
+
+      return tX;
     }
 
 
@@ -64,7 +146,6 @@ namespace BTokenCore
 
       Console.WriteLine("Miner canceled.");
     }
-
 
     protected async override Task<Block> MineBlock(
       SHA256 sHA256, 
@@ -125,15 +206,15 @@ namespace BTokenCore
       tX.TXRaw = tXRawArray;
 
       block.TXs.Add(tX);
-      block.Header.MerkleRoot = tX.Hash;
+
+      return tX.Hash;
     }
 
     void ComputePoW(
       BlockBitcoin block,
       SHA256 sHA256,
-      long nonceStart)
+      long nonceSeed)
     {
-      HeaderBitcoin headerTip = null;
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
       do
@@ -141,41 +222,14 @@ namespace BTokenCore
         if (FlagMiningCancel)
           throw new TaskCanceledException();
 
-        header.IncrementNonce();
+        byte[] merkleRoot = LoadTXs(block);
 
-        if (headerTip != Blockchain.HeaderTip)
-        {
-          headerTip = (HeaderBitcoin)Blockchain.HeaderTip;
+        header.IncrementNonce(nonceSeed);
 
-          header.MerkleRoot = LoadTXs(block);
-          header.Height = headerTip.Height + 1;
-          headerTip.Hash.CopyTo(header.HashPrevious, 0);
-          header.UnixTimeSeconds =
-            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-          header.Buffer = header.GetBytes();
-
-          header.Version = headerTip.Version;
-
-          header.NBits = HeaderBitcoin.GetNextTarget(headerTip);
-          header.ComputeDifficultyFromNBits();
-
-          header.Nonce = (uint)nonceStart;
-
-          header.Buffer = header.GetBytes();
-        }
-        else if (header.Nonce == 0)
-        {
-          header.UnixTimeSeconds =
-            (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-
-          header.Nonce = (uint)nonceStart;
-
-          header.Buffer = header.GetBytes();
-        }
-
-        header.Hash =
-          sHA256.ComputeHash(
-            sHA256.ComputeHash(header.Buffer));
+        header.CreateAppendingHeader(
+          sHA256,
+          merkleRoot,
+          Blockchain.HeaderTip);
 
       } while (header.Hash.IsGreaterThan(header.NBits));
     }

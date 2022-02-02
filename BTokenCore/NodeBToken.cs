@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
-using System.Linq;
 
 using BTokenLib;
 
@@ -23,6 +22,8 @@ namespace BTokenCore
         new TokenBitcoin(pathBlockArchive));
 
       Network = new(BToken);
+
+      BToken.ConnectNetwork(Network);
     }
 
     public void Start()

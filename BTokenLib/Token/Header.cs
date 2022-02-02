@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Security.Cryptography;
 
 
 
@@ -67,6 +68,23 @@ namespace BTokenLib
     }
 
     public abstract void Validate();
+
+    public virtual void CreateAppendingHeader(
+      SHA256 sHA256,
+      byte[] merkleRoot,
+      Header headerTip)
+    {
+      MerkleRoot = merkleRoot;
+      Height = headerTip.Height + 1;
+      headerTip.Hash.CopyTo(HashPrevious, 0);
+      UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+      Buffer = GetBytes();
+
+      Hash = sHA256.ComputeHash(
+          sHA256.ComputeHash(Buffer));
+    }
+
+
 
     public override string ToString()
     {

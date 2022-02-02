@@ -31,8 +31,6 @@ namespace BTokenCore
 
     StreamWriter LogFile;
 
-    WalletUTXO Wallet;
-
 
 
     public UTXOTable(byte[] genesisBlockBytes)
@@ -43,8 +41,6 @@ namespace BTokenCore
         TableUInt32,
         TableULong64,
         TableUInt32Array };
-
-      Wallet = new WalletUTXO();
     }
 
     public byte[] GetReceptionScript()

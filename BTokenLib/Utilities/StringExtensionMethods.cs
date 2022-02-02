@@ -36,7 +36,11 @@ namespace BTokenLib
       for(int i = 0; i < result.Length; i += 1)
       {
         string hexChar = hexString.Substring(i * 2, 2);
-        HEX2BYTE.TryGetValue(hexChar, out result[result.Length - i - 1]);
+
+        if(!HEX2BYTE.TryGetValue(hexChar, out result[result.Length - i - 1]))
+        {
+          throw new ArgumentOutOfRangeException($"{hexChar} not not convertible to byte.");
+        }
       }
 
       return result;

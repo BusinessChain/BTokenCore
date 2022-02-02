@@ -17,7 +17,13 @@ namespace BTokenLib
 
     public Blockchain Blockchain;
 
+    public Wallet Wallet;
+
+    protected Network Network;
+
     List<string> AddressPool = new();
+
+    protected List<TX> TXPool = new();
 
 
     public Token(
@@ -28,6 +34,8 @@ namespace BTokenLib
         pathRootSystem: GetType().Name,
         pathBlockArchive: Path.Combine(pathBlockArchive, GetName()));
 
+      Wallet = new();
+
       string pathAddressPoolPeers = Path.Combine(
         GetType().Name, 
         "AddressPoolPeers");
@@ -36,6 +44,17 @@ namespace BTokenLib
         AddressPool = File.ReadAllLines(pathAddressPoolPeers).ToList();
       else
         AddressPool = new();
+    }
+
+    public void ConnectNetwork(Network network)
+    {
+      Token token = this;
+
+      while(token != null)
+      {
+        token.Network = network;
+        token = TokenParent;
+      }
     }
 
 
@@ -143,10 +162,18 @@ namespace BTokenLib
       return await SignalBlockInsertion.Task;
     }
 
-    public abstract void LoadTXs(Block block);
+    public byte[] SendDataTX(byte[] data)
+    {
+      TX tXAnchorToken = CreateDataTX(data);
 
-    public abstract byte[] SendDataTX(string data);
-    public abstract byte[] SendTokenTX(string data);
+      TXPool.Add(tXAnchorToken);
+
+      Network.AdvertizeToken(tXAnchorToken.Hash);
+
+      return tXAnchorToken.Hash;
+    }
+
+    public abstract TX CreateDataTX(byte[] data);
 
     protected abstract void InsertInDatabase(Block block);
 

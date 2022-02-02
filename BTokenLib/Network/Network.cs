@@ -43,7 +43,9 @@ namespace BTokenLib
     public Network(Token token)
     {
       Token = token;
+
       Blockchain = token.Blockchain;
+
 
       string pathRoot = token.GetName();
 

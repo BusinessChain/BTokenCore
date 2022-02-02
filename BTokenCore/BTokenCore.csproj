@@ -13,14 +13,10 @@
 
   <ItemGroup>
     <None Remove="DNSSeeds" />
-    <None Remove="Wallet\wallet" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="DNSSeeds">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Wallet\wallet">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -42,8 +42,6 @@ namespace BTokenCore
 
       if (HeaderAnchor == null)
         throw new ProtocolException($"No anchor header found for {this}.");
-
-      // Aus diesem Grund muss jeder BToken Peer auch ein Bitcoin Peer sein.
     }
 
     public override void Validate()

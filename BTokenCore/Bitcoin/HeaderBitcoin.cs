@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 
 using BTokenLib;
 
@@ -54,10 +55,30 @@ namespace BTokenCore
         (double)UInt256.ParseFromCompact(NBits);
     }
 
-    public void IncrementNonce()
+    public void IncrementNonce(long nonceSeed)
     {
       Nonce += 1;
-      Buffer.Increment(76, 4);
+
+      if (Nonce == 0)
+        Nonce = (uint)nonceSeed;
+    }
+
+    public override void CreateAppendingHeader(
+      SHA256 sHA256,
+      byte[] merkleRoot,
+      Header headerTip)
+    {
+      var headerBitcoinTip = (HeaderBitcoin)headerTip;
+
+      Version = headerBitcoinTip.Version;
+
+      NBits = GetNextTarget(headerBitcoinTip);
+      ComputeDifficultyFromNBits();
+
+      base.CreateAppendingHeader(
+        sHA256,
+        merkleRoot,
+        headerTip);
     }
 
     public override void Validate()
@@ -79,7 +100,6 @@ namespace BTokenCore
           $"nBits {NBits} not equal to target nBits {targetBitsNew}\n" +
           $"in header {this}.");
     }
-
 
     static uint GetMedianTimePastSeconds(Header header)
     {
@@ -147,6 +167,7 @@ namespace BTokenCore
 
       return actualTimespan;
     }
+
 
     public override byte[] GetBytes()
     {

@@ -7,9 +7,9 @@ using System.Security.Cryptography;
 using System.Diagnostics;
 
 
-namespace BTokenCore
+namespace BTokenLib
 {
-  class Crypto
+  public class Crypto
   {
     SHA256 SHA256 = SHA256.Create();
        
