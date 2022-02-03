@@ -113,11 +113,11 @@ namespace BTokenCore
           ref indexBuffer);
 
         if (isCoinbase)
-          new UTXOTable.TXInput(buffer, ref indexBuffer);
+          new TXInput(buffer, ref indexBuffer);
         else
           for (int i = 0; i < countInputs; i += 1)
             tX.TXInputs.Add(
-              new UTXOTable.TXInput(
+              new TXInput(
                 buffer,
                 ref indexBuffer));
 
@@ -127,7 +127,7 @@ namespace BTokenCore
 
         for (int i = 0; i < countTXOutputs; i += 1)
           tX.TXOutputs.Add(
-            new UTXOTable.TXOutput(
+            new TXOutput(
               buffer,
               ref indexBuffer));
 

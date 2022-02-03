@@ -19,15 +19,9 @@ namespace BTokenLib
 
     List<TXOutputWallet> TXOutputsSpendable = new();
 
-
-    byte[] PREFIX_P2PKH =
-      new byte[] { 0x76, 0xA9, 0x14 };
-
-    byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
-
-    byte OP_RETURN = 0x6A;
-
     const int LENGTH_P2PKH = 25;
+    byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
+    byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
 
     SHA256 SHA256 = SHA256.Create();
     readonly RipeMD160Digest RIPEMD160 = new();
@@ -158,34 +152,24 @@ namespace BTokenLib
       }
     }
 
-    public void DetectTXOutputsSpendable(TXBitcoin tX)
+    public void DetectTXOutputsSpendable(TX tX)
     {
       for (int i = 0; i < tX.TXOutputs.Count; i += 1)
       {
         TXOutput tXOutput = tX.TXOutputs[i];
 
         if (tXOutput.LengthScript != LENGTH_P2PKH)
-        {
           continue;
-        }
 
         int indexScript = tXOutput.StartIndexScript;
 
-        if (!PREFIX_P2PKH.IsEqual(
-          tXOutput.Buffer,
-          indexScript))
-        {
+        if (!PREFIX_P2PKH.IsEqual(tXOutput.Buffer, indexScript))
           continue;
-        }
 
         indexScript += 3;
 
-        if (!PublicKeyHash160.IsEqual(
-          tXOutput.Buffer,
-          indexScript))
-        {
+        if (!PublicKeyHash160.IsEqual( tXOutput.Buffer, indexScript))
           continue;
-        }
 
         indexScript += 20;
 

@@ -8,10 +8,10 @@ namespace BTokenLib
 {
   public class TXOutputWallet
   {
-    public byte[] TXID = new byte[HASH_BYTE_SIZE];
+    public byte[] TXID = new byte[32];
     public int TXIDShort;
     public int OutputIndex;
     public ulong Value;
-    public byte[] ScriptPubKey = new byte[LENGTH_P2PKH];
+    public byte[] ScriptPubKey = new byte[32];
   }
 }

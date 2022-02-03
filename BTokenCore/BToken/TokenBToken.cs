@@ -13,23 +13,28 @@ namespace BTokenCore
 {
   class TokenBToken : Token
   {
+    UWTOTable UWTOTable;
+
+
     public TokenBToken(
       string pathBlockArchive,
       Token tokenParent) 
       : base(pathBlockArchive)
     {
       TokenParent = tokenParent;
-      tokenParent.TokenChild = this;
+      TokenParent.TokenChild = this;
+
+      UWTOTable = new(GetGenesisBlockBytes());
     }
 
     public override Header CreateHeaderGenesis()
     {
       HeaderBToken header = new(
-         headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
-         hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-         hashAnchorPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-         merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
-         unixTimeSeconds: 1231006505);
+        headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
+        hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+        hashAnchorPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+        merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
+        unixTimeSeconds: 1231006505);
 
       header.Height = 0;
       header.DifficultyAccumulated = header.Difficulty;
@@ -45,6 +50,20 @@ namespace BTokenCore
       IsMining = true;
 
       RunMining((Network)network);
+    }
+
+
+    public override TX CreateDataTX(byte[] dataOPReturn)
+    {
+      throw new NotImplementedException();
+    }
+
+    protected override void InsertInDatabase(Block block)
+    {
+      UWTOTable.InsertBlock(
+        block.TXs,
+        block.Header.IndexBlockArchive,
+        Wallet);
     }
 
     protected async override Task<Block> MineBlock(
@@ -130,7 +149,7 @@ namespace BTokenCore
       ulong valueChange = (ulong)(50000 * 100e8);
       tXRaw.AddRange(BitConverter.GetBytes(valueChange));
 
-      tXRaw.AddRange(UTXOTable.GetReceptionScript());
+      tXRaw.AddRange(Wallet.GetReceptionScript());
 
       tXRaw.AddRange(new byte[4]);
 

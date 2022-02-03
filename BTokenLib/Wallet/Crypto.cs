@@ -4,7 +4,6 @@ using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
 using System.Security.Cryptography;
-using System.Diagnostics;
 
 
 namespace BTokenLib

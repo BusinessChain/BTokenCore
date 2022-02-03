@@ -4,9 +4,9 @@ using BTokenLib;
 
 namespace BTokenCore
 {
-  partial class UTXOTable
+  partial class UWTOTable
   {
-    abstract class UTXOIndex
+    abstract class UWTOIndex
     {
       public int Address;
       protected string Label;
@@ -20,7 +20,7 @@ namespace BTokenCore
       public int PrimaryKey;
 
 
-      protected UTXOIndex(
+      protected UWTOIndex(
         int address,
         string label)
       {
@@ -35,7 +35,7 @@ namespace BTokenCore
       public abstract bool TryGetValueInPrimaryTable(int primaryKey);
       public abstract bool HasCollision(int cacheAddress);
       public abstract void RemovePrimary();
-      public abstract void ResolveCollision(UTXOIndex tablePrimary);
+      public abstract void ResolveCollision(UWTOIndex tablePrimary);
       public abstract uint GetCollisionBits();
       public abstract bool AreCollisionBitsFull();
 
@@ -44,7 +44,7 @@ namespace BTokenCore
 
       public bool TrySpendCollision(
         in TXInput input,
-        UTXOIndex tablePrimary)
+        UWTOIndex tablePrimary)
       {
         if (TryGetValueInCollisionTable(input.TXIDOutput))
         {

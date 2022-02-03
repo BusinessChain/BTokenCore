@@ -12,5 +12,8 @@ namespace BTokenLib
     public byte[] Hash;
 
     public int TXIDShort;
+
+    public List<TXInput> TXInputs = new();
+    public List<TXOutput> TXOutputs = new();
   }
 }

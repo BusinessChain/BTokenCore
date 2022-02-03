@@ -14,7 +14,6 @@ namespace BTokenCore
   class TokenBitcoin : Token
   {
     UTXOTable UTXOTable;
-    Crypto Crypto = new();
 
 
 
@@ -30,15 +29,13 @@ namespace BTokenCore
 
 
     const int LENGTH_P2PKH = 25;
-    byte[] PREFIX_OP_RETURN = new byte[] { 0x6A, 0x50 };
     byte OP_RETURN = 0x6A;
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
 
     byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
     byte[] PublicKeyHash160 = new byte[20];
 
-    public override TX CreateDataTX(
-      byte[] dataOPReturn)
+    public override TX CreateDataTX(byte[] dataOPReturn)
     {
       ulong fee = 10000;
 
@@ -110,7 +107,7 @@ namespace BTokenCore
 
       tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
-      var parser = new ParserBitcoin();
+      BlockBitcoin parser = new();
       int indexTXRaw = 0;
       byte[] tXRawArray = tXRaw.ToArray();
 
@@ -123,7 +120,6 @@ namespace BTokenCore
 
       return tX;
     }
-
 
 
     public override void StartMining(object network)
@@ -190,7 +186,7 @@ namespace BTokenCore
       ulong valueChange = (ulong)(50000 * 100e8);
       tXRaw.AddRange(BitConverter.GetBytes(valueChange));
 
-      tXRaw.AddRange(UTXOTable.GetReceptionScript());
+      tXRaw.AddRange(Wallet.GetReceptionScript());
 
       tXRaw.AddRange(new byte[4]);
 
@@ -280,11 +276,14 @@ namespace BTokenCore
     public override void LoadImage(string pathImage)
     {
       UTXOTable.LoadImage(pathImage);
+      Wallet.LoadImage(pathImage);
     }
 
     public override void CreateImage(string pathImage)
     {
       UTXOTable.CreateImage(pathImage);
+
+      Wallet.CreateImage(pathImage);
     }
 
     public override void Reset()
@@ -296,7 +295,8 @@ namespace BTokenCore
     {
       UTXOTable.InsertBlock(
         block.TXs,
-        block.Header.IndexBlockArchive);
+        block.Header.IndexBlockArchive,
+        Wallet);
     }
 
     public override string GetStatus()

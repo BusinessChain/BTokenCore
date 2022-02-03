@@ -7,7 +7,7 @@ using BTokenLib;
 
 namespace BTokenCore
 {
-  partial class UTXOTable
+  partial class UWTOTable
   {
     const int HASH_BYTE_SIZE = 32;
     const int COUNT_BATCHINDEX_BITS = 16;
@@ -24,20 +24,20 @@ namespace BTokenCore
     uint MaskBatchIndexUInt32 = ~(uint.MaxValue << COUNT_BATCHINDEX_BITS);
     ulong MaskBatchIndexULong64 = ~(ulong.MaxValue << COUNT_BATCHINDEX_BITS);
        
-    UTXOIndex[] Tables;
-    UTXOIndexUInt32 TableUInt32 = new();
-    UTXOIndexULong64 TableULong64 = new();
-    UTXOIndexUInt32Array TableUInt32Array = new();
+    UWTOIndex[] Tables;
+    UWTOIndexUInt32 TableUInt32 = new();
+    UWTOIndexULong64 TableULong64 = new();
+    UWTOIndexUInt32Array TableUInt32Array = new();
 
     StreamWriter LogFile;
 
 
 
-    public UTXOTable(byte[] genesisBlockBytes)
+    public UWTOTable(byte[] genesisBlockBytes)
     {
       LogFile = new StreamWriter("logUTXOTable", false);
 
-      Tables = new UTXOIndex[]{
+      Tables = new UWTOIndex[]{
         TableUInt32,
         TableULong64,
         TableUInt32Array };
@@ -167,7 +167,7 @@ namespace BTokenCore
             if (Tables[tb].TryGetValueInPrimaryTable(
               tXs[t].TXInputs[i].TXIDOutputShort))
             {
-              UTXOIndex tableCollision = null;
+              UWTOIndex tableCollision = null;
 
               for (int cc = 0; cc < Tables.Length; cc += 1)
                 if (Tables[tb].HasCollision(cc))
@@ -210,7 +210,7 @@ namespace BTokenCore
     void InsertUTXO(
       byte[] uTXOKey,
       int primaryKey,
-      UTXOIndex table)
+      UWTOIndex table)
     {
       for (int c = 0; c < Tables.Length; c += 1)
         if (Tables[c].PrimaryTableContainsKey(primaryKey))
