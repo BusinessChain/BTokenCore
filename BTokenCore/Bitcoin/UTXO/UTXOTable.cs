@@ -33,7 +33,7 @@ namespace BTokenCore
 
 
 
-    public UTXOTable(byte[] genesisBlockBytes)
+    public UTXOTable()
     {
       LogFile = new StreamWriter("logUTXOTable", false);
 

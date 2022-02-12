@@ -21,29 +21,33 @@ namespace BTokenLib
 
     protected Network Network;
 
-    List<string> AddressPool = new();
+    List<string> IPAddressPool = new();
 
     protected List<TX> TXPool = new();
 
 
-    public Token(
-      string pathBlockArchive)
+    public Token(string pathBlockArchive)
     {
       Blockchain = new Blockchain(
         this,
-        pathRootSystem: GetType().Name,
+        pathRootSystem: GetName(),
         pathBlockArchive: Path.Combine(pathBlockArchive, GetName()));
 
       Wallet = new();
 
       string pathAddressPoolPeers = Path.Combine(
-        GetType().Name, 
+        GetName(), 
         "AddressPoolPeers");
 
-      if (File.Exists(pathAddressPoolPeers))
-        AddressPool = File.ReadAllLines(pathAddressPoolPeers).ToList();
-      else
-        AddressPool = new();
+      try
+      {
+        IPAddressPool = File.ReadAllLines(pathAddressPoolPeers).ToList();
+      }
+      catch
+      {
+        IPAddressPool = new();
+        IPAddressPool.Add("3.67.200.137");
+      }
     }
 
     public void ConnectNetwork(Network network)
@@ -53,25 +57,49 @@ namespace BTokenLib
       while(token != null)
       {
         token.Network = network;
-        token = TokenParent;
+        token = token.TokenParent;
       }
     }
 
 
+    object LOCK_IsLocked = new();
+    bool IsLocked;
+
+    public bool TryLock()
+    {
+      lock (LOCK_IsLocked)
+      {
+        if (IsLocked)
+          return false;
+
+        IsLocked = true;
+        return true;
+      }
+    }
+
+    public void ReleaseLock()
+    {
+      lock (LOCK_IsLocked)
+      {
+        IsLocked = false;
+      }
+    }
+
     public virtual void LoadImage()
     {
-      Debug.WriteLine($"Load image {GetType().Name}.");
+      if (TokenParent != null)
+        TokenParent.LoadImage();
+
+      Debug.WriteLine($"Load image {GetName()}.");
       Blockchain.LoadImage();
     }
 
     public Token GetParentRoot()
     {
-      Token tokenRoot = this;
+      if (TokenParent == null)
+        return this;
 
-      while (tokenRoot.TokenParent != null)
-        tokenRoot = tokenRoot.TokenParent;
-
-      return tokenRoot;
+      return TokenParent.GetParentRoot();
     }
 
     public abstract Header CreateHeaderGenesis();
@@ -140,7 +168,7 @@ namespace BTokenLib
 
     LABEL_Exit_Miner:
 
-      Console.WriteLine($"{GetType().Name} miner " +
+      Console.WriteLine($"{GetName()} miner " +
         $"on thread {Thread.CurrentThread.ManagedThreadId} canceled.");
     }
 
@@ -198,38 +226,43 @@ namespace BTokenLib
 
     public List<string> RetrieveIPAdresses(
       int countMax,
-      List<string> listExclusion)
+      List<string> iPAddressesExclusion)
     {
-      if (AddressPool.Count <= countMax)
-        return AddressPool.ToList();
-
       List<string> iPAddresses = new();
       List<string> iPAddressesTemporaryRemovedFromPool = new();
 
+      iPAddressesExclusion.ForEach(i => {
+        if(IPAddressPool.Contains(i))
+        {
+          IPAddressPool.Remove(i);
+          iPAddressesTemporaryRemovedFromPool.Add(i);
+        }
+      });
+
       while (
         iPAddresses.Count < countMax && 
-        AddressPool.Count > 0)
+        IPAddressPool.Count > 0)
       {
         int randomIndex = RandomGenerator
-          .Next(AddressPool.Count);
+          .Next(IPAddressPool.Count);
 
-        string iPAddress = AddressPool[randomIndex];
+        string iPAddress = IPAddressPool[randomIndex];
 
-        AddressPool.RemoveAt(randomIndex);
+        IPAddressPool.RemoveAt(randomIndex);
         iPAddressesTemporaryRemovedFromPool.Add(iPAddress);
 
-        if (!listExclusion.Contains(iPAddress))
+        if (!iPAddressesExclusion.Contains(iPAddress))
           iPAddresses.Add(iPAddress);
       }
 
-      AddressPool.AddRange(iPAddressesTemporaryRemovedFromPool);
+      IPAddressPool.AddRange(iPAddressesTemporaryRemovedFromPool);
 
       return iPAddresses;
     }
 
     public bool DoesPeerSupportProtocol(string iPAddressPeer)
     {
-      return AddressPool.Contains(iPAddressPeer);
+      return IPAddressPool.Contains(iPAddressPeer);
     }
   }
 }

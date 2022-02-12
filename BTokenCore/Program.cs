@@ -33,7 +33,9 @@ namespace BTokenCore
       }
       catch(Exception ex)
       {
-        Console.WriteLine(ex.Message);
+        Console.WriteLine(
+          $"Program aborted with {ex.GetType().Name}:\n" +
+          $"{ex.Message}");
       }
 
       Console.ReadKey();

@@ -35,7 +35,7 @@ namespace BTokenCore
 
     public UWTOTable(byte[] genesisBlockBytes)
     {
-      LogFile = new StreamWriter("logUTXOTable", false);
+      LogFile = new StreamWriter("logUWTOTable", false);
 
       Tables = new UWTOIndex[]{
         TableUInt32,

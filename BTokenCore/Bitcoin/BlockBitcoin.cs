@@ -54,25 +54,19 @@ namespace BTokenCore
         buffer, index);
       index += 4;
 
-      const long MAX_FUTURE_TIME_SECONDS = 2 * 60 * 60;
-      if (unixTimeSeconds >
-        (DateTimeOffset.UtcNow.ToUnixTimeSeconds() +
-        MAX_FUTURE_TIME_SECONDS))
-      {
+      bool isBlockTimePremature = unixTimeSeconds >
+        (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
+      
+      if (isBlockTimePremature)
         throw new ProtocolException(
-          string.Format("Timestamp premature {0}",
-            new DateTime(unixTimeSeconds).Date));
-      }
+          $"Timestamp premature {new DateTime(unixTimeSeconds).Date}.");
 
       uint nBits = BitConverter.ToUInt32(buffer, index);
       index += 4;
 
       if (hash.IsGreaterThan(nBits))
-      {
         throw new ProtocolException(
-          $"Header hash {hash.ToHexString()} " +
-          $"greater than NBits {nBits}");
-      }
+          $"Header hash {hash.ToHexString()} greater than NBits {nBits}.");
 
       uint nonce = BitConverter.ToUInt32(buffer, index);
       index += 4;

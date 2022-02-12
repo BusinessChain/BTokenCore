@@ -80,8 +80,7 @@ namespace BTokenLib
       UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
       Buffer = GetBytes();
 
-      Hash = sHA256.ComputeHash(
-          sHA256.ComputeHash(Buffer));
+      Hash = sHA256.ComputeHash(sHA256.ComputeHash(Buffer));
     }
 
 

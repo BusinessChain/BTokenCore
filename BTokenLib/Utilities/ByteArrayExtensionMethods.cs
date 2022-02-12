@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Diagnostics;
 
 namespace BTokenLib
 {
@@ -93,29 +94,19 @@ namespace BTokenLib
 
       return array.IsGreaterThan(arrayFromNBits);
     }
+
     public static bool IsGreaterThan(this byte[] array1, byte[] array2)
-    {
+    {    
       int i = array1.Length;
 
       while(i-- > array2.Length)
-      {
-        i -= 1;
-
-        if (array1[i] > 0) 
+        if (array1[i] > 0)
           return true;
-      }
 
-      while (i > 0)
-      {
+      while (array1[i] == array2[i])
         i -= 1;
 
-        if (array1[i] == array2[i])
-          continue;
-
-        return array1[i] > array2[i];
-      }
-
-      return false;
+      return array1[i] > array2[i];
     }
 
     public static void Increment(

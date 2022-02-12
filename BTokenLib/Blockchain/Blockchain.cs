@@ -17,17 +17,14 @@ namespace BTokenLib
 
     Header HeaderGenesis;
     public Header HeaderTip;
-    public Dictionary<int, byte[]> Checkpoints = new();
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    static string PathRoot;
-    static string NameFork = Path.Combine(PathRoot, "Fork");
-    static string NameImage = Path.Combine(PathRoot, "Image");
-    static string NameImageOld = Path.Combine(PathRoot, "ImageOld");
+    string NameFork;
+    string NameImage;
+    string NameImageOld;
 
-    string FileNameIndexBlockArchive = 
-      Path.Combine(PathRoot, "IndexBlockArchive");
+    string FileNameIndexBlockArchive;
 
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
@@ -43,7 +40,12 @@ namespace BTokenLib
     {
       Token = token;
 
-      PathRoot = pathRootSystem;
+      Directory.CreateDirectory(pathRootSystem);
+      NameFork = Path.Combine(pathRootSystem, "Fork");
+      NameImage = Path.Combine(pathRootSystem, "Image");
+      NameImageOld = Path.Combine(pathRootSystem, "ImageOld");
+
+      FileNameIndexBlockArchive = Path.Combine(pathRootSystem, "IndexBlockArchive");
 
       Archiver = new BlockArchiver(
         this, 
@@ -51,7 +53,7 @@ namespace BTokenLib
         pathBlockArchive);
 
       LogFile = new StreamWriter(
-        Path.Combine(PathRoot, "LogBlockchain"), 
+        Path.Combine(pathRootSystem, "LogBlockchain"),
         false);
 
       InitializeHeaderchain();
@@ -198,11 +200,10 @@ namespace BTokenLib
     {
       Header header = HeaderTip;
       List<Header> locator = new();
-      int heightCheckpoint = Checkpoints.Any() ? Checkpoints.Keys.Max() : 0;
       int depth = 0;
       int nextLocationDepth = 0;
 
-      while (header.Height > heightCheckpoint)
+      while (header != null)
       {
         if (depth == nextLocationDepth)
         {
@@ -213,8 +214,6 @@ namespace BTokenLib
         depth++;
         header = header.HeaderPrevious;
       }
-
-      locator.Add(header);
 
       return locator;
     }
@@ -275,15 +274,6 @@ namespace BTokenLib
 
     public void InsertHeader(Header header)
     {
-      if (
-        Checkpoints.TryGetValue(header.Height, out byte[] hashCheckpoint) &&
-        !hashCheckpoint.IsEqual(header.Hash))
-      {
-        throw new ProtocolException(
-          $"Header {header} at hight {header.Height} not equal " +
-          $"to checkpoint hash {hashCheckpoint.ToHexString()}.");
-      }
-
       header.AppendToHeader(HeaderTip);      
 
       HeaderTip.HeaderNext = header;
@@ -329,6 +319,12 @@ namespace BTokenLib
 
         headers.Add(HeaderTip);
       }
+    }
+
+
+    void CreateImage(int indexBlockArchive)
+    {
+      CreateImage(indexBlockArchive, NameImage);
     }
 
     void CreateImage(
@@ -447,15 +443,15 @@ namespace BTokenLib
     {
       DifficultyOld = HeaderTip.Difficulty;
 
-      if(headerAncestor.Height > 0)
-        LoadImage(
-          headerAncestor.Hash,
-          headerAncestor.Height);
-      else
+      if (headerAncestor.Height == 0)
       {
         InitializeHeaderchain();
         Token.Reset();
       }
+      else
+        LoadImage(
+          headerAncestor.Hash,
+          headerAncestor.Height);
 
       IsFork = HeaderTip.Height == headerAncestor.Height;
 
@@ -470,7 +466,7 @@ namespace BTokenLib
       IsFork = false;
     }
 
-    internal void FinalizeBlockchain()
+    internal void ReorganizeBlockchain()
     {
       if (IsFork)
       {
@@ -481,6 +477,11 @@ namespace BTokenLib
           IsFork = false;
         }
       }
+    }
+
+    public override string ToString()
+    {
+      return Token.GetName();
     }
   }
 }

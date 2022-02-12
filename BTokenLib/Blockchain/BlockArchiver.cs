@@ -184,7 +184,7 @@ namespace BTokenLib
           }
 
           if (blockLoad.Index % UTXOIMAGE_INTERVAL_LOADER == 0)
-            Blockchain.CreateImage(++blockLoad.Index, NameImage);
+            Blockchain.CreateImage(++blockLoad.Index);
 
           lock (LOCK_IndexBlockLoadInsert)
           {

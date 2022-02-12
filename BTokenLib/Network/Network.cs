@@ -14,7 +14,6 @@ namespace BTokenLib
   partial class Network
   {
     Token Token;
-    Blockchain Blockchain;
 
     const int UTXOIMAGE_INTERVAL_SYNC = 200;
     const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
@@ -23,7 +22,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333;
 
-    int CountPeersMax = Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 1;// Math.Max(Environment.ProcessorCount - 1, 4);
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
@@ -43,9 +42,6 @@ namespace BTokenLib
     public Network(Token token)
     {
       Token = token;
-
-      Blockchain = token.Blockchain;
-
 
       string pathRoot = token.GetName();
 
@@ -75,37 +71,57 @@ namespace BTokenLib
     async Task StartPeerConnector()
     {
       int countPeersCreate;
+      List<Peer> peersFlagDispose;
 
       try
       {
         while (true)
         {
           lock (LOCK_Peers)
-          {
-            List<Peer> peersDispose = Peers.FindAll(
-              p => p.FlagDispose);
+            peersFlagDispose = Peers.FindAll(p => p.FlagDispose);
 
-            peersDispose.ForEach(p =>
-            {
-              Peers.Remove(p);
-              p.Dispose();
-            });
-
-            countPeersCreate = CountPeersMax - 
-              Peers.Count(p => Token.DoesPeerSupportProtocol(p.ToString()));
-          }
+          lock (LOCK_Peers)
+            countPeersCreate = CountPeersMax 
+              - Peers.Count( p => Token.DoesPeerSupportProtocol(p.ToString()
+              + peersFlagDispose));
 
           if (countPeersCreate > 0)
           {
-            ($"Connect with {countPeersCreate} new peers. " +
-              $"{Peers.Count} peers connected currently.")
-              .Log(LogFile);
+            List<string> listExclusion = Peers.Select(p => p.ToString()).ToList();
 
-            List<IPAddress> iPAddresses =
-              RetrieveIPAddresses(countPeersCreate);
+            foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
+              if (DateTime.Now.Subtract(file.LastAccessTime).TotalHours > 4)
+                file.Delete();
+              else
+                listExclusion.Add(file.Name);
+
+            Token token = Token;
+            List<string> iPAddresses = new();
+
+            while (true)
+            {
+              List<string> iPAddressesToken = token.RetrieveIPAdresses(
+                countPeersCreate,
+                listExclusion);
+
+              iPAddresses.AddRange(iPAddressesToken);
+              listExclusion.AddRange(iPAddressesToken);
+
+              if (iPAddresses.Count == countPeersCreate || token.TokenParent == null)
+                break;
+
+              token = token.TokenParent;
+
+              lock (LOCK_Peers)
+                countPeersCreate = CountPeersMax - iPAddresses.Count - Peers.Count(
+                  p => token.DoesPeerSupportProtocol(p.ToString()));
+            }
 
             if (iPAddresses.Count > 0)
             {
+              ($"Connect with {countPeersCreate} new peers. " +
+                $"{Peers.Count} peers connected currently.").Log(LogFile);
+
               var createPeerTasks = new Task[iPAddresses.Count];
 
               Parallel.For(
@@ -119,7 +135,14 @@ namespace BTokenLib
               "No peer found to connect.".Log(LogFile);
           }
 
-          await Task.Delay(3000).ConfigureAwait(false);
+          lock (LOCK_Peers)
+            peersFlagDispose.ForEach(p =>
+            {
+              Peers.Remove(p);
+              p.Dispose();
+            });
+
+          await Task.Delay(10000).ConfigureAwait(false);
         }
       }
       catch (Exception ex)
@@ -128,41 +151,7 @@ namespace BTokenLib
       }
     }
 
-    List<IPAddress> RetrieveIPAddresses(int countMax)
-    {
-      List<string> listExclusion = Peers.Select(p => p.ToString()).ToList();
-
-      foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
-        if (DateTime.Now.Subtract(file.LastAccessTime).TotalHours > 4)
-          file.Delete();
-        else
-          listExclusion.Add(file.Name);
-
-      Token tokenIPAddresses = Token;
-
-      List<string> iPAddresses = new();
-
-      while (true)
-      {
-        List<string> iPAddressesToken = tokenIPAddresses.RetrieveIPAdresses(
-          countMax - iPAddresses.Count,
-          listExclusion);
-
-        iPAddresses.AddRange(iPAddressesToken);
-        listExclusion.AddRange(iPAddressesToken);
-
-        if (
-          iPAddresses.Count == countMax || 
-          tokenIPAddresses.TokenParent != null)
-        {
-          return iPAddresses.Select(ip => IPAddress.Parse(ip)).ToList();
-        }
-
-        tokenIPAddresses = Token.TokenParent;
-      }
-    }
-
-    async Task CreatePeer(IPAddress iP)
+    async Task CreatePeer(string iP)
     {
       lock (LOCK_Peers)
         if (Peers.Any(p => p.IPAddress.Equals(iP)))
@@ -174,9 +163,8 @@ namespace BTokenLib
       {
         peer = new Peer(
           this,
-          Blockchain,
           Token,
-          iP);
+          IPAddress.Parse(iP));
       }
       catch (Exception ex)
       {
@@ -207,7 +195,7 @@ namespace BTokenLib
 
     public void AddPeer(string iP)
     {
-      CreatePeer(IPAddress.Parse(iP));
+      CreatePeer(iP);
     }
 
     public void RemovePeer(string iPAddress)
@@ -232,6 +220,7 @@ namespace BTokenLib
     }
 
 
+    Blockchain BlockchainSync;
     Token TokenSync;
     Peer PeerSync;
 
@@ -241,7 +230,7 @@ namespace BTokenLib
       {
         await Task.Delay(5000).ConfigureAwait(false);
 
-        if (!Blockchain.TryLock())
+        if (!Token.TryLock())
           continue;
 
         lock (LOCK_Peers)
@@ -251,7 +240,7 @@ namespace BTokenLib
 
           if (PeerSync == null)
           {
-            Blockchain.ReleaseLock();
+            Token.ReleaseLock();
             continue;
           }
         }
@@ -259,18 +248,19 @@ namespace BTokenLib
         $"Start synchronization with peer {PeerSync}."
           .Log(LogFile);
 
-        TokenSync = Token.GetParentRoot();
+        TokenSync = PeerSync.Token.GetParentRoot();
+        BlockchainSync = TokenSync.Blockchain;
 
         try
         {
-          await PeerSync.GetHeaders(TokenSync);
+          await PeerSync.GetHeaders(BlockchainSync);
         }
         catch (Exception ex)
         {
           PeerSync.SetFlagDisposed(
             $"{ex.GetType().Name} in getheaders: \n{ex.Message}");
 
-          Blockchain.ReleaseLock();
+          Token.ReleaseLock();
           continue;
         }
       }
@@ -291,11 +281,11 @@ namespace BTokenLib
       if (
         headerDownload.HeaderTip != null &&
         headerDownload.HeaderTip.DifficultyAccumulated >
-        Blockchain.HeaderTip.DifficultyAccumulated)
+        TokenSync.Blockchain.HeaderTip.DifficultyAccumulated)
       {
         if (
-          headerDownload.HeaderAncestor != Blockchain.HeaderTip &&
-          !Blockchain.TryFork(headerDownload.HeaderAncestor))
+          headerDownload.HeaderAncestor != TokenSync.Blockchain.HeaderTip &&
+          !TokenSync.Blockchain.TryFork(headerDownload.HeaderAncestor))
         {
           PeerSync.FlagSyncScheduled = true;
           goto LABEL_ExitSync;
@@ -316,7 +306,7 @@ namespace BTokenLib
           if (FlagSyncAbort)
           {
             "Synchronization was abort. Reload Image.".Log(LogFile);
-            Blockchain.LoadImage();
+            TokenSync.Blockchain.LoadImage();
 
             lock (LOCK_Peers)
               Peers
@@ -350,7 +340,7 @@ namespace BTokenLib
               peer.Release();
             else
             {
-              Blockchain.FinalizeBlockchain();
+              TokenSync.Blockchain.ReorganizeBlockchain();
               break;
             }
           }
@@ -362,11 +352,11 @@ namespace BTokenLib
       }
       else
         PeerSync.SendHeaders(
-          new List<Header>() { Blockchain.HeaderTip });
+          new List<Header>() { TokenSync.Blockchain.HeaderTip });
 
       LABEL_ExitSync:
 
-      $"Synchronization of {TokenSync.GetType().Name} completed.".Log(LogFile);
+      $"Synchronization of {TokenSync.GetName()} completed.".Log(LogFile);
 
       if (TokenSync.TokenChild != null)
       {
@@ -380,7 +370,7 @@ namespace BTokenLib
         catch (Exception ex)
         {
           PeerSync.SetFlagDisposed(
-            $"{ex.GetType().Name} in {TokenSync.GetType().Name} getheaders: " +
+            $"{ex.GetType().Name} in {TokenSync.GetName()} getheaders: " +
             $"\n{ex.Message}");
         }
       }
@@ -391,7 +381,7 @@ namespace BTokenLib
 
       PeerSync.Release();
 
-      Blockchain.ReleaseLock();
+      Token.ReleaseLock();
     }
 
 
@@ -451,12 +441,12 @@ namespace BTokenLib
             try
             {
               for (int i = 0; i < blockDownload.HeadersExpected.Count; i += 1)
-                Blockchain.InsertBlock(
+                TokenSync.Blockchain.InsertBlock(
                   blockDownload.Blocks[i],
                   intervalArchiveImage: UTXOIMAGE_INTERVAL_SYNC);
 
               ($"Inserted blockDownload {blockDownload.Index} from peer " +
-                $"{blockDownload.Peer}. Height: {Blockchain.HeaderTip.Height}.")
+                $"{blockDownload.Peer}. Height: {TokenSync.Blockchain.HeaderTip.Height}.")
               .Log(LogFile);
             }
             catch (Exception ex)
@@ -530,7 +520,7 @@ namespace BTokenLib
           if (blockDownload == null &&
             !PoolBlockDownload.TryTake(out blockDownload))
           {
-            blockDownload = new(Token);
+            blockDownload = new(TokenSync);
           }
 
           blockDownload.Peer = peer;
@@ -606,38 +596,6 @@ namespace BTokenLib
         FlagThrottle = false;
     }
 
-    List<Header> QueueBlocksUnsolicited = new();
-
-    async Task<bool> TryEnqueuBlockUnsolicited(
-      Header header)
-    {
-      int countTriesLeft = 10;
-
-      lock (QueueBlocksUnsolicited)
-        QueueBlocksUnsolicited.Add(header);
-
-      while (true)
-      {
-        lock (QueueBlocksUnsolicited)
-          if (QueueBlocksUnsolicited[0] == header)
-          {
-            if (Blockchain.TryLock())
-            {
-              QueueBlocksUnsolicited.Remove(header);
-              return true;
-            }
-
-            if (countTriesLeft-- == 0)
-            {
-              QueueBlocksUnsolicited.Remove(header);
-              return false;
-            }
-          }
-
-        await Task.Delay(500).ConfigureAwait(false);
-      }
-    }
-
     public void RelayBlock(Block block)
     {
       RelayBlock(block, null);
@@ -655,7 +613,6 @@ namespace BTokenLib
         }
       });
     }
-
 
     bool TryGetPeer(out Peer peer)
     {
@@ -713,7 +670,6 @@ namespace BTokenLib
         {
           peer = new(
             this,
-            Blockchain,
             Token,
             tcpClient);
 

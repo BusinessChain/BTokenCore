@@ -18,8 +18,7 @@ namespace BTokenLib
     partial class Peer
     {
       Network Network;
-      Blockchain Blockchain;
-      Token Token;
+      public Token Token;
 
       public bool IsBusy;
       public bool FlagDispose;
@@ -75,18 +74,16 @@ namespace BTokenLib
 
       DateTime TimePeerCreation = DateTime.Now;
 
-      const int SECONDS_PEER_BANNED = 10;
+      const int SECONDS_PEER_BANNED = 1000;
 
 
 
       public Peer(
         Network network,
-        Blockchain blockchain,
         Token token,
         TcpClient tcpClient)
         : this(
            network,
-           blockchain,
            token,
            ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address)
       {
@@ -98,12 +95,10 @@ namespace BTokenLib
 
       public Peer(
         Network network,
-        Blockchain blockchain,
         Token token,
         IPAddress ip)
       {
         Network = network;
-        Blockchain = blockchain;
         Token = token;
 
         IPAddress = ip;
@@ -161,7 +156,7 @@ namespace BTokenLib
           portLocal: Port,
           nonce: 0,
           userAgent: UserAgent,
-          blockchainHeight: Blockchain.HeaderTip.Height,
+          blockchainHeight: 0,
           relayOption: 0x01));
 
         await SendMessage(new VerAckMessage());
@@ -283,9 +278,6 @@ namespace BTokenLib
               {
                 block.Parse();
 
-                if (!await Network.TryEnqueuBlockUnsolicited(block.Header))
-                  break;
-
                 Console.Beep(1600, 100);
 
                 if (QueueHeadersUnsolicited.Any())
@@ -300,12 +292,15 @@ namespace BTokenLib
                   Cancellation = new();
                 }
 
+                if (!Network.Token.TryLock())
+                  continue;
+
                 try
                 {
                   if (block.Header.HashPrevious.IsEqual(
-                    Blockchain.HeaderTip.Hash))
+                    Token.Blockchain.HeaderTip.Hash))
                   {
-                    Blockchain.InsertBlock(block);
+                    Token.Blockchain.InsertBlock(block);
 
                     Network.RelayBlock(block, this);
 
@@ -330,7 +325,7 @@ namespace BTokenLib
                 }
                 finally
                 {
-                  Blockchain.ReleaseLock();
+                  Token.ReleaseLock();
                 }
               }
               
@@ -361,8 +356,7 @@ namespace BTokenLib
                   break;
 
                 case "addr":
-                  AddressMessage addressMessage =
-                    new AddressMessage(Payload);
+                  AddressMessage addressMessage = new(Payload);
                   break;
 
                 case "sendheaders":
@@ -399,12 +393,13 @@ namespace BTokenLib
                         byteIndex += 1;
 
                         HeaderDownload.InsertHeader(header);
-
-                        $"Parsed requested header {header}.".Log(LogFile);
                       }
                     }
-                    catch (ProtocolException)
+                    catch (ProtocolException ex)
                     {
+                      ($"{ex.GetType().Name} when receiving headers:\n" +
+                        $"{ex.Message}").Log(LogFile);
+
                       continue; 
                       // Don't disconnect on parser exception but on timeout instead.
                     }
@@ -473,11 +468,12 @@ namespace BTokenLib
                     Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
                     startIndex += 32;
 
-                    $"Scan locator for common ancestor index {i}, {hashHeaderAncestor.ToHexString()}".Log(LogFile);
+                    ($"Scan locator for common ancestor index {i}, " +
+                      $"{hashHeaderAncestor.ToHexString()}").Log(LogFile);
 
                     i += 1;
 
-                    if (Blockchain.TryReadHeader(
+                    if (Token.Blockchain.TryReadHeader(
                       hashHeaderAncestor,
                       out Header header))
                     {
@@ -562,11 +558,11 @@ namespace BTokenLib
                       }
                     }
                     else if(inventory.Type == InventoryType.MSG_BLOCK)
-                      if (Blockchain.TryReadHeader(
+                      if (Token.Blockchain.TryReadHeader(
                         inventory.Hash,
                         out Header header))
                       {
-                        byte[] blockArchive = Blockchain.Archiver.LoadBlockArchive(
+                        byte[] blockArchive = Token.Blockchain.Archiver.LoadBlockArchive(
                          header.IndexBlockArchive);
 
                         await SendMessage(new BlockMessage(
@@ -592,7 +588,7 @@ namespace BTokenLib
             $"{ex.GetType().Name} in listener: \n{ex.Message}");
 
           if (IsStateAwaitingHeader())
-            Blockchain.ReleaseLock();
+            Network.Token.ReleaseLock();
           else if(IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
         }
@@ -603,7 +599,7 @@ namespace BTokenLib
         try
         {
           if (HeaderUnsolicited.HashPrevious.IsEqual(
-            Blockchain.HeaderTip.Hash))
+            Token.Blockchain.HeaderTip.Hash))
           {
             await SendMessage(new GetDataMessage(
               new List<Inventory>()
@@ -633,7 +629,7 @@ namespace BTokenLib
 
       public void HandleHeaderUnsolicitedDuplicateOrOrphan(Header header)
       {
-        if (Blockchain.TryReadHeader(
+        if (Token.Blockchain.TryReadHeader(
           header.Hash,
           out Header headerReceivedNow))
         {
@@ -679,13 +675,13 @@ namespace BTokenLib
         Release();
       }
                             
-      public async Task GetHeaders(Token tokenSync)
+      public async Task GetHeaders(Blockchain blockchain)
       {
         HeaderDownload = new(
-          tokenSync.Blockchain.GetLocator(), 
+          blockchain.GetLocator(), 
           this);
                
-        ($"Send {tokenSync.GetType().Name} getheaders to peer {this},\n" +
+        ($"Send {blockchain} getheaders to peer {this},\n" +
           $"locator: {HeaderDownload}").Log(LogFile);
 
         SetStateHeaderDownload();

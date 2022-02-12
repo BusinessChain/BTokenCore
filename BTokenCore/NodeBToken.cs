@@ -28,6 +28,8 @@ namespace BTokenCore
 
     public void Start()
     {
+      BToken.LoadImage();
+
       Network.Start();
 
       RunConsole();
