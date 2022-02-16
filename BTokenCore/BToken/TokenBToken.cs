@@ -16,13 +16,10 @@ namespace BTokenCore
     UWTOTable UWTOTable;
 
 
-    public TokenBToken(
-      string pathBlockArchive,
-      Token tokenParent) 
+    public TokenBToken(string pathBlockArchive, Token tokenParent)
       : base(pathBlockArchive)
     {
       TokenParent = tokenParent;
-      TokenParent.TokenChild = this;
 
       UWTOTable = new(GetGenesisBlockBytes());
     }
@@ -42,14 +39,21 @@ namespace BTokenCore
       return header;
     }
 
-    public override void StartMining(object network)
+
+    public override void LoadImage(string pathImage)
+    {
+      UWTOTable.LoadImage(pathImage);
+      Wallet.LoadImage(pathImage);
+    }
+
+    public override void StartMining()
     {
       if (IsMining)
         return;
 
       IsMining = true;
 
-      RunMining((Network)network);
+      RunMining();
     }
 
 
@@ -175,10 +179,6 @@ namespace BTokenCore
       throw new NotImplementedException();
     }
 
-    public override void LoadImage(string pathImage)
-    {
-      throw new NotImplementedException();
-    }
 
     public Dictionary<int, byte[]> GetCheckpoints()
     {
@@ -206,23 +206,6 @@ namespace BTokenCore
       return new BlockBToken(sizeBuffer);
     }
 
-    public override string GetStatus()
-    {
-      Token tokenStatus = this;
-      string statusMessage = "";
-
-      do
-      {
-        statusMessage += 
-          $"Status {tokenStatus.GetType().Name}:\n" +
-          $"{tokenStatus.Blockchain.GetStatus()}";
-
-        tokenStatus = tokenStatus.TokenParent;
-      } while (tokenStatus != null);
-
-
-      return statusMessage;
-    }
 
     byte[] GetGenesisBlockBytes()
     {

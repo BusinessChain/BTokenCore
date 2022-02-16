@@ -22,7 +22,7 @@ namespace BTokenLib
 
       public bool IsBusy;
       public bool FlagDispose;
-      public bool FlagSyncScheduled;
+      public bool FlagSyncStaged;
 
       public enum StateProtocol
       {
@@ -90,7 +90,7 @@ namespace BTokenLib
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
         Connection = ConnectionType.INBOUND;
-        FlagSyncScheduled = false;
+        FlagSyncStaged = false;
       }
 
       public Peer(
@@ -103,7 +103,7 @@ namespace BTokenLib
 
         IPAddress = ip;
         Connection = ConnectionType.OUTBOUND;
-        FlagSyncScheduled = true;
+        FlagSyncStaged = true;
 
         CreateLogFile(ip.ToString());
 
@@ -386,7 +386,7 @@ namespace BTokenLib
                     {
                       while (byteIndex < PayloadLength)
                       {
-                        Header header = Network.TokenSync.ParseHeader(
+                        Header header = Token.ParseHeader(
                           Payload,
                           ref byteIndex);
 
@@ -450,8 +450,6 @@ namespace BTokenLib
 
                 case "getheaders":
 
-                  FlagSyncScheduled = false;
-
                   byte[] hashHeaderAncestor = new byte[32];
 
                   int startIndex = 4;
@@ -500,7 +498,7 @@ namespace BTokenLib
 
                       await SendHeaders(headers);
 
-                      FlagSyncScheduled = true;
+                      FlagSyncStaged = true;
                     }
                   }
 
@@ -643,12 +641,13 @@ namespace BTokenLib
         }
         else
         {
-          if (!FlagSyncScheduled)
+          if (!FlagSyncStaged)
           {
             CountOrphanReceived = 0;
-            FlagSyncScheduled = true;
+            FlagSyncStaged = true;
 
-            $"Schedule synchronization because received orphan header {header}".Log(LogFile);
+            $"Stage synchronization because received orphan header {header}"
+              .Log(LogFile);
           }
           else if (CountOrphanReceived > 10)
             throw new ProtocolException(
@@ -681,7 +680,7 @@ namespace BTokenLib
           blockchain.GetLocator(), 
           this);
                
-        ($"Send {blockchain} getheaders to peer {this},\n" +
+        ($"Send getheaders to peer {this},\n" +
           $"locator: {HeaderDownload}").Log(LogFile);
 
         SetStateHeaderDownload();
@@ -695,6 +694,8 @@ namespace BTokenLib
 
       public async Task GetBlock()
       {
+        $"Start Block downloading with peer {this}".Log(LogFile);
+
         SetStateBlockDownload();
 
         List<Inventory> inventories =
@@ -741,19 +742,19 @@ namespace BTokenLib
         }
       }
 
-      public bool TryStageSync()
+      public bool TrySync()
       {
         lock(this)
         {
           if (
-            !FlagSyncScheduled ||
+            !FlagSyncStaged ||
             FlagDispose ||
             IsBusy)
           {
             return false;
           }
 
-          FlagSyncScheduled = false;
+          FlagSyncStaged = false;
           IsBusy = true;
           return true;
         }
@@ -851,7 +852,7 @@ namespace BTokenLib
             $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
             $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
             $"CountBlockingBlockDownload: {CountWastedBlockDownload}\n" +
-            $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
+            $"FlagSynchronizationScheduled: {FlagSyncStaged}\n";
         }
       }
     }

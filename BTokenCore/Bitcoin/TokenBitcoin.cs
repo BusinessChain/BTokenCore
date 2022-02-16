@@ -118,7 +118,7 @@ namespace BTokenCore
     }
 
 
-    public override void StartMining(object network)
+    public override void StartMining()
     {
       if (IsMining)
         return;
@@ -131,7 +131,7 @@ namespace BTokenCore
       Parallel.For(
         0,
         numberOfProcesses,
-        i => RunMining((Network)network, i * nonceSegment));
+        i => RunMining(i * nonceSegment));
 
       IsMining = false;
       FlagMiningCancel = false;
@@ -293,13 +293,6 @@ namespace BTokenCore
         block.TXs,
         block.Header.IndexBlockArchive,
         Wallet);
-    }
-
-    public override string GetStatus()
-    {
-      return
-        Blockchain.GetStatus();
-        //+ UTXOTable.GetStatus();
     }
 
     public override Header ParseHeader(

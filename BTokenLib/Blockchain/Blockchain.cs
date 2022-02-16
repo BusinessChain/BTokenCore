@@ -35,10 +35,11 @@ namespace BTokenLib
 
     public Blockchain(
       Token token,
-      string pathRootSystem,
       string pathBlockArchive)
     {
       Token = token;
+      string pathRootSystem = token.GetName();
+      pathBlockArchive = Path.Combine(pathBlockArchive, token.GetName());
 
       Directory.CreateDirectory(pathRootSystem);
       NameFork = Path.Combine(pathRootSystem, "Fork");
@@ -74,9 +75,7 @@ namespace BTokenLib
     public void ReleaseLock()
     {
       lock (LOCK_IsBlockchainLocked)
-      {
         IsBlockchainLocked = false;
-      }
     }
 
     public string GetStatus()
@@ -106,6 +105,8 @@ namespace BTokenLib
       byte[] hashStopLoading,
       int heightStopLoading)
     {
+      Debug.WriteLine($"Load image {this}.");
+
       string pathImage = NameImage;
 
       while (true)
@@ -152,7 +153,7 @@ namespace BTokenLib
     }
 
 
-    void LoadImageHeaderchain(string pathImage)
+    public void LoadImageHeaderchain(string pathImage)
     {
       byte[] bytesHeaderImage = File.ReadAllBytes(
         Path.Combine(pathImage, "ImageHeaderchain"));
@@ -185,7 +186,7 @@ namespace BTokenLib
     }
 
 
-    void InitializeHeaderchain()
+    public void InitializeHeaderchain()
     {
       HeaderGenesis = Token.CreateHeaderGenesis();
 

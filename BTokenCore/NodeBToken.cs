@@ -12,7 +12,6 @@ namespace BTokenCore
   partial class NodeBToken
   {
     TokenBToken BToken;
-    Network Network;
 
 
     public NodeBToken(string pathBlockArchive)
@@ -20,17 +19,11 @@ namespace BTokenCore
       BToken = new(
         pathBlockArchive,
         new TokenBitcoin(pathBlockArchive));
-
-      Network = new(BToken);
-
-      BToken.ConnectNetwork(Network);
     }
 
     public void Start()
     {
-      BToken.LoadImage();
-
-      Network.Start();
+      BToken.Start();
 
       RunConsole();
     }
@@ -53,21 +46,18 @@ namespace BTokenCore
         switch(inputCommand)
         {
           case "status":
-            Console.WriteLine(BToken.GetStatus());
-            break;
 
-          case "statusNet":
-            Console.WriteLine(Network.GetStatus());
+            Console.WriteLine(BToken.GetStatus());
             break;
 
           case "startBTokenMiner":
             new Thread(BToken.StartMining)
-              .Start(Network);
+              .Start();
             break;
 
           case "startBitcoinMiner":
             new Thread(BToken.TokenParent.StartMining)
-              .Start(Network);
+              .Start();
             break;
 
           case "stopBTokenMiner":
@@ -80,20 +70,20 @@ namespace BTokenCore
             break;
 
           case "addPeer":
-            Network.AddPeer();
+            BToken.Network.AddPeer();
             break;
 
           case "addPeerIP":
-            Network.AddPeer("3.67.200.137"); // "84.75.2.239"
+            BToken.Network.AddPeer("3.67.200.137"); // "84.75.2.239"
             break;
 
           case "sync":
-            Network.ScheduleSynchronization();
+            BToken.Network.ScheduleSynchronization();
             break;
 
           case "removePeer":
             string iPRemove = Console.ReadLine();
-            Network.RemovePeer(iPRemove);
+            BToken.Network.RemovePeer(iPRemove);
             break;
 
           default:

@@ -12,14 +12,13 @@ namespace BTokenLib
 {
   public abstract partial class Token
   {
-    public Token TokenChild;
     public Token TokenParent;
 
     public Blockchain Blockchain;
 
     public Wallet Wallet;
 
-    protected Network Network;
+    public Network Network;
 
     List<string> IPAddressPool = new();
 
@@ -30,8 +29,9 @@ namespace BTokenLib
     {
       Blockchain = new Blockchain(
         this,
-        pathRootSystem: GetName(),
-        pathBlockArchive: Path.Combine(pathBlockArchive, GetName()));
+        pathBlockArchive);
+
+      Network = new(this);
 
       Wallet = new();
 
@@ -50,15 +50,28 @@ namespace BTokenLib
       }
     }
 
-    public void ConnectNetwork(Network network)
+    public void Start()
     {
-      Token token = this;
+      if (TokenParent != null)
+        TokenParent.Start();
+      
+      Blockchain.LoadImage();
+      Network.Start();
+    }
 
-      while(token != null)
-      {
-        token.Network = network;
-        token = token.TokenParent;
-      }
+    public string GetStatus()
+    {
+      string messageStatus = "";
+
+      if (TokenParent != null)
+        messageStatus += TokenParent.GetStatus();
+
+      messageStatus +=
+        $"\n\nStatus {GetName()}:\n" +
+        $"{Blockchain.GetStatus()}" +
+        $"{Network.GetStatus()}";
+
+      return messageStatus;
     }
 
 
@@ -67,7 +80,10 @@ namespace BTokenLib
 
     public bool TryLock()
     {
-      lock (LOCK_IsLocked)
+      if (TokenParent != null)
+        return TokenParent.TryLock();
+
+      lock (this)
       {
         if (IsLocked)
           return false;
@@ -85,14 +101,6 @@ namespace BTokenLib
       }
     }
 
-    public virtual void LoadImage()
-    {
-      if (TokenParent != null)
-        TokenParent.LoadImage();
-
-      Debug.WriteLine($"Load image {GetName()}.");
-      Blockchain.LoadImage();
-    }
 
     public Token GetParentRoot()
     {
@@ -115,18 +123,18 @@ namespace BTokenLib
     protected bool IsMining;
     protected bool FlagMiningCancel;
 
-    public abstract void StartMining(object network);
+    public abstract void StartMining();
     public void StopMining()
     {
       if (IsMining)
         FlagMiningCancel = true;
     }
 
-    protected async Task RunMining(Network network)
+    protected async Task RunMining()
     {
-      await RunMining(network, 0);
+      await RunMining(0);
     }
-    protected async Task RunMining(Network network, long seed)
+    protected async Task RunMining(long seed)
     {
       SHA256 sHA256 = SHA256.Create();
 
@@ -163,7 +171,7 @@ namespace BTokenLib
           Blockchain.ReleaseLock();
         }
 
-        network.RelayBlock(block);
+        Network.RelayBlock(block);
       }
 
     LABEL_Exit_Miner:
@@ -205,7 +213,6 @@ namespace BTokenLib
 
     protected abstract void InsertInDatabase(Block block);
 
-    public abstract string GetStatus();
 
     public abstract Header ParseHeader(
       byte[] buffer,
