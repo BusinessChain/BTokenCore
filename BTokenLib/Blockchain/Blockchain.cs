@@ -13,18 +13,22 @@ namespace BTokenLib
   public partial class Blockchain
   {
     Token Token;
-    public BlockArchiver Archiver;
 
     Header HeaderGenesis;
     public Header HeaderTip;
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    string NameFork;
-    string NameImage;
-    string NameImageOld;
+    static string NameFork = "Fork";
+    static string NameImage = "Image";
+    static string NameImageOld = "ImageOld";
 
-    string FileNameIndexBlockArchive;
+    string PathImage;
+    string PathImageOld;
+    string PathImageFork;
+    string PathImageForkOld;
+
+    string PathRootSystem;
 
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
@@ -33,28 +37,33 @@ namespace BTokenLib
 
 
 
-    public Blockchain(
-      Token token,
-      string pathBlockArchive)
+    public Blockchain(Token token)
     {
       Token = token;
-      string pathRootSystem = token.GetName();
-      pathBlockArchive = Path.Combine(pathBlockArchive, token.GetName());
+      PathRootSystem = token.GetName();
 
-      Directory.CreateDirectory(pathRootSystem);
-      NameFork = Path.Combine(pathRootSystem, "Fork");
-      NameImage = Path.Combine(pathRootSystem, "Image");
-      NameImageOld = Path.Combine(pathRootSystem, "ImageOld");
+      Directory.CreateDirectory(PathRootSystem);
 
-      FileNameIndexBlockArchive = Path.Combine(pathRootSystem, "IndexBlockArchive");
+      PathImage = Path.Combine(
+        PathRootSystem,
+        NameImage);
 
-      Archiver = new BlockArchiver(
-        this, 
-        token,
-        pathBlockArchive);
+      PathImageOld = Path.Combine(
+        PathRootSystem,
+        NameImageOld);
+
+      PathImageFork = Path.Combine(
+        PathRootSystem,
+        NameFork,
+        NameImage);
+
+      PathImageForkOld = Path.Combine(
+        PathRootSystem,
+        NameFork,
+        NameImageOld);
 
       LogFile = new StreamWriter(
-        Path.Combine(pathRootSystem, "LogBlockchain"),
+        Path.Combine(PathRootSystem, "LogBlockchain"),
         false);
 
       InitializeHeaderchain();
@@ -96,59 +105,46 @@ namespace BTokenLib
 
     public void LoadImage()
     {
-      LoadImage(
-        new byte[32],
-        0);
+      LoadImage(0);
     }
         
-    void LoadImage(
-      byte[] hashStopLoading,
-      int heightStopLoading)
+    public void LoadImage(int heightMax)
     {
-      Debug.WriteLine($"Load image {this}.");
+      $"Load image {this}.".Log(LogFile);
 
-      string pathImage = NameImage;
+      string pathImageLoad = PathImage;
 
       while (true)
       {
         InitializeHeaderchain();
         Token.Reset();
-        int indexBlockArchive;
+
+        if (heightMax == 0)
+          return;
 
         try
         {
-          LoadImageHeaderchain(pathImage);
+          LoadImageHeaderchain(pathImageLoad);
 
-          if (heightStopLoading > 0 &&  HeaderTip.Height > heightStopLoading)
+          if (HeaderTip.Height > heightMax)
             throw new ProtocolException(
-              $"Headerchain not loading up to desired height {heightStopLoading}.");
+              $"Image higher than desired height {heightMax}.");
 
-          Token.LoadImage(pathImage);
-
-          indexBlockArchive = BitConverter.ToInt32(
-            File.ReadAllBytes(
-              Path.Combine(
-                pathImage,
-                FileNameIndexBlockArchive)),
-            0);
+          Token.LoadImage(pathImageLoad);
         }
         catch
         {
           InitializeHeaderchain();
           Token.Reset();
-          indexBlockArchive = 1;
 
-          if (pathImage == NameImage)
+          if (pathImageLoad == PathImage)
           {
-            pathImage = NameImageOld;
+            pathImageLoad = PathImageOld;
             continue;
           }
-          else
-            pathImage = NameImage;
         }
 
-        if (Archiver.TryLoadBlocks(indexBlockArchive,hashStopLoading))
-          return;
+        return;
       }
     }
 
@@ -251,26 +247,14 @@ namespace BTokenLib
 
 
     public void InsertBlock(
-      Block block,
-      int intervalArchiveImage = 3)
+      Block block, 
+      bool flagCreateImage)
     {
       InsertHeader(block.Header);
-
-      bool flagCreateImage = Archiver.ArchiveBlockFlagCreateImage(
-        block,
-        intervalArchiveImage);
-
       Token.InsertBlock(block);
 
-      if(flagCreateImage)
-      {
-        string pathImage = IsFork ?
-          Path.Combine(NameFork, NameImage) : NameImage;
-
-        CreateImage(
-          Archiver.IndexBlockArchiveInsert,
-          pathImage);
-      }
+      if (flagCreateImage)
+        CreateImage();
     }
 
     public void InsertHeader(Header header)
@@ -323,14 +307,15 @@ namespace BTokenLib
     }
 
 
-    void CreateImage(int indexBlockArchive)
+    public void CreateImage()
     {
-      CreateImage(indexBlockArchive, NameImage);
+      string pathImage = IsFork ?
+        Path.Combine(NameFork, NameImage) : NameImage;
+
+      CreateImage(pathImage);
     }
 
-    void CreateImage(
-      int indexBlockArchive,
-      string pathImage)
+    void CreateImage(string pathImage)
     {
       try
       {
@@ -423,12 +408,6 @@ namespace BTokenLib
           }
         }
 
-        File.WriteAllBytes(
-          Path.Combine(
-            pathImage,
-            FileNameIndexBlockArchive),
-          BitConverter.GetBytes(indexBlockArchive));
-
         Token.CreateImage(pathImage);
       }
       catch (Exception ex)
@@ -440,44 +419,39 @@ namespace BTokenLib
     public bool IsFork;
     public double DifficultyOld;
 
-    internal bool TryFork(Header headerAncestor)
+    internal void Reorganize()
     {
-      DifficultyOld = HeaderTip.Difficulty;
-
-      if (headerAncestor.Height == 0)
-      {
-        InitializeHeaderchain();
-        Token.Reset();
-      }
-      else
-        LoadImage(
-          headerAncestor.Hash,
-          headerAncestor.Height);
-
-      IsFork = HeaderTip.Height == headerAncestor.Height;
-
-      if (!IsFork)
-        LoadImage();
-
-      return IsFork;
+      TryMoveDirectory(PathImageFork, PathImage);
+      TryMoveDirectory(PathImageForkOld, PathImageOld);
     }
 
-    internal void DismissFork()
+    bool TryMoveDirectory(string pathSource, string pathDest)
     {
-      IsFork = false;
-    }
+      if (!Directory.Exists(pathSource))
+        return false;
 
-    internal void ReorganizeBlockchain()
-    {
-      if (IsFork)
-      {
-        if (HeaderTip.Difficulty > DifficultyOld)
-          Archiver.Reorganize();
-        else
+      while (true)
+        try
         {
-          IsFork = false;
+          if (Directory.Exists(pathDest))
+            Directory.Delete(
+              pathDest,
+              true);
+
+          Directory.Move(
+            pathSource,
+            pathDest);
+
+          return true;
         }
-      }
+        catch (Exception ex)
+        {
+          Console.WriteLine(
+            $"{ex.GetType().Name} when attempting " +
+            $"to delete directory:\n{ex.Message}");
+
+          Thread.Sleep(3000);
+        }
     }
 
     public override string ToString()

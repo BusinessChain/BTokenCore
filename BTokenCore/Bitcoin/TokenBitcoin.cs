@@ -17,8 +17,8 @@ namespace BTokenCore
 
 
 
-    public TokenBitcoin(string pathBlockArchive)
-      : base(pathBlockArchive)
+    public TokenBitcoin()
+      : base()
     {
       UTXOTable = new();
     }

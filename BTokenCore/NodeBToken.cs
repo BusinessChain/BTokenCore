@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 
-using BTokenLib;
 
 namespace BTokenCore
 {
@@ -14,11 +13,10 @@ namespace BTokenCore
     TokenBToken BToken;
 
 
-    public NodeBToken(string pathBlockArchive)
+    public NodeBToken()
     {
       BToken = new(
-        pathBlockArchive,
-        new TokenBitcoin(pathBlockArchive));
+        new TokenBitcoin());
     }
 
     public void Start()

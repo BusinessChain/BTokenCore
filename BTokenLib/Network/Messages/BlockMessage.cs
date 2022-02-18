@@ -11,15 +11,12 @@ namespace BTokenLib
   {
     class BlockMessage : NetworkMessage
     {
-      public BlockMessage(
-        byte[] buffer, 
-        int indexPayloadOffset, 
-        int countBytesPayload)
+      public BlockMessage(Block block)
         : base(
-            "block", 
-            buffer,
-            indexPayloadOffset,
-            countBytesPayload)
+            "block",
+            block.Buffer,
+            block.Header.StartIndexBlockArchive,
+            block.Header.CountBlockBytes)
       { }
     }
   }

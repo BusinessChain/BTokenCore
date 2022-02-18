@@ -28,6 +28,7 @@ namespace BTokenLib
     object LOCK_Peers = new();
     List<Peer> Peers = new();
     ConcurrentBag<BlockDownload> PoolBlockDownload = new();
+    List<Block> BlocksCached = new();
 
     static readonly DirectoryInfo DirectoryLogPeers =
       Directory.CreateDirectory("logPeers");
@@ -252,6 +253,7 @@ namespace BTokenLib
 
     async Task Sync()
     {
+      double difficultyOld = 0.0;
       HeaderDownload headerDownload = PeerSync.HeaderDownload;
 
       if (
@@ -259,12 +261,10 @@ namespace BTokenLib
         headerDownload.HeaderTip.DifficultyAccumulated >
         Blockchain.HeaderTip.DifficultyAccumulated)
       {
-        if (
-          headerDownload.HeaderAncestor != Blockchain.HeaderTip &&
-          !Blockchain.TryFork(headerDownload.HeaderAncestor))
+        if (headerDownload.HeaderAncestor != Blockchain.HeaderTip)
         {
-          PeerSync.FlagSyncStaged = true;
-          goto LABEL_ExitSync;
+          difficultyOld = Blockchain.HeaderTip.Difficulty;
+          Blockchain.LoadImage(headerDownload.HeaderAncestor.Height);
         }
 
         FlagSyncAbort = false;
@@ -311,7 +311,13 @@ namespace BTokenLib
               peer.Release();
             else
             {
-              Blockchain.ReorganizeBlockchain();
+              if(
+                difficultyOld > 0 && 
+                Blockchain.HeaderTip.Difficulty > difficultyOld)
+              {
+                Blockchain.Reorganize();
+              }
+
               break;
             }
 
@@ -323,8 +329,6 @@ namespace BTokenLib
       else
         PeerSync.SendHeaders(
           new List<Header>() { Blockchain.HeaderTip });
-
-      LABEL_ExitSync:
 
       $"Synchronization of {Token.GetName()} completed.".Log(LogFile);
 
@@ -369,8 +373,8 @@ namespace BTokenLib
 
             blockDownload.Peer = peer;
             blockDownload.Index = BlockDownloadBlocking.Index;
-            blockDownload.HeadersExpected = BlockDownloadBlocking.HeadersExpected.ToList();
-            blockDownload.IndexHeadersExpected = 0;
+            blockDownload.Headers = BlockDownloadBlocking.Headers.ToList();
+            blockDownload.IndexHeaders = 0;
             blockDownload.BlockDownloadIndexPrevious = BlockDownloadBlocking.BlockDownloadIndexPrevious;
 
             peer.BlockDownload = blockDownload;
@@ -389,10 +393,10 @@ namespace BTokenLib
 
             try
             {
-              for (int i = 0; i < blockDownload.HeadersExpected.Count; i += 1)
+              for (int i = 0; i < blockDownload.Headers.Count; i += 1)
                 Blockchain.InsertBlock(
                   blockDownload.Blocks[i],
-                  intervalArchiveImage: UTXOIMAGE_INTERVAL_SYNC);
+                  flagCreateImage: blockDownload.Index % UTXOIMAGE_INTERVAL_SYNC == 0);
 
               ($"Inserted blockDownload {blockDownload.Index} from peer " +
                 $"{blockDownload.Peer}. Height: {Blockchain.HeaderTip.Height}.")
@@ -500,7 +504,7 @@ namespace BTokenLib
       peer.BlockDownload = null;
 
       blockDownload.Peer = null;
-      blockDownload.IndexHeadersExpected = 0;
+      blockDownload.IndexHeaders = 0;
       blockDownload.CountBytes = 0;
 
       lock(QueueDownloadsIncomplete)

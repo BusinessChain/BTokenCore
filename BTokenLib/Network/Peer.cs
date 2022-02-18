@@ -300,7 +300,9 @@ namespace BTokenLib
                   if (block.Header.HashPrevious.IsEqual(
                     Token.Blockchain.HeaderTip.Hash))
                   {
-                    Token.Blockchain.InsertBlock(block);
+                    Token.Blockchain.InsertBlock(
+                      block,
+                      flagCreateImage: true);
 
                     Network.RelayBlock(block, this);
 
@@ -534,7 +536,6 @@ namespace BTokenLib
                   getDataMessage = new(Payload);
 
                   foreach (Inventory inventory in getDataMessage.Inventories)
-                  {
                     if (inventory.Type == InventoryType.MSG_TX)
                     {
                       if (Token.TryRequestTX(
@@ -555,22 +556,16 @@ namespace BTokenLib
                         // Send notfound
                       }
                     }
-                    else if(inventory.Type == InventoryType.MSG_BLOCK)
-                      if (Token.Blockchain.TryReadHeader(
-                        inventory.Hash,
-                        out Header header))
-                      {
-                        byte[] blockArchive = Token.Blockchain.Archiver.LoadBlockArchive(
-                         header.IndexBlockArchive);
+                    else if (inventory.Type == InventoryType.MSG_BLOCK)
+                    {
+                      Block block = Network.BlocksCached
+                        .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
 
-                        await SendMessage(new BlockMessage(
-                          blockArchive,
-                          header.StartIndexBlockArchive,
-                          header.CountBlockBytes));
-                      }
-                      else
-                        await SendMessage(new RejectMessage(inventory.Hash));
-                  }
+                      if (block != null)
+                        await SendMessage(new BlockMessage(block));
+                    }
+                    else
+                      await SendMessage(new RejectMessage(inventory.Hash));
 
                   break;
 
@@ -696,10 +691,11 @@ namespace BTokenLib
       {
         $"Start Block downloading with peer {this}".Log(LogFile);
 
-        SetStateBlockDownload();
+        lock (this)
+          State = StateProtocol.BlockDownload;
 
         List<Inventory> inventories =
-          BlockDownload.HeadersExpected.Select(
+          BlockDownload.Headers.Select(
             h => new Inventory(
               InventoryType.MSG_BLOCK,
               h.Hash))
@@ -779,12 +775,6 @@ namespace BTokenLib
       {
         lock (this)
           State = StateProtocol.HeaderDownload;
-      }
-
-      public void SetStateBlockDownload()
-      {
-        lock (this)
-          State = StateProtocol.BlockDownload;
       }
 
       bool IsStateGetHeaders()

@@ -15,8 +15,8 @@ namespace BTokenLib
       public BlockDownload BlockDownloadIndexPrevious;
       public Peer Peer;
 
-      public List<Header> HeadersExpected = new();
-      public int IndexHeadersExpected;
+      public List<Header> Headers = new();
+      public int IndexHeaders;
       public List<Block> Blocks = new();
 
       public Stopwatch StopwatchBlockDownload = new();
@@ -40,23 +40,23 @@ namespace BTokenLib
 
       public void LoadHeaders(ref Header headerLoad)
       {
-        int countHeadersNew = HeadersExpected.Count *
+        int countHeadersNew = Headers.Count *
           (int)(TIMEOUT_RESPONSE_MILLISECONDS /
           (double)StopwatchBlockDownload.ElapsedMilliseconds);
 
         countHeadersNew = countHeadersNew > COUNT_BLOCK_MAX ?
           COUNT_BLOCK_MAX : countHeadersNew;
 
-        HeadersExpected.Clear();
-        IndexHeadersExpected = 0;
+        Headers.Clear();
+        IndexHeaders = 0;
         CountBytes = 0;
 
         do
         {
-          HeadersExpected.Add(headerLoad);
+          Headers.Add(headerLoad);
           headerLoad = headerLoad.HeaderNext;
         } while (
-        HeadersExpected.Count < countHeadersNew
+        Headers.Count < countHeadersNew
         && headerLoad != null);
       }
 
@@ -64,27 +64,27 @@ namespace BTokenLib
       {
         if(IsComplete())
         {
-          IndexHeadersExpected = 0;
+          IndexHeaders = 0;
         }
 
-        return Blocks[IndexHeadersExpected];
+        return Blocks[IndexHeaders];
       }
 
       public void Parse()
       {
-        Block block = Blocks[IndexHeadersExpected];
+        Block block = Blocks[IndexHeaders];
 
         block.Parse();
 
         if (!block.Header.Hash.IsEqual(
-          HeadersExpected[IndexHeadersExpected].Hash))
+          Headers[IndexHeaders].Hash))
         {
           throw new ProtocolException(
             $"Unexpected block {block} in blockLoad {Index}. \n" +
-            $"Excpected {HeadersExpected[IndexHeadersExpected]}.");
+            $"Excpected {Headers[IndexHeaders]}.");
         }
 
-        IndexHeadersExpected += 1;
+        IndexHeaders += 1;
         CountBytes += block.Header.CountBlockBytes;
 
         if (IsComplete())
@@ -95,7 +95,7 @@ namespace BTokenLib
       }
 
       public bool IsComplete() => 
-        IndexHeadersExpected == HeadersExpected.Count;
+        IndexHeaders == Headers.Count;
     }
   }
 }

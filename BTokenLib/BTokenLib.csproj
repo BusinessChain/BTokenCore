@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Blockchain\BlockArchiver.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="Wallet\wallet" />
   </ItemGroup>
 

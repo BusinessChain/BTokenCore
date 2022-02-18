@@ -26,7 +26,7 @@ namespace BTokenCore
           File.WriteAllText(pathConfigNode, pathBlockArchive);
         }
 
-        var node = new NodeBToken(pathBlockArchive);
+        NodeBToken node = new();
 
         Console.WriteLine("Start node.");
         node.Start();

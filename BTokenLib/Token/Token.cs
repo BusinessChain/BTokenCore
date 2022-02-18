@@ -25,11 +25,9 @@ namespace BTokenLib
     protected List<TX> TXPool = new();
 
 
-    public Token(string pathBlockArchive)
+    public Token()
     {
-      Blockchain = new Blockchain(
-        this,
-        pathBlockArchive);
+      Blockchain = new Blockchain(this);
 
       Network = new(this);
 
@@ -155,7 +153,9 @@ namespace BTokenLib
 
         try
         {
-          Blockchain.InsertBlock(block);
+          Blockchain.InsertBlock(
+            block, 
+            flagCreateImage: true);
 
           Debug.WriteLine($"Mined block {block}.");
         }

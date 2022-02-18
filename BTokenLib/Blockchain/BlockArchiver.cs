@@ -463,7 +463,7 @@ namespace BTokenLib
         OpenBlockArchive(IndexBlockArchiveInsert);
 
         Directory.Delete(pathBlockArchiveFork);
-        Blockchain.DismissFork();
+        Blockchain.IsFork = false;
       }
     }
   }

@@ -16,8 +16,8 @@ namespace BTokenCore
     UWTOTable UWTOTable;
 
 
-    public TokenBToken(string pathBlockArchive, Token tokenParent)
-      : base(pathBlockArchive)
+    public TokenBToken(Token tokenParent)
+      : base()
     {
       TokenParent = tokenParent;
 
