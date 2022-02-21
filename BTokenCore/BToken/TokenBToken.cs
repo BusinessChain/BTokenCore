@@ -40,10 +40,9 @@ namespace BTokenCore
     }
 
 
-    public override void LoadImage(string pathImage)
+    public override void LoadImageDatabase(string pathImage)
     {
       UWTOTable.LoadImage(pathImage);
-      Wallet.LoadImage(pathImage);
     }
 
     public override void StartMining()
@@ -174,9 +173,9 @@ namespace BTokenCore
 
 
 
-    public override void CreateImage(string pathImage)
+    public override void CreateImageDatabase(string pathImage)
     {
-      throw new NotImplementedException();
+      UWTOTable.CreateImage(pathImage);
     }
 
 
@@ -230,9 +229,9 @@ namespace BTokenCore
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
     }
 
-    public override void Reset()
+    public override void ResetDatabase()
     {
-      throw new NotImplementedException();
+      UWTOTable.Clear();
     }
 
     public override bool TryRequestTX(

@@ -269,20 +269,17 @@ namespace BTokenCore
       return header;
     }
 
-    public override void LoadImage(string pathImage)
+    public override void LoadImageDatabase(string pathImage)
     {
       UTXOTable.LoadImage(pathImage);
-      Wallet.LoadImage(pathImage);
     }
 
-    public override void CreateImage(string pathImage)
+    public override void CreateImageDatabase(string pathImage)
     {
       UTXOTable.CreateImage(pathImage);
-
-      Wallet.CreateImage(pathImage);
     }
 
-    public override void Reset()
+    public override void ResetDatabase()
     {
       UTXOTable.Clear();
     }

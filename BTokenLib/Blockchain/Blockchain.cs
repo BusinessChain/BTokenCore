@@ -19,54 +19,25 @@ namespace BTokenLib
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    static string NameFork = "Fork";
-    static string NameImage = "Image";
-    static string NameImageOld = "ImageOld";
-
-    string PathImage;
-    string PathImageOld;
-    string PathImageFork;
-    string PathImageForkOld;
-
-    string PathRootSystem;
-
     object LOCK_IsBlockchainLocked = new();
     bool IsBlockchainLocked;
-
-    StreamWriter LogFile;
 
 
 
     public Blockchain(Token token)
     {
       Token = token;
-      PathRootSystem = token.GetName();
-
-      Directory.CreateDirectory(PathRootSystem);
-
-      PathImage = Path.Combine(
-        PathRootSystem,
-        NameImage);
-
-      PathImageOld = Path.Combine(
-        PathRootSystem,
-        NameImageOld);
-
-      PathImageFork = Path.Combine(
-        PathRootSystem,
-        NameFork,
-        NameImage);
-
-      PathImageForkOld = Path.Combine(
-        PathRootSystem,
-        NameFork,
-        NameImageOld);
-
-      LogFile = new StreamWriter(
-        Path.Combine(PathRootSystem, "LogBlockchain"),
-        false);
-
       InitializeHeaderchain();
+    }
+
+    public void InitializeHeaderchain()
+    {
+      HeaderGenesis = Token.CreateHeaderGenesis();
+
+      HeaderTip = HeaderGenesis;
+
+      HeaderIndex.Clear();
+      IndexingHeaderTip();
     }
 
     public bool TryLock()
@@ -101,55 +72,47 @@ namespace BTokenLib
         $"Timestamp: {DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds)}\n" +
         $"Age: {ageBlock}\n";
     }
-
-
-    public void LoadImage()
+           
+    public void CreateImageHeaderchain(string path)
     {
-      LoadImage(0);
-    }
-        
-    public void LoadImage(int heightMax)
-    {
-      $"Load image {this}.".Log(LogFile);
-
-      string pathImageLoad = PathImage;
-
-      while (true)
+      using (FileStream fileImageHeaderchain = new(
+          path,
+          FileMode.Create,
+          FileAccess.Write,
+          FileShare.None))
       {
-        InitializeHeaderchain();
-        Token.Reset();
+        Header header = HeaderGenesis.HeaderNext;
 
-        if (heightMax == 0)
-          return;
-
-        try
+        while (header != null)
         {
-          LoadImageHeaderchain(pathImageLoad);
+          byte[] headerBytes = header.GetBytes();
 
-          if (HeaderTip.Height > heightMax)
-            throw new ProtocolException(
-              $"Image higher than desired height {heightMax}.");
+          fileImageHeaderchain.Write(
+            headerBytes, 0, headerBytes.Length);
 
-          Token.LoadImage(pathImageLoad);
+          byte[] bytesIndexBlockArchive =
+            BitConverter.GetBytes(header.IndexBlockArchive);
+
+          fileImageHeaderchain.Write(
+            bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
+
+          byte[] bytesStartIndexBlockArchive =
+            BitConverter.GetBytes(header.StartIndexBlockArchive);
+
+          fileImageHeaderchain.Write(
+            bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
+
+          byte[] bytesCountBlockBytes =
+            BitConverter.GetBytes(header.CountBlockBytes);
+
+          fileImageHeaderchain.Write(
+            bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
+
+          header = header.HeaderNext;
         }
-        catch
-        {
-          InitializeHeaderchain();
-          Token.Reset();
-
-          if (pathImageLoad == PathImage)
-          {
-            pathImageLoad = PathImageOld;
-            continue;
-          }
-        }
-
-        return;
       }
     }
-
-
-    public void LoadImageHeaderchain(string pathImage)
+    public void LoadImageHeaderchain(string pathImage, int heightMax)
     {
       byte[] bytesHeaderImage = File.ReadAllBytes(
         Path.Combine(pathImage, "ImageHeaderchain"));
@@ -179,19 +142,11 @@ namespace BTokenLib
 
         InsertHeader(header);
       }
+
+      if (HeaderTip.Height > heightMax)
+        throw new ProtocolException(
+          $"Image higher than desired height {heightMax}.");
     }
-
-
-    public void InitializeHeaderchain()
-    {
-      HeaderGenesis = Token.CreateHeaderGenesis();
-
-      HeaderTip = HeaderGenesis;
-
-      HeaderIndex.Clear();
-      IndexingHeaderTip();
-    }
-
 
     internal List<Header> GetLocator()
     {
@@ -245,18 +200,6 @@ namespace BTokenLib
         "Locator does not root in headerchain."));
     }
 
-
-    public void InsertBlock(
-      Block block, 
-      bool flagCreateImage)
-    {
-      InsertHeader(block.Header);
-      Token.InsertBlock(block);
-
-      if (flagCreateImage)
-        CreateImage();
-    }
-
     public void InsertHeader(Header header)
     {
       header.AppendToHeader(HeaderTip);      
@@ -306,157 +249,5 @@ namespace BTokenLib
       }
     }
 
-
-    public void CreateImage()
-    {
-      string pathImage = IsFork ?
-        Path.Combine(NameFork, NameImage) : NameImage;
-
-      CreateImage(pathImage);
-    }
-
-    void CreateImage(string pathImage)
-    {
-      try
-      {
-        while (true)
-        {
-          try
-          {
-            Directory.Delete(NameImageOld, true);
-            break;
-          }
-          catch (DirectoryNotFoundException)
-          {
-            break;
-          }
-          catch (Exception ex)
-          {
-            Console.WriteLine(
-              $"Cannot delete directory old due to " +
-              $"{ex.GetType().Name}:\n{ex.Message}");
-
-            Thread.Sleep(3000);
-          }
-        }
-
-        while (true)
-        {
-          try
-          {
-            Directory.Move(
-              pathImage,
-              NameImageOld);
-
-            break;
-          }
-          catch (DirectoryNotFoundException)
-          {
-            break;
-          }
-          catch (Exception ex)
-          {
-            Console.WriteLine(
-              $"Cannot move new image to old due to " +
-              $"{ex.GetType().Name}:\n{ex.Message}");
-
-            Thread.Sleep(3000);
-          }
-        }
-
-        Directory.CreateDirectory(pathImage);
-
-        string pathimageHeaderchain = Path.Combine(
-          pathImage,
-          "ImageHeaderchain");
-
-        using (var fileImageHeaderchain =
-          new FileStream(
-            pathimageHeaderchain,
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None))
-        {
-          Header header = HeaderGenesis.HeaderNext;
-
-          while (header != null)
-          {
-            byte[] headerBytes = header.GetBytes();
-
-            fileImageHeaderchain.Write(
-              headerBytes, 0, headerBytes.Length);
-
-            byte[] bytesIndexBlockArchive = 
-              BitConverter.GetBytes(header.IndexBlockArchive);
-
-            fileImageHeaderchain.Write(
-              bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
-
-            byte[] bytesStartIndexBlockArchive =
-              BitConverter.GetBytes(header.StartIndexBlockArchive);
-
-            fileImageHeaderchain.Write(
-              bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
-
-            byte[] bytesCountBlockBytes =
-              BitConverter.GetBytes(header.CountBlockBytes);
-
-            fileImageHeaderchain.Write(
-              bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
-
-            header = header.HeaderNext;
-          }
-        }
-
-        Token.CreateImage(pathImage);
-      }
-      catch (Exception ex)
-      {
-        Console.WriteLine($"{ex.GetType().Name}:\n{ex.Message}");
-      }
-    }
-
-    public bool IsFork;
-    public double DifficultyOld;
-
-    internal void Reorganize()
-    {
-      TryMoveDirectory(PathImageFork, PathImage);
-      TryMoveDirectory(PathImageForkOld, PathImageOld);
-    }
-
-    bool TryMoveDirectory(string pathSource, string pathDest)
-    {
-      if (!Directory.Exists(pathSource))
-        return false;
-
-      while (true)
-        try
-        {
-          if (Directory.Exists(pathDest))
-            Directory.Delete(
-              pathDest,
-              true);
-
-          Directory.Move(
-            pathSource,
-            pathDest);
-
-          return true;
-        }
-        catch (Exception ex)
-        {
-          Console.WriteLine(
-            $"{ex.GetType().Name} when attempting " +
-            $"to delete directory:\n{ex.Message}");
-
-          Thread.Sleep(3000);
-        }
-    }
-
-    public override string ToString()
-    {
-      return Token.GetName();
-    }
   }
 }

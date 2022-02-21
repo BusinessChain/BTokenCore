@@ -20,9 +20,19 @@ namespace BTokenLib
 
     public Network Network;
 
-    List<string> IPAddressPool = new();
-
     protected List<TX> TXPool = new();
+
+
+    static string NameFork = "Fork";
+    static string NameImage = "Image";
+    static string NameImageOld = "ImageOld";
+
+    string PathImage;
+    string PathImageOld;
+    string PathImageFork;
+    string PathImageForkOld;
+
+    string PathTokenRoot;
 
 
     public Token()
@@ -33,19 +43,26 @@ namespace BTokenLib
 
       Wallet = new();
 
-      string pathAddressPoolPeers = Path.Combine(
-        GetName(), 
-        "AddressPoolPeers");
+      PathTokenRoot = GetName();
+      Directory.CreateDirectory(PathTokenRoot);
 
-      try
-      {
-        IPAddressPool = File.ReadAllLines(pathAddressPoolPeers).ToList();
-      }
-      catch
-      {
-        IPAddressPool = new();
-        IPAddressPool.Add("3.67.200.137");
-      }
+      PathImage = Path.Combine(
+        PathTokenRoot,
+        NameImage);
+
+      PathImageOld = Path.Combine(
+        PathTokenRoot,
+        NameImageOld);
+
+      PathImageFork = Path.Combine(
+        PathTokenRoot,
+        NameFork,
+        NameImage);
+
+      PathImageForkOld = Path.Combine(
+        PathTokenRoot,
+        NameFork,
+        NameImageOld);
     }
 
     public void Start()
@@ -53,7 +70,7 @@ namespace BTokenLib
       if (TokenParent != null)
         TokenParent.Start();
       
-      Blockchain.LoadImage();
+      LoadImage();
       Network.Start();
     }
 
@@ -73,7 +90,6 @@ namespace BTokenLib
     }
 
 
-    object LOCK_IsLocked = new();
     bool IsLocked;
 
     public bool TryLock()
@@ -93,12 +109,12 @@ namespace BTokenLib
 
     public void ReleaseLock()
     {
-      lock (LOCK_IsLocked)
-      {
-        IsLocked = false;
-      }
+      if (TokenParent != null)
+        TokenParent.ReleaseLock();
+      else
+        lock (this)
+          IsLocked = false;
     }
-
 
     public Token GetParentRoot()
     {
@@ -110,9 +126,120 @@ namespace BTokenLib
 
     public abstract Header CreateHeaderGenesis();
 
-    public abstract void LoadImage(string pathImage);
-    public abstract void CreateImage(string pathImage);
-    public abstract void Reset();
+    public abstract void CreateImageDatabase(string path);
+
+    internal void Reorganize()
+    {
+      TryMoveDirectory(PathImageFork, PathImage);
+      TryMoveDirectory(PathImageForkOld, PathImageOld);
+    }
+
+    static bool TryMoveDirectory(string pathSource, string pathDest)
+    {
+      if (!Directory.Exists(pathSource))
+        return false;
+
+      while (true)
+        try
+        {
+          if (Directory.Exists(pathDest))
+            Directory.Delete(
+              pathDest,
+              true);
+
+          Directory.Move(
+            pathSource,
+            pathDest);
+
+          return true;
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine(
+            $"{ex.GetType().Name} when attempting " +
+            $"to delete directory:\n{ex.Message}");
+
+          Thread.Sleep(3000);
+        }
+    }
+
+    public void LoadImage()
+    {
+      LoadImage(0);
+    }
+
+    public void LoadImage(int heightMax)
+    {
+      string pathImageLoad = PathImage;
+
+      while (true)
+      {
+        Reset();
+
+        if (heightMax == 0)
+          return;
+
+        try
+        {
+          Blockchain.LoadImageHeaderchain(
+            pathImageLoad, 
+            heightMax);
+
+          LoadImageDatabase(pathImageLoad);
+          Wallet.LoadImage(pathImageLoad);
+        }
+        catch
+        {
+          Reset();
+
+          if (pathImageLoad == PathImage)
+          {
+            pathImageLoad = PathImageOld;
+            continue;
+          }
+        }
+
+        return;
+      }
+    }
+
+    public abstract void LoadImageDatabase(string path);
+
+
+    public bool IsFork;
+
+    public void CreateImage()
+    {
+      string pathImage;
+
+      if (IsFork)
+      {
+        pathImage = PathImageFork;
+        TryMoveDirectory(pathImage, PathImageForkOld);
+      }
+      else
+      {
+        pathImage = PathImage;
+        TryMoveDirectory(pathImage, PathImageOld);
+      }
+
+      Directory.CreateDirectory(pathImage);
+
+      Blockchain.CreateImageHeaderchain(
+        Path.Combine(pathImage, "ImageHeaderchain"));
+
+      CreateImageDatabase(pathImage);
+
+      Wallet.CreateImage(pathImage);
+    }
+
+    public void Reset()
+    {
+      Blockchain.InitializeHeaderchain();
+      ResetDatabase(); 
+    }
+
+    public abstract void ResetDatabase();
 
     public abstract Block CreateBlock();
     public abstract Block CreateBlock(int sizeBlockBuffer);
@@ -153,7 +280,7 @@ namespace BTokenLib
 
         try
         {
-          Blockchain.InsertBlock(
+          InsertBlock(
             block, 
             flagCreateImage: true);
 
@@ -185,9 +312,13 @@ namespace BTokenLib
 
     TaskCompletionSource<Block> SignalBlockInsertion;
 
-    public void InsertBlock(Block block)
+    public void InsertBlock(Block block, bool flagCreateImage)
     {
+      Blockchain.InsertHeader(block.Header);
       InsertInDatabase(block);
+
+      if (flagCreateImage)
+        CreateImage();
 
       SignalBlockInsertion.SetResult(block);
     }
@@ -226,50 +357,5 @@ namespace BTokenLib
     public abstract bool TryRequestTX(
       byte[] hash,
       out byte[] tXRaw);
-
-
-
-    Random RandomGenerator = new();
-
-    public List<string> RetrieveIPAdresses(
-      int countMax,
-      List<string> iPAddressesExclusion)
-    {
-      List<string> iPAddresses = new();
-      List<string> iPAddressesTemporaryRemovedFromPool = new();
-
-      iPAddressesExclusion.ForEach(i => {
-        if(IPAddressPool.Contains(i))
-        {
-          IPAddressPool.Remove(i);
-          iPAddressesTemporaryRemovedFromPool.Add(i);
-        }
-      });
-
-      while (
-        iPAddresses.Count < countMax && 
-        IPAddressPool.Count > 0)
-      {
-        int randomIndex = RandomGenerator
-          .Next(IPAddressPool.Count);
-
-        string iPAddress = IPAddressPool[randomIndex];
-
-        IPAddressPool.RemoveAt(randomIndex);
-        iPAddressesTemporaryRemovedFromPool.Add(iPAddress);
-
-        if (!iPAddressesExclusion.Contains(iPAddress))
-          iPAddresses.Add(iPAddress);
-      }
-
-      IPAddressPool.AddRange(iPAddressesTemporaryRemovedFromPool);
-
-      return iPAddresses;
-    }
-
-    public bool DoesPeerSupportProtocol(string iPAddressPeer)
-    {
-      return IPAddressPool.Contains(iPAddressPeer);
-    }
   }
 }

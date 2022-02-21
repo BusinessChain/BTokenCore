@@ -300,7 +300,7 @@ namespace BTokenLib
                   if (block.Header.HashPrevious.IsEqual(
                     Token.Blockchain.HeaderTip.Hash))
                   {
-                    Token.Blockchain.InsertBlock(
+                    Token.InsertBlock(
                       block,
                       flagCreateImage: true);
 
