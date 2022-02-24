@@ -20,6 +20,7 @@ namespace BTokenCore
       : base()
     {
       TokenParent = tokenParent;
+      tokenParent.AddTokenListening(this);
 
       UWTOTable = new(GetGenesisBlockBytes());
     }
@@ -69,6 +70,11 @@ namespace BTokenCore
         Wallet);
     }
 
+    public override void DetectAnchorToken(TXOutput tXOutput)
+    {
+
+    }
+
     protected async override Task<Block> MineBlock(
       SHA256 sHA256, 
       long seed)
@@ -109,7 +115,7 @@ namespace BTokenCore
         Encoding.ASCII.GetBytes("BToken")
         .Concat(block.Header.Hash).ToArray());
 
-      Block blockAnchor = await TokenParent.AwaitNextBlock();
+      Block blockAnchor = null;// = await TokenParent.AwaitNextBlock();
 
       byte[] hashBlockAnchorHashed = sHA256.ComputeHash(blockAnchor.Header.Hash);
       byte[] hashTXWinner = null;
@@ -179,11 +185,6 @@ namespace BTokenCore
     }
 
 
-    public Dictionary<int, byte[]> GetCheckpoints()
-    {
-      return new Dictionary<int, byte[]>();
-    }
-
     public override Header ParseHeader(
         byte[] buffer,
         ref int index)
@@ -239,6 +240,15 @@ namespace BTokenCore
       out byte[] tXRaw)
     {
       throw new NotImplementedException();
+    }
+
+
+    public override List<string> GetSeedAddresses()
+    {
+      return new List<string>()
+      {
+        "3.67.200.137"
+      };
     }
   }
 }

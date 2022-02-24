@@ -9,6 +9,5 @@ using BTokenLib;
 namespace BTokenCore
 {
   class TXBitcoin : TX
-  {
-  }
+  { }
 }

@@ -152,8 +152,6 @@ namespace BTokenCore
             tXs[t].TXIDShort,
             TableUInt32Array);
         }
-
-        wallet.DetectTXOutputsSpendable(tXs[t]);
       }
 
       for (int t = 0; t < tXs.Count; t++)

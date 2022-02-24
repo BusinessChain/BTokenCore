@@ -89,6 +89,7 @@ namespace BTokenLib
       return messageStatus;
     }
 
+    public abstract List<string> GetSeedAddresses();
 
     bool IsLocked;
 
@@ -165,7 +166,7 @@ namespace BTokenLib
 
     public void LoadImage()
     {
-      LoadImage(0);
+      LoadImage(int.MaxValue);
     }
 
     public void LoadImage(int heightMax)
@@ -175,9 +176,6 @@ namespace BTokenLib
       while (true)
       {
         Reset();
-
-        if (heightMax == 0)
-          return;
 
         try
         {
@@ -229,7 +227,6 @@ namespace BTokenLib
         Path.Combine(pathImage, "ImageHeaderchain"));
 
       CreateImageDatabase(pathImage);
-
       Wallet.CreateImage(pathImage);
     }
 
@@ -307,27 +304,30 @@ namespace BTokenLib
         $"on thread {Thread.CurrentThread.ManagedThreadId} canceled.");
     }
 
-    protected abstract Task<Block> MineBlock(SHA256 sHA256, long seed); 
+    protected abstract Task<Block> MineBlock(
+      SHA256 sHA256, 
+      long seed); 
 
 
-    TaskCompletionSource<Block> SignalBlockInsertion;
-
-    public void InsertBlock(Block block, bool flagCreateImage)
+    public void InsertBlock(
+      Block block, 
+      bool flagCreateImage)
     {
       Blockchain.InsertHeader(block.Header);
       InsertInDatabase(block);
 
       if (flagCreateImage)
         CreateImage();
-
-      SignalBlockInsertion.SetResult(block);
     }
 
-    public async Task<Block> AwaitNextBlock()
+    protected List<Token> TokenListening = new();
+
+    public void AddTokenListening(Token token)
     {
-      SignalBlockInsertion = new();
-      return await SignalBlockInsertion.Task;
+      TokenListening.Add(token);
     }
+
+    public abstract void DetectAnchorToken(TXOutput tXOutput);
 
     public byte[] SendDataTX(byte[] data)
     {
@@ -343,7 +343,6 @@ namespace BTokenLib
     public abstract TX CreateDataTX(byte[] data);
 
     protected abstract void InsertInDatabase(Block block);
-
 
     public abstract Header ParseHeader(
       byte[] buffer,

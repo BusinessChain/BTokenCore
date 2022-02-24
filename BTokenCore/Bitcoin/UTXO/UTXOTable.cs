@@ -85,8 +85,7 @@ namespace BTokenCore
 
     public void InsertBlock(
       List<TX> tXs,
-      int indexArchive,
-      Wallet wallet)
+      int indexArchive)
     {
       for (int t = 0; t < tXs.Count; t++)
       {
@@ -152,16 +151,12 @@ namespace BTokenCore
             tXs[t].TXIDShort,
             TableUInt32Array);
         }
-
-        wallet.DetectTXOutputsSpendable(tXs[t]);
       }
 
       for (int t = 0; t < tXs.Count; t++)
       {
         for (int i = 0; i < tXs[t].TXInputs.Count; i++)
         {
-          wallet.TrySpend(tXs[t].TXInputs[i]);
-
           for (int tb = 0; tb < Tables.Length; tb++)
           {
             if (Tables[tb].TryGetValueInPrimaryTable(

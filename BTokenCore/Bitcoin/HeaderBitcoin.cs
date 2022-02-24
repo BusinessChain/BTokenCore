@@ -42,6 +42,8 @@ namespace BTokenCore
         merkleRootHash,
         unixTimeSeconds)
     {
+      Buffer = new byte[COUNT_HEADER_BYTES];
+
       Version = version;
       NBits = nBits;
       Nonce = nonce;

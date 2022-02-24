@@ -38,6 +38,7 @@ namespace BTokenLib
       GeneratePublicKeyHash160(publicKey);
     }
 
+
     public List<byte> GetScriptSignature(byte[] tXRaw)
     {
       byte[] signature = Crypto.GetSignature(
@@ -152,57 +153,54 @@ namespace BTokenLib
       }
     }
 
-    public void DetectTXOutputsSpendable(TX tX)
+    public void DetectTXOutputSpendable(TX tX, int indexOutput)
     {
-      for (int i = 0; i < tX.TXOutputs.Count; i += 1)
+      TXOutput tXOutput = tX.TXOutputs[indexOutput];
+
+      if (tXOutput.LengthScript != LENGTH_P2PKH)
+        return;
+
+      int indexScript = tXOutput.StartIndexScript;
+
+      if (!PREFIX_P2PKH.IsEqual(tXOutput.Buffer, indexScript))
+        return;
+
+      indexScript += 3;
+
+      if (!PublicKeyHash160.IsEqual(tXOutput.Buffer, indexScript))
+        return;
+
+      indexScript += 20;
+
+      if (POSTFIX_P2PKH.IsEqual(
+        tXOutput.Buffer,
+        indexScript))
       {
-        TXOutput tXOutput = tX.TXOutputs[i];
+        byte[] scriptPubKey = new byte[LENGTH_P2PKH];
 
-        if (tXOutput.LengthScript != LENGTH_P2PKH)
-          continue;
-
-        int indexScript = tXOutput.StartIndexScript;
-
-        if (!PREFIX_P2PKH.IsEqual(tXOutput.Buffer, indexScript))
-          continue;
-
-        indexScript += 3;
-
-        if (!PublicKeyHash160.IsEqual( tXOutput.Buffer, indexScript))
-          continue;
-
-        indexScript += 20;
-
-        if (POSTFIX_P2PKH.IsEqual(
+        Array.Copy(
           tXOutput.Buffer,
-          indexScript))
-        {
-          byte[] scriptPubKey = new byte[LENGTH_P2PKH];
+          tXOutput.StartIndexScript,
+          scriptPubKey,
+          0,
+          LENGTH_P2PKH);
 
-          Array.Copy(
-            tXOutput.Buffer,
-            tXOutput.StartIndexScript,
-            scriptPubKey,
-            0,
-            LENGTH_P2PKH);
+        TXOutputsSpendable.Add(
+          new TXOutputWallet
+          {
+            TXID = tX.Hash,
+            TXIDShort = tX.TXIDShort,
+            OutputIndex = indexOutput,
+            Value = tXOutput.Value,
+            ScriptPubKey = scriptPubKey
+          });
 
-          TXOutputsSpendable.Add(
-            new TXOutputWallet
-            {
-              TXID = tX.Hash,
-              TXIDShort = tX.TXIDShort,
-              OutputIndex = i,
-              Value = tXOutput.Value,
-              ScriptPubKey = scriptPubKey
-            });
-
-          //Console.WriteLine(
-          //  "Detected spendable output {0} " +
-          //  "in tx {1} with {2} satoshis.",
-          //  i,
-          //  tX.Hash.ToHexString(),
-          //  tXOutput.Value);
-        }
+        //Console.WriteLine(
+        //  "Detected spendable output {0} " +
+        //  "in tx {1} with {2} satoshis.",
+        //  i,
+        //  tX.Hash.ToHexString(),
+        //  tXOutput.Value);
       }
     }
 
@@ -234,8 +232,7 @@ namespace BTokenLib
     {
       return TXOutputsSpendable.Find(t => t.Value > fee);
     }
-
-
+    
     public byte[] GetReceptionScript()
     {
       byte[] script = new byte[26];
@@ -248,6 +245,5 @@ namespace BTokenLib
 
       return script;
     }
-
   }
 }

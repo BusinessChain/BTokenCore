@@ -16,14 +16,14 @@ namespace BTokenLib
     Token Token;
     Blockchain Blockchain;
 
-    const int UTXOIMAGE_INTERVAL_SYNC = 200;
+    const int UTXOIMAGE_INTERVAL_SYNC = 100;
     const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
 
     StreamWriter LogFile;
 
     const UInt16 Port = 8333;
 
-    int CountPeersMax = 1;// Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 6;// Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -56,19 +56,7 @@ namespace BTokenLib
 
       LoadNetworkConfiguration(pathRoot);
 
-      string pathAddressPoolPeers = Path.Combine(
-        pathRoot,
-        "AddressPoolPeers");
-
-      try
-      {
-        IPAddressPool = File.ReadAllLines(pathAddressPoolPeers).ToList();
-      }
-      catch
-      {
-        IPAddressPool = new();
-        IPAddressPool.Add("3.67.200.137");
-      }
+      IPAddressPool = Token.GetSeedAddresses();
     }
 
 
@@ -454,7 +442,8 @@ namespace BTokenLib
               for (int i = 0; i < blockDownload.Headers.Count; i += 1)
                 Token.InsertBlock(
                   blockDownload.Blocks[i],
-                  flagCreateImage: blockDownload.Index % UTXOIMAGE_INTERVAL_SYNC == 0);
+                  flagCreateImage: UTXOIMAGE_INTERVAL_SYNC - 1 ==
+                  blockDownload.Index % UTXOIMAGE_INTERVAL_SYNC);
 
               ($"Inserted blockDownload {blockDownload.Index} from peer " +
                 $"{blockDownload.Peer}. Height: {Blockchain.HeaderTip.Height}.")
@@ -481,9 +470,7 @@ namespace BTokenLib
             IndexInsertion += 1;
 
             if (flagReturnBlockDownloadToPool)
-            {
               PoolBlockDownload.Add(blockDownload);
-            }
 
             if (!QueueDownloadsInsertion.TryGetValue(
               IndexInsertion,

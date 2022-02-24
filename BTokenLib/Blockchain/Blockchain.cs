@@ -112,7 +112,10 @@ namespace BTokenLib
         }
       }
     }
-    public void LoadImageHeaderchain(string pathImage, int heightMax)
+    
+    public void LoadImageHeaderchain(
+      string pathImage, 
+      int heightMax)
     {
       byte[] bytesHeaderImage = File.ReadAllBytes(
         Path.Combine(pathImage, "ImageHeaderchain"));
@@ -248,6 +251,5 @@ namespace BTokenLib
         headers.Add(HeaderTip);
       }
     }
-
   }
 }
