@@ -19,7 +19,7 @@ namespace BTokenCore
     {
     }
 
-
+    const int SIZE_BUFFER_BLOCK = 0x400000;
     const int LENGTH_P2PKH = 25;
     byte OP_RETURN = 0x6A;
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
@@ -224,12 +224,7 @@ namespace BTokenCore
 
     public override Block CreateBlock()
     {
-      return new BlockBitcoin();
-    }
-
-    public override Block CreateBlock(int sizeBuffer)
-    {
-      return new BlockBitcoin(sizeBuffer);
+      return new BlockBitcoin(SIZE_BUFFER_BLOCK);
     }
 
     public override bool TryRequestTX(

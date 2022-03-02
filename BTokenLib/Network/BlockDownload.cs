@@ -33,7 +33,7 @@ namespace BTokenLib
       {
         for (int i = 0; i < COUNT_BLOCK_MAX; i += 1)
         {
-          Block block = token.CreateBlock(0x400000);
+          Block block = token.CreateBlock();
           Blocks.Add(block);
         }
       }
@@ -94,8 +94,7 @@ namespace BTokenLib
         }
       }
 
-      public bool IsComplete() => 
-        IndexHeaders == Headers.Count;
+      public bool IsComplete() => IndexHeaders == Headers.Count;
     }
   }
 }

@@ -15,6 +15,8 @@ namespace BTokenCore
   {
     UWTOTable UWTOTable;
 
+    const int SIZE_BUFFER_BLOCK = 0x400000;
+
 
     public TokenBToken(Token tokenParent)
       : base()
@@ -198,12 +200,7 @@ namespace BTokenCore
 
     public override Block CreateBlock()
     {
-      return new BlockBToken();
-    }
-
-    public override Block CreateBlock(int sizeBuffer)
-    {
-      return new BlockBToken(sizeBuffer);
+      return new BlockBToken(SIZE_BUFFER_BLOCK);
     }
 
 

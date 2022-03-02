@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 
 
 
@@ -22,7 +23,7 @@ namespace BTokenLib
 
       public bool IsBusy;
       public bool FlagDispose;
-      public bool FlagSyncStaged;
+      public bool FlagSyncScheduled;
 
       public enum StateProtocol
       {
@@ -33,8 +34,10 @@ namespace BTokenLib
       }
       public StateProtocol State;
 
+      internal Header Header;
+      internal Block Block;
+
       internal HeaderDownload HeaderDownload;
-      internal BlockDownload BlockDownload;
       internal Header HeaderUnsolicited;
 
       ulong FeeFilterValue;
@@ -47,7 +50,6 @@ namespace BTokenLib
       TcpClient TcpClient;
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
-
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -67,11 +69,6 @@ namespace BTokenLib
 
       StreamWriter LogFile;
 
-      public int CountStartBlockDownload;
-      public int CountInsertBlockDownload;
-      public int CountWastedBlockDownload;
-      public int CountBlockingBlockDownload;
-
       DateTime TimePeerCreation = DateTime.Now;
 
       const int SECONDS_PEER_BANNED = 1000;
@@ -90,7 +87,7 @@ namespace BTokenLib
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
         Connection = ConnectionType.INBOUND;
-        FlagSyncStaged = false;
+        FlagSyncScheduled = false;
       }
 
       public Peer(
@@ -101,9 +98,11 @@ namespace BTokenLib
         Network = network;
         Token = token;
 
+        Block = Token.CreateBlock();
+
         IPAddress = ip;
         Connection = ConnectionType.OUTBOUND;
-        FlagSyncStaged = true;
+        FlagSyncScheduled = true;
 
         CreateLogFile(ip.ToString());
 
@@ -122,16 +121,16 @@ namespace BTokenLib
           int secondsBannedRemaining = SECONDS_PEER_BANNED - (int)secondsSincePeerDisposal.TotalSeconds;
 
           if (secondsBannedRemaining > 0)
-          {
             throw new ProtocolException(
-              $"Peer {ToString()} is banned for {SECONDS_PEER_BANNED} seconds.\n" +
+              $"Peer {this} is banned for {SECONDS_PEER_BANNED} seconds.\n" +
               $"{secondsBannedRemaining} seconds remaining.");
-          }
 
           File.Move(pathLogFileDisposed, pathLogFile);
         }
 
-        LogFile = new StreamWriter(pathLogFile, true);
+        LogFile = new StreamWriter(
+          pathLogFile,
+          append: true);
       }
 
       public async Task Connect()
@@ -263,29 +262,22 @@ namespace BTokenLib
 
             if (Command == "block")
             {
-              if (
-                BlockDownload == null &&
-                !Network.PoolBlockDownload.TryTake(out BlockDownload))
-              {
-                BlockDownload = new(Token);
-              }
+              await ReadBytes(Block.Buffer, PayloadLength);
 
-              Block block = BlockDownload.GetBlockToParse();
+              Block.Parse();
 
-              await ReadBytes(block.Buffer, PayloadLength);
+              $"Peer {this} received block {Block}".Log(LogFile);
 
               if (IsStateIdle())
               {
-                block.Parse();
-
                 Console.Beep(1600, 100);
 
                 if (QueueHeadersUnsolicited.Any())
                 {
-                  if (!block.Header.Hash.IsEqual(QueueHeadersUnsolicited[0].Hash))
+                  if (!Block.Header.Hash.IsEqual(QueueHeadersUnsolicited[0].Hash))
                     throw new ProtocolException(
                       $"Requested unsolicited block {QueueHeadersUnsolicited[0]}\n" +
-                      $"instead received {block.Header}");
+                      $"instead received {Block.Header}");
 
                   QueueHeadersUnsolicited.RemoveAt(0);
 
@@ -297,16 +289,16 @@ namespace BTokenLib
 
                 try
                 {
-                  if (block.Header.HashPrevious.IsEqual(
+                  if (Block.Header.HashPrevious.IsEqual(
                     Token.Blockchain.HeaderTip.Hash))
                   {
                     Token.InsertBlock(
-                      block,
+                      Block,
                       flagCreateImage: true);
 
-                    Network.RelayBlock(block, this);
+                    Network.RelayBlock(Block, this);
 
-                    $"{this}: Inserted unsolicited block {block}."
+                    $"{this}: Inserted unsolicited block {Block}."
                       .Log(LogFile);
 
                     if(QueueHeadersUnsolicited.Any())
@@ -318,7 +310,7 @@ namespace BTokenLib
                   else
                   {
                     QueueHeadersUnsolicited.Clear();
-                    HandleHeaderUnsolicitedDuplicateOrOrphan(block.Header);
+                    HandleHeaderUnsolicitedDuplicateOrOrphan(Block.Header);
                   }
                 }
                 catch (ProtocolException ex)
@@ -333,17 +325,17 @@ namespace BTokenLib
               
               if (IsStateBlockDownload())
               {
-                BlockDownload.Parse();
+                if (!Block.Header.Hash.IsEqual(Header.Hash))
+                  throw new ProtocolException(
+                    $"Unexpected block {Block} at height {Block.Header.Height}.\n" +
+                    $"Excpected {Header}.");
 
-                if (BlockDownload.IsComplete())
-                {
-                  Cancellation = new();
+                Cancellation = new();
 
-                  if (Network.InsertBlockDownloadFlagContinue(this))
-                    await GetBlock();
-                  else
-                    Release();
-                }
+                if (Network.InsertBlockFlagContinue(this))
+                  await GetBlock();
+                else
+                  Release();
               }
             }
             else
@@ -373,7 +365,6 @@ namespace BTokenLib
 
                 case "headers":
                   int byteIndex = 0;
-
                   
                   int countHeaders = VarInt.GetInt32(
                     Payload,
@@ -500,7 +491,7 @@ namespace BTokenLib
 
                       await SendHeaders(headers);
 
-                      FlagSyncStaged = true;
+                      FlagSyncScheduled = true;
                     }
                   }
 
@@ -577,13 +568,13 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          SetFlagDisposed(
-            $"{ex.GetType().Name} in listener: \n{ex.Message}");
-
           if (IsStateAwaitingHeader())
             Network.Token.ReleaseLock();
           else if(IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
+
+          SetFlagDisposed(
+            $"{ex.GetType().Name} in listener: \n{ex.Message}");
         }
       }
 
@@ -636,10 +627,10 @@ namespace BTokenLib
         }
         else
         {
-          if (!FlagSyncStaged)
+          if (!FlagSyncScheduled)
           {
             CountOrphanReceived = 0;
-            FlagSyncStaged = true;
+            FlagSyncScheduled = true;
 
             $"Stage synchronization because received orphan header {header}"
               .Log(LogFile);
@@ -689,25 +680,27 @@ namespace BTokenLib
 
       public async Task GetBlock()
       {
-        $"Start Block downloading with peer {this}".Log(LogFile);
+        $"Peer {this} starts downloading block {Header}.".Log(LogFile);
 
         lock (this)
-          State = StateProtocol.BlockDownload;
+        {
+          if(FlagDispose)
+            Network.ReturnPeerBlockDownloadIncomplete(this);
 
-        List<Inventory> inventories =
-          BlockDownload.Headers.Select(
-            h => new Inventory(
-              InventoryType.MSG_BLOCK,
-              h.Hash))
-          .ToList();
+          State = StateProtocol.BlockDownload;
+        }
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
-        BlockDownload.StopwatchBlockDownload.Restart();
-
         try
         {
-          await SendMessage(new GetDataMessage(inventories));
+          await SendMessage(new GetDataMessage(
+            new List<Inventory>()
+            {
+              new Inventory(
+                InventoryType.MSG_BLOCK,
+                Header.Hash)
+            }));
         }
         catch(Exception ex)
         {
@@ -717,8 +710,6 @@ namespace BTokenLib
           Network.ReturnPeerBlockDownloadIncomplete(this);
           return;
         }
-
-        CountStartBlockDownload++;
       }
 
       public async Task SendHeaders(List<Header> headers)
@@ -743,14 +734,14 @@ namespace BTokenLib
         lock(this)
         {
           if (
-            !FlagSyncStaged ||
+            !FlagSyncScheduled ||
             FlagDispose ||
             IsBusy)
           {
             return false;
           }
 
-          FlagSyncStaged = false;
+          FlagSyncScheduled = false;
           IsBusy = true;
           return true;
         }
@@ -808,10 +799,10 @@ namespace BTokenLib
 
       public void SetFlagDisposed(string message)
       {
-        $"Set flag dispose on peer {this}: {message}"
-          .Log(LogFile);
+        $"Set flag dispose on peer {this}: {message}".Log(LogFile);
 
-        FlagDispose = true;
+        lock (this)
+          FlagDispose = true;
       }
 
       public void Dispose()
@@ -823,6 +814,8 @@ namespace BTokenLib
         File.Move(
           Path.Combine(DirectoryLogPeers.FullName, ToString()),
           Path.Combine(DirectoryLogPeersDisposed.FullName, ToString()));
+
+        Debug.WriteLine($"Disposed {this}.");
       }
 
       public string GetStatus()
@@ -838,11 +831,7 @@ namespace BTokenLib
             $"State: {State}\n" +
             $"FlagDispose: {FlagDispose}\n" +
             $"Connection: {Connection}\n" +
-            $"CountStartBlockDownload: {CountStartBlockDownload}\n" +
-            $"CountInsertBlockDownload: {CountInsertBlockDownload}\n" +
-            $"CountWastedBlockDownload: {CountWastedBlockDownload}\n" +
-            $"CountBlockingBlockDownload: {CountWastedBlockDownload}\n" +
-            $"FlagSynchronizationScheduled: {FlagSyncStaged}\n";
+            $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
         }
       }
     }

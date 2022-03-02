@@ -167,5 +167,10 @@ namespace BTokenLib
     {
       return Header.ToString();
     }
+
+    public void Clear()
+    {
+      TXs.Clear();
+    }
   }
 }

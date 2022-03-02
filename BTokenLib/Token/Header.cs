@@ -53,16 +53,15 @@ namespace BTokenLib
     {
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
         throw new InvalidOperationException(
-          $"Header {this} references header previous {HashPrevious.ToHexString()} " +
-          $"but attempts to append {headerPrevious}.");
+          $"Header {this} references header previous " +
+          $"{HashPrevious.ToHexString()} but attempts to append {headerPrevious}.");
 
       HeaderPrevious = headerPrevious;
 
       Height = headerPrevious.Height + 1;
 
       DifficultyAccumulated = 
-        headerPrevious.DifficultyAccumulated
-        + Difficulty;
+        headerPrevious.DifficultyAccumulated + Difficulty;
 
       Validate();
     }

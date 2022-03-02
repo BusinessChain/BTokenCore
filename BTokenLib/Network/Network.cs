@@ -17,7 +17,8 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int UTXOIMAGE_INTERVAL_SYNC = 100;
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
+
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 3000; 
 
     StreamWriter LogFile;
 
@@ -29,7 +30,6 @@ namespace BTokenLib
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
-    ConcurrentBag<BlockDownload> PoolBlockDownload = new();
     List<Block> BlocksCached = new();
 
     static readonly DirectoryInfo DirectoryLogPeers =
@@ -125,16 +125,17 @@ namespace BTokenLib
             await Task.WhenAll(createPeerTasks);
           }
           else
-            $"No ip address found to connect in protocol {Token}.".Log(LogFile);
+            ;// $"No ip address found to connect in protocol {Token}.".Log(LogFile);
 
           LABEL_DelayAndContinue:
 
-          await Task.Delay(10000).ConfigureAwait(false);
+          await Task.Delay(5000).ConfigureAwait(false);
         }
       }
       catch (Exception ex)
       {
-        $"{ex.GetType().Name} in StartPeerConnector of protocol {Token}.".Log(LogFile);
+        $"{ex.GetType().Name} in StartPeerConnector of protocol {Token}."
+          .Log(LogFile);
       }
     }
 
@@ -242,7 +243,7 @@ namespace BTokenLib
     public void ScheduleSynchronization()
     {
       lock (LOCK_Peers)
-        Peers.ForEach(p => p.FlagSyncStaged = true);
+        Peers.ForEach(p => p.FlagSyncScheduled = true);
     }
 
 
@@ -267,6 +268,7 @@ namespace BTokenLib
         if (!Token.TryLock())
         {
           peerSync.Release();
+          peerSync.FlagSyncScheduled = true;
           continue;
         }
 
@@ -290,11 +292,12 @@ namespace BTokenLib
     }
 
     bool FlagSyncAbort;
-    int IndexInsertion;
-    int IndexBlockDownload;
-    object LOCK_InsertBlockDownload = new();
-    Dictionary<int, BlockDownload> QueueDownloadsInsertion = new();
-    List<BlockDownload> QueueDownloadsIncomplete = new();
+    int HeightInsertion;
+    object LOCK_HeightInsertion = new();
+    const int CAPACITY_MAX_QueueBlocksInsertion = 20;
+    Dictionary<int, Block> QueueBlockInsertion = new();
+    Dictionary<int, (Header, int)> HeadersBeingDownloadedByCountPeers = new();
+    Dictionary<int, Header> QueueDownloadsIncomplete = new();
     Header HeaderRoot;
 
     async Task Sync()
@@ -314,12 +317,12 @@ namespace BTokenLib
         }
 
         FlagSyncAbort = false;
-        IndexInsertion = 0;
-        QueueDownloadsInsertion.Clear();
+        HeightInsertion = 0;
+        QueueBlockInsertion.Clear();
         QueueDownloadsIncomplete.Clear();
 
-        IndexBlockDownload = 0;
         HeaderRoot = headerDownload.HeaderRoot;
+        HeightInsertion = HeaderRoot.Height;
 
         Peer peer = PeerSync;
 
@@ -351,14 +354,14 @@ namespace BTokenLib
           }
 
           if (peer != null)
-            if (TryChargeBlockDownload(peer))
+            if (TryChargeHeader(peer))
               await peer.GetBlock();
             else if (Peers.Any(p => p.IsStateBlockDownload()))
               peer.Release();
             else
             {
-              if(
-                difficultyOld > 0 && 
+              if (
+                difficultyOld > 0 &&
                 Blockchain.HeaderTip.Difficulty > difficultyOld)
               {
                 Token.Reorganize();
@@ -384,186 +387,152 @@ namespace BTokenLib
     }
 
 
-    BlockDownload BlockDownloadBlocking;
-    BlockDownload BlockDownloadIndexPrevious;
-
-    bool InsertBlockDownloadFlagContinue(Peer peer)
+    bool InsertBlockFlagContinue(Peer peer)
     {
-      BlockDownload blockDownload = peer.BlockDownload;
+      Block block = peer.Block;
 
-      lock (LOCK_InsertBlockDownload)
+      lock (LOCK_HeightInsertion)
       {
-        if (blockDownload.Index > IndexInsertion)
+        if (peer.Header.Height > HeightInsertion)
         {
-          QueueDownloadsInsertion.Add(
-            blockDownload.Index,
-            blockDownload);
+          QueueBlockInsertion.Add(
+            peer.Header.Height,
+            block);
 
-          if (QueueDownloadsInsertion.Count > 3 * CountPeersMax)
-          {
-            if (BlockDownloadBlocking == null)
-            {
-              BlockDownloadBlocking = blockDownload.BlockDownloadIndexPrevious;
-              while (BlockDownloadBlocking.Index > IndexInsertion)
-              {
-                BlockDownloadBlocking = BlockDownloadBlocking.BlockDownloadIndexPrevious;
-              }
-
-              BlockDownloadBlocking.Peer.CountBlockingBlockDownload++;
-            }
-
-            if (!PoolBlockDownload.TryTake(out blockDownload))
-            {
-              blockDownload = new BlockDownload(Token);
-            }
-
-            blockDownload.Peer = peer;
-            blockDownload.Index = BlockDownloadBlocking.Index;
-            blockDownload.Headers = BlockDownloadBlocking.Headers.ToList();
-            blockDownload.IndexHeaders = 0;
-            blockDownload.BlockDownloadIndexPrevious = BlockDownloadBlocking.BlockDownloadIndexPrevious;
-
-            peer.BlockDownload = blockDownload;
-            return true;
-          }
-          else
-            peer.BlockDownload = null;
+          if (!PoolBlocks.TryTake(out peer.Block))
+            peer.Block = Token.CreateBlock();
         }
-        else if (blockDownload.Index == IndexInsertion)
+        else if (peer.Header.Height == HeightInsertion)
         {
           bool flagReturnBlockDownloadToPool = false;
 
           while (true)
           {
-            blockDownload.Peer.CountInsertBlockDownload++;
-
             try
             {
-              for (int i = 0; i < blockDownload.Headers.Count; i += 1)
-                Token.InsertBlock(
-                  blockDownload.Blocks[i],
-                  flagCreateImage: UTXOIMAGE_INTERVAL_SYNC - 1 ==
-                  blockDownload.Index % UTXOIMAGE_INTERVAL_SYNC);
+              Token.InsertBlock(
+                block,
+                flagCreateImage: UTXOIMAGE_INTERVAL_SYNC - 1 ==
+                HeightInsertion % UTXOIMAGE_INTERVAL_SYNC);
 
-              ($"Inserted blockDownload {blockDownload.Index} from peer " +
-                $"{blockDownload.Peer}. Height: {Blockchain.HeaderTip.Height}.")
+              block.Clear();
+
+              $"Inserted block {Blockchain.HeaderTip.Height}, {block}."
               .Log(LogFile);
             }
             catch (Exception ex)
             {
-              blockDownload.Peer.SetFlagDisposed(
-                $"Insertion of block download {blockDownload.Index} failed:\n" +
-                $"{ex.Message}.");
+              $"Insertion of block {block} failed:\n {ex.Message}.".Log(LogFile);
 
               FlagSyncAbort = true;
 
               return false;
             }
 
-            if (
-              BlockDownloadBlocking != null &&
-              BlockDownloadBlocking.Index == blockDownload.Index)
-            {
-              BlockDownloadBlocking = null;
-            }
-
-            IndexInsertion += 1;
+            HeightInsertion += 1;
 
             if (flagReturnBlockDownloadToPool)
-              PoolBlockDownload.Add(blockDownload);
+              PoolBlocks.Add(block);
 
-            if (!QueueDownloadsInsertion.TryGetValue(
-              IndexInsertion,
-              out blockDownload))
-            {
+            if (!QueueBlockInsertion.TryGetValue(HeightInsertion, out block))
               break;
-            }
 
-            QueueDownloadsInsertion.Remove(IndexInsertion);
+            QueueBlockInsertion.Remove(HeightInsertion);
             flagReturnBlockDownloadToPool = true;
           }
         }
-        else
-          peer.CountWastedBlockDownload++;
       }
 
-      return TryChargeBlockDownload(peer);
+      return TryChargeHeader(peer);
     }
 
-    object LOCK_ChargeFromHeaderRoot = new();
+    object LOCK_ChargeHeader = new();
+    ConcurrentBag<Block> PoolBlocks = new();
 
-    bool TryChargeBlockDownload(Peer peer)
+    bool TryChargeHeader(Peer peer)
     {
-      BlockDownload blockDownload = peer.BlockDownload;
-
-      lock(QueueDownloadsIncomplete)
-        if (QueueDownloadsIncomplete.Any())
+      lock (LOCK_ChargeHeader)
+      {
+        if(
+          peer.Header != null && 
+          HeadersBeingDownloadedByCountPeers.ContainsKey(peer.Header.Height))
         {
-          if (blockDownload != null)
-            PoolBlockDownload.Add(blockDownload);
+          (Header headerBeingDownloaded, int countPeers) =
+            HeadersBeingDownloadedByCountPeers[peer.Header.Height];
 
-          blockDownload = QueueDownloadsIncomplete.First();
-          QueueDownloadsIncomplete.RemoveAt(0);
+          if (countPeers > 1)
+            HeadersBeingDownloadedByCountPeers[peer.Header.Height] = 
+              (headerBeingDownloaded, countPeers - 1);
+          else
+            HeadersBeingDownloadedByCountPeers.Remove(peer.Header.Height);
+        }
 
-          blockDownload.Peer = peer;
+        if (QueueBlockInsertion.Count > CAPACITY_MAX_QueueBlocksInsertion)
+        {
+          int keyHeightMin = HeadersBeingDownloadedByCountPeers.Keys.Min();
 
-          peer.BlockDownload = blockDownload;
+          (Header headerBeingDownloadedMinHeight, int countPeersMinHeight) =
+            HeadersBeingDownloadedByCountPeers[keyHeightMin];
+
+          lock (LOCK_HeightInsertion)
+            if (keyHeightMin < HeightInsertion)
+              goto LABEL_ChargingWithHeaderMinHeight;
+
+          HeadersBeingDownloadedByCountPeers[keyHeightMin] = 
+            (headerBeingDownloadedMinHeight, countPeersMinHeight + 1);
+
+          peer.Header = headerBeingDownloadedMinHeight;
+          return true;
+        }
+
+        LABEL_ChargingWithHeaderMinHeight:
+
+        while (QueueDownloadsIncomplete.Any())
+        {
+          int heightSmallestHeadersIncomplete = QueueDownloadsIncomplete.Keys.Min();
+          Header header = QueueDownloadsIncomplete[heightSmallestHeadersIncomplete];
+          QueueDownloadsIncomplete.Remove(heightSmallestHeadersIncomplete);
+
+          lock (LOCK_HeightInsertion)
+            if (heightSmallestHeadersIncomplete < HeightInsertion)
+              continue;
+
+          peer.Header = header;
 
           return true;
         }
 
-      lock (LOCK_ChargeFromHeaderRoot)
         if (HeaderRoot != null)
         {
-          if (blockDownload == null &&
-            !PoolBlockDownload.TryTake(out blockDownload))
-          {
-            blockDownload = new(Token);
-          }
-
-          blockDownload.Peer = peer;
-          blockDownload.Index = IndexBlockDownload;
-          blockDownload.LoadHeaders(ref HeaderRoot);
-          blockDownload.BlockDownloadIndexPrevious = BlockDownloadIndexPrevious;
-
-          BlockDownloadIndexPrevious = blockDownload;
-
-          IndexBlockDownload += 1;
-
-          peer.BlockDownload = blockDownload;
+          HeadersBeingDownloadedByCountPeers.Add(HeaderRoot.Height, (HeaderRoot, 1));
+          peer.Header = HeaderRoot;
+          HeaderRoot = HeaderRoot.HeaderNext;
 
           return true;
         }
 
-      return false;
+        return false;
+      }
     }
 
     void ReturnPeerBlockDownloadIncomplete(Peer peer)
     {
-      lock (LOCK_InsertBlockDownload)
-        if (BlockDownloadBlocking == peer.BlockDownload)
-          return;
+      lock (LOCK_ChargeHeader)
+        if (QueueDownloadsIncomplete.ContainsKey(peer.Header.Height))
+        {
+          (Header headerBeingDownloaded, int countPeers) =
+            HeadersBeingDownloadedByCountPeers[peer.Header.Height];
 
-      BlockDownload blockDownload = peer.BlockDownload;
-
-      peer.BlockDownload = null;
-
-      blockDownload.Peer = null;
-      blockDownload.IndexHeaders = 0;
-      blockDownload.CountBytes = 0;
-
-      lock(QueueDownloadsIncomplete)
-      {
-        int indexInsertInQueue = QueueDownloadsIncomplete
-          .FindIndex(b => blockDownload.Index < b.Index);
-
-        if (indexInsertInQueue == -1)
-          QueueDownloadsIncomplete.Add(blockDownload);
+          if (countPeers > 1)
+            HeadersBeingDownloadedByCountPeers[peer.Header.Height] = 
+              (headerBeingDownloaded, countPeers - 1);
+        }
         else
-          QueueDownloadsIncomplete.Insert(
-            indexInsertInQueue,
-            blockDownload);
-      }
+        {
+          QueueDownloadsIncomplete.Add(
+            peer.Header.Height,
+            peer.Header);
+        }
     }
 
     object LOCK_FlagThrottle = new();

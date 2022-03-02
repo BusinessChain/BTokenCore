@@ -113,8 +113,7 @@ namespace BTokenLib
       if (TokenParent != null)
         TokenParent.ReleaseLock();
       else
-        lock (this)
-          IsLocked = false;
+        IsLocked = false;
     }
 
     public Token GetParentRoot()
@@ -239,7 +238,6 @@ namespace BTokenLib
     public abstract void ResetDatabase();
 
     public abstract Block CreateBlock();
-    public abstract Block CreateBlock(int sizeBlockBuffer);
 
 
     protected bool IsMining;
