@@ -423,6 +423,8 @@ namespace BTokenLib
 
                     $"Parsed unsolicited header {HeaderUnsolicited}.".Log(LogFile);
 
+                    Console.Beep(800, 100);
+
                     Network.ThrottleDownloadBlockUnsolicited();
 
                     QueueHeadersUnsolicited.Add(HeaderUnsolicited);
@@ -433,8 +435,6 @@ namespace BTokenLib
 
                     if (QueueHeadersUnsolicited.Count > 1)
                       break;
-
-                    Console.Beep(800, 100);
 
                     ProcessHeaderUnsolicited();
                   }

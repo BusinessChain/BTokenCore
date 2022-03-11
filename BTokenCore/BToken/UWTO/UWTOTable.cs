@@ -9,6 +9,8 @@ namespace BTokenCore
 {
   partial class UWTOTable
   {
+    Token Token;
+
     const int HASH_BYTE_SIZE = 32;
     const int COUNT_BATCHINDEX_BITS = 16;
     const int COUNT_COLLISION_BITS_PER_TABLE = 2;
@@ -33,8 +35,10 @@ namespace BTokenCore
 
 
 
-    public UWTOTable(byte[] genesisBlockBytes)
+    public UWTOTable(Token token)
     {
+      Token = token;
+
       LogFile = new StreamWriter("logUWTOTable", false);
 
       Tables = new UWTOIndex[]{
@@ -85,14 +89,11 @@ namespace BTokenCore
 
     public void InsertBlock(
       List<TX> tXs,
-      int indexArchive,
-      Wallet wallet)
+      int indexArchive)
     {
       for (int t = 0; t < tXs.Count; t++)
       {
-        int lengthUTXOBits =
-          COUNT_NON_OUTPUT_BITS +
-          tXs[t].TXOutputs.Count;
+        int lengthUTXOBits = COUNT_NON_OUTPUT_BITS + tXs[t].TXOutputs.Count;
 
         if (LENGTH_BITS_UINT >= lengthUTXOBits)
         {
@@ -155,13 +156,11 @@ namespace BTokenCore
       }
 
       for (int t = 0; t < tXs.Count; t++)
-      {
         for (int i = 0; i < tXs[t].TXInputs.Count; i++)
         {
-          wallet.TrySpend(tXs[t].TXInputs[i]);
+          Token.Wallet.TrySpend(tXs[t].TXInputs[i]);
 
           for (int tb = 0; tb < Tables.Length; tb++)
-          {
             if (Tables[tb].TryGetValueInPrimaryTable(
               tXs[t].TXInputs[i].TXIDOutputShort))
             {
@@ -194,7 +193,6 @@ namespace BTokenCore
 
               goto LABEL_LoopNextInput;
             }
-          }
 
           throw new ProtocolException(
             $"Referenced TX {tXs[t].TXInputs[i].TXIDOutput.ToHexString()} " +
@@ -202,7 +200,6 @@ namespace BTokenCore
 
         LABEL_LoopNextInput:;
         }
-      }
     }
 
     void InsertUTXO(

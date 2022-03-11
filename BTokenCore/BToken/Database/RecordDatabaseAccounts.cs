@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BTokenLib;
-
 namespace BTokenCore
 {
-  class TXBToken : TX
+  class RecordDatabaseAccounts
   {
     public uint CountdownToReplay;
+    public ulong Value;
+    public byte[] IDAccount;
   }
 }

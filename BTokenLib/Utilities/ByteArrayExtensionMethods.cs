@@ -34,9 +34,7 @@ namespace BTokenLib
       string[] stringArrayHex = new string[array.Length];
 
       for (int i = 0; i < array.Length; i += 1)
-      {
         stringArrayHex[array.Length - i - 1] = BYTE2HEX[array[i]];
-      }
 
       return string.Join(null, stringArrayHex);
     }
@@ -47,12 +45,8 @@ namespace BTokenLib
       int startIndex2)
     {
       for (int i = 0; i < arr1.Length; i += 1)
-      {
         if (arr1[i] != arr2[startIndex2 + i])
-        {
           return false;
-        }
-      }
 
       return true;
     }
@@ -60,12 +54,8 @@ namespace BTokenLib
     public static bool IsEqual(this byte[] arr1, byte[] arr2)
     {
       for (int i = 0; i < arr1.Length; i += 1)
-      {
         if (arr1[i] != arr2[i])
-        {
           return false;
-        }
-      }
 
       return true;
     }
@@ -76,16 +66,13 @@ namespace BTokenLib
       UInt32 factorBits = nBits & 0x00FFFFFF;
 
       if (expBits < 3)
-      {
         factorBits >>= (3 - expBits) * 8;
-      }
 
       var bytes = new List<byte>();
 
       for (int i = expBits - 3; i > 0; i--)
-      {
         bytes.Add(0x00);
-      }
+
       bytes.Add((byte)(factorBits & 0xFF));
       bytes.Add((byte)((factorBits & 0xFF00) >> 8));
       bytes.Add((byte)((factorBits & 0xFF0000) >> 16));

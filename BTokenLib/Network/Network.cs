@@ -557,7 +557,7 @@ namespace BTokenLib
 
     async Task StartTimerLatchFlagThrottle()
     {
-      await Task.Delay(300).ConfigureAwait(false);
+      await Task.Delay(1000).ConfigureAwait(false);
 
       lock (LOCK_FlagThrottle)
         FlagThrottle = false;

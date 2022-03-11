@@ -18,13 +18,14 @@ namespace BTokenCore
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
 
+
     public TokenBToken(Token tokenParent)
       : base()
     {
       TokenParent = tokenParent;
       tokenParent.AddTokenListening(this);
 
-      UWTOTable = new(GetGenesisBlockBytes());
+      UWTOTable = new(this);
     }
 
     public override Header CreateHeaderGenesis()
@@ -66,10 +67,7 @@ namespace BTokenCore
 
     protected override void InsertInDatabase(Block block)
     {
-      UWTOTable.InsertBlock(
-        block.TXs,
-        block.Header.IndexBlockArchive,
-        Wallet);
+      DatabaseAccounts.InsertBlock(block);
     }
 
     public override void DetectAnchorToken(TXOutput tXOutput)

@@ -15,5 +15,7 @@ namespace BTokenLib
 
     public List<TXInput> TXInputs = new();
     public List<TXOutput> TXOutputs = new();
+
+    public ulong Fee;
   }
 }
