@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BTokenCore
 {
-  class RecordDatabaseAccounts
+  class RecordDBAccounts
   {
     public uint CountdownToReplay;
     public ulong Value;

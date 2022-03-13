@@ -8,40 +8,39 @@ using BTokenLib;
 
 namespace BTokenCore
 {
-  class DatabaseAccounts
+  partial class DatabaseAccounts
   {
     const ulong BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
     const int COUNT_CACHES = 10;
     int IndexCache;
-    List<Dictionary<byte[], RecordDatabaseAccounts>> Caches = new();
+    const int COUNT_MAX_CACHE_INDEXED = 2000000; // Read from configuration file
+    List<Dictionary<byte[], RecordDBAccounts>> Caches = new();
 
-    string PathRootDB = "FilesDB";
+    const string PathRootDB = "FilesDB";
     const int COUNT_FILES_DB = 1 << 16;
-    FileStream[] FilesDB;
+    FileDB[] FilesDB;
 
     const int LENGTH_RECORD_DB = 44;
     const int LENGTH_ID_ACCOUNT = 32;
+    const int LENGTH_COUNTDOWN_TO_REPLAY = 4;
+    const int LENGTH_VALUE = 8;
 
 
 
     public DatabaseAccounts()
     {
       for (int i = 0; i < COUNT_CACHES; i += 1)
-        Caches.Add(new Dictionary<byte[], RecordDatabaseAccounts>(
+        Caches.Add(new Dictionary<byte[], RecordDBAccounts>(
             new EqualityComparerByteArray()));
-
 
       Directory.CreateDirectory(PathRootDB);
 
-      FilesDB = new FileStream[COUNT_FILES_DB];
+      FilesDB = new FileDB[COUNT_FILES_DB];
+
       for (int i = 0; i < COUNT_FILES_DB; i += 1)
-        FilesDB[i] = new FileStream(
-          Path.Combine(PathRootDB, i.ToString()),
-          FileMode.Append,
-          FileAccess.ReadWrite,
-          FileShare.ReadWrite);
+        FilesDB[i] = new FileDB(Path.Combine(PathRootDB, i.ToString()));
     }
 
     public void InsertBlock(Block block)
@@ -59,17 +58,12 @@ namespace BTokenCore
         int c = IndexCache;
         while (true)
         {
-          if (Caches[c].TryGetValue(iDAccount, out RecordDatabaseAccounts accountInput))
+          if (Caches[c].TryGetValue(iDAccount, out RecordDBAccounts account))
           {
-            SpendAccount(tXs[t], accountInput);
+            SpendAccount(tXs[t], account);
 
-            if (accountInput.Value == 0)
+            if (account.Value == 0)
               Caches[c].Remove(iDAccount);
-            else if (c != IndexCache)
-            {
-              Caches[c].Remove(iDAccount);
-              Caches[IndexCache].Add(iDAccount, accountInput);
-            }
 
             break;
           }
@@ -77,12 +71,10 @@ namespace BTokenCore
           c = (c + Caches.Count - 1) % 10;
 
           if (c == IndexCache)
-            if (TrySpendAccountInFilesDB(tXs[t], iDAccount))
-              break;
-            else
-              throw new ProtocolException(
-                $"Account {iDAccount.ToHexString()} referenced by TX\n" +
-                $"{tXs[t].Hash.ToHexString()} not found in database.");
+          {
+            GetFileDB(iDAccount).SpendAccountInDB(iDAccount, tXs[t]);
+            break;
+          }
         }
 
         InsertOutputs(tXs[t].TXOutputs);
@@ -102,55 +94,18 @@ namespace BTokenCore
       InsertOutputs(tXs[0].TXOutputs);
     }
 
-    bool TrySpendAccountInFilesDB(TX tX, byte[] iDAccount)
+    FileDB GetFileDB(byte[] iDAccount)
     {
       ushort keyFileDB = BitConverter.ToUInt16(iDAccount, 0);
-
-      FileStream fileDB = FilesDB[keyFileDB];
-      fileDB.Position = 0;
-
-      while(fileDB.Position < fileDB.Length)
-      {
-        int i = 0;
-        while(fileDB.ReadByte() == iDAccount[i++])
-        {
-          if(i == LENGTH_ID_ACCOUNT)
-          {
-            byte[] countdownToReplay = new byte[4];
-            fileDB.Read(countdownToReplay);
-
-            byte[] value = new byte[8];
-            fileDB.Read(value);
-
-            RecordDatabaseAccounts account = new()
-            {
-              IDAccount = iDAccount,
-              CountdownToReplay = BitConverter.ToUInt32(value),
-              Value = BitConverter.ToUInt64(value)
-            };
-
-            SpendAccount(tX, account);
-
-            fileDB.Position -= LENGTH_RECORD_DB;
-            fileDB.Write(new byte[LENGTH_RECORD_DB]);
-
-            Caches[IndexCache].Add(iDAccount, account);
-
-            return true;
-          }
-        }
-
-        fileDB.Position += LENGTH_RECORD_DB - fileDB.Position % LENGTH_RECORD_DB;
-      }
-
-      return false;
+      return FilesDB[keyFileDB];
     }
 
-    void SpendAccount(TX tX, RecordDatabaseAccounts accountInput)
+    // Validate signature
+    static void SpendAccount(TX tX, RecordDBAccounts accountInput)
     {
       ulong valueSpend = tX.Fee;
       tX.TXOutputs.ForEach(o => valueSpend += o.Value);
-
+            
       if (accountInput.CountdownToReplay != ((TXBToken)tX).CountdownToReplay)
         throw new ProtocolException(
           $"Account {accountInput.IDAccount.ToHexString()} referenced by TX\n" +
@@ -178,14 +133,14 @@ namespace BTokenCore
         {
           if (Caches[c].TryGetValue(
             iDAccount,
-            out RecordDatabaseAccounts accountOutputExisting))
+            out RecordDBAccounts account))
           {
-            accountOutputExisting.Value += outputValueTX;
+            account.Value += outputValueTX;
 
             if (c != IndexCache)
             {
               Caches[c].Remove(iDAccount);
-              Caches[IndexCache].Add(iDAccount, accountOutputExisting);
+              AddToCacheIndexed(iDAccount, account);
             }
 
             break;
@@ -195,16 +150,39 @@ namespace BTokenCore
 
           if (c == IndexCache)
           {
-            Caches[IndexCache].Add(iDAccount, new RecordDatabaseAccounts
-            {
-              CountdownToReplay = uint.MaxValue,
-              Value = outputValueTX,
-              IDAccount = iDAccount
-            });
+            if (GetFileDB(iDAccount).TryFetchAccount(iDAccount, out account))
+              account.Value += outputValueTX;
+            else
+              account = new RecordDBAccounts
+              {
+                CountdownToReplay = uint.MaxValue,
+                Value = outputValueTX,
+                IDAccount = iDAccount
+              };
+
+            AddToCacheIndexed(iDAccount, account);
 
             break;
           }
         }
+      }
+    }
+
+    void AddToCacheIndexed(byte[] iDAccount, RecordDBAccounts account)
+    {
+      Caches[IndexCache].Add(iDAccount, account);
+
+      if(Caches[IndexCache].Count > COUNT_MAX_CACHE_INDEXED)
+      {
+        for (int i = 0; i < COUNT_FILES_DB; i += 1)
+          FilesDB[i].TryDefragment();
+
+        IndexCache = (IndexCache + Caches.Count + 1) % Caches.Count;
+
+        foreach(KeyValuePair<byte[], RecordDBAccounts> item in Caches[IndexCache])
+          GetFileDB(item.Value.IDAccount).WriteRecordDBAccount(item.Value);
+
+        Caches[IndexCache].Clear();
       }
     }
   }
