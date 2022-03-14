@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 using BTokenLib;
 
@@ -12,9 +12,14 @@ namespace BTokenCore
   {
     class FileDB : FileStream
     {
-      int TresholdRatioDefragmentation = 5;
+      int TresholdRatioDefragmentation = 10;
       int CountRecords;
       int CountRecordsNullyfied;
+
+      public byte[] Hash;
+      bool FlagHashOutdated;
+      SHA256 SHA256 = SHA256.Create();
+
 
 
       public FileDB(string path) : base(
@@ -64,6 +69,7 @@ namespace BTokenCore
                 CountRecordsNullyfied += 1;
               }
 
+              FlagHashOutdated = true;
               return;
             }
 
@@ -104,6 +110,7 @@ namespace BTokenCore
               Write(new byte[LENGTH_RECORD_DB]);
 
               CountRecordsNullyfied += 1;
+              FlagHashOutdated = true;
 
               return true;
             }
@@ -124,14 +131,41 @@ namespace BTokenCore
         Write(BitConverter.GetBytes(account.Value));
 
         CountRecords += 1;
+
+        FlagHashOutdated = true;
       }
 
       public void TryDefragment()
       {
-        if(CountRecords / CountRecordsNullyfied >= TresholdRatioDefragmentation)
+        if(CountRecords / CountRecordsNullyfied <= TresholdRatioDefragmentation)
         {
+          Position = 0;
+          byte[] bytesFileDB = new byte[Length];
+          Read(bytesFileDB, 0, (int)Length);
 
+          Position = 0;
+          Flush();
+
+          for (int i = 0; i < bytesFileDB.Length; i += LENGTH_RECORD_DB)
+          {
+            int j = 0;
+            while (bytesFileDB[i + j] == 0 && j < LENGTH_ID_ACCOUNT)
+              j += 1;
+
+            if(j < LENGTH_ID_ACCOUNT)
+              Write(bytesFileDB, i, LENGTH_RECORD_DB);
+          }
+
+          Flush();
+
+          FlagHashOutdated = true;
         }
+      }
+
+      public void UpdateHash()
+      {
+        if (FlagHashOutdated)
+          Hash = SHA256.ComputeHash(this);
       }
     }
   }

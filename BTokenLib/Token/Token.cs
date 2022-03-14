@@ -298,8 +298,8 @@ namespace BTokenLib
 
     LABEL_Exit_Miner:
 
-      Console.WriteLine($"{GetName()} miner " +
-        $"on thread {Thread.CurrentThread.ManagedThreadId} canceled.");
+      Console.WriteLine($"{GetName()} miner on thread " +
+        $"{Thread.CurrentThread.ManagedThreadId} canceled.");
     }
 
     protected abstract Task<Block> MineBlock(

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 using BTokenLib;
 
@@ -14,26 +14,30 @@ namespace BTokenCore
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
     const int COUNT_CACHES = 10;
+    byte[] HashesCaches = new byte[COUNT_CACHES * 32];
     int IndexCache;
-    const int COUNT_MAX_CACHE_INDEXED = 2000000; // Read from configuration file
-    List<Dictionary<byte[], RecordDBAccounts>> Caches = new();
+    const int COUNT_MAX_CACHE = 2000000; // Read from configuration file
+    List<CacheDatabase> Caches = new();
 
     const string PathRootDB = "FilesDB";
     const int COUNT_FILES_DB = 1 << 16;
     FileDB[] FilesDB;
+    byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
 
     const int LENGTH_RECORD_DB = 44;
     const int LENGTH_ID_ACCOUNT = 32;
     const int LENGTH_COUNTDOWN_TO_REPLAY = 4;
     const int LENGTH_VALUE = 8;
 
+    SHA256 SHA256 = SHA256.Create();
+    byte[] Hash;
+
 
 
     public DatabaseAccounts()
     {
       for (int i = 0; i < COUNT_CACHES; i += 1)
-        Caches.Add(new Dictionary<byte[], RecordDBAccounts>(
-            new EqualityComparerByteArray()));
+        Caches.Add(new CacheDatabase());
 
       Directory.CreateDirectory(PathRootDB);
 
@@ -92,6 +96,30 @@ namespace BTokenCore
           $"does not add up to block reward {blockReward} plus block fee {feeBlock}.");
 
       InsertOutputs(tXs[0].TXOutputs);
+
+      UpdateHashDatabase();
+    }
+
+    void UpdateHashDatabase()
+    {
+      for (int i = 0; i < COUNT_CACHES; i += 1)
+      {
+        Caches[i].UpdateHash();
+        Caches[i].Hash.CopyTo(HashesCaches, i << 5);
+      }
+
+      byte[] hashCaches = SHA256.ComputeHash(HashesCaches);
+
+      for (int i = 0; i < COUNT_FILES_DB; i += 1)
+      {
+        FilesDB[i].UpdateHash();
+        FilesDB[i].Hash.CopyTo(HashesFilesDB, i << 5);
+      }
+
+      byte[] hashFilesDB = SHA256.ComputeHash(HashesFilesDB);
+            
+      Hash = SHA256.ComputeHash(
+        hashCaches.Concat(hashFilesDB).ToArray());
     }
 
     FileDB GetFileDB(byte[] iDAccount)
@@ -172,7 +200,7 @@ namespace BTokenCore
     {
       Caches[IndexCache].Add(iDAccount, account);
 
-      if(Caches[IndexCache].Count > COUNT_MAX_CACHE_INDEXED)
+      if(Caches[IndexCache].Count > COUNT_MAX_CACHE)
       {
         for (int i = 0; i < COUNT_FILES_DB; i += 1)
           FilesDB[i].TryDefragment();
