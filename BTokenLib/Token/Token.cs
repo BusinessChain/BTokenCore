@@ -70,7 +70,7 @@ namespace BTokenLib
       if (TokenParent != null)
         TokenParent.Start();
       
-      LoadImage();
+      LoadImage(int.MaxValue);
       Network.Start();
     }
 
@@ -325,7 +325,15 @@ namespace BTokenLib
       TokenListening.Add(token);
     }
 
-    public abstract void DetectAnchorToken(TXOutput tXOutput);
+
+    public virtual void DetectAnchorToken(TXOutput tXOutput)
+    {
+      throw new InvalidOperationException();
+    }
+    public virtual Task SignalBlockInsertion(byte[] hash)
+    {
+      throw new InvalidOperationException();
+    }
 
     public byte[] SendDataTX(byte[] data)
     {

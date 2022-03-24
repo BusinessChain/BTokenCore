@@ -273,22 +273,23 @@ namespace BTokenCore
 
     protected override void InsertInDatabase(Block block)
     {
-      for(int t = 0; t < block.TXs.Count; t += 1)
+      for (int t = 0; t < block.TXs.Count; t += 1)
       {
         TX tX = block.TXs[t];
 
-        for(int o = 0; o < tX.TXOutputs.Count; o += 1)
+        for (int i = 0; i < tX.TXInputs.Count; i += 1)
+          Wallet.TrySpend(tX.TXInputs[i]);
+
+        for (int o = 0; o < tX.TXOutputs.Count; o += 1)
           if (tX.TXOutputs[o].Value > 0)
             Wallet.DetectTXOutputSpendable(tX, o);
           else
             TokenListening.ForEach(
               t => t.DetectAnchorToken(tX.TXOutputs[o]));
       }
-    }
 
-    public override void DetectAnchorToken(TXOutput tXOutput)
-    {
-      throw new InvalidOperationException();
+      TokenListening.ForEach(
+        t => t.SignalBlockInsertion(block.Header.Hash));
     }
 
     public override Header ParseHeader(

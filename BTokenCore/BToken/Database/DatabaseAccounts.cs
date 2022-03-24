@@ -17,7 +17,7 @@ namespace BTokenCore
     byte[] HashesCaches = new byte[COUNT_CACHES * 32];
     int IndexCache;
     const int COUNT_MAX_CACHE = 2000000; // Read from configuration file
-    List<CacheDatabase> Caches = new();
+    List<CacheDatabaseAccounts> Caches = new();
 
     const string PathRootDB = "FilesDB";
     const int COUNT_FILES_DB = 1 << 16;
@@ -37,7 +37,7 @@ namespace BTokenCore
     public DatabaseAccounts()
     {
       for (int i = 0; i < COUNT_CACHES; i += 1)
-        Caches.Add(new CacheDatabase());
+        Caches.Add(new CacheDatabaseAccounts());
 
       Directory.CreateDirectory(PathRootDB);
 
@@ -45,6 +45,41 @@ namespace BTokenCore
 
       for (int i = 0; i < COUNT_FILES_DB; i += 1)
         FilesDB[i] = new FileDB(Path.Combine(PathRootDB, i.ToString()));
+    }
+
+    public void LoadImage(string path)
+    {
+      byte[] bytesRecord = new byte[LENGTH_RECORD_DB];
+
+      for (int i = 0; i < COUNT_CACHES; i += 1)
+        using (FileStream fileCache = new(
+          Path.Combine(path, "cache", i.ToString()),
+          FileMode.Open))
+        {
+          while(fileCache.Read(bytesRecord) == LENGTH_RECORD_DB)
+          {
+            RecordDBAccounts record = new()
+            {
+              IDAccount = bytesRecord.Take(LENGTH_ID_ACCOUNT).ToArray(),
+              CountdownToReplay = BitConverter.ToUInt32(bytesRecord, LENGTH_ID_ACCOUNT),
+              Value = BitConverter.ToUInt64(bytesRecord, LENGTH_ID_ACCOUNT + LENGTH_COUNTDOWN_TO_REPLAY)
+            };
+
+            Caches[i].Add(record.IDAccount, record);
+          }
+        }
+    }
+
+    public void CreateImage(string path)
+    {
+      for (int i = 0; i < COUNT_CACHES; i += 1)
+        Caches[i].CreateImage(
+          Path.Combine(path, "cache", i.ToString()));
+    }
+
+    public void Reset()
+    {
+      Caches.ForEach(c => c.Clear());
     }
 
     public void InsertBlock(Block block)
@@ -72,7 +107,7 @@ namespace BTokenCore
             break;
           }
 
-          c = (c + Caches.Count - 1) % 10;
+          c = (c + COUNT_CACHES - 1) % 10;
 
           if (c == IndexCache)
           {
@@ -98,6 +133,13 @@ namespace BTokenCore
       InsertOutputs(tXs[0].TXOutputs);
 
       UpdateHashDatabase();
+
+      if(!Hash.IsEqual(((HeaderBToken)block.Header).HashDatabase))
+      {
+        throw new ProtocolException(
+          $"Hash database not equal as given in header {block},\n" +
+          $"height {block.Header.Height}.");
+      }
     }
 
     void UpdateHashDatabase()
@@ -174,7 +216,7 @@ namespace BTokenCore
             break;
           }
 
-          c = (c + Caches.Count - 1) % Caches.Count;
+          c = (c + COUNT_CACHES - 1) % COUNT_CACHES;
 
           if (c == IndexCache)
           {
@@ -205,7 +247,7 @@ namespace BTokenCore
         for (int i = 0; i < COUNT_FILES_DB; i += 1)
           FilesDB[i].TryDefragment();
 
-        IndexCache = (IndexCache + Caches.Count + 1) % Caches.Count;
+        IndexCache = (IndexCache + COUNT_CACHES + 1) % COUNT_CACHES;
 
         foreach(KeyValuePair<byte[], RecordDBAccounts> item in Caches[IndexCache])
           GetFileDB(item.Value.IDAccount).WriteRecordDBAccount(item.Value);

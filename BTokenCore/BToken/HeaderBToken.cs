@@ -13,6 +13,8 @@ namespace BTokenCore
 
     Header HeaderAnchor;
 
+    public byte[] HashDatabase;
+
 
     public HeaderBToken()
     {

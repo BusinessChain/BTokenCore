@@ -82,18 +82,23 @@ namespace BTokenLib
       return array.IsGreaterThan(arrayFromNBits);
     }
 
-    public static bool IsGreaterThan(this byte[] array1, byte[] array2)
+    public static bool IsGreaterThan(this byte[] a1, byte[] a2)
     {    
-      int i = array1.Length;
+      int i = a1.Length;
 
-      while(i-- > array2.Length)
-        if (array1[i] > 0)
+      while(i-- > a2.Length)
+        if (a1[i] > 0)
           return true;
 
-      while (array1[i] == array2[i])
+      while (a1[i] == a2[i])
+      {
         i -= 1;
 
-      return array1[i] > array2[i];
+        if (i < 0)
+          return false;
+      }  
+
+      return a1[i] > a2[i];
     }
 
     public static void Increment(
@@ -116,12 +121,10 @@ namespace BTokenLib
         offset += 1;
       }
     }
+    
 
     public static byte[] SubtractByteWise(this byte[] array1, byte[] array2)
     {
-      if (array1.Length != array2.Length)
-        throw new ArgumentException("Array length should be equal.");
-
       byte[] difference = new byte[array1.Length];
 
       for (int i = 0; i < array1.Length; i += 1)
