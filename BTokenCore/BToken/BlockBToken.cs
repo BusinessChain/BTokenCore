@@ -18,10 +18,6 @@ namespace BTokenCore
     public BlockBToken()
     { }
 
-    public BlockBToken(HeaderBToken header) : 
-      base(header)
-    { }
-
     public BlockBToken(int sizeBuffer)
     {
       Buffer = new byte[sizeBuffer];
@@ -58,7 +54,6 @@ namespace BTokenCore
       return new HeaderBToken(
         hash,
         hashHeaderPrevious,
-        hashAnchorPrevious,
         merkleRootHash,
         unixTimeSeconds);
     }

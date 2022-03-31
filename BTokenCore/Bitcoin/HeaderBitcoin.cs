@@ -83,8 +83,10 @@ namespace BTokenCore
         headerTip);
     }
 
-    public override void Validate()
+    public override void AppendToHeader(Header headerPrevious)
     {
+      base.AppendToHeader(headerPrevious);
+
       uint medianTimePastSeconds = GetMedianTimePastSeconds(HeaderPrevious);
 
       if (UnixTimeSeconds < medianTimePastSeconds)
@@ -169,7 +171,6 @@ namespace BTokenCore
 
       return actualTimespan;
     }
-
 
     public override byte[] GetBytes()
     {

@@ -16,6 +16,7 @@ namespace BTokenLib
     protected SHA256 SHA256 = SHA256.Create();
 
     public List<TX> TXs = new();
+    protected List<ushort> IDsBToken = new();
 
     public byte[] Buffer;
 
@@ -23,9 +24,12 @@ namespace BTokenLib
     public Block()
     { }
 
-    public Block(Header header)
+    public Block(
+      int sizeBuffer,
+      List<ushort> iDsBToken)
     {
-      Header = header;
+      Buffer = new byte[sizeBuffer];
+      IDsBToken = iDsBToken;
     }
 
 
@@ -42,13 +46,9 @@ namespace BTokenLib
       Buffer = buffer;
       int startIndex = index;
 
-      Header = ParseHeader(
-        Buffer,
-        ref index);
+      Header = ParseHeader(Buffer, ref index);
 
-      ParseTXs(
-        Header.MerkleRoot,
-        ref index);
+      ParseTXs(Header.MerkleRoot, ref index);
 
       Header.CountBlockBytes = index - startIndex;
     }
@@ -66,8 +66,10 @@ namespace BTokenLib
         Buffer,
         ref bufferIndex);
 
-      if (tXCount == 0) ;
-      else if (tXCount == 1)
+      if (tXCount == 0)
+        throw new ProtocolException($"Block {this} lacks coinbase transaction.");
+      
+      if (tXCount == 1)
       {
         TX tX = ParseTX(
           isCoinbase: true,
@@ -171,6 +173,16 @@ namespace BTokenLib
     public void Clear()
     {
       TXs.Clear();
+    }
+
+    protected TXOutput ParseOutput(
+      byte[] buffer, 
+      ref int indexBuffer)
+    {
+      TXOutput tXOutput = new(buffer, ref indexBuffer);
+      if (tXOutput.contains(iDBitoken))
+
+      return tXOutput;
     }
   }
 }

@@ -62,11 +62,7 @@ namespace BTokenLib
 
       DifficultyAccumulated = 
         headerPrevious.DifficultyAccumulated + Difficulty;
-
-      Validate();
     }
-
-    public abstract void Validate();
 
     public virtual void CreateAppendingHeader(
       SHA256 sHA256,

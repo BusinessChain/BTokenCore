@@ -8,12 +8,12 @@ namespace BTokenCore
   class HeaderBToken : Header
   {
     public const int COUNT_HEADER_BYTES = 80;
-
-    public byte[] HashAnchorPrevious;
-
-    Header HeaderAnchor;
+    
+    public TX TXAnchor;
+    public Header HeaderAnchor;
 
     public byte[] HashDatabase;
+
 
 
     public HeaderBToken()
@@ -24,7 +24,6 @@ namespace BTokenCore
     public HeaderBToken(
       byte[] headerHash,
       byte[] hashPrevious,
-      byte[] hashAnchorPrevious,
       byte[] merkleRootHash,
       uint unixTimeSeconds) : base(
         headerHash,
@@ -32,23 +31,7 @@ namespace BTokenCore
         merkleRootHash,
         unixTimeSeconds)
     {
-      HashAnchorPrevious = hashAnchorPrevious;
       Difficulty = 1;
-    }
-
-    public override void AppendToHeader(Header headerPrevious)
-    {
-      base.AppendToHeader(headerPrevious);
-
-      HeaderAnchor = ((HeaderBToken)headerPrevious).HeaderAnchor.HeaderNext;
-
-      if (HeaderAnchor == null)
-        throw new ProtocolException($"No anchor header found for {this}.");
-    }
-
-    public override void Validate()
-    {
-      // Look into HeaderAnchor and check if the winner Token corresponds to this Header.
     }
 
     public override byte[] GetBytes()

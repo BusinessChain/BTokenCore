@@ -19,14 +19,9 @@ namespace BTokenCore
       Header = new HeaderBitcoin();
     }
 
-    public BlockBitcoin(HeaderBitcoin header) : 
-      base(header)
+    public BlockBitcoin(int sizeBuffer, List<ushort> iDsBToken)
+      : base(sizeBuffer, iDsBToken)
     { }
-
-    public BlockBitcoin(int sizeBuffer)
-    {
-      Buffer = new byte[sizeBuffer];
-    }
 
     public override HeaderBitcoin ParseHeader(
       byte[] buffer,
@@ -92,15 +87,11 @@ namespace BTokenCore
       {
         int tXStartIndex = indexBuffer;
 
-        indexBuffer += 4; // BYTE_LENGTH_VERSION
+        indexBuffer += 4; // Version
 
-        bool isWitnessFlagPresent = buffer[indexBuffer] == 0x00;
-        if (isWitnessFlagPresent)
-        {
+        if (buffer[indexBuffer] == 0x00)
           throw new NotImplementedException(
             "Parsing of segwit txs not implemented");
-          //BufferIndex += 2;
-        }
 
         int countInputs = VarInt.GetInt32(
           buffer, 
@@ -120,19 +111,7 @@ namespace BTokenCore
           ref indexBuffer);
 
         for (int i = 0; i < countTXOutputs; i += 1)
-          tX.TXOutputs.Add(
-            new TXOutput(
-              buffer,
-              ref indexBuffer));
-
-        //if (isWitnessFlagPresent)
-        //{
-        //var witnesses = new TXWitness[countInputs];
-        //for (int i = 0; i < countInputs; i += 1)
-        //{
-        //  witnesses[i] = TXWitness.Parse(Buffer, ref BufferIndex);
-        //}
-        //}
+          tX.TXOutputs.Add(ParseOutput(buffer, ref indexBuffer));
 
         indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
 

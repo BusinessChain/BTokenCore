@@ -112,7 +112,8 @@ namespace BTokenLib
         }
       }
     }
-    
+
+
     public void LoadImageHeaderchain(
       string pathImage, 
       int heightMax)
@@ -213,6 +214,14 @@ namespace BTokenLib
       IndexingHeaderTip();
     }
 
+    public void AppendHeader(Header header)
+    {
+      HeaderTip.HeaderNext = header;
+      HeaderTip = header;
+
+      IndexingHeaderTip();
+    }
+
     public bool TryReadHeader(
       byte[] headerHash,
       out Header header)
@@ -236,7 +245,7 @@ namespace BTokenLib
       return false;
     }
 
-    void IndexingHeaderTip()
+    public void IndexingHeaderTip()
     {
       int keyHeader = BitConverter.ToInt32(HeaderTip.Hash, 0);
 

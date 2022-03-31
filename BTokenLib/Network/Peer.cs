@@ -57,7 +57,7 @@ namespace BTokenLib
 
       public string Command;
 
-      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 0x400000;
+      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 0x100000;
       byte[] Payload = new byte[SIZE_MESSAGE_PAYLOAD_BUFFER];
       int PayloadLength;
 
@@ -284,7 +284,7 @@ namespace BTokenLib
                   Cancellation = new();
                 }
 
-                if (!Network.Token.TryLock())
+                if (!Token.TryLockRoot())
                   continue;
 
                 try
@@ -292,16 +292,14 @@ namespace BTokenLib
                   if (Block.Header.HashPrevious.IsEqual(
                     Token.Blockchain.HeaderTip.Hash))
                   {
-                    Token.InsertBlock(
-                      Block,
-                      flagCreateImage: true);
-
-                    Network.RelayBlock(Block, this);
+                    Token.InsertBlock(Block);
 
                     $"{this}: Inserted unsolicited block {Block}."
                       .Log(LogFile);
 
-                    if(QueueHeadersUnsolicited.Any())
+                    Network.RelayBlock(Block, this);
+
+                    if (QueueHeadersUnsolicited.Any())
                     {
                       HeaderUnsolicited = QueueHeadersUnsolicited[0];
                       ProcessHeaderUnsolicited();
@@ -322,8 +320,7 @@ namespace BTokenLib
                   Token.ReleaseLock();
                 }
               }
-              
-              if (IsStateBlockDownload())
+              else if (IsStateBlockDownload())
               {
                 if (!Block.Header.Hash.IsEqual(Header.Hash))
                   throw new ProtocolException(
@@ -611,7 +608,7 @@ namespace BTokenLib
         }
       }
 
-      public void HandleHeaderUnsolicitedDuplicateOrOrphan(Header header)
+      void HandleHeaderUnsolicitedDuplicateOrOrphan(Header header)
       {
         if (Token.Blockchain.TryReadHeader(
           header.Hash,

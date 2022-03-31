@@ -22,6 +22,8 @@ namespace BTokenLib
 
     protected List<TX> TXPool = new();
 
+    protected List<ushort> IDsBToken = new();
+
 
     static string NameFork = "Fork";
     static string NameImage = "Image";
@@ -33,6 +35,8 @@ namespace BTokenLib
     string PathImageForkOld;
 
     string PathTokenRoot;
+
+    const int INTERVAL_BLOCKHEIGHT_IMAGE = 200;
 
 
     public Token()
@@ -93,10 +97,10 @@ namespace BTokenLib
 
     bool IsLocked;
 
-    public bool TryLock()
+    public bool TryLockRoot()
     {
       if (TokenParent != null)
-        return TokenParent.TryLock();
+        return TokenParent.TryLockRoot();
 
       lock (this)
       {
@@ -130,37 +134,8 @@ namespace BTokenLib
 
     internal void Reorganize()
     {
-      TryMoveDirectory(PathImageFork, PathImage);
-      TryMoveDirectory(PathImageForkOld, PathImageOld);
-    }
-
-    static bool TryMoveDirectory(string pathSource, string pathDest)
-    {
-      if (!Directory.Exists(pathSource))
-        return false;
-
-      while (true)
-        try
-        {
-          if (Directory.Exists(pathDest))
-            Directory.Delete(
-              pathDest,
-              true);
-
-          Directory.Move(
-            pathSource,
-            pathDest);
-
-          return true;
-        }
-        catch (Exception ex)
-        {
-          Console.WriteLine(
-            $"{ex.GetType().Name} when attempting " +
-            $"to delete directory:\n{ex.Message}");
-
-          Thread.Sleep(3000);
-        }
+      PathImageFork.TryMoveDirectoryTo(PathImage);
+      PathImageForkOld.TryMoveDirectoryTo(PathImageOld);
     }
 
     public void LoadImage()
@@ -202,7 +177,6 @@ namespace BTokenLib
 
     public abstract void LoadImageDatabase(string path);
 
-
     public bool IsFork;
 
     public void CreateImage()
@@ -212,12 +186,12 @@ namespace BTokenLib
       if (IsFork)
       {
         pathImage = PathImageFork;
-        TryMoveDirectory(pathImage, PathImageForkOld);
+        pathImage.TryMoveDirectoryTo(PathImageForkOld);
       }
       else
       {
         pathImage = PathImage;
-        TryMoveDirectory(pathImage, PathImageOld);
+        pathImage.TryMoveDirectoryTo(PathImageOld);
       }
 
       Directory.CreateDirectory(pathImage);
@@ -238,7 +212,6 @@ namespace BTokenLib
     public abstract void ResetDatabase();
 
     public abstract Block CreateBlock();
-
 
     protected bool IsMining;
     protected bool FlagMiningCancel;
@@ -275,9 +248,7 @@ namespace BTokenLib
 
         try
         {
-          InsertBlock(
-            block, 
-            flagCreateImage: true);
+          InsertBlock(block);
 
           Debug.WriteLine($"Mined block {block}.");
         }
@@ -304,18 +275,19 @@ namespace BTokenLib
 
     protected abstract Task<Block> MineBlock(
       SHA256 sHA256, 
-      long seed); 
+      long seed);
 
-
-    public void InsertBlock(
-      Block block, 
-      bool flagCreateImage)
+    public void InsertBlock(Block block)
     {
-      Blockchain.InsertHeader(block.Header);
-      InsertInDatabase(block);
+      block.Header.AppendToHeader(Blockchain.HeaderTip);
+      
+      if(TryInsertInDatabase(block))
+      {
+        Blockchain.AppendHeader(block.Header);
 
-      if (flagCreateImage)
-        CreateImage();
+        if (block.Header.Height == INTERVAL_BLOCKHEIGHT_IMAGE)
+          CreateImage();
+      }
     }
 
     protected List<Token> TokenListening = new();
@@ -325,15 +297,20 @@ namespace BTokenLib
       TokenListening.Add(token);
     }
 
+    public void AddIDBToken(ushort iDBToken)
+    {
+      IDsBToken.Add(iDBToken);
+    }
+
 
     public virtual void DetectAnchorToken(TXOutput tXOutput)
-    {
-      throw new InvalidOperationException();
-    }
+    { }
     public virtual Task SignalBlockInsertion(byte[] hash)
     {
       throw new InvalidOperationException();
     }
+    public virtual void RevokeBlockInsertion()
+    { }
 
     public byte[] SendDataTX(byte[] data)
     {
@@ -348,7 +325,7 @@ namespace BTokenLib
 
     public abstract TX CreateDataTX(byte[] data);
 
-    protected abstract void InsertInDatabase(Block block);
+    protected abstract bool TryInsertInDatabase(Block block);
 
     public abstract Header ParseHeader(
       byte[] buffer,

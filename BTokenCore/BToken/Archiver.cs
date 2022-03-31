@@ -231,8 +231,6 @@ namespace BTokenCore
 
       foreach (Block block in blockLoad.Blocks)
       {
-        Blockchain.InsertHeader(block.Header);
-
         Token.InsertBlock(block);
 
         if (block.Header.Hash.IsEqual(HashStopLoading))

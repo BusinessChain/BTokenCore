@@ -13,13 +13,17 @@ namespace BTokenCore
 {
   class TokenBToken : Token
   {
-    const ushort ID_Token = 0;
+    const ushort ID_BTOKEN = 0;
     DatabaseAccounts DatabaseAccounts;
 
     BlockArchiver Archiver;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
     const int LENGTH_DATA_ANCHOR_TOKEN = 66; // ID_Token, hash Block, hash database
+
+    Dictionary<byte[], Block> PoolBlocks = new(new EqualityComparerByteArray());
+    Dictionary<byte[], (TX, long)> PoolTXAnchor = new(new EqualityComparerByteArray());
+    const int TIMEOUT_ALLOW_RECEPTION_TXANCHOR_DUPLICATE_SECONDS = 5;
 
 
 
@@ -28,6 +32,7 @@ namespace BTokenCore
     {
       TokenParent = tokenParent;
       tokenParent.AddTokenListening(this);
+      tokenParent.AddIDBToken(ID_BTOKEN);
 
       DatabaseAccounts = new();
 
@@ -39,7 +44,6 @@ namespace BTokenCore
       HeaderBToken header = new(
         headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
         hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-        hashAnchorPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
         merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
         unixTimeSeconds: 1231006505);
 
@@ -65,16 +69,39 @@ namespace BTokenCore
       RunMining();
     }
 
-
     public override TX CreateDataTX(byte[] dataOPReturn)
     {
       throw new NotImplementedException();
     }
 
-    protected override void InsertInDatabase(Block block)
+    protected override bool TryInsertInDatabase(Block block)
     {
+      if (((HeaderBToken)block.Header.HeaderPrevious).HeaderAnchor.HeaderNext == null)
+      {
+        TX tXAnchor = ((HeaderBToken)block.Header).TXAnchor;
+
+        if (!PoolTXAnchor.ContainsKey(tXAnchor.Hash))
+        {
+          PoolTXAnchor.Add(
+            tXAnchor.Hash,
+            (tXAnchor, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+
+          if (!PoolBlocks.ContainsKey(block.Header.Hash))
+            PoolBlocks.Add(block.Header.Hash, block);
+        }
+        else if (
+          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - PoolTXAnchor[tXAnchor.Hash].Item2 >
+          TIMEOUT_ALLOW_RECEPTION_TXANCHOR_DUPLICATE_SECONDS)
+          throw new ProtocolException($"Duplicate block {block}.");
+
+        return false;
+      }
+
+      // execute lottery, grab block from pool, insert it
       DatabaseAccounts.InsertBlock(block);
       Archiver.ArchiveBlock(block);
+
+      return true;
     }
 
 
@@ -98,7 +125,7 @@ namespace BTokenCore
 
       ushort iDToken = BitConverter.ToUInt16(tXOutput.Buffer, index);
 
-      if (iDToken != ID_Token)
+      if (iDToken != ID_BTOKEN)
         return;
 
       index += 2;
@@ -106,6 +133,12 @@ namespace BTokenCore
       if (!TokensAnchor.Any(t => t.HashBlock.IsEqual(tXOutput.Buffer, index)))
         TokensAnchor.Add(new TokenAnchor(tXOutput.Buffer, index));
     }
+
+    public override void RevokeBlockInsertion()
+    {
+      TokensAnchor.Clear();
+    }
+
 
     SHA256 SHA256 = SHA256.Create();
     Dictionary<byte[], BlockBToken> PoolBlocksReceived = new();
@@ -136,7 +169,7 @@ namespace BTokenCore
       if (!await TryLockTokenAsync())
         return;
 
-      InsertBlock(block, flagCreateImage: true);
+      InsertBlock(block);
 
       // Es wird angenommen, dass eine Segmentierung auf Layer-2 nur kurzzeitig auftritt,
       // weil der Layer-1 ja nach wie vor verbunden ist.
@@ -158,11 +191,9 @@ namespace BTokenCore
       // If the Bitcoin block is not yet here store cmpblock in the blockpool if anchor
       // and all txs are in mempool or can be obtained from peer.
 
-
       // When last block has been missing:
       // If Bitcoin block is received try to insert winning BToken block if available
       // otherwise just do nothing. The miner will be voting for a block that appends the last block in possession.
-
 
       // The anchor token should only store the referenced BToken block hash.
       // The previous BToken block hash and the database hash are stored in the BToken header.
@@ -183,7 +214,7 @@ namespace BTokenCore
 
       IsTryingLockTokenAsync = true;
 
-      while(!TryLock())
+      while(!TryLockRoot())
         await Task.Delay(1000).ConfigureAwait(false);
 
       IsTryingLockTokenAsync = false;

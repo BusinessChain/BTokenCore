@@ -13,12 +13,6 @@ namespace BTokenCore
 {
   class TokenBitcoin : Token
   {
-
-    public TokenBitcoin()
-      : base()
-    {
-    }
-
     const int SIZE_BUFFER_BLOCK = 0x400000;
     const int LENGTH_P2PKH = 25;
     byte OP_RETURN = 0x6A;
@@ -26,6 +20,12 @@ namespace BTokenCore
 
     byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
     byte[] PublicKeyHash160 = new byte[20];
+
+
+
+    public TokenBitcoin()
+      : base()
+    { }
 
     public override TX CreateDataTX(byte[] dataOPReturn)
     {
@@ -224,7 +224,9 @@ namespace BTokenCore
 
     public override Block CreateBlock()
     {
-      return new BlockBitcoin(SIZE_BUFFER_BLOCK);
+      return new BlockBitcoin(
+        SIZE_BUFFER_BLOCK,
+        IDsBToken);
     }
 
     public override bool TryRequestTX(
@@ -271,25 +273,38 @@ namespace BTokenCore
 
 
 
-    protected override void InsertInDatabase(Block block)
+    protected override bool TryInsertInDatabase(Block block)
     {
-      for (int t = 0; t < block.TXs.Count; t += 1)
+      try
       {
-        TX tX = block.TXs[t];
+        for (int t = 0; t < block.TXs.Count; t += 1)
+        {
+          TX tX = block.TXs[t];
 
-        for (int i = 0; i < tX.TXInputs.Count; i += 1)
-          Wallet.TrySpend(tX.TXInputs[i]);
+          for (int i = 0; i < tX.TXInputs.Count; i += 1)
+            Wallet.TrySpend(tX.TXInputs[i]);
 
-        for (int o = 0; o < tX.TXOutputs.Count; o += 1)
-          if (tX.TXOutputs[o].Value > 0)
-            Wallet.DetectTXOutputSpendable(tX, o);
-          else
-            TokenListening.ForEach(
-              t => t.DetectAnchorToken(tX.TXOutputs[o]));
+          for (int o = 0; o < tX.TXOutputs.Count; o += 1)
+            if (tX.TXOutputs[o].Value > 0)
+              Wallet.DetectTXOutputSpendable(tX, o);
+            else
+              TokenListening.ForEach(
+                t => t.DetectAnchorToken(tX.TXOutputs[o]));
+        }
+      }
+      catch (ProtocolException ex)
+      {
+        // Database (wallet) recovery.
+
+        TokenListening.ForEach(t => t.RevokeBlockInsertion());
+
+        throw ex;
       }
 
       TokenListening.ForEach(
         t => t.SignalBlockInsertion(block.Header.Hash));
+
+      return true;
     }
 
     public override Header ParseHeader(

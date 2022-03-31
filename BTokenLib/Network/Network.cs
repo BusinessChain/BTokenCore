@@ -16,8 +16,6 @@ namespace BTokenLib
     Token Token;
     Blockchain Blockchain;
 
-    const int UTXOIMAGE_INTERVAL_SYNC = 100;
-
     const int TIMEOUT_RESPONSE_MILLISECONDS = 3000; 
 
     StreamWriter LogFile;
@@ -265,7 +263,7 @@ namespace BTokenLib
             continue;
         }
 
-        if (!Token.TryLock())
+        if (!Token.TryLockRoot())
         {
           peerSync.Release();
           peerSync.FlagSyncScheduled = true;
@@ -410,10 +408,7 @@ namespace BTokenLib
           {
             try
             {
-              Token.InsertBlock(
-                block,
-                flagCreateImage: UTXOIMAGE_INTERVAL_SYNC - 1 ==
-                HeightInsertion % UTXOIMAGE_INTERVAL_SYNC);
+              Token.InsertBlock(block);
 
               block.Clear();
 
