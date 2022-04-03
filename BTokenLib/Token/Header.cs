@@ -52,7 +52,7 @@ namespace BTokenLib
     public virtual void AppendToHeader(Header headerPrevious)
     {
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
-        throw new InvalidOperationException(
+        throw new ProtocolException(
           $"Header {this} references header previous " +
           $"{HashPrevious.ToHexString()} but attempts to append {headerPrevious}.");
 

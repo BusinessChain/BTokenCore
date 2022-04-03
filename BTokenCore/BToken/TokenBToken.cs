@@ -19,7 +19,7 @@ namespace BTokenCore
     BlockArchiver Archiver;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
-    const int LENGTH_DATA_ANCHOR_TOKEN = 66; // ID_Token, hash Block, hash database
+    const int LENGTH_DATA_ANCHOR_TOKEN = 34; // ID_Token, hash Block
 
     Dictionary<byte[], Block> PoolBlocks = new(new EqualityComparerByteArray());
     Dictionary<byte[], (TX, long)> PoolTXAnchor = new(new EqualityComparerByteArray());
@@ -74,10 +74,21 @@ namespace BTokenCore
       throw new NotImplementedException();
     }
 
+
+    public override HeaderDownload CreateHeaderDownload()
+    {
+      return new HeaderDownload(Blockchain.GetLocator());
+    }
+
     protected override bool TryInsertInDatabase(Block block)
     {
       if (((HeaderBToken)block.Header.HeaderPrevious).HeaderAnchor.HeaderNext == null)
       {
+        if(!TokenParent.ContainsMemPoolAnchorToken(block.Header.Hash))
+        {
+          return false;
+        }
+
         TX tXAnchor = ((HeaderBToken)block.Header).TXAnchor;
 
         if (!PoolTXAnchor.ContainsKey(tXAnchor.Hash))
@@ -140,11 +151,14 @@ namespace BTokenCore
     }
 
 
+    List<byte[]> TrailHashesAnchor = new();
     SHA256 SHA256 = SHA256.Create();
-    Dictionary<byte[], BlockBToken> PoolBlocksReceived = new();
 
-    public override async Task SignalBlockInsertion(byte[] hashBlockAnchor)
+    public override void SignalBlockInsertion(byte[] hashBlockAnchor)
     {
+      if (TokensAnchor.Count == 0)
+        return;
+
       byte[] hashBlockAnchorHashed = SHA256.ComputeHash(hashBlockAnchor);
 
       byte[] biggestDifferenceTemp = new byte[32];
@@ -161,20 +175,11 @@ namespace BTokenCore
         }
       });
 
-      if (!PoolBlocksReceived.TryGetValue(
-        tokenAnchorWinner.HashBlock,
-        out BlockBToken block))
-        return;
+      TokensAnchor.Clear();
 
-      if (!await TryLockTokenAsync())
-        return;
+      TrailHashesAnchor.Add(tokenAnchorWinner.HashBlock);
 
-      InsertBlock(block);
 
-      // Es wird angenommen, dass eine Segmentierung auf Layer-2 nur kurzzeitig auftritt,
-      // weil der Layer-1 ja nach wie vor verbunden ist.
-      // Deshalb braucht es keine Überlebenstrategie für Segmentierte Netzwerke. 
-      // Falls diese Situation auftritt, kompetitieren die beiden Segmente gegeneinander.
       // Wenn das AnkerToken eines Segments gewinnt, kann das andere Segment in diesem Zyklus 
       // kein Block generieren, denn es wird immer eine Lotterie über alle AnkerTokens gemacht.
       // Hier sollte es aber so sein, dass Tokens welche für eine andere Historie voten von der

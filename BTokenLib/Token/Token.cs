@@ -78,6 +78,11 @@ namespace BTokenLib
       Network.Start();
     }
 
+    public virtual HeaderDownload CreateHeaderDownload()
+    {
+      return new HeaderDownload(Blockchain.GetLocator());
+    }
+
     public string GetStatus()
     {
       string messageStatus = "";
@@ -304,13 +309,17 @@ namespace BTokenLib
 
 
     public virtual void DetectAnchorToken(TXOutput tXOutput)
-    { }
-    public virtual Task SignalBlockInsertion(byte[] hash)
     {
-      throw new InvalidOperationException();
+      throw new NotImplementedException();
+    }
+    public virtual void SignalBlockInsertion(byte[] hash)
+    {
+      throw new NotImplementedException();
     }
     public virtual void RevokeBlockInsertion()
-    { }
+    {
+      throw new NotImplementedException();
+    }
 
     public byte[] SendDataTX(byte[] data)
     {

@@ -657,11 +657,9 @@ namespace BTokenLib
         Release();
       }
                             
-      public async Task GetHeaders(Blockchain blockchain)
+      public async Task GetHeaders(HeaderDownload headerDownload)
       {
-        HeaderDownload = new(
-          blockchain.GetLocator(), 
-          this);
+        HeaderDownload = headerDownload;
                
         ($"Send getheaders to peer {this},\n" +
           $"locator: {HeaderDownload}").Log(LogFile);

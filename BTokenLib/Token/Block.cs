@@ -174,15 +174,5 @@ namespace BTokenLib
     {
       TXs.Clear();
     }
-
-    protected TXOutput ParseOutput(
-      byte[] buffer, 
-      ref int indexBuffer)
-    {
-      TXOutput tXOutput = new(buffer, ref indexBuffer);
-      if (tXOutput.contains(iDBitoken))
-
-      return tXOutput;
-    }
   }
 }

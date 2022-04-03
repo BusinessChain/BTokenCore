@@ -152,7 +152,7 @@ namespace BTokenLib
           $"Image higher than desired height {heightMax}.");
     }
 
-    internal List<Header> GetLocator()
+    public List<Header> GetLocator()
     {
       Header header = HeaderTip;
       List<Header> locator = new();

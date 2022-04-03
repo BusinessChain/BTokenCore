@@ -3,26 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Diagnostics;
 
-namespace BTokenLib
+using BTokenLib;
+
+namespace BTokenCore
 {
-  public class HeaderDownload
+  public class HeaderDownloadBToken : HeaderDownload
   {
-    public List<Header> Locator;
-
-    public Header HeaderTip;
-    public Header HeaderRoot;
-    public Header HeaderAncestor;
-    public Header HeaderInsertedLast;
+    List<byte[]> TrailHashesAnchor;
+    int IndexTrail;
 
 
-    public HeaderDownload(List<Header> locator)
+    public HeaderDownloadBToken(
+      List<Header> locator,
+      List<byte[]> trailHashesAnchor) 
+      : base(locator)
     {
-      Locator = locator;
+      TrailHashesAnchor = trailHashesAnchor;
     }
 
-    public void InsertHeader(Header header)
+    public new void InsertHeader(Header header)
     {
       HeaderInsertedLast = header;
 
@@ -56,14 +56,16 @@ namespace BTokenLib
       else
       {
         header.AppendToHeader(HeaderTip);
+
+        while (!header.Hash.IsEqual(TrailHashesAnchor[IndexTrail++]))
+          if (IndexTrail == TrailHashesAnchor.Count)
+            throw new ProtocolException(
+              $"Header hash {header} not equal to anchor " +
+              $"trail hash {TrailHashesAnchor[IndexTrail].ToHexString()}.");
+
         HeaderTip.HeaderNext = header;
         HeaderTip = header;
       }
-    }
-
-    public override string ToString()
-    {
-      return $"{Locator.First()} ... {Locator.Last()}";
     }
   }
 }

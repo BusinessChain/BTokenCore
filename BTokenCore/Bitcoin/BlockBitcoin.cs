@@ -111,7 +111,10 @@ namespace BTokenCore
           ref indexBuffer);
 
         for (int i = 0; i < countTXOutputs; i += 1)
-          tX.TXOutputs.Add(ParseOutput(buffer, ref indexBuffer));
+          tX.TXOutputs.Add(
+            new TXOutput(
+              buffer,
+              ref indexBuffer));
 
         indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
 

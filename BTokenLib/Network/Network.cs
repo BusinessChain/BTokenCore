@@ -11,7 +11,7 @@ using System.Net.Sockets;
 
 namespace BTokenLib
 {
-  partial class Network
+  public partial class Network
   {
     Token Token;
     Blockchain Blockchain;
@@ -277,7 +277,7 @@ namespace BTokenLib
 
         try
         {
-          await PeerSync.GetHeaders(Blockchain);
+          await PeerSync.GetHeaders(Token.CreateHeaderDownload());
         }
         catch (Exception ex)
         {
