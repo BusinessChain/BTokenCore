@@ -219,7 +219,7 @@ namespace BTokenCore
 
       IsTryingLockTokenAsync = true;
 
-      while(!TryLockRoot())
+      while(!TryLock())
         await Task.Delay(1000).ConfigureAwait(false);
 
       IsTryingLockTokenAsync = false;

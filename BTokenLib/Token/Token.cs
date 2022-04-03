@@ -13,6 +13,7 @@ namespace BTokenLib
   public abstract partial class Token
   {
     public Token TokenParent;
+    public List<Token> TokenChilds = new();
 
     public Blockchain Blockchain;
 
@@ -102,10 +103,10 @@ namespace BTokenLib
 
     bool IsLocked;
 
-    public bool TryLockRoot()
+    public bool TryLock()
     {
       if (TokenParent != null)
-        return TokenParent.TryLockRoot();
+        return TokenParent.TryLock();
 
       lock (this)
       {

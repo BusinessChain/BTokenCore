@@ -22,8 +22,9 @@ namespace BTokenCore
       TrailHashesAnchor = trailHashesAnchor;
     }
 
-    public new void InsertHeader(Header header)
+    public new void InsertHeader(Header header, out bool flagRequestNoMoreHeaders)
     {
+      flagRequestNoMoreHeaders = false;
       HeaderInsertedLast = header;
 
       if (HeaderRoot == null)
@@ -62,6 +63,9 @@ namespace BTokenCore
             throw new ProtocolException(
               $"Header hash {header} not equal to anchor " +
               $"trail hash {TrailHashesAnchor[IndexTrail].ToHexString()}.");
+
+        if (IndexTrail == TrailHashesAnchor.Count)
+          flagRequestNoMoreHeaders = true;
 
         HeaderTip.HeaderNext = header;
         HeaderTip = header;

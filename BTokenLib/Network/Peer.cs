@@ -284,7 +284,7 @@ namespace BTokenLib
                   Cancellation = new();
                 }
 
-                if (!Token.TryLockRoot())
+                if (!Token.TryLock())
                   continue;
 
                 try
@@ -372,6 +372,8 @@ namespace BTokenLib
 
                   if (IsStateGetHeaders())
                   {
+                    bool flagRequestNoMoreHeaders = countHeaders == 0;
+
                     try
                     {
                       while (byteIndex < PayloadLength)
@@ -382,7 +384,7 @@ namespace BTokenLib
 
                         byteIndex += 1;
 
-                        HeaderDownload.InsertHeader(header);
+                        HeaderDownload.InsertHeader(header,out flagRequestNoMoreHeaders);
                       }
                     }
                     catch (ProtocolException ex)
@@ -390,11 +392,11 @@ namespace BTokenLib
                       ($"{ex.GetType().Name} when receiving headers:\n" +
                         $"{ex.Message}").Log(LogFile);
 
-                      continue; 
+                      continue;
                       // Don't disconnect on parser exception but on timeout instead.
                     }
 
-                    if (countHeaders == 0)
+                    if (flagRequestNoMoreHeaders)
                     {
                       Cancellation = new();
 

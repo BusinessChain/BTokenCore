@@ -263,7 +263,7 @@ namespace BTokenLib
             continue;
         }
 
-        if (!Token.TryLockRoot())
+        if (!Token.TryLock())
         {
           peerSync.Release();
           peerSync.FlagSyncScheduled = true;
@@ -291,6 +291,7 @@ namespace BTokenLib
 
     bool FlagSyncAbort;
     int HeightInsertion;
+    int HeightInsertionOld;
     object LOCK_HeightInsertion = new();
     const int CAPACITY_MAX_QueueBlocksInsertion = 20;
     Dictionary<int, Block> QueueBlockInsertion = new();
@@ -315,7 +316,6 @@ namespace BTokenLib
         }
 
         FlagSyncAbort = false;
-        HeightInsertion = 0;
         QueueBlockInsertion.Clear();
         QueueDownloadsIncomplete.Clear();
 
@@ -380,10 +380,21 @@ namespace BTokenLib
       $"Synchronization with {PeerSync} of {Token.GetName()} completed."
         .Log(LogFile);
 
+      if (HeightInsertion == HeightInsertionOld)
+      {
+        if(Token.TokenParent != null)
+          Token.GetParentRoot().Network.ScheduleSynchronization();
+      }
+      else if (Token.TokenChilds.Any())
+        Token.TokenChilds.ForEach(t => t.Network.ScheduleSynchronization());
+      else if (Token.TokenParent != null)
+        Token.GetParentRoot().Network.ScheduleSynchronization();
+
+      HeightInsertionOld = HeightInsertion;
+
       PeerSync.Release();
       Token.ReleaseLock();
     }
-
 
     bool InsertBlockFlagContinue(Peer peer)
     {
