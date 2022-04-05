@@ -16,7 +16,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    partial class Peer
+    public partial class Peer
     {
       Network Network;
       public Token Token;
@@ -214,7 +214,17 @@ namespace BTokenLib
         }
       }
 
-      async Task SyncToMessage()
+
+      async Task ReadMessageBlock()
+      {
+        do
+          await ReadMessage();
+        while (Command != "block");
+
+        FlagBlockReading = false;
+      }
+
+      async Task ReadMessage()
       {
         byte[] magicByte = new byte[1];
 
@@ -225,6 +235,28 @@ namespace BTokenLib
           if (MagicBytes[i] != magicByte[0])
             i = magicByte[0] == MagicBytes[0] ? 0 : -1;
         }
+
+        await ReadBytes(
+          MeassageHeader,
+          MeassageHeader.Length);
+
+        PayloadLength = BitConverter.ToInt32(
+          MeassageHeader,
+          CommandSize);
+
+        if (PayloadLength > SIZE_MESSAGE_PAYLOAD_BUFFER)
+          throw new ProtocolException(
+            $"Message payload too big exceeding " +
+            $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
+
+        Command = Encoding.ASCII.GetString(
+          MeassageHeader.Take(CommandSize)
+          .ToArray()).TrimEnd('\0');
+
+        if (Command == "block")
+          await ReadBytes(Block.Buffer, PayloadLength);
+        else
+          await ReadBytes(Payload, PayloadLength);
       }
 
 
@@ -238,32 +270,13 @@ namespace BTokenLib
         {
           while (true)
           {
-            if (FlagDispose) 
+            if (FlagDispose)
               return;
 
-            await SyncToMessage();
-
-            await ReadBytes(
-              MeassageHeader,
-              MeassageHeader.Length);
-
-            Command = Encoding.ASCII.GetString(
-              MeassageHeader.Take(CommandSize)
-              .ToArray()).TrimEnd('\0');
-
-            PayloadLength = BitConverter.ToInt32(
-              MeassageHeader,
-              CommandSize);
-            
-            if (PayloadLength > SIZE_MESSAGE_PAYLOAD_BUFFER)
-              throw new ProtocolException(
-                $"Message payload too big exceeding " +
-                $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
+            await ReadMessage();
 
             if (Command == "block")
             {
-              await ReadBytes(Block.Buffer, PayloadLength);
-
               Block.Parse();
 
               $"Peer {this} received block {Block}".Log(LogFile);
@@ -292,7 +305,7 @@ namespace BTokenLib
                   if (Block.Header.HashPrevious.IsEqual(
                     Token.Blockchain.HeaderTip.Hash))
                   {
-                    Token.InsertBlock(Block);
+                    Token.InsertBlock(Block, this);
 
                     $"{this}: Inserted unsolicited block {Block}."
                       .Log(LogFile);
@@ -330,238 +343,218 @@ namespace BTokenLib
                 Cancellation = new();
 
                 if (Network.InsertBlockFlagContinue(this))
-                  await GetBlock();
+                  await RequestBlock();
                 else
                   Release();
               }
             }
-            else
+            else if (Command == "ping")
             {
-              await ReadBytes(Payload, PayloadLength);
+              await SendMessage(new PongMessage(
+                BitConverter.ToUInt64(Payload, 0)));
+            }
+            else if (Command == "addr")
+            {
+              AddressMessage addressMessage = new(Payload);
+            }
+            else if (Command == "sendheaders")
+            {
+              await SendMessage(new SendHeadersMessage());
+            }
+            else if (Command == "feefilter")
+            {
+              FeeFilterMessage feeFilterMessage = new(Payload);
+              FeeFilterValue = feeFilterMessage.FeeFilterValue;
+            }
+            else if (Command == "headers")
+            {
+              int byteIndex = 0;
 
-              switch (Command)
+              int countHeaders = VarInt.GetInt32(
+                Payload,
+                ref byteIndex);
+
+              $"{this}: Receiving {countHeaders} headers."
+                .Log(LogFile);
+
+              if (IsStateGetHeaders())
               {
-                case "ping":
-                  await SendMessage(new PongMessage(
-                    BitConverter.ToUInt64(Payload, 0)));
-                  break;
+                bool flagRequestNoMoreHeaders = countHeaders == 0;
 
-                case "addr":
-                  AddressMessage addressMessage = new(Payload);
-                  break;
-
-                case "sendheaders":
-                  await SendMessage(new SendHeadersMessage());
-
-                  break;
-
-                case "feefilter":
-                  FeeFilterMessage feeFilterMessage = new(Payload);
-                  FeeFilterValue = feeFilterMessage.FeeFilterValue;
-                  break;
-
-                case "headers":
-                  int byteIndex = 0;
-                  
-                  int countHeaders = VarInt.GetInt32(
-                    Payload,
-                    ref byteIndex);
-
-                  $"{this}: Receiving {countHeaders} headers."
-                    .Log(LogFile);
-
-                  if (IsStateGetHeaders())
+                try
+                {
+                  while (byteIndex < PayloadLength)
                   {
-                    bool flagRequestNoMoreHeaders = countHeaders == 0;
-
-                    try
-                    {
-                      while (byteIndex < PayloadLength)
-                      {
-                        Header header = Token.ParseHeader(
-                          Payload,
-                          ref byteIndex);
-
-                        byteIndex += 1;
-
-                        HeaderDownload.InsertHeader(header,out flagRequestNoMoreHeaders);
-                      }
-                    }
-                    catch (ProtocolException ex)
-                    {
-                      ($"{ex.GetType().Name} when receiving headers:\n" +
-                        $"{ex.Message}").Log(LogFile);
-
-                      continue;
-                      // Don't disconnect on parser exception but on timeout instead.
-                    }
-
-                    if (flagRequestNoMoreHeaders)
-                    {
-                      Cancellation = new();
-
-                      Network.Sync();
-                    }
-                    else
-                    {
-                      ($"Send getheaders to peer {this},\n" +
-                        $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
-
-                      await SendMessage(new GetHeadersMessage(
-                        new List<Header> { HeaderDownload.HeaderInsertedLast },
-                        ProtocolVersion));
-
-                      Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-                    }
-                  }
-                  else
-                  {
-                    HeaderUnsolicited = Token.ParseHeader(
+                    Header header = Token.ParseHeader(
                       Payload,
                       ref byteIndex);
 
-                    $"Parsed unsolicited header {HeaderUnsolicited}.".Log(LogFile);
+                    byteIndex += 1;
 
-                    Console.Beep(800, 100);
-
-                    Network.ThrottleDownloadBlockUnsolicited();
-
-                    QueueHeadersUnsolicited.Add(HeaderUnsolicited);
-                                         
-                    if (QueueHeadersUnsolicited.Count > 10)
-                      throw new ProtocolException(
-                        $"Too many ({QueueHeadersUnsolicited.Count}) headers unsolicited.");
-
-                    if (QueueHeadersUnsolicited.Count > 1)
-                      break;
-
-                    ProcessHeaderUnsolicited();
+                    HeaderDownload.InsertHeader(header, out flagRequestNoMoreHeaders);
                   }
+                }
+                catch (ProtocolException ex)
+                {
+                  ($"{ex.GetType().Name} when receiving headers:\n" +
+                    $"{ex.Message}").Log(LogFile);
 
-                  break;
+                  continue;
+                  // Don't disconnect on parser exception but on timeout instead.
+                }
 
-                case "getheaders":
+                if (flagRequestNoMoreHeaders)
+                {
+                  Cancellation = new();
 
-                  byte[] hashHeaderAncestor = new byte[32];
+                  Network.Sync();
+                }
+                else
+                {
+                  ($"Send getheaders to peer {this},\n" +
+                    $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
 
-                  int startIndex = 4;
+                  await SendMessage(new GetHeadersMessage(
+                    new List<Header> { HeaderDownload.HeaderInsertedLast },
+                    ProtocolVersion));
 
-                  int headersCount = VarInt.GetInt32(Payload, ref startIndex);
-
-                  $"Received getHeaders with {headersCount} headers.".Log(LogFile);
-
-                  int i = 0;
-                  List<Header> headers = new();
-
-                  while (i < headersCount)
-                  {
-                    Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
-                    startIndex += 32;
-
-                    ($"Scan locator for common ancestor index {i}, " +
-                      $"{hashHeaderAncestor.ToHexString()}").Log(LogFile);
-
-                    i += 1;
-
-                    if (Token.Blockchain.TryReadHeader(
-                      hashHeaderAncestor,
-                      out Header header))
-                    {
-                      $"In getheaders locator common ancestor is {header}.".Log(LogFile);
-
-                      while (header.HeaderNext != null && headers.Count < 2000)
-                      {
-                        headers.Add(header.HeaderNext);
-                        header = header.HeaderNext;
-                      }
-
-                      if(headers.Any())
-                        $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
-                      else
-                        $"Send empty headers".Log(LogFile);
-
-                      await SendHeaders(headers);
-
-                      break;
-                    }
-                    else if (i == headersCount)
-                    {
-                      $"Found no common ancestor in getheaders locator... Schedule synchronization ".Log(LogFile);
-
-                      await SendHeaders(headers);
-
-                      FlagSyncScheduled = true;
-                    }
-                  }
-
-                  break;
-
-                case "notfound":
-
-                  "Received meassage notfound.".Log(LogFile);
-
-                  if (IsStateBlockDownload())
-                  {
-                    Network.ReturnPeerBlockDownloadIncomplete(this);
-
-                    lock (this)
-                      State = StateProtocol.IDLE;
-
-                    if (this == Network.PeerSync)
-                      throw new ProtocolException(
-                        $"Peer has sent headers but does not deliver blocks.");
-                  }
-
-                  break;
-
-                case "inv":
-
-                  InvMessage invMessage = new(Payload);
-                  GetDataMessage getDataMessage = new(invMessage.Inventories);
-
-                  break;
-
-                case "getdata":
-
-                  getDataMessage = new(Payload);
-
-                  foreach (Inventory inventory in getDataMessage.Inventories)
-                    if (inventory.Type == InventoryType.MSG_TX)
-                    {
-                      if (Token.TryRequestTX(
-                        inventory.Hash,
-                        out byte[] tXRaw))
-                      {
-                        await SendMessage(new TXMessage(tXRaw));
-
-                        string.Format(
-                          "{0} received getData {1} and sent tXMessage {2}.",
-                          this,
-                          getDataMessage.Inventories[0],
-                          inventory)
-                          .Log(LogFile);
-                      }
-                      else
-                      {
-                        // Send notfound
-                      }
-                    }
-                    else if (inventory.Type == InventoryType.MSG_BLOCK)
-                    {
-                      Block block = Network.BlocksCached
-                        .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
-
-                      if (block != null)
-                        await SendMessage(new BlockMessage(block));
-                    }
-                    else
-                      await SendMessage(new RejectMessage(inventory.Hash));
-
-                  break;
-
-                default:
-                  break;
+                  Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+                }
               }
+              else
+              {
+                HeaderUnsolicited = Token.ParseHeader(
+                  Payload,
+                  ref byteIndex);
+
+                $"Parsed unsolicited header {HeaderUnsolicited}.".Log(LogFile);
+
+                Console.Beep(800, 100);
+
+                Network.ThrottleDownloadBlockUnsolicited();
+
+                QueueHeadersUnsolicited.Add(HeaderUnsolicited);
+
+                if (QueueHeadersUnsolicited.Count > 10)
+                  throw new ProtocolException(
+                    $"Too many ({QueueHeadersUnsolicited.Count}) headers unsolicited.");
+
+                if (QueueHeadersUnsolicited.Count > 1)
+                  break;
+
+                ProcessHeaderUnsolicited();
+              }
+            }
+            else if (Command == "getheaders")
+            {
+              byte[] hashHeaderAncestor = new byte[32];
+
+              int startIndex = 4;
+
+              int headersCount = VarInt.GetInt32(Payload, ref startIndex);
+
+              $"Received getHeaders with {headersCount} headers.".Log(LogFile);
+
+              int i = 0;
+              List<Header> headers = new();
+
+              while (i < headersCount)
+              {
+                Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
+                startIndex += 32;
+
+                ($"Scan locator for common ancestor index {i}, " +
+                  $"{hashHeaderAncestor.ToHexString()}").Log(LogFile);
+
+                i += 1;
+
+                if (Token.Blockchain.TryReadHeader(
+                  hashHeaderAncestor,
+                  out Header header))
+                {
+                  $"In getheaders locator common ancestor is {header}.".Log(LogFile);
+
+                  while (header.HeaderNext != null && headers.Count < 2000)
+                  {
+                    headers.Add(header.HeaderNext);
+                    header = header.HeaderNext;
+                  }
+
+                  if (headers.Any())
+                    $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
+                  else
+                    $"Send empty headers".Log(LogFile);
+
+                  await SendHeaders(headers);
+
+                  break;
+                }
+                else if (i == headersCount)
+                {
+                  $"Found no common ancestor in getheaders locator... Schedule synchronization ".Log(LogFile);
+
+                  await SendHeaders(headers);
+
+                  FlagSyncScheduled = true;
+                }
+              }
+            }
+            else if (Command == "notfound")
+            {
+              "Received meassage notfound.".Log(LogFile);
+
+              if (IsStateBlockDownload())
+              {
+                Network.ReturnPeerBlockDownloadIncomplete(this);
+
+                lock (this)
+                  State = StateProtocol.IDLE;
+
+                if (this == Network.PeerSync)
+                  throw new ProtocolException(
+                    $"Peer has sent headers but does not deliver blocks.");
+              }
+            }
+            else if (Command == "inv")
+            {
+              InvMessage invMessage = new(Payload);
+              GetDataMessage getDataMessage = new(invMessage.Inventories);
+            }
+            else if (Command == "getdata")
+            {
+              GetDataMessage getDataMessage = new(Payload);
+
+              foreach (Inventory inventory in getDataMessage.Inventories)
+                if (inventory.Type == InventoryType.MSG_TX)
+                {
+                  if (Token.TryRequestTX(
+                    inventory.Hash,
+                    out byte[] tXRaw))
+                  {
+                    await SendMessage(new TXMessage(tXRaw));
+
+                    string.Format(
+                      "{0} received getData {1} and sent tXMessage {2}.",
+                      this,
+                      getDataMessage.Inventories[0],
+                      inventory)
+                      .Log(LogFile);
+                  }
+                  else
+                  {
+                    // Send notfound
+                  }
+                }
+                else if (inventory.Type == InventoryType.MSG_BLOCK)
+                {
+                  Block block = Network.BlocksCached
+                    .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
+
+                  if (block != null)
+                    await SendMessage(new BlockMessage(block));
+                }
+                else
+                  await SendMessage(new RejectMessage(inventory.Hash));
             }
           }
         }
@@ -569,7 +562,7 @@ namespace BTokenLib
         {
           if (IsStateAwaitingHeader())
             Network.Token.ReleaseLock();
-          else if(IsStateBlockDownload())
+          else if (IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
 
           SetFlagDisposed(
@@ -675,7 +668,41 @@ namespace BTokenLib
           ProtocolVersion));
       }
 
-      public async Task GetBlock()
+
+      bool FlagBlockReading;
+
+      public Block GetBlock(byte[] hash)
+      {
+        $"Peer {this} starts downloading block {hash.ToHexString()}."
+          .Log(LogFile);
+
+        SendMessage(new GetDataMessage(
+          new List<Inventory>()
+          {
+            new Inventory(
+              InventoryType.MSG_BLOCK,
+              hash)
+          }));
+
+        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+        FlagBlockReading = true;
+
+        ReadMessageBlock();
+
+        while (FlagBlockReading)
+        {
+          Thread.Sleep(100);
+
+          if (Cancellation.IsCancellationRequested)
+            throw new TaskCanceledException(
+              $"GetBlock {hash.ToHexString()} canceled.");
+        }
+
+        return Block;
+      }
+
+      public async Task RequestBlock()
       {
         $"Peer {this} starts downloading block {Header}.".Log(LogFile);
 

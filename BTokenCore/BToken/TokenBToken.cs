@@ -21,10 +21,6 @@ namespace BTokenCore
     const int SIZE_BUFFER_BLOCK = 0x400000;
     const int LENGTH_DATA_ANCHOR_TOKEN = 34; // ID_Token, hash Block
 
-    Dictionary<byte[], Block> PoolBlocks = new(new EqualityComparerByteArray());
-    Dictionary<byte[], (TX, long)> PoolTXAnchor = new(new EqualityComparerByteArray());
-    const int TIMEOUT_ALLOW_RECEPTION_TXANCHOR_DUPLICATE_SECONDS = 5;
-
 
 
     public TokenBToken(Token tokenParent)
@@ -77,42 +73,33 @@ namespace BTokenCore
 
     public override HeaderDownload CreateHeaderDownload()
     {
-      return new HeaderDownload(Blockchain.GetLocator());
+      return new HeaderDownloadBToken(
+        Blockchain.GetLocator(),
+        TrailHashesAnchor,
+        IndexTrail);
     }
 
-    protected override bool TryInsertInDatabase(Block block)
+    protected override void InsertInDatabase(
+      Block block, 
+      Network.Peer peer)
     {
-      if (((HeaderBToken)block.Header.HeaderPrevious).HeaderAnchor.HeaderNext == null)
+      if(IndexTrail == TrailHashesAnchor.Count)
       {
-        if(!TokenParent.ContainsMemPoolAnchorToken(block.Header.Hash))
-        {
-          return false;
-        }
+        Block blockParent = peer.GetBlock(
+          ((HeaderBToken)block.Header).HashHeaderAnchor);
 
-        TX tXAnchor = ((HeaderBToken)block.Header).TXAnchor;
-
-        if (!PoolTXAnchor.ContainsKey(tXAnchor.Hash))
-        {
-          PoolTXAnchor.Add(
-            tXAnchor.Hash,
-            (tXAnchor, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-
-          if (!PoolBlocks.ContainsKey(block.Header.Hash))
-            PoolBlocks.Add(block.Header.Hash, block);
-        }
-        else if (
-          DateTimeOffset.UtcNow.ToUnixTimeSeconds() - PoolTXAnchor[tXAnchor.Hash].Item2 >
-          TIMEOUT_ALLOW_RECEPTION_TXANCHOR_DUPLICATE_SECONDS)
-          throw new ProtocolException($"Duplicate block {block}.");
-
-        return false;
+        TokenParent.InsertBlock(blockParent, peer);
       }
 
-      // execute lottery, grab block from pool, insert it
+      if (
+        IndexTrail == TrailHashesAnchor.Count ||
+        !block.Header.Hash.IsEqual(TrailHashesAnchor[IndexTrail]))
+        throw new ProtocolException(
+          $"Header hash {block} not equal to anchor " +
+          $"trail hash {TrailHashesAnchor[IndexTrail].ToHexString()}.");
+
       DatabaseAccounts.InsertBlock(block);
       Archiver.ArchiveBlock(block);
-
-      return true;
     }
 
 
@@ -152,6 +139,7 @@ namespace BTokenCore
 
 
     List<byte[]> TrailHashesAnchor = new();
+    int IndexTrail;
     SHA256 SHA256 = SHA256.Create();
 
     public override void SignalBlockInsertion(byte[] hashBlockAnchor)
@@ -178,52 +166,6 @@ namespace BTokenCore
       TokensAnchor.Clear();
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlock);
-
-
-      // Wenn das AnkerToken eines Segments gewinnt, kann das andere Segment in diesem Zyklus 
-      // kein Block generieren, denn es wird immer eine Lotterie über alle AnkerTokens gemacht.
-      // Hier sollte es aber so sein, dass Tokens welche für eine andere Historie voten von der
-      // anderen Historie nicht belohnt werden, um zu verhindern dass Nodes zum Spass
-      // extra für andere Histories voten.
-
-      // When all past blocks have been received:
-      // If Bitcoin block is received compose winning BToken block from cmpBlock and mempool if available,
-      // otherwise just do nothing. The miner will immediately start to mine for
-      // an alternate block.
-
-      // If BToken block is received look if Bitcoin block is there then insert,
-      // the miner previously mining an alternate block will now switch to this branch.
-      // If the Bitcoin block is not yet here store cmpblock in the blockpool if anchor
-      // and all txs are in mempool or can be obtained from peer.
-
-      // When last block has been missing:
-      // If Bitcoin block is received try to insert winning BToken block if available
-      // otherwise just do nothing. The miner will be voting for a block that appends the last block in possession.
-
-      // The anchor token should only store the referenced BToken block hash.
-      // The previous BToken block hash and the database hash are stored in the BToken header.
-      // This means the lottery in a block is always across all anchor tokens regardless of the branch they reference.
-      // All token rewards are pooled.
-      // Blocks are broadcasted in the form of compact blocks. The receiving node either already has
-      // the transaction, or requests it. It only relays a compact block if it has all tx in the tXpool.
-      // If a node votes for a block already in the block pool, no data has to be broadcasted again in the network.
-      // If it wants to vote for a slightly different block, it can broadcast a diff-block
-    }
-
-    bool IsTryingLockTokenAsync;
-
-    async Task<bool> TryLockTokenAsync()
-    {
-      if (IsTryingLockTokenAsync)
-        return false;
-
-      IsTryingLockTokenAsync = true;
-
-      while(!TryLock())
-        await Task.Delay(1000).ConfigureAwait(false);
-
-      IsTryingLockTokenAsync = false;
-      return true;
     }
 
     protected async override Task<Block> MineBlock(

@@ -20,7 +20,7 @@ namespace BTokenLib
 
     StreamWriter LogFile;
 
-    const UInt16 Port = 8333;
+    const UInt16 Port = 8333; // Load from correct conf File
 
     int CountPeersMax = 6;// Math.Max(Environment.ProcessorCount - 1, 4);
 
@@ -28,6 +28,8 @@ namespace BTokenLib
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
+    Peer PeerSync;
+
     List<Block> BlocksCached = new();
 
     static readonly DirectoryInfo DirectoryLogPeers =
@@ -38,8 +40,6 @@ namespace BTokenLib
         Path.Combine(
           DirectoryLogPeers.FullName,
           "disposed"));
-
-
 
     public Network(Token token)
     {
@@ -57,16 +57,13 @@ namespace BTokenLib
       IPAddressPool = Token.GetSeedAddresses();
     }
 
-
     public void Start()
     {
       StartPeerConnector(); 
 
       StartSync();
 
-      StartPeerInboundListener(); 
-      // Falls einer anfragt, wird angenommen, dass er nur 
-      // Bitcoin versteht, falls er nicht aktiv nach BToken fragt.
+      StartPeerInboundListener();
     }
 
     void LoadNetworkConfiguration (string pathConfigFile)
@@ -136,7 +133,6 @@ namespace BTokenLib
           .Log(LogFile);
       }
     }
-
 
     public List<string> RetrieveIPAdresses(
       int countMax,
@@ -244,9 +240,6 @@ namespace BTokenLib
         Peers.ForEach(p => p.FlagSyncScheduled = true);
     }
 
-
-    Peer PeerSync;
-
     async Task StartSync()
     {
       Peer peerSync = null;
@@ -353,7 +346,7 @@ namespace BTokenLib
 
           if (peer != null)
             if (TryChargeHeader(peer))
-              await peer.GetBlock();
+              await peer.RequestBlock();
             else if (Peers.Any(p => p.IsStateBlockDownload()))
               peer.Release();
             else
@@ -419,7 +412,7 @@ namespace BTokenLib
           {
             try
             {
-              Token.InsertBlock(block);
+              Token.InsertBlock(block, peer);
 
               block.Clear();
 

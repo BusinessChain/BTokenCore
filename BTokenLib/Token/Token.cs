@@ -254,7 +254,7 @@ namespace BTokenLib
 
         try
         {
-          InsertBlock(block);
+          InsertBlock(block, null);
 
           Debug.WriteLine($"Mined block {block}.");
         }
@@ -283,17 +283,16 @@ namespace BTokenLib
       SHA256 sHA256, 
       long seed);
 
-    public void InsertBlock(Block block)
+    public void InsertBlock(Block block, Network.Peer peer)
     {
       block.Header.AppendToHeader(Blockchain.HeaderTip);
-      
-      if(TryInsertInDatabase(block))
-      {
-        Blockchain.AppendHeader(block.Header);
 
-        if (block.Header.Height == INTERVAL_BLOCKHEIGHT_IMAGE)
-          CreateImage();
-      }
+      InsertInDatabase(block, peer);
+
+      Blockchain.AppendHeader(block.Header);
+
+      if (block.Header.Height == INTERVAL_BLOCKHEIGHT_IMAGE)
+        CreateImage();
     }
 
     protected List<Token> TokenListening = new();
@@ -335,7 +334,9 @@ namespace BTokenLib
 
     public abstract TX CreateDataTX(byte[] data);
 
-    protected abstract bool TryInsertInDatabase(Block block);
+    protected abstract void InsertInDatabase(
+      Block block, 
+      Network.Peer peer);
 
     public abstract Header ParseHeader(
       byte[] buffer,

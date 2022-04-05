@@ -273,7 +273,9 @@ namespace BTokenCore
 
 
 
-    protected override bool TryInsertInDatabase(Block block)
+    protected override void InsertInDatabase(
+      Block block, 
+      Network.Peer peer)
     {
       try
       {
@@ -303,8 +305,6 @@ namespace BTokenCore
 
       TokenListening.ForEach(
         t => t.SignalBlockInsertion(block.Header.Hash));
-
-      return true;
     }
 
     public override Header ParseHeader(

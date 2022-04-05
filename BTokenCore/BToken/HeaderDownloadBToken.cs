@@ -16,10 +16,12 @@ namespace BTokenCore
 
     public HeaderDownloadBToken(
       List<Header> locator,
-      List<byte[]> trailHashesAnchor) 
+      List<byte[]> trailHashesAnchor,
+      int indexTrail) 
       : base(locator)
     {
       TrailHashesAnchor = trailHashesAnchor;
+      IndexTrail = indexTrail;
     }
 
     public new void InsertHeader(Header header, out bool flagRequestNoMoreHeaders)
