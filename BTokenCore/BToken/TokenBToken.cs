@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
+using System.IO;
 using System.Threading.Tasks;
 using System.Text;
 using System.Security.Cryptography;
@@ -21,6 +21,9 @@ namespace BTokenCore
     const int SIZE_BUFFER_BLOCK = 0x400000;
     const int LENGTH_DATA_ANCHOR_TOKEN = 34; // ID_Token, hash Block
 
+    List<byte[]> TrailHashesAnchor = new();
+    int IndexTrail;
+
 
 
     public TokenBToken(Token tokenParent)
@@ -32,7 +35,7 @@ namespace BTokenCore
 
       DatabaseAccounts = new();
 
-      Archiver = new(this, "");
+      Archiver = new(this, GetName());
     }
 
     public override Header CreateHeaderGenesis()
@@ -53,6 +56,17 @@ namespace BTokenCore
     public override void LoadImageDatabase(string pathImage)
     {
       DatabaseAccounts.LoadImage(pathImage);
+
+      byte[] bytesBlockTrail = File.ReadAllBytes(
+        Path.Combine(pathImage, "ImageBlockTrail"));
+
+      for (int i = 0; i * 32 < bytesBlockTrail.Length; i += 1)
+      {
+        TrailHashesAnchor[i] = new byte[32];
+        Array.Copy(bytesBlockTrail, i * 32, TrailHashesAnchor[i], 0, 32);
+
+        IndexTrail += 1;
+      }
     }
 
     public override void StartMining()
@@ -69,7 +83,6 @@ namespace BTokenCore
     {
       throw new NotImplementedException();
     }
-
 
     public override HeaderDownload CreateHeaderDownload()
     {
@@ -138,8 +151,6 @@ namespace BTokenCore
     }
 
 
-    List<byte[]> TrailHashesAnchor = new();
-    int IndexTrail;
     SHA256 SHA256 = SHA256.Create();
 
     public override void SignalBlockInsertion(byte[] hashBlockAnchor)
@@ -318,9 +329,12 @@ namespace BTokenCore
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
     }
 
-    public override void ResetDatabase()
+    public override void Reset()
     {
+      base.Reset();
       DatabaseAccounts.Reset();
+      TrailHashesAnchor.Clear();
+      IndexTrail = 0;
     }
 
     public override bool TryRequestTX(

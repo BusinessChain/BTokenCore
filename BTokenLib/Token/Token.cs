@@ -35,7 +35,7 @@ namespace BTokenLib
     string PathImageFork;
     string PathImageForkOld;
 
-    string PathTokenRoot;
+    string PathRootToken;
 
     const int INTERVAL_BLOCKHEIGHT_IMAGE = 200;
 
@@ -48,34 +48,34 @@ namespace BTokenLib
 
       Wallet = new();
 
-      PathTokenRoot = GetName();
-      Directory.CreateDirectory(PathTokenRoot);
+      PathRootToken = GetName();
+      Directory.CreateDirectory(PathRootToken);
 
       PathImage = Path.Combine(
-        PathTokenRoot,
+        PathRootToken,
         NameImage);
 
       PathImageOld = Path.Combine(
-        PathTokenRoot,
+        PathRootToken,
         NameImageOld);
 
       PathImageFork = Path.Combine(
-        PathTokenRoot,
+        PathRootToken,
         NameFork,
         NameImage);
 
       PathImageForkOld = Path.Combine(
-        PathTokenRoot,
+        PathRootToken,
         NameFork,
         NameImageOld);
     }
 
     public void Start()
     {
-      if (TokenParent != null)
-        TokenParent.Start();
+      //if (TokenParent != null)
+      //  TokenParent.Start();
       
-      LoadImage(int.MaxValue);
+      LoadImage();
       Network.Start();
     }
 
@@ -136,7 +136,8 @@ namespace BTokenLib
 
     public abstract Header CreateHeaderGenesis();
 
-    public abstract void CreateImageDatabase(string path);
+    public virtual void CreateImageDatabase(string path) 
+    { }
 
     internal void Reorganize()
     {
@@ -181,7 +182,8 @@ namespace BTokenLib
       }
     }
 
-    public abstract void LoadImageDatabase(string path);
+    public virtual void LoadImageDatabase(string path)
+    { }
 
     public bool IsFork;
 
@@ -209,13 +211,10 @@ namespace BTokenLib
       Wallet.CreateImage(pathImage);
     }
 
-    public void Reset()
+    public virtual void Reset()
     {
       Blockchain.InitializeHeaderchain();
-      ResetDatabase(); 
     }
-
-    public abstract void ResetDatabase();
 
     public abstract Block CreateBlock();
 
@@ -291,7 +290,7 @@ namespace BTokenLib
 
       Blockchain.AppendHeader(block.Header);
 
-      if (block.Header.Height == INTERVAL_BLOCKHEIGHT_IMAGE)
+      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();
     }
 

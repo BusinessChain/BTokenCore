@@ -262,16 +262,6 @@ namespace BTokenCore
       return header;
     }
 
-    public override void LoadImageDatabase(string pathImage)
-    { }
-
-    public override void CreateImageDatabase(string pathImage)
-    { }
-
-    public override void ResetDatabase()
-    { }
-
-
 
     protected override void InsertInDatabase(
       Block block, 

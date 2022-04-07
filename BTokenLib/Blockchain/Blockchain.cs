@@ -161,13 +161,14 @@ namespace BTokenLib
 
       while (header != null)
       {
-        if (depth == nextLocationDepth)
+        if (depth == nextLocationDepth || header.HeaderPrevious == null)
         {
           locator.Add(header);
           nextLocationDepth = 2 * nextLocationDepth + 1;
         }
 
         depth++;
+
         header = header.HeaderPrevious;
       }
 

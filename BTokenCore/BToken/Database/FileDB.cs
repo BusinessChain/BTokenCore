@@ -25,7 +25,7 @@ namespace BTokenCore
       public FileDB(string path) : base(
         path,
         FileMode.Append,
-        FileAccess.ReadWrite,
+        FileAccess.Write,
         FileShare.ReadWrite)
       { }
 

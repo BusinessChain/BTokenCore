@@ -22,7 +22,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333; // Load from correct conf File
 
-    int CountPeersMax = 6;// Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 6; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -32,14 +32,8 @@ namespace BTokenLib
 
     List<Block> BlocksCached = new();
 
-    static readonly DirectoryInfo DirectoryLogPeers =
-      Directory.CreateDirectory("logPeers");
-
-    static readonly DirectoryInfo DirectoryLogPeersDisposed =
-      Directory.CreateDirectory(
-        Path.Combine(
-          DirectoryLogPeers.FullName,
-          "disposed"));
+    DirectoryInfo DirectoryLogPeers;
+    DirectoryInfo DirectoryLogPeersDisposed;
 
     public Network(Token token)
     {
@@ -52,6 +46,14 @@ namespace BTokenLib
         Path.Combine(pathRoot, "LogNetwork"),
         false);
 
+      DirectoryLogPeers = Directory.CreateDirectory(
+        Path.Combine(pathRoot, "logPeers"));
+
+      DirectoryLogPeersDisposed = Directory.CreateDirectory(
+        Path.Combine(
+          DirectoryLogPeers.FullName,
+          "disposed"));
+
       LoadNetworkConfiguration(pathRoot);
 
       IPAddressPool = Token.GetSeedAddresses();
@@ -59,6 +61,8 @@ namespace BTokenLib
 
     public void Start()
     {
+      $"Start Network {Token.GetName()}".Log(LogFile);
+
       StartPeerConnector(); 
 
       StartSync();
@@ -68,7 +72,7 @@ namespace BTokenLib
 
     void LoadNetworkConfiguration (string pathConfigFile)
     {
-      "Load Network configuration.".Log(LogFile);
+      $"Load Network configuration {pathConfigFile}.".Log(LogFile);
     }
 
     async Task StartPeerConnector()

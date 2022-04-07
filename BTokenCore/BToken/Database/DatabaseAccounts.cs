@@ -20,7 +20,7 @@ namespace BTokenCore
     List<CacheDatabaseAccounts> Caches = new();
 
     const string PathRootDB = "FilesDB";
-    const int COUNT_FILES_DB = 1 << 16;
+    const int COUNT_FILES_DB = 1 << 12;
     FileDB[] FilesDB;
     byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
 

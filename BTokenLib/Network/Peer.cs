@@ -112,8 +112,10 @@ namespace BTokenLib
 
       void CreateLogFile(string name)
       {
-        string pathLogFile = Path.Combine(DirectoryLogPeers.FullName, name);
-        string pathLogFileDisposed = Path.Combine(DirectoryLogPeersDisposed.FullName, name);
+        string pathLogFile = Path.Combine(Network.DirectoryLogPeers.FullName, name);
+        string pathLogFileDisposed = Path.Combine(
+          Network.DirectoryLogPeersDisposed.FullName, 
+          name);
 
         if (File.Exists(pathLogFileDisposed))
         {
@@ -399,8 +401,7 @@ namespace BTokenLib
                   ($"{ex.GetType().Name} when receiving headers:\n" +
                     $"{ex.Message}").Log(LogFile);
 
-                  continue;
-                  // Don't disconnect on parser exception but on timeout instead.
+                  continue; // Does not disconnect on parser exception but on timeout instead.
                 }
 
                 if (flagRequestNoMoreHeaders)
@@ -611,9 +612,7 @@ namespace BTokenLib
         {
           if (HeaderDuplicateReceivedLast != null &&
             HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
-          {
             throw new ProtocolException($"Sent duplicate header {header}.");
-          }
 
           HeaderDuplicateReceivedLast = headerReceivedNow;
         }
@@ -836,18 +835,17 @@ namespace BTokenLib
         LogFile.Dispose();
 
         File.Move(
-          Path.Combine(DirectoryLogPeers.FullName, ToString()),
-          Path.Combine(DirectoryLogPeersDisposed.FullName, ToString()));
+          Path.Combine(Network.DirectoryLogPeers.FullName, ToString()),
+          Path.Combine(Network.DirectoryLogPeersDisposed.FullName, ToString()));
 
         Debug.WriteLine($"Disposed {this}.");
       }
 
       public string GetStatus()
       {
-        lock(this)
-        {
-          int lifeTime = (DateTime.Now - TimePeerCreation).Seconds;
-
+        int lifeTime = (DateTime.Now - TimePeerCreation).Seconds;
+        
+        lock (this)
           return
             $"\n Status peer {this}:\n" +
             $"lifeTime: {lifeTime}\n" +
@@ -856,7 +854,6 @@ namespace BTokenLib
             $"FlagDispose: {FlagDispose}\n" +
             $"Connection: {Connection}\n" +
             $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
-        }
       }
     }
   }
