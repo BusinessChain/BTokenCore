@@ -32,8 +32,6 @@ namespace BTokenCore
     SHA256 SHA256 = SHA256.Create();
     byte[] Hash;
 
-
-
     public DatabaseAccounts()
     {
       for (int i = 0; i < COUNT_CACHES; i += 1)

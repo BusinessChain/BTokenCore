@@ -72,9 +72,9 @@ namespace BTokenLib
 
     public void Start()
     {
-      //if (TokenParent != null)
-      //  TokenParent.Start();
-      
+      if (TokenParent != null)
+        TokenParent.Start();
+
       LoadImage();
       Network.Start();
     }
