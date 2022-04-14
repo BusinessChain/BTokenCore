@@ -37,19 +37,19 @@ namespace BTokenLib
 
     string PathRootToken;
 
-    const int INTERVAL_BLOCKHEIGHT_IMAGE = 200;
+    const int INTERVAL_BLOCKHEIGHT_IMAGE = 100;
 
 
     public Token()
     {
+      PathRootToken = GetName();
+      Directory.CreateDirectory(PathRootToken);
+
       Blockchain = new Blockchain(this);
 
       Network = new(this);
 
       Wallet = new();
-
-      PathRootToken = GetName();
-      Directory.CreateDirectory(PathRootToken);
 
       PathImage = Path.Combine(
         PathRootToken,
@@ -221,66 +221,26 @@ namespace BTokenLib
     protected bool IsMining;
     protected bool FlagMiningCancel;
 
-    public abstract void StartMining();
     public void StopMining()
     {
       if (IsMining)
         FlagMiningCancel = true;
     }
 
-    protected async Task RunMining()
+    public abstract void StartMining();
+
+
+    ulong FeePerByteLastSixBlocksAverage;
+
+    public ulong GetFeePerByteLastSixBlocksAverage()
     {
-      await RunMining(0);
-    }
-    protected async Task RunMining(long seed)
-    {
-      SHA256 sHA256 = SHA256.Create();
-
-      while (!FlagMiningCancel)
-      {
-        Block block = await MineBlock(sHA256, seed);
-
-        while (!Blockchain.TryLock())
-        {
-          if (FlagMiningCancel)
-            goto LABEL_Exit_Miner;
-
-          Console.WriteLine("Miner awaiting access of BToken blockchain LOCK.");
-          Thread.Sleep(1000);
-        }
-
-        Console.Beep();
-
-        try
-        {
-          InsertBlock(block, null);
-
-          Debug.WriteLine($"Mined block {block}.");
-        }
-        catch (Exception ex)
-        {
-          Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting mined block {block}.");
-
-          continue;
-        }
-        finally
-        {
-          Blockchain.ReleaseLock();
-        }
-
-        Network.RelayBlock(block);
-      }
-
-    LABEL_Exit_Miner:
-
-      Console.WriteLine($"{GetName()} miner on thread " +
-        $"{Thread.CurrentThread.ManagedThreadId} canceled.");
+      return FeePerByteLastSixBlocksAverage;
     }
 
-    protected abstract Task<Block> MineBlock(
-      SHA256 sHA256, 
-      long seed);
+    public void InsertBlock(Block block)
+    {
+      InsertBlock(block, null); 
+    }
 
     public void InsertBlock(Block block, Network.Peer peer)
     {
@@ -289,6 +249,10 @@ namespace BTokenLib
       InsertInDatabase(block, peer);
 
       Blockchain.AppendHeader(block.Header);
+
+      FeePerByteLastSixBlocksAverage =
+        5 / 6 * FeePerByteLastSixBlocksAverage +
+        1 / 6 * block.FeePerByte;
 
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();
@@ -311,22 +275,21 @@ namespace BTokenLib
     {
       throw new NotImplementedException();
     }
-    public virtual void SignalBlockInsertion(byte[] hash)
-    {
-      throw new NotImplementedException();
-    }
+
+    public virtual void SignalCompletionBlockInsertion(byte[] hash) { }
+
     public virtual void RevokeBlockInsertion()
     {
       throw new NotImplementedException();
     }
 
-    public byte[] SendDataTX(byte[] data)
+    public async Task<byte[]> SendDataTX(byte[] data)
     {
       TX tXAnchorToken = CreateDataTX(data);
 
       TXPool.Add(tXAnchorToken);
 
-      Network.AdvertizeToken(tXAnchorToken.Hash);
+      await Network.AdvertizeToken(tXAnchorToken.Hash);
 
       return tXAnchorToken.Hash;
     }

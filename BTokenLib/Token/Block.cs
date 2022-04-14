@@ -20,6 +20,9 @@ namespace BTokenLib
 
     public byte[] Buffer;
 
+    public ulong Fee;
+    public ulong FeePerByte;
+
 
     public Block()
     { }
@@ -32,25 +35,18 @@ namespace BTokenLib
       IDsBToken = iDsBToken;
     }
 
-
     public void Parse()
     {
       int index = 0;
-      Parse(Buffer, ref index);
-    }
-
-    public void Parse(
-      byte[] buffer,
-      ref int index)
-    {
-      Buffer = buffer;
-      int startIndex = index;
+      Fee = 0;
 
       Header = ParseHeader(Buffer, ref index);
 
       ParseTXs(Header.MerkleRoot, ref index);
 
-      Header.CountBlockBytes = index - startIndex;
+      Header.CountBlockBytes = index - index;
+
+      FeePerByte = Fee / (ulong)Header.CountBlockBytes;
     }
 
     public abstract Header ParseHeader(
@@ -104,6 +100,8 @@ namespace BTokenLib
           ref bufferIndex);
 
           TXs.Add(tX);
+
+          Fee += tX.Fee;
 
           merkleList[t] = tX.Hash;
         }

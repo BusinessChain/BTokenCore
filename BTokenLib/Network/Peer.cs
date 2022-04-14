@@ -71,7 +71,7 @@ namespace BTokenLib
 
       DateTime TimePeerCreation = DateTime.Now;
 
-      const int SECONDS_PEER_BANNED = 1000;
+      const int SECONDS_PEER_BANNED = 5;
 
 
 
@@ -215,7 +215,6 @@ namespace BTokenLib
           bytesToRead -= chunkSize;
         }
       }
-
 
       async Task ReadMessageBlock()
       {

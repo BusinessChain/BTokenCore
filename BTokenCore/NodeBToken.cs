@@ -49,13 +49,11 @@ namespace BTokenCore
             break;
 
           case "startBTokenMiner":
-            new Thread(BToken.StartMining)
-              .Start();
+            BToken.StartMining();
             break;
 
           case "startBitcoinMiner":
-            new Thread(BToken.TokenParent.StartMining)
-              .Start();
+            new Thread(BToken.TokenParent.StartMining).Start();
             break;
 
           case "stopBTokenMiner":
@@ -72,7 +70,7 @@ namespace BTokenCore
             break;
 
           case "addPeerIP":
-            BToken.Network.AddPeer("3.67.200.137"); // "84.75.2.239"
+            BToken.Network.AddPeer("83.229.86.158"); // "84.75.2.239"
             break;
 
           case "sync":

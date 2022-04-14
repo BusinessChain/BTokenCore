@@ -27,7 +27,7 @@ namespace BTokenCore
       : base()
     { }
 
-    public override TX CreateDataTX(byte[] dataOPReturn)
+    public override TX CreateDataTX(List<byte[]> dataTX)
     {
       ulong fee = 10000;
 
@@ -74,10 +74,10 @@ namespace BTokenCore
       tXRaw.AddRange(BitConverter.GetBytes(
         (ulong)0));
 
-      tXRaw.Add((byte)(dataOPReturn.Length + 2));
+      tXRaw.Add((byte)(dataTX.Length + 2));
       tXRaw.Add(OP_RETURN);
-      tXRaw.Add((byte)dataOPReturn.Length);
-      tXRaw.AddRange(dataOPReturn);
+      tXRaw.Add((byte)dataTX.Length);
+      tXRaw.AddRange(dataTX);
 
       var lockTime = new byte[4];
       tXRaw.AddRange(lockTime);
@@ -113,7 +113,6 @@ namespace BTokenCore
       return tX;
     }
 
-
     public override void StartMining()
     {
       if (IsMining)
@@ -135,24 +134,61 @@ namespace BTokenCore
       Console.WriteLine("Miner canceled.");
     }
 
-    protected async override Task<Block> MineBlock(
-      SHA256 sHA256, 
-      long nonceStart)
+    void RunMining(long seed)
     {
-      BlockBitcoin block = new();
+      SHA256 sHA256 = SHA256.Create();
 
-      ComputePoW(
-        block,
-        sHA256,
-        nonceStart);
+      while (!FlagMiningCancel)
+      {
+        BlockBitcoin block = new();
 
-      block.Buffer = block.Header.Buffer
-        .Concat(VarInt.GetBytes(block.TXs.Count))
-        .Concat(block.TXs[0].TXRaw).ToArray();
+        ComputePoW(
+          block,
+          sHA256,
+          seed);
 
-      block.Header.CountBlockBytes = block.Buffer.Length;
+        block.Buffer = block.Header.Buffer
+          .Concat(VarInt.GetBytes(block.TXs.Count))
+          .Concat(block.TXs[0].TXRaw).ToArray();
 
-      return block;
+        block.Header.CountBlockBytes = block.Buffer.Length;
+
+        while (!Blockchain.TryLock())
+        {
+          if (FlagMiningCancel)
+            goto LABEL_Exit_Miner;
+
+          Console.WriteLine("Miner awaiting access of BToken blockchain LOCK.");
+          Thread.Sleep(1000);
+        }
+
+        Console.Beep();
+
+        try
+        {
+          InsertBlock(block);
+
+          Debug.WriteLine($"Mined block {block}.");
+        }
+        catch (Exception ex)
+        {
+          Debug.WriteLine(
+            $"{ex.GetType().Name} when inserting mined block {block}.");
+
+          continue;
+        }
+        finally
+        {
+          Blockchain.ReleaseLock();
+        }
+
+        Network.RelayBlock(block);
+      }
+
+    LABEL_Exit_Miner:
+
+      Console.WriteLine($"{GetName()} miner on thread " +
+        $"{Thread.CurrentThread.ManagedThreadId} canceled.");
     }
 
     byte[] LoadTXs(BlockBitcoin block)
@@ -214,10 +250,10 @@ namespace BTokenCore
 
         header.IncrementNonce(nonceSeed);
 
-        header.CreateAppendingHeader(
-          sHA256,
+        header.AppendToHeader(
+          Blockchain.HeaderTip,
           merkleRoot,
-          Blockchain.HeaderTip);
+          sHA256);
 
       } while (header.Hash.IsGreaterThan(header.NBits));
     }
@@ -294,7 +330,7 @@ namespace BTokenCore
       }
 
       TokenListening.ForEach(
-        t => t.SignalBlockInsertion(block.Header.Hash));
+        t => t.SignalCompletionBlockInsertion(block.Header.Hash));
     }
 
     public override Header ParseHeader(
@@ -341,7 +377,7 @@ namespace BTokenCore
           "199.247.227.180", "201.210.177.231", "207.191.102.93", "212.93.114.22", "45.183.140.233",
           "47.198.204.108", "81.251.223.139", "84.85.227.8", "88.207.124.229", "91.56.252.34",
           "92.116.38.250", "95.56.63.179", "97.115.103.114", "98.143.78.109", "98.194.50.84",
-          "134.19.118.183", "152.169.255.224"
+          "134.19.118.183", "152.169.255.224", 
       };
     }
   }

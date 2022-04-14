@@ -51,7 +51,7 @@ namespace BTokenCore
       ComputeDifficultyFromNBits();
     }
 
-    public void ComputeDifficultyFromNBits()
+    void ComputeDifficultyFromNBits()
     {
       Difficulty = MAX_TARGET /
         (double)UInt256.ParseFromCompact(NBits);
@@ -65,10 +65,10 @@ namespace BTokenCore
         Nonce = (uint)nonceSeed;
     }
 
-    public override void CreateAppendingHeader(
-      SHA256 sHA256,
+    public override void AppendToHeader(
+      Header headerTip,
       byte[] merkleRoot,
-      Header headerTip)
+      SHA256 sHA256)
     {
       var headerBitcoinTip = (HeaderBitcoin)headerTip;
 
@@ -77,10 +77,10 @@ namespace BTokenCore
       NBits = GetNextTarget(headerBitcoinTip);
       ComputeDifficultyFromNBits();
 
-      base.CreateAppendingHeader(
-        sHA256,
+      base.AppendToHeader(
+        headerTip,
         merkleRoot,
-        headerTip);
+        sHA256);
     }
 
     public override void AppendToHeader(Header headerPrevious)
@@ -90,12 +90,11 @@ namespace BTokenCore
       uint medianTimePastSeconds = GetMedianTimePastSeconds(HeaderPrevious);
 
       if (UnixTimeSeconds < medianTimePastSeconds)
-        throw new ProtocolException(
-          string.Format(
-            $"Header {this} with unix time {1} " +
-            "is older than median time past {2}.",
-            DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds),
-            DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)));
+        throw new ProtocolException(string.Format(
+          $"Header {this} with unix time {1} " +
+          "is older than median time past {2}.",
+          DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds),
+          DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)));
 
       uint targetBitsNew = GetNextTarget((HeaderBitcoin)HeaderPrevious);
 
@@ -128,7 +127,7 @@ namespace BTokenCore
       return timestampsPast[timestampsPast.Count / 2];
     }
 
-    public static uint GetNextTarget(HeaderBitcoin header)
+    static uint GetNextTarget(HeaderBitcoin header)
     {
       if (((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
         return header.NBits;

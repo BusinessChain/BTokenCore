@@ -64,10 +64,10 @@ namespace BTokenLib
         headerPrevious.DifficultyAccumulated + Difficulty;
     }
 
-    public virtual void CreateAppendingHeader(
-      SHA256 sHA256,
+    public virtual void AppendToHeader(
+      Header headerTip,
       byte[] merkleRoot,
-      Header headerTip)
+      SHA256 sHA256)
     {
       MerkleRoot = merkleRoot;
       Height = headerTip.Height + 1;

@@ -23,7 +23,7 @@ namespace BTokenCore
 
     List<byte[]> TrailHashesAnchor = new();
     int IndexTrail;
-
+    long TimeUpdatedTrail;
 
 
     public TokenBToken(Token tokenParent)
@@ -66,6 +66,59 @@ namespace BTokenCore
         Array.Copy(bytesBlockTrail, i * 32, TrailHashesAnchor[i], 0, 32);
 
         IndexTrail += 1;
+      }
+    }
+
+    ulong CountSatoshisPerDayMining = 100000;
+    ulong TimeSpanDaySeconds = 24 * 3600;
+    List<Block> BlocksMined;
+
+    async Task RunMining()
+    {
+      SHA256 sHA256 = SHA256.Create();
+
+      ulong fundFeeAvailable = CountSatoshisPerDayMining;
+      int timeSpanLoopSeconds = 5;
+
+      while (!FlagMiningCancel)
+      {
+        ulong feeAnchorToken = TokenParent.GetFeePerByteLastSixBlocksAverage();
+
+        if (DateTimeOffset.Now.ToUnixTimeSeconds() - TimeUpdatedTrail < 
+          2 * timeSpanLoopSeconds) ;
+        else if (fundFeeAvailable > feeAnchorToken)
+        {
+          BlockBToken block = new();
+          Header header = block.Header;
+
+          byte[] merkleRoot = LoadTXs(block);
+
+          BlocksMined.Add(block);
+
+          header.AppendToHeader(
+            Blockchain.HeaderTip,
+            merkleRoot,
+            sHA256);
+
+          ulong countAnchorTokens = fundFeeAvailable / feeAnchorToken;
+
+          TX tXAnchorToken = CreateDataTX(
+            Encoding.ASCII.GetBytes("BToken").Concat(header.Hash).ToArray(),
+            countAnchorTokens); // nonce um verschiedene Hashes bei gleichem Block zu erreichen
+
+          TXPool.Add(tXAnchorToken);
+          Network.AdvertizeToken(tXAnchorToken.Hash);
+
+          fundFeeAvailable -= countAnchorTokens * feeAnchorToken;
+        }
+        else
+        {
+          fundFeeAvailable += CountSatoshisPerDayMining *
+            (ulong)timeSpanLoopSeconds / TimeSpanDaySeconds;
+        }
+
+        await Task.Delay(timeSpanLoopSeconds * 1000)
+          .ConfigureAwait(true);
       }
     }
 
@@ -150,22 +203,21 @@ namespace BTokenCore
       TokensAnchor.Clear();
     }
 
-
     SHA256 SHA256 = SHA256.Create();
 
-    public override void SignalBlockInsertion(byte[] hashBlockAnchor)
+    public override void SignalCompletionBlockInsertion(byte[] hashBlockAnchor)
     {
       if (TokensAnchor.Count == 0)
         return;
 
-      byte[] hashBlockAnchorHashed = SHA256.ComputeHash(hashBlockAnchor);
-
+      byte[] targetValue = SHA256.ComputeHash(hashBlockAnchor);
       byte[] biggestDifferenceTemp = new byte[32];
       TokenAnchor tokenAnchorWinner = null;
 
       TokensAnchor.ForEach(t =>
       {
-        byte[] differenceHash = hashBlockAnchorHashed.SubtractByteWise(t.HashBlock);
+        byte[] differenceHash = targetValue.SubtractByteWise(
+          t.HashBlock);
 
         if(differenceHash.IsGreaterThan(biggestDifferenceTemp))
         {
@@ -177,66 +229,20 @@ namespace BTokenCore
       TokensAnchor.Clear();
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlock);
-    }
 
-    protected async override Task<Block> MineBlock(
-      SHA256 sHA256, 
-      long seed)
-    {
-      Block block = new BlockBToken();
-      Header header = block.Header;
+      Block blockMined = BlocksMined
+        .Find(b => b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlock));
 
-      do
+      BlocksMined.Clear();
+
+      if (blockMined != null && 
+        blockMined.Header.HashPrevious.IsEqual(Blockchain.HeaderTip.Hash))
       {
-        if (FlagMiningCancel)
-          throw new TaskCanceledException();
-
-        byte[] merkleRoot = LoadTXs(block);
-
-        header.CreateAppendingHeader(
-          sHA256,
-          merkleRoot,
-          Blockchain.HeaderTip);
-
-      } while (!await ValidateBlockMined(
-        block,
-        sHA256));
-
-      block.Buffer = header.Buffer
-        .Concat(VarInt.GetBytes(block.TXs.Count))
-        .Concat(block.TXs[0].TXRaw).ToArray();
-
-      header.CountBlockBytes = block.Buffer.Length;
-
-      return block;
-    }
-
-    public async Task<bool> ValidateBlockMined(
-      Block block,
-      SHA256 sHA256)
-    {
-      byte[] hashTXAnchor = TokenParent.SendDataTX(
-        Encoding.ASCII.GetBytes("BToken")
-        .Concat(block.Header.Hash).ToArray());
-
-      Block blockAnchor = null;// = await TokenParent.AwaitNextBlock();
-
-      byte[] hashBlockAnchorHashed = sHA256.ComputeHash(blockAnchor.Header.Hash);
-      byte[] hashTXWinner = null;
-      byte[] largestDifference = new byte[32];
-
-      blockAnchor.TXs.ForEach(tX =>
-      {
-        byte[] difference = hashBlockAnchorHashed.SubtractByteWise(tX.Hash);
-
-        if (difference.IsGreaterThan(largestDifference))
-        {
-          largestDifference = difference;
-          hashTXWinner = tX.Hash;
-        }
-      });
-
-      return hashTXWinner.IsEqual(hashTXAnchor);
+        InsertBlock(blockMined);
+        Network.RelayBlock(blockMined);
+      }
+      else
+        TimeUpdatedTrail = DateTimeOffset.Now.ToUnixTimeSeconds();
     }
 
     public byte[] LoadTXs(Block block)
@@ -281,13 +287,10 @@ namespace BTokenCore
       return tX.Hash;
     }
 
-
-
     public override void CreateImageDatabase(string pathImage)
     {
       DatabaseAccounts.CreateImage(pathImage);
     }
-
 
     public override Header ParseHeader(
         byte[] buffer,
@@ -304,7 +307,6 @@ namespace BTokenCore
     {
       return new BlockBToken(SIZE_BUFFER_BLOCK);
     }
-
 
     byte[] GetGenesisBlockBytes()
     {
@@ -347,10 +349,7 @@ namespace BTokenCore
 
     public override List<string> GetSeedAddresses()
     {
-      return new List<string>()
-      {
-        "3.67.200.137"
-      };
+      return new List<string>();
     }
   }
 }
