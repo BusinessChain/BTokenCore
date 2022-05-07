@@ -17,7 +17,7 @@ namespace BTokenLib
 
     string PrivKeyDec;
 
-    List<TXOutputWallet> TXOutputsSpendable = new();
+    public List<TXOutputWallet> TXOutputsSortedValueDescending = new();
 
     const int LENGTH_P2PKH = 25;
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
@@ -69,9 +69,9 @@ namespace BTokenLib
     public string GetStatus()
     {
       string outputsSpendable =
-        TXOutputsSpendable.Any() ? "" : "Wallet empty.";
+        TXOutputsSortedValueDescending.Any() ? "" : "Wallet empty.";
 
-      foreach (var output in TXOutputsSpendable)
+      foreach (var output in TXOutputsSortedValueDescending)
       {
         outputsSpendable += $"TXID: {output.TXID.ToHexString()}\n";
         outputsSpendable += $"Output Index: {output.OutputIndex}\n";
@@ -110,7 +110,7 @@ namespace BTokenLib
         Array.Copy(buffer, index, tXOutput.ScriptPubKey, 0, LENGTH_P2PKH);
         index += LENGTH_P2PKH;
 
-        TXOutputsSpendable.Add(tXOutput);
+        TXOutputsSortedValueDescending.Add(tXOutput);
       }
     }
 
@@ -127,7 +127,7 @@ namespace BTokenLib
           FileAccess.Write,
           FileShare.None))
       {
-        foreach (TXOutputWallet tXOutput in TXOutputsSpendable)
+        foreach (TXOutputWallet tXOutput in TXOutputsSortedValueDescending)
         {
           fileImageWallet.Write(
             tXOutput.TXID, 0, tXOutput.TXID.Length);
@@ -185,7 +185,7 @@ namespace BTokenLib
           0,
           LENGTH_P2PKH);
 
-        TXOutputsSpendable.Add(
+        TXOutputsSortedValueDescending.Add(
           new TXOutputWallet
           {
             TXID = tX.Hash,
@@ -207,7 +207,7 @@ namespace BTokenLib
     public bool TrySpend(TXInput tXInput)
     {
       TXOutputWallet output =
-        TXOutputsSpendable.Find(o =>
+        TXOutputsSortedValueDescending.Find(o =>
         o.TXIDShort == tXInput.TXIDOutputShort &&
         o.OutputIndex == tXInput.OutputIndex);
 
@@ -217,7 +217,7 @@ namespace BTokenLib
         return false;
       }
 
-      TXOutputsSpendable.Remove(output);
+      TXOutputsSortedValueDescending.Remove(output);
 
       Console.WriteLine(
         "Spent output {0} in tx {1} with {2} satoshis.",
@@ -228,9 +228,29 @@ namespace BTokenLib
       return true;
     }
 
-    public TXOutputWallet GetTXOutputWallet(ulong fee)
+    public void GetTXOutputsSpendable(
+      List<TXOutputWallet> outputsSpendable, 
+      ref ulong change,
+      ulong valueRequested)
     {
-      return TXOutputsSpendable.Find(t => t.Value > fee);
+      List<TXOutputWallet> tXOutputsWallet = new();
+      ulong valueAccumulated = 0;
+      change = 0;
+
+      foreach (TXOutputWallet tXOutputWallet in TXOutputsSortedValueDescending)
+      {
+        tXOutputsWallet.Add(tXOutputWallet);
+        valueAccumulated += tXOutputWallet.Value;
+
+        if (valueAccumulated >= valueRequested)
+        {
+          change = valueAccumulated - valueRequested;
+          return tXOutputsWallet;
+        }
+      }
+
+      tXOutputsWallet.Clear();
+      return tXOutputsWallet;
     }
     
     public byte[] GetReceptionScript()

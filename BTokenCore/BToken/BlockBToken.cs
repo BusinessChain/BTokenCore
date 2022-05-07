@@ -51,11 +51,15 @@ namespace BTokenCore
         buffer, index);
       index += 4;
 
+      uint nonce = BitConverter.ToUInt32(buffer, index);
+      index += 4;
+
       return new HeaderBToken(
         hash,
         hashHeaderPrevious,
         merkleRootHash,
-        unixTimeSeconds);
+        unixTimeSeconds,
+        nonce);
     }
 
     public override TX ParseTX(

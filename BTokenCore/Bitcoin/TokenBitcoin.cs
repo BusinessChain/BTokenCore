@@ -29,55 +29,71 @@ namespace BTokenCore
 
     public override TX CreateDataTX(List<byte[]> dataTX)
     {
-      ulong fee = 10000;
+      ulong fee = FeePerByte * (ulong)(
+        CountBytesDataTokenBasis +
+        (dataTX.Count - 1) * CountBytesAnchorToken);
 
-      TXOutputWallet outputSpendable = Wallet.GetTXOutputWallet(fee);        
+      List<TXOutputWallet> outputsSpendable = Wallet.GetTXOutputWallet(
+        fee, 
+        out ulong valueChange);        
 
-      if (outputSpendable == null)
-        throw new ProtocolException("No spendable output found.");
+      if (outputsSpendable.Count == 0)
+        throw new ProtocolException("No enough output value in wallet.");
 
       List<byte> tXRaw = new();
 
       byte[] version = { 0x01, 0x00, 0x00, 0x00 };
       tXRaw.AddRange(version);
 
-      byte countInputs = 1;
+      byte countInputs = (byte)outputsSpendable.Count;
       tXRaw.Add(countInputs);
 
-      tXRaw.AddRange(outputSpendable.TXID);
+      List<int> indexesSignature = new();
 
-      tXRaw.AddRange(BitConverter.GetBytes(
-        outputSpendable.OutputIndex));
+      for (int i = 0; i < countInputs; i += 1)
+      {
+        tXRaw.AddRange(outputsSpendable[i].TXID);
 
-      int indexScriptSig = tXRaw.Count;
+        tXRaw.AddRange(BitConverter.GetBytes(
+          outputsSpendable[i].OutputIndex));
 
-      tXRaw.Add(LENGTH_P2PKH);
+        indexesSignature.Add(tXRaw.Count);
 
-      tXRaw.AddRange(outputSpendable.ScriptPubKey);
+        tXRaw.Add(LENGTH_P2PKH);
 
-      byte[] sequence = { 0xFF, 0xFF, 0xFF, 0xFF };
-      tXRaw.AddRange(sequence);
+        tXRaw.AddRange(outputsSpendable[i].ScriptPubKey);
 
-      byte countOutputs = 2; //(byte)(valueChange == 0 ? 1 : 2);
-      tXRaw.Add(countOutputs);
+        byte[] sequence = { 0xFF, 0xFF, 0xFF, 0xFF };
+        tXRaw.AddRange(sequence);
+      }
 
-      ulong valueChange = outputSpendable.Value - fee;
-      tXRaw.AddRange(BitConverter.GetBytes(
-        valueChange));
+      byte countOutputsData = (byte)dataTX.Count;
 
-      tXRaw.Add(LENGTH_P2PKH);
+      if (valueChange > 0)
+      {
+        tXRaw.Add((byte)(countOutputsData + 1));
 
-      tXRaw.AddRange(PREFIX_P2PKH);
-      tXRaw.AddRange(PublicKeyHash160);
-      tXRaw.AddRange(POSTFIX_P2PKH);
+        tXRaw.AddRange(BitConverter.GetBytes(valueChange));
 
-      tXRaw.AddRange(BitConverter.GetBytes(
-        (ulong)0));
+        tXRaw.Add(LENGTH_P2PKH);
 
-      tXRaw.Add((byte)(dataTX.Length + 2));
-      tXRaw.Add(OP_RETURN);
-      tXRaw.Add((byte)dataTX.Length);
-      tXRaw.AddRange(dataTX);
+        tXRaw.AddRange(PREFIX_P2PKH);
+        tXRaw.AddRange(PublicKeyHash160);
+        tXRaw.AddRange(POSTFIX_P2PKH);
+      }
+      else
+        tXRaw.Add(countOutputsData);
+
+      for(int i = 0; i < countOutputsData; i += 0)
+      {
+        tXRaw.AddRange(BitConverter.GetBytes(
+          (ulong)0));
+
+        tXRaw.Add((byte)(dataTX.Count + 2));
+        tXRaw.Add(OP_RETURN);
+        tXRaw.Add((byte)dataTX.Count);
+        tXRaw.AddRange(dataTX[i]);
+      }
 
       var lockTime = new byte[4];
       tXRaw.AddRange(lockTime);
@@ -85,17 +101,43 @@ namespace BTokenCore
       byte[] sigHashType = { 0x01, 0x00, 0x00, 0x00 };
       tXRaw.AddRange(sigHashType);
 
-      var tXRawPreScriptSig = tXRaw.Take(indexScriptSig);
-      var tXRawPostScriptSig = tXRaw.Skip(indexScriptSig + LENGTH_P2PKH + 1);
-
-      List<byte> scriptSig = Wallet.GetScriptSignature(
+      List<byte> signature = Wallet.GetScriptSignature(
         tXRaw.ToArray());
 
-      tXRaw = tXRawPreScriptSig
-        .Concat(new byte[] { (byte)scriptSig.Count })
-        .Concat(scriptSig)
-        .Concat(tXRawPostScriptSig)
-        .ToList();
+      List<IEnumerable<byte>> tXRawPreSignatures = new();
+      List<IEnumerable<byte>> tXRawPostSignatures = new();
+
+      List<List<byte>> tXRawSliced = new();
+
+      int j = 0;
+      while (true)
+      {
+        tXRawSliced.Add(tXRaw.Take(indexesSignature[j]).ToList());
+
+        if(j + 1 == indexesSignature.Count)
+        {
+          tXRawSliced.Add(tXRaw.Skip(j + LENGTH_P2PKH + 1).ToList());
+          break;
+        }
+        else
+        {
+
+        }
+      }
+
+      indexesSignature.ForEach(i => {
+        tXRawPreSignatures.Add(tXRaw.Take(i));
+        tXRawPostSignatures.Add(tXRaw.Skip(i + LENGTH_P2PKH + 1));
+      });
+
+      var preAndPostSignatures = tXRawPreSignatures.Zip(tXRawPostSignatures,
+        (p, o) => new { PreSignature = p, PostSignature = o });
+
+      foreach (var preAndPostScriptSig in preAndPostSignatures)
+        tXRaw.AddRange(preAndPostScriptSig.PreSignature
+          .Concat(new byte[] { (byte)signature.Count })
+          .Concat(signature)
+          .Concat(preAndPostScriptSig.PostSignature).ToList());
 
       tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
@@ -241,21 +283,22 @@ namespace BTokenCore
     {
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
-      do
+      byte[] merkleRoot = LoadTXs(block);
+
+      header.AppendToHeader(
+        Blockchain.HeaderTip, 
+        merkleRoot,
+        sHA256);
+
+      while (header.Hash.IsGreaterThan(header.NBits))
       {
         if (FlagMiningCancel)
           throw new TaskCanceledException();
 
-        byte[] merkleRoot = LoadTXs(block);
-
-        header.IncrementNonce(nonceSeed);
-
-        header.AppendToHeader(
-          Blockchain.HeaderTip,
-          merkleRoot,
+        header.IncrementNonce(
+          nonceSeed,
           sHA256);
-
-      } while (header.Hash.IsGreaterThan(header.NBits));
+      }
     }
 
     public override Block CreateBlock()

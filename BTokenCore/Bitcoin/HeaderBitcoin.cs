@@ -12,7 +12,6 @@ namespace BTokenCore
 
     public uint Version;
     public uint NBits;
-    public uint Nonce;
 
     const double MAX_TARGET = 2.695994666715064E67;
     const int RETARGETING_BLOCK_INTERVAL = 2016;
@@ -40,13 +39,13 @@ namespace BTokenCore
         headerHash,
         hashPrevious,
         merkleRootHash,
-        unixTimeSeconds)
+        unixTimeSeconds,
+        nonce)
     {
       Buffer = new byte[COUNT_HEADER_BYTES];
 
       Version = version;
       NBits = nBits;
-      Nonce = nonce;
 
       ComputeDifficultyFromNBits();
     }
@@ -55,14 +54,6 @@ namespace BTokenCore
     {
       Difficulty = MAX_TARGET /
         (double)UInt256.ParseFromCompact(NBits);
-    }
-
-    public void IncrementNonce(long nonceSeed)
-    {
-      Nonce += 1;
-
-      if (Nonce == 0)
-        Nonce = (uint)nonceSeed;
     }
 
     public override void AppendToHeader(
@@ -79,7 +70,7 @@ namespace BTokenCore
 
       base.AppendToHeader(
         headerTip,
-        merkleRoot,
+        merkleRoot, 
         sHA256);
     }
 

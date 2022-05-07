@@ -13,6 +13,7 @@ namespace BTokenLib
     public byte[] HashPrevious;
     public byte[] MerkleRoot;
     public uint UnixTimeSeconds;
+    public uint Nonce;
 
     public Header HeaderPrevious;
     public Header HeaderNext;
@@ -39,12 +40,14 @@ namespace BTokenLib
       byte[] headerHash,
       byte[] hashPrevious,
       byte[] merkleRootHash,
-      uint unixTimeSeconds)
+      uint unixTimeSeconds,
+      uint nonce)
     {
       Hash = headerHash;
       HashPrevious = hashPrevious;
       MerkleRoot = merkleRootHash;
       UnixTimeSeconds = unixTimeSeconds;
+      Nonce = nonce;
     }
 
     public abstract byte[] GetBytes();
@@ -65,17 +68,36 @@ namespace BTokenLib
     }
 
     public virtual void AppendToHeader(
-      Header headerTip,
+      Header headerPrevious,
       byte[] merkleRoot,
       SHA256 sHA256)
     {
       MerkleRoot = merkleRoot;
-      Height = headerTip.Height + 1;
-      headerTip.Hash.CopyTo(HashPrevious, 0);
+      Height = headerPrevious.Height + 1;
+      headerPrevious.Hash.CopyTo(HashPrevious, 0);
       UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
       Buffer = GetBytes();
 
+      ComputeHash(sHA256);
+    }
+
+    void ComputeHash(SHA256 sHA256)
+    {
       Hash = sHA256.ComputeHash(sHA256.ComputeHash(Buffer));
+    }
+
+    public void IncrementNonce(
+      long nonceSeed, 
+      SHA256 sHA256)
+    {
+      Nonce += 1;
+
+      if (Nonce == 0)
+        Nonce = (uint)nonceSeed;
+
+      // Buffer need to be updated
+
+      ComputeHash(sHA256);
     }
 
 

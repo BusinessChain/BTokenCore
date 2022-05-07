@@ -26,11 +26,13 @@ namespace BTokenCore
       byte[] headerHash,
       byte[] hashPrevious,
       byte[] merkleRootHash,
-      uint unixTimeSeconds) : base(
+      uint unixTimeSeconds,
+      uint nonce) : base(
         headerHash,
         hashPrevious,
         merkleRootHash,
-        unixTimeSeconds)
+        unixTimeSeconds,
+        nonce)
     {
       Difficulty = 1;
     }

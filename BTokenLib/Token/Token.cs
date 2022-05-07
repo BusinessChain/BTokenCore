@@ -39,6 +39,11 @@ namespace BTokenLib
 
     const int INTERVAL_BLOCKHEIGHT_IMAGE = 100;
 
+    protected int CountBytesDataTokenBasis = 120;
+    const int LENGTH_DATA_ANCHOR_TOKEN = 2 + 32 + 32; //[ID][HashTip][HashPrevious]
+    const int LENGTH_DATA_P2PKH_INPUT = 76; //[Signature][sequence][whatever]
+    const int LENGTH_DATA_TX_SCAFFOLD = 76; //[version][counters][whatever]
+    
 
     public Token()
     {
@@ -230,11 +235,59 @@ namespace BTokenLib
     public abstract void StartMining();
 
 
-    ulong FeePerByteLastSixBlocksAverage;
+    protected ulong FeePerByte;
 
-    public ulong GetFeePerByteLastSixBlocksAverage()
+    public bool TryCreateAnchorToken(
+      ulong feeDisposable,
+      out TX tXAnchorToken)
     {
-      return FeePerByteLastSixBlocksAverage;
+      tXAnchorToken = null;
+
+      ulong feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
+      ulong feeTXScaffold = FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
+      ulong feeInput = FeePerByte * LENGTH_DATA_P2PKH_INPUT;
+      int countAnchorTokensInTX = 0;
+
+      ulong feeAccrued = feeTXScaffold;
+
+      while (feeDisposable > feeAccrued)
+      {
+        foreach (TXOutputWallet tXOutputWallet in Wallet.TXOutputsSortedValueDescending)
+        {
+          feeAccrued += feeInput;
+
+          if (feeAccrued > feeDisposable)
+            break;
+        }
+      } 
+
+
+
+      ulong valueTotalOutputsWalletRequired = feeAnchorToken;
+      List<TXOutputWallet> tXOutputsWallet = new();
+      ulong valueAccumulated = 0;
+      ulong change = 0;
+
+      foreach (TXOutputWallet tXOutputWallet in Wallet.TXOutputsSortedValueDescending)
+      {
+
+        valueTotalOutputsWalletRequired += 
+          FeePerByte * (ulong)tXOutputWallet.ScriptPubKey.Length;
+        tXOutputsWallet.Add(tXOutputWallet);
+        valueAccumulated += tXOutputWallet.Value;
+
+        if (valueAccumulated >= valueTotalOutputsWalletRequired)
+        {
+          change = valueAccumulated - valueRequested;
+          return tXOutputsWallet;
+        }
+      }
+
+      tXOutputsWallet.Clear();
+      return tXOutputsWallet;
+
+      ulong feeOutputsSpendable = FeePerByte *
+        (ulong)outputsSpendable.Sum(o => o.ScriptPubKey.Length);
     }
 
     public void InsertBlock(Block block)
@@ -250,9 +303,9 @@ namespace BTokenLib
 
       Blockchain.AppendHeader(block.Header);
 
-      FeePerByteLastSixBlocksAverage =
-        5 / 6 * FeePerByteLastSixBlocksAverage +
-        1 / 6 * block.FeePerByte;
+      FeePerByte =
+        10 / 11 * FeePerByte +
+        1 / 10 * block.FeePerByte;
 
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();
@@ -270,11 +323,8 @@ namespace BTokenLib
       IDsBToken.Add(iDBToken);
     }
 
-
     public virtual void DetectAnchorToken(TXOutput tXOutput)
-    {
-      throw new NotImplementedException();
-    }
+    { }
 
     public virtual void SignalCompletionBlockInsertion(byte[] hash) { }
 
@@ -283,18 +333,7 @@ namespace BTokenLib
       throw new NotImplementedException();
     }
 
-    public async Task<byte[]> SendDataTX(byte[] data)
-    {
-      TX tXAnchorToken = CreateDataTX(data);
-
-      TXPool.Add(tXAnchorToken);
-
-      await Network.AdvertizeToken(tXAnchorToken.Hash);
-
-      return tXAnchorToken.Hash;
-    }
-
-    public abstract TX CreateDataTX(byte[] data);
+    public abstract TX CreateDataTX(List<byte[]> data);
 
     protected abstract void InsertInDatabase(
       Block block, 

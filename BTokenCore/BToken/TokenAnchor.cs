@@ -9,6 +9,7 @@ namespace BTokenCore
   class TokenAnchor
   {
     public byte[] HashBlock = new byte[32];
+    public byte[] HashPrevious = new byte[32];
 
 
     public TokenAnchor(byte[] buffer, int index)
