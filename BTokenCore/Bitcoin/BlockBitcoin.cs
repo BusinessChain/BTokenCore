@@ -19,8 +19,8 @@ namespace BTokenCore
       Header = new HeaderBitcoin();
     }
 
-    public BlockBitcoin(int sizeBuffer, List<ushort> iDsBToken)
-      : base(sizeBuffer, iDsBToken)
+    public BlockBitcoin(int sizeBuffer)
+      : base(sizeBuffer)
     { }
 
     public override HeaderBitcoin ParseHeader(

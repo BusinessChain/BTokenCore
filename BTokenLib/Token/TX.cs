@@ -8,8 +8,9 @@ namespace BTokenLib
 {
   public abstract class TX
   {
-    public byte[] TXRaw;
     public byte[] Hash;
+
+    public byte[] TXRaw;
 
     public int TXIDShort;
 
@@ -17,5 +18,6 @@ namespace BTokenLib
     public List<TXOutput> TXOutputs = new();
 
     public ulong Fee;
+
   }
 }

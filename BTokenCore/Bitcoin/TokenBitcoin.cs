@@ -27,6 +27,25 @@ namespace BTokenCore
       : base()
     { }
 
+    public override TXOutput CreateDataTXOutput(byte[] data)
+    {
+      byte[] script = 
+
+      return new TXOutput()
+      {
+        Value = 0,
+        Script = new byte[data.Length + 3]
+      };
+
+      tXRaw.AddRange(BitConverter.GetBytes(
+        (ulong)0)); // value
+
+      tXRaw.Add((byte)(dataTX.Count + 2));
+      tXRaw.Add(OP_RETURN);
+      tXRaw.Add((byte)dataTX.Count);
+      tXRaw.AddRange(dataTX[i]);
+    }
+
     public override TX CreateDataTX(List<byte[]> dataTX)
     {
       ulong fee = FeePerByte * (ulong)(
@@ -87,7 +106,7 @@ namespace BTokenCore
       for(int i = 0; i < countOutputsData; i += 0)
       {
         tXRaw.AddRange(BitConverter.GetBytes(
-          (ulong)0));
+          (ulong)0)); // value
 
         tXRaw.Add((byte)(dataTX.Count + 2));
         tXRaw.Add(OP_RETURN);
@@ -304,8 +323,7 @@ namespace BTokenCore
     public override Block CreateBlock()
     {
       return new BlockBitcoin(
-        SIZE_BUFFER_BLOCK,
-        IDsBToken);
+        SIZE_BUFFER_BLOCK);
     }
 
     public override bool TryRequestTX(

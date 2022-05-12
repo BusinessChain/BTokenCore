@@ -7,11 +7,12 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  public struct TXOutput
+  public class TXOutput
   {
     public ulong Value;
 
     public byte[] Buffer;
+    public byte[] Script;
     public int StartIndexScript;
     public int LengthScript;
 

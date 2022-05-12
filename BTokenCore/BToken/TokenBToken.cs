@@ -13,7 +13,6 @@ namespace BTokenCore
 {
   class TokenBToken : Token
   {
-    const ushort ID_BTOKEN = 0;
     DatabaseAccounts DatabaseAccounts;
 
     BlockArchiver Archiver;
@@ -22,7 +21,14 @@ namespace BTokenCore
 
     List<byte[]> TrailHashesAnchor = new();
     int IndexTrail;
-    long TimeUpdatedTrail;
+    long TimeUpdatedTrailUnixTimeSeconds;
+
+    const int LENGTH_DATA_ANCHOR_TOKEN = 2 + 32 + 32; //[ID][HashTip][HashPrevious]
+    const int LENGTH_DATA_P2PKH_INPUT = 76; //[Signature][sequence][whatever]
+    const int LENGTH_DATA_TX_SCAFFOLD = 76; //[version][counters][whatever]
+    const int LENGTH_DATA_P2PKH_OUTPUT = 76; //??
+
+    readonly byte[] ID_BTOKEN = { 0x01, 0x00 };
 
 
     public TokenBToken(Token tokenParent)
@@ -30,7 +36,6 @@ namespace BTokenCore
     {
       TokenParent = tokenParent;
       tokenParent.AddTokenListening(this);
-      tokenParent.AddIDBToken(ID_BTOKEN);
 
       DatabaseAccounts = new();
 
@@ -75,7 +80,7 @@ namespace BTokenCore
     const ulong TIMESPAN_DAY_SECONDS = 24 * 3600;
     List<Block> BlocksMined = new();
     List<Header> HeadersMined = new();
-    ulong FundFeeAvailable = COUNT_SATOSHIS_PER_DAY_MINING;
+    ulong FeeDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
 
     public override void StartMining()
     {
@@ -90,61 +95,112 @@ namespace BTokenCore
 
     const int TIMESPAN_MINING_LOOP_SECONDS = 5;
 
+
     async Task RunMining()
     {
       SHA256 sHA256 = SHA256.Create();
 
       while (!FlagMiningCancel)
       {
+        TokenAnchor tokenAnchor = CreateAnchorToken(sHA256);
+
         if (
-          DateTimeOffset.Now.ToUnixTimeSeconds() - TimeUpdatedTrail < 
-          2 * TIMESPAN_MINING_LOOP_SECONDS ||
-          !TokenParent.TryCreateAnchorToken(
-            FundFeeAvailable,
-            out TX tXAnchorToken))
+          tokenAnchor.TXOutputs.Count > 0 &&
+          DateTimeOffset.Now.ToUnixTimeSeconds() - TimeUpdatedTrailUnixTimeSeconds >
+          2 * TIMESPAN_MINING_LOOP_SECONDS)
         {
-          FundFeeAvailable += COUNT_SATOSHIS_PER_DAY_MINING *
-            TIMESPAN_MINING_LOOP_SECONDS / TIMESPAN_DAY_SECONDS;
+          FeeDisposable -= tokenAnchor.Fee;
+
+          TXPool.Add(tokenAnchor);
+          TokenParent.Network.AdvertizeToken(tokenAnchor.Hash);
         }
         else
         {
-          FundFeeAvailable -= tXAnchorToken.Fee;
-
-          BlockBToken block = new();
-
-          LoadTXs(block);
-
-          BlocksMined.Add(block);
-
-          uint nonce = 0;
-
-          foreach (TXOutput tXOutput in tXAnchorToken.TXOutputs
-            .Where(t => t.Value == 0))
-          {
-            HeaderBToken header = new()
-            {
-              Nonce = nonce++
-            };
-
-            header.AppendToHeader(
-              Blockchain.HeaderTip,
-              block.HashMerkleRoot,
-              sHA256);
-
-            HeadersMined.Add(header);
-
-            tXOutput.LoadData(
-              Encoding.ASCII.GetBytes("BToken")
-              .Concat(header.Hash).ToArray());
-          }
-
-          TXPool.Add(tXAnchorToken);
-          TokenParent.Network.AdvertizeToken(tXAnchorToken.Hash);
+          FeeDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
+            TIMESPAN_MINING_LOOP_SECONDS / TIMESPAN_DAY_SECONDS;
         }
 
         await Task.Delay(TIMESPAN_MINING_LOOP_SECONDS * 1000)
           .ConfigureAwait(false);
       }
+    }
+
+
+    public TokenAnchor CreateAnchorToken(SHA256 sHA256)
+    {
+      ulong feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
+      ulong feeTXScaffold = FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
+      ulong feeInput = FeePerByte * LENGTH_DATA_P2PKH_INPUT;
+      ulong feeChange = FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
+
+      ulong valueAccrued = 0;
+      ulong feeAccrued = feeTXScaffold;
+
+
+      BlockBToken block = new();
+
+      LoadTXs(block);
+
+      BlocksMined.Add(block);
+
+      uint nonceHeader = 0;
+
+      TokenAnchor tokenAnchor = new();
+
+      foreach (TXOutputWallet outputSpendable in 
+        TokenParent.Wallet.GetOutputsSpendable())
+      {
+        ulong feeNext = feeAccrued + feeInput + feeAnchorToken;
+
+        if (
+          FeeDisposable < feeNext || 
+          valueAccrued + outputSpendable.Value < feeNext)
+          break;
+
+        tokenAnchor.TXInputs.Add(new(outputSpendable));
+        valueAccrued += outputSpendable.Value;
+        feeAccrued += feeInput;
+
+        do
+        {
+          HeaderBToken header = new()
+          {
+            Nonce = nonceHeader++
+          };
+
+          header.AppendToHeader(
+            Blockchain.HeaderTip,
+            block.HashMerkleRoot,
+            sHA256);
+
+          HeadersMined.Add(header);
+
+          tokenAnchor.TXOutputs.Add(
+            CreateDataTXOutput(
+              ID_BTOKEN
+              .Concat(header.Hash)
+              .Concat(header.HashPrevious).ToArray()));
+
+          feeAccrued += feeAnchorToken;
+
+          feeNext = feeAccrued + feeAnchorToken;
+
+        } while (
+        valueAccrued >= feeNext && 
+        FeeDisposable >= feeNext);
+      }
+
+      ulong valueChange = valueAccrued - feeAccrued - feeChange;
+
+      if (valueChange > 0)
+      {
+        feeAccrued += feeChange;
+        tokenAnchor.TXOutputs.Add(new(valueChange, "P2PKH"));
+      }
+
+      tokenAnchor.Fee = feeAccrued;
+
+      return tokenAnchor;
     }
 
     public override TX CreateDataTX(List<byte[]> dataOPReturn)
@@ -202,9 +258,7 @@ namespace BTokenCore
 
       index += 1;
 
-      ushort iDToken = BitConverter.ToUInt16(tXOutput.Buffer, index);
-
-      if (iDToken != ID_BTOKEN)
+      if (ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
         return;
 
       index += 2;
@@ -259,7 +313,8 @@ namespace BTokenCore
         Network.RelayBlock(blockMined);
       }
       else
-        TimeUpdatedTrail = DateTimeOffset.Now.ToUnixTimeSeconds();
+        TimeUpdatedTrailUnixTimeSeconds = 
+          DateTimeOffset.Now.ToUnixTimeSeconds();
     }
 
 

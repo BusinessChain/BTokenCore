@@ -5,7 +5,6 @@ using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 
 
 namespace BTokenLib
@@ -23,7 +22,6 @@ namespace BTokenLib
 
     protected List<TX> TXPool = new();
 
-    protected List<ushort> IDsBToken = new();
 
 
     static string NameFork = "Fork";
@@ -40,10 +38,7 @@ namespace BTokenLib
     const int INTERVAL_BLOCKHEIGHT_IMAGE = 100;
 
     protected int CountBytesDataTokenBasis = 120;
-    const int LENGTH_DATA_ANCHOR_TOKEN = 2 + 32 + 32; //[ID][HashTip][HashPrevious]
-    const int LENGTH_DATA_P2PKH_INPUT = 76; //[Signature][sequence][whatever]
-    const int LENGTH_DATA_TX_SCAFFOLD = 76; //[version][counters][whatever]
-    
+
 
     public Token()
     {
@@ -237,58 +232,6 @@ namespace BTokenLib
 
     protected ulong FeePerByte;
 
-    public bool TryCreateAnchorToken(
-      ulong feeDisposable,
-      out TX tXAnchorToken)
-    {
-      tXAnchorToken = null;
-
-      ulong feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      ulong feeTXScaffold = FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
-      ulong feeInput = FeePerByte * LENGTH_DATA_P2PKH_INPUT;
-      int countAnchorTokensInTX = 0;
-
-      ulong feeAccrued = feeTXScaffold;
-
-      while (feeDisposable > feeAccrued)
-      {
-        foreach (TXOutputWallet tXOutputWallet in Wallet.TXOutputsSortedValueDescending)
-        {
-          feeAccrued += feeInput;
-
-          if (feeAccrued > feeDisposable)
-            break;
-        }
-      } 
-
-
-
-      ulong valueTotalOutputsWalletRequired = feeAnchorToken;
-      List<TXOutputWallet> tXOutputsWallet = new();
-      ulong valueAccumulated = 0;
-      ulong change = 0;
-
-      foreach (TXOutputWallet tXOutputWallet in Wallet.TXOutputsSortedValueDescending)
-      {
-
-        valueTotalOutputsWalletRequired += 
-          FeePerByte * (ulong)tXOutputWallet.ScriptPubKey.Length;
-        tXOutputsWallet.Add(tXOutputWallet);
-        valueAccumulated += tXOutputWallet.Value;
-
-        if (valueAccumulated >= valueTotalOutputsWalletRequired)
-        {
-          change = valueAccumulated - valueRequested;
-          return tXOutputsWallet;
-        }
-      }
-
-      tXOutputsWallet.Clear();
-      return tXOutputsWallet;
-
-      ulong feeOutputsSpendable = FeePerByte *
-        (ulong)outputsSpendable.Sum(o => o.ScriptPubKey.Length);
-    }
 
     public void InsertBlock(Block block)
     {
@@ -318,11 +261,6 @@ namespace BTokenLib
       TokenListening.Add(token);
     }
 
-    public void AddIDBToken(ushort iDBToken)
-    {
-      IDsBToken.Add(iDBToken);
-    }
-
     public virtual void DetectAnchorToken(TXOutput tXOutput)
     { }
 
@@ -332,6 +270,8 @@ namespace BTokenLib
     {
       throw new NotImplementedException();
     }
+
+    public abstract TXOutput CreateDataTXOutput(byte[] data);
 
     public abstract TX CreateDataTX(List<byte[]> data);
 

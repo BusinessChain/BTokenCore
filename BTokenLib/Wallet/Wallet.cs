@@ -17,7 +17,7 @@ namespace BTokenLib
 
     string PrivKeyDec;
 
-    public List<TXOutputWallet> TXOutputsSortedValueDescending = new();
+    List<TXOutputWallet> TXOutputsSortedValueDescending = new();
 
     const int LENGTH_P2PKH = 25;
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
@@ -228,29 +228,9 @@ namespace BTokenLib
       return true;
     }
 
-    public void GetTXOutputsSpendable(
-      List<TXOutputWallet> outputsSpendable, 
-      ref ulong change,
-      ulong valueRequested)
+    public List<TXOutputWallet> GetOutputsSpendable()
     {
-      List<TXOutputWallet> tXOutputsWallet = new();
-      ulong valueAccumulated = 0;
-      change = 0;
-
-      foreach (TXOutputWallet tXOutputWallet in TXOutputsSortedValueDescending)
-      {
-        tXOutputsWallet.Add(tXOutputWallet);
-        valueAccumulated += tXOutputWallet.Value;
-
-        if (valueAccumulated >= valueRequested)
-        {
-          change = valueAccumulated - valueRequested;
-          return tXOutputsWallet;
-        }
-      }
-
-      tXOutputsWallet.Clear();
-      return tXOutputsWallet;
+      return TXOutputsSortedValueDescending;
     }
     
     public byte[] GetReceptionScript()

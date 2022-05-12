@@ -8,8 +8,10 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  public struct TXInput
+  public class TXInput
   {
+    const int HASH_BYTE_SIZE = 32;
+
     public int StartIndexScript;
     public int LengthScript;
 
@@ -17,18 +19,19 @@ namespace BTokenLib
     public int TXIDOutputShort;
     public int OutputIndex;
 
-    const int HASH_BYTE_SIZE = 32;
+    public byte[] ScriptPubKey;
 
 
 
-    //public TXInput(
-    //  byte[] tXIDOutput,
-    //  int outputIndex)
-    //{
-    //  TXIDOutput = tXIDOutput;
-    //  PrimaryKeyTXIDOutput = BitConverter.ToInt32(tXIDOutput, 0);
-    //  OutputIndex = outputIndex;
-    //}
+
+    public TXInput(TXOutputWallet tXOutputWallet)
+    {
+      TXIDOutput = tXOutputWallet.TXID;
+      TXIDOutputShort = BitConverter.ToInt32(TXIDOutput, 0);
+      OutputIndex = tXOutputWallet.OutputIndex;
+
+      ScriptPubKey = tXOutputWallet.ScriptPubKey;
+    }
 
 
     public TXInput(byte[] buffer, ref int index)

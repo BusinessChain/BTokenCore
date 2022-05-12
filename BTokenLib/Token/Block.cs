@@ -29,11 +29,9 @@ namespace BTokenLib
     { }
 
     public Block(
-      int sizeBuffer,
-      List<ushort> iDsBToken)
+      int sizeBuffer)
     {
       Buffer = new byte[sizeBuffer];
-      IDsBToken = iDsBToken;
     }
 
     public void Parse()
