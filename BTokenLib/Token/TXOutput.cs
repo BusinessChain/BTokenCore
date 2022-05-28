@@ -12,7 +12,6 @@ namespace BTokenLib
     public ulong Value;
 
     public byte[] Buffer;
-    public byte[] Script;
     public int StartIndexScript;
     public int LengthScript;
 

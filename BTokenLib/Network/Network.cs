@@ -592,23 +592,19 @@ namespace BTokenLib
       return peer != null;
     }
 
-    public async Task AdvertizeToken(byte[] hash)
+    public void AdvertizeTX(byte[] hash)
     {
       List<Peer> peers = new();
 
       // should Lock Blockchain
 
       while (true)
-      {
         if (TryGetPeer(out Peer peer))
           peers.Add(peer);
         else if (peers.Any())
           break;
 
-        await Task.Delay(1000);
-      }
-
-      peers.Select(p => p.AdvertizeToken(hash))
+      peers.Select(p => p.AdvertizeTX(hash))
         .ToArray();
     }
 

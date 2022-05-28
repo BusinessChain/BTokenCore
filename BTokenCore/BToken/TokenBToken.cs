@@ -30,6 +30,8 @@ namespace BTokenCore
 
     readonly byte[] ID_BTOKEN = { 0x01, 0x00 };
 
+    protected List<TokenAnchor> PoolTokenAnchor = new();
+
 
     public TokenBToken(Token tokenParent)
       : base()
@@ -103,29 +105,29 @@ namespace BTokenCore
       while (!FlagMiningCancel)
       {
         TokenAnchor tokenAnchor = CreateAnchorToken(sHA256);
+        tokenAnchor.Serialize(TokenParent.Wallet);
 
         if (
-          tokenAnchor.TXOutputs.Count > 0 &&
+          tokenAnchor.DataAnchorTokens.Count > 0 &&
           DateTimeOffset.Now.ToUnixTimeSeconds() - TimeUpdatedTrailUnixTimeSeconds >
           2 * TIMESPAN_MINING_LOOP_SECONDS)
         {
           FeeDisposable -= tokenAnchor.Fee;
 
-          TXPool.Add(tokenAnchor);
-          TokenParent.Network.AdvertizeToken(tokenAnchor.Hash);
+          PoolTokenAnchor.Add(tokenAnchor);
+          TokenParent.Network.AdvertizeTX(tokenAnchor.Hash);
         }
         else
-        {
           FeeDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
             TIMESPAN_MINING_LOOP_SECONDS / TIMESPAN_DAY_SECONDS;
-        }
 
         await Task.Delay(TIMESPAN_MINING_LOOP_SECONDS * 1000)
           .ConfigureAwait(false);
       }
     }
 
-
+    // Should always try to spend the max number of inputs
+    // But number should be 252 max
     public TokenAnchor CreateAnchorToken(SHA256 sHA256)
     {
       ulong feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
@@ -157,7 +159,7 @@ namespace BTokenCore
           valueAccrued + outputSpendable.Value < feeNext)
           break;
 
-        tokenAnchor.TXInputs.Add(new(outputSpendable));
+        tokenAnchor.Inputs.Add(outputSpendable);
         valueAccrued += outputSpendable.Value;
         feeAccrued += feeInput;
 
@@ -175,11 +177,10 @@ namespace BTokenCore
 
           HeadersMined.Add(header);
 
-          tokenAnchor.TXOutputs.Add(
-            CreateDataTXOutput(
-              ID_BTOKEN
-              .Concat(header.Hash)
-              .Concat(header.HashPrevious).ToArray()));
+          tokenAnchor.DataAnchorTokens.Add(
+            ID_BTOKEN
+            .Concat(header.Hash)
+            .Concat(header.HashPrevious).ToArray());
 
           feeAccrued += feeAnchorToken;
 
@@ -190,13 +191,10 @@ namespace BTokenCore
         FeeDisposable >= feeNext);
       }
 
-      ulong valueChange = valueAccrued - feeAccrued - feeChange;
+      tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeChange;
 
-      if (valueChange > 0)
-      {
+      if (tokenAnchor.ValueChange > 0)
         feeAccrued += feeChange;
-        tokenAnchor.TXOutputs.Add(new(valueChange, "P2PKH"));
-      }
 
       tokenAnchor.Fee = feeAccrued;
 

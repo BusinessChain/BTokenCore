@@ -633,7 +633,7 @@ namespace BTokenLib
         }
       }
 
-      public async Task AdvertizeToken(byte[] hash)
+      public async Task AdvertizeTX(byte[] hash)
       {
         $"{this} advertize token {hash.ToHexString()}."
           .Log(LogFile);

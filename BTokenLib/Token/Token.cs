@@ -271,7 +271,6 @@ namespace BTokenLib
       throw new NotImplementedException();
     }
 
-    public abstract TXOutput CreateDataTXOutput(byte[] data);
 
     public abstract TX CreateDataTX(List<byte[]> data);
 

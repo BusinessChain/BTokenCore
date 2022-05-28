@@ -8,9 +8,9 @@ namespace BTokenLib
 {
   public static class VarInt
   {
-    public const byte PREFIX_UINT16 = 0XFD;
-    public const byte PREFIX_UINT32 = 0XFE;
-    public const byte PREFIX_UINT64 = 0XFF;
+    const byte PREFIX_UINT16 = 0XFD;
+    const byte PREFIX_UINT32 = 0XFE;
+    const byte PREFIX_UINT64 = 0XFF;
 
 
     public static List<byte> GetBytes(int value)
