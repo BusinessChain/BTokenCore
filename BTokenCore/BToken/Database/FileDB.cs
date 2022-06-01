@@ -50,7 +50,7 @@ namespace BTokenCore
               {
                 IDAccount = iDAccount,
                 CountdownToReplay = BitConverter.ToUInt32(value),
-                Value = BitConverter.ToUInt64(value)
+                Value = BitConverter.ToInt64(value)
               };
 
               SpendAccount(tX, account);
@@ -103,7 +103,7 @@ namespace BTokenCore
               {
                 IDAccount = iDAccount,
                 CountdownToReplay = BitConverter.ToUInt32(value),
-                Value = BitConverter.ToUInt64(value)
+                Value = BitConverter.ToInt64(value)
               };
 
               Position -= LENGTH_RECORD_DB;

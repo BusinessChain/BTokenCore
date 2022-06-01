@@ -10,7 +10,7 @@ namespace BTokenCore
 {
   partial class DatabaseAccounts
   {
-    const ulong BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
+    const long BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
     const int COUNT_CACHES = 10;
@@ -60,7 +60,7 @@ namespace BTokenCore
             {
               IDAccount = bytesRecord.Take(LENGTH_ID_ACCOUNT).ToArray(),
               CountdownToReplay = BitConverter.ToUInt32(bytesRecord, LENGTH_ID_ACCOUNT),
-              Value = BitConverter.ToUInt64(bytesRecord, LENGTH_ID_ACCOUNT + LENGTH_COUNTDOWN_TO_REPLAY)
+              Value = BitConverter.ToInt64(bytesRecord, LENGTH_ID_ACCOUNT + LENGTH_COUNTDOWN_TO_REPLAY)
             };
 
             Caches[i].Add(record.IDAccount, record);
@@ -84,7 +84,7 @@ namespace BTokenCore
     {
       List<TX> tXs = block.TXs;
 
-      ulong feeBlock = 0;
+      long feeBlock = 0;
 
       for (int t = 1; t < tXs.Count; t++)
       {
@@ -117,10 +117,10 @@ namespace BTokenCore
         InsertOutputs(tXs[t].TXOutputs);
       }
 
-      ulong outputValueTXCoinbase = 0;
+      long outputValueTXCoinbase = 0;
       tXs[0].TXOutputs.ForEach(o => outputValueTXCoinbase += o.Value);
 
-      ulong blockReward = BLOCK_REWARD_INITIAL >> 
+      long blockReward = BLOCK_REWARD_INITIAL >> 
         block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
 
       if (blockReward + feeBlock != outputValueTXCoinbase)
@@ -171,7 +171,7 @@ namespace BTokenCore
     // Validate signature
     static void SpendAccount(TX tX, RecordDBAccounts accountInput)
     {
-      ulong valueSpend = tX.Fee;
+      long valueSpend = tX.Fee;
       tX.TXOutputs.ForEach(o => valueSpend += o.Value);
             
       if (accountInput.CountdownToReplay != ((TXBToken)tX).CountdownToReplay)
@@ -193,7 +193,7 @@ namespace BTokenCore
       for (int i = 0; i < tXOutputs.Count; i++)
       {
         byte[] iDAccount = tXOutputs[i].Buffer;
-        ulong outputValueTX = tXOutputs[i].Value;
+        long outputValueTX = tXOutputs[i].Value;
 
         int c = IndexCache;
 

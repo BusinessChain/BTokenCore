@@ -13,7 +13,7 @@ namespace BTokenLib
     public byte[] TXID = new byte[32];
     public int TXIDShort;
     public int OutputIndex;
-    public ulong Value;
+    public long Value;
     public byte[] ScriptPubKey = new byte[32];
   }
 }

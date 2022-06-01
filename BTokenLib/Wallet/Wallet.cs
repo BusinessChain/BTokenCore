@@ -103,7 +103,7 @@ namespace BTokenLib
         tXOutput.OutputIndex = BitConverter.ToInt32(buffer, index);
         index += 4;
 
-        tXOutput.Value = BitConverter.ToUInt64(buffer, index);
+        tXOutput.Value = BitConverter.ToInt64(buffer, index);
         index += 8;
 
         tXOutput.ScriptPubKey = new byte[LENGTH_P2PKH];

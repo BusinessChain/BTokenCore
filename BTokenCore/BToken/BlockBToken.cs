@@ -117,5 +117,6 @@ namespace BTokenCore
           "ArgumentOutOfRangeException thrown in ParseTX.");
       }
     }
+
   }
 }

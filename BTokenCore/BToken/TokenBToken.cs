@@ -78,11 +78,11 @@ namespace BTokenCore
 
 
 
-    const ulong COUNT_SATOSHIS_PER_DAY_MINING = 100000;
-    const ulong TIMESPAN_DAY_SECONDS = 24 * 3600;
+    const long COUNT_SATOSHIS_PER_DAY_MINING = 100000;
+    const long TIMESPAN_DAY_SECONDS = 24 * 3600;
     List<Block> BlocksMined = new();
     List<Header> HeadersMined = new();
-    ulong FeeDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
+    long FeeDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
 
     public override void StartMining()
     {
@@ -115,7 +115,7 @@ namespace BTokenCore
           FeeDisposable -= tokenAnchor.Fee;
 
           PoolTokenAnchor.Add(tokenAnchor);
-          TokenParent.Network.AdvertizeTX(tokenAnchor.Hash);
+          //TokenParent.Network.AdvertizeTX(tokenAnchor.Hash);
         }
         else
           FeeDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
@@ -129,19 +129,20 @@ namespace BTokenCore
     // Should always try to spend the max number of inputs
     // But number should be 252 max
     public TokenAnchor CreateAnchorToken(SHA256 sHA256)
-    {
-      ulong feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      ulong feeTXScaffold = FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
-      ulong feeInput = FeePerByte * LENGTH_DATA_P2PKH_INPUT;
-      ulong feeChange = FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
+    { 
+      long feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
+      long feeTXScaffold = FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
+      long feeInput = FeePerByte * LENGTH_DATA_P2PKH_INPUT;
+      long feeChange = FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
 
-      ulong valueAccrued = 0;
-      ulong feeAccrued = feeTXScaffold;
+      long valueAccrued = 0;
+      long feeAccrued = feeTXScaffold;
 
 
       BlockBToken block = new();
 
-      LoadTXs(block);
+      //LoadTXs(block);
+      block.HashMerkleRoot = new byte[32];
 
       BlocksMined.Add(block);
 
@@ -152,7 +153,7 @@ namespace BTokenCore
       foreach (TXOutputWallet outputSpendable in 
         TokenParent.Wallet.GetOutputsSpendable())
       {
-        ulong feeNext = feeAccrued + feeInput + feeAnchorToken;
+        long feeNext = feeAccrued + feeInput + feeAnchorToken;
 
         if (
           FeeDisposable < feeNext || 
@@ -193,17 +194,17 @@ namespace BTokenCore
 
       tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeChange;
 
+      tokenAnchor.CountOutputs = tokenAnchor.DataAnchorTokens.Count;
+
       if (tokenAnchor.ValueChange > 0)
+      {
         feeAccrued += feeChange;
+        tokenAnchor.CountOutputs += 1;
+      }
 
       tokenAnchor.Fee = feeAccrued;
 
       return tokenAnchor;
-    }
-
-    public override TX CreateDataTX(List<byte[]> dataOPReturn)
-    {
-      throw new NotImplementedException();
     }
 
     public override HeaderDownload CreateHeaderDownload()
@@ -377,14 +378,13 @@ namespace BTokenCore
 
 
       int indexTXRaw = 0;
-      byte[] tXRawArray = tXRaw.ToArray();
 
       TX tX = block.ParseTX(
         true,
-        tXRawArray,
+        tXRaw.ToArray(),
         ref indexTXRaw);
 
-      tX.TXRaw = tXRawArray;
+      tX.TXRaw = tXRaw;
 
       block.TXs = new List<TX>() { tX };
       block.HashMerkleRoot = tX.Hash;

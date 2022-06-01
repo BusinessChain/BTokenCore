@@ -138,5 +138,16 @@ namespace BTokenCore
       }
     }
 
+
+    const long VALUE_REWARD_INITIAL_SATOSHI = 5000000000;
+    const int NUMBER_OF_BLOCKS_HALFING_CYCLE = 210000;
+
+    protected override void ComputeFee()
+    {
+      Fee = -(VALUE_REWARD_INITIAL_SATOSHI >>
+        (Header.Height / NUMBER_OF_BLOCKS_HALFING_CYCLE));
+
+      base.ComputeFee();
+    }
   }
 }

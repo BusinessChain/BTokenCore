@@ -16,7 +16,9 @@ namespace BTokenCore
     public List<TXOutputWallet> Inputs = new();
     public List<byte[]> DataAnchorTokens = new();
 
-    public ulong ValueChange;
+    public int CountOutputs;
+
+    public long ValueChange;
 
 
     public TokenAnchor(byte[] buffer, int index)
@@ -37,77 +39,63 @@ namespace BTokenCore
 
     public void Serialize(Wallet wallet)
     {
-      List<byte> tXRaw = new();
+      TXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // version
+      TXRaw.Add((byte)Inputs.Count);
 
-      tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // version
-      tXRaw.Add((byte)Inputs.Count);
-
-      int indexFirstInput = tXRaw.Count;
+      int indexFirstInput = TXRaw.Count;
 
       for (int i = 0; i < Inputs.Count; i += 1)
       {
-        tXRaw.AddRange(Inputs[i].TXID);
-        tXRaw.AddRange(BitConverter.GetBytes(Inputs[i].OutputIndex));
-        tXRaw.Add(0x00); // length empty script
-        tXRaw.AddRange(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }); // sequence
+        TXRaw.AddRange(Inputs[i].TXID);
+        TXRaw.AddRange(BitConverter.GetBytes(Inputs[i].OutputIndex));
+        TXRaw.Add(0x00); // length empty script
+        TXRaw.AddRange(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }); // sequence
       }
 
-      tXRaw.Add(CountOutputs);
+      TXRaw.AddRange(VarInt.GetBytes(CountOutputs));
 
-      for (int i = 0; i < CountAnchorToken; i += 0)
+      for (int i = 0; i < DataAnchorTokens.Count; i += 0)
       {
-        tXRaw.AddRange(BitConverter.GetBytes((ulong)0));
-        tXRaw.Add((byte)(DataAnchorTokens.Count + 2));
-        tXRaw.Add(OP_RETURN);
-        tXRaw.Add((byte)DataAnchorTokens.Count);
-        tXRaw.AddRange(DataAnchorTokens[i]);
+        TXRaw.AddRange(BitConverter.GetBytes((ulong)0));
+        TXRaw.Add((byte)(DataAnchorTokens.Count + 2));
+        TXRaw.Add(OP_RETURN);
+        TXRaw.Add((byte)DataAnchorTokens.Count);
+        TXRaw.AddRange(DataAnchorTokens[i]);
       }
 
       if (ValueChange > 0)
       {
-        tXRaw.AddRange(BitConverter.GetBytes(ValueChange));
-        tXRaw.Add(LENGTH_P2PKH);
-        tXRaw.AddRange(PREFIX_P2PKH);
-        tXRaw.AddRange(PublicKeyHash160);
-        tXRaw.AddRange(POSTFIX_P2PKH);
+        TXRaw.AddRange(BitConverter.GetBytes(ValueChange));
+        TXRaw.Add(LENGTH_P2PKH);
+        TXRaw.AddRange(PREFIX_P2PKH);
+        TXRaw.AddRange(PublicKeyHash160);
+        TXRaw.AddRange(POSTFIX_P2PKH);
       }
 
-      tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // locktime
-      tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // sighash
-
+      TXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // locktime
+      TXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // sighash
 
       List<List<byte>> signaturesPerInput = new();
 
       for (int i = 0; i < Inputs.Count; i += 1)
       {
-        List<byte> tXRawSign = tXRaw.ToList();
+        List<byte> tXRawSign = TXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
         tXRawSign[indexRawSign++] = LENGTH_P2PKH;
         tXRawSign.InsertRange(indexRawSign, Inputs[i].ScriptPubKey);
 
-        signaturesPerInput.Add(wallet.GetScriptSignature(
-          tXRawSign.ToArray()));
+        signaturesPerInput.Add(
+          wallet.GetScriptSignature(tXRawSign.ToArray()));
       }
 
-      for (int i = 0; i < Inputs.Count; i += 1)
-      {
-        // one by one insert the signature and public key in the placeholder
-      }
+      for (int i = Inputs.Count - 1; i >= 0; i -= 1)
+        TXRaw.InsertRange(
+          indexFirstInput + 36 * (i + 1) + 5 * i,
+          signaturesPerInput[i]);
 
 
-      tXRaw.RemoveRange(tXRaw.Count - 4, 4);
-
-      BlockBitcoin parser = new();
-      int indexTXRaw = 0;
-      byte[] tXRawArray = tXRaw.ToArray();
-
-      TX tX = parser.ParseTX(
-        false,
-        tXRawArray,
-        ref indexTXRaw);
-
-      tX.TXRaw = tXRawArray;
+      TXRaw.RemoveRange(TXRaw.Count - 4, 4);
     }      
   }
 }

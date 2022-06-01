@@ -9,7 +9,7 @@ namespace BTokenLib
 {
   public class TXOutput
   {
-    public ulong Value;
+    public long Value;
 
     public byte[] Buffer;
     public int StartIndexScript;
@@ -20,7 +20,7 @@ namespace BTokenLib
       byte[] buffer,
       ref int index)
     {
-      Value = BitConverter.ToUInt64(
+      Value = BitConverter.ToInt64(
         buffer,
         index);
 

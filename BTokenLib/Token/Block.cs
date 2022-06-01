@@ -21,8 +21,8 @@ namespace BTokenLib
 
     public byte[] Buffer;
 
-    public ulong Fee;
-    public ulong FeePerByte;
+    public long Fee;
+    public long FeePerByte;
 
 
     public Block()
@@ -37,15 +37,12 @@ namespace BTokenLib
     public void Parse()
     {
       int index = 0;
-      Fee = 0;
 
       Header = ParseHeader(Buffer, ref index);
 
       ParseTXs(Header.MerkleRoot, ref index);
 
-      Header.CountBlockBytes = index - index;
-
-      FeePerByte = Fee / (ulong)Header.CountBlockBytes;
+      Header.CountBlockBytes = index;
     }
 
     public abstract Header ParseHeader(
@@ -170,6 +167,23 @@ namespace BTokenLib
     public void Clear()
     {
       TXs.Clear();
+    }
+
+    public void AppendToBlockchain(Blockchain blockchain)
+    {
+      Header.AppendToHeader(blockchain.HeaderTip);
+      ComputeFee();
+    }
+
+    protected virtual void ComputeFee()
+    {
+      TXs[0].TXOutputs.ForEach(o => Fee += o.Value);
+
+      FeePerByte = Fee / Header.CountBlockBytes;
+
+      FeePerByte =
+          10 / 11 * FeePerByte +
+          1 / 10 * FeePerByte;
     }
   }
 }

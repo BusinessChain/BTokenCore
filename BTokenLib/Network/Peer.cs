@@ -262,7 +262,6 @@ namespace BTokenLib
 
 
       internal Header HeaderDuplicateReceivedLast;
-      internal List<Header> QueueHeadersUnsolicited = new();
       internal int CountOrphanReceived;
 
       public async Task StartMessageListener()
@@ -286,17 +285,7 @@ namespace BTokenLib
               {
                 Console.Beep(1600, 100);
 
-                if (QueueHeadersUnsolicited.Any())
-                {
-                  if (!Block.Header.Hash.IsEqual(QueueHeadersUnsolicited[0].Hash))
-                    throw new ProtocolException(
-                      $"Requested unsolicited block {QueueHeadersUnsolicited[0]}\n" +
-                      $"instead received {Block.Header}");
-
-                  QueueHeadersUnsolicited.RemoveAt(0);
-
-                  Cancellation = new();
-                }
+                Cancellation = new();
 
                 if (!Token.TryLock())
                   continue;
@@ -312,16 +301,9 @@ namespace BTokenLib
                       .Log(LogFile);
 
                     Network.RelayBlock(Block, this);
-
-                    if (QueueHeadersUnsolicited.Any())
-                    {
-                      HeaderUnsolicited = QueueHeadersUnsolicited[0];
-                      ProcessHeaderUnsolicited();
-                    }
                   }
                   else
                   {
-                    QueueHeadersUnsolicited.Clear();
                     HandleHeaderUnsolicitedDuplicateOrOrphan(Block.Header);
                   }
                 }
@@ -432,15 +414,6 @@ namespace BTokenLib
                 Console.Beep(800, 100);
 
                 Network.ThrottleDownloadBlockUnsolicited();
-
-                QueueHeadersUnsolicited.Add(HeaderUnsolicited);
-
-                if (QueueHeadersUnsolicited.Count > 10)
-                  throw new ProtocolException(
-                    $"Too many ({QueueHeadersUnsolicited.Count}) headers unsolicited.");
-
-                if (QueueHeadersUnsolicited.Count > 1)
-                  break;
 
                 ProcessHeaderUnsolicited();
               }
@@ -593,7 +566,6 @@ namespace BTokenLib
           }
           else
           {
-            QueueHeadersUnsolicited.Remove(HeaderUnsolicited);
             HandleHeaderUnsolicitedDuplicateOrOrphan(HeaderUnsolicited);
           }
         }

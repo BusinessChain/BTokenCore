@@ -230,7 +230,7 @@ namespace BTokenLib
     public abstract void StartMining();
 
 
-    protected ulong FeePerByte;
+    protected long FeePerByte;
 
 
     public void InsertBlock(Block block)
@@ -240,19 +240,16 @@ namespace BTokenLib
 
     public void InsertBlock(Block block, Network.Peer peer)
     {
-      block.Header.AppendToHeader(Blockchain.HeaderTip);
+      block.AppendToBlockchain(Blockchain);
 
       InsertInDatabase(block, peer);
 
       Blockchain.AppendHeader(block.Header);
 
-      FeePerByte =
-        10 / 11 * FeePerByte +
-        1 / 10 * block.FeePerByte;
-
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();
     }
+
 
     protected List<Token> TokenListening = new();
 
@@ -270,9 +267,6 @@ namespace BTokenLib
     {
       throw new NotImplementedException();
     }
-
-
-    public abstract TX CreateDataTX(List<byte[]> data);
 
     protected abstract void InsertInDatabase(
       Block block, 

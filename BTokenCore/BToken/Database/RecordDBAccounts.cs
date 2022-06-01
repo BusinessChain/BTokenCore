@@ -9,7 +9,7 @@ namespace BTokenCore
   class RecordDBAccounts
   {
     public uint CountdownToReplay;
-    public ulong Value;
+    public long Value;
     public byte[] IDAccount;
   }
 }

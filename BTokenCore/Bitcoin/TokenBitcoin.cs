@@ -21,9 +21,6 @@ namespace BTokenCore
       : base()
     { }
 
-    public override TX CreateDataTX(List<byte[]> dataTX)
-    {
-    }
 
     public override void StartMining()
     {
@@ -130,16 +127,14 @@ namespace BTokenCore
 
       tXRaw.AddRange(new byte[4]);
 
-
       int indexTXRaw = 0;
-      byte[] tXRawArray = tXRaw.ToArray();
 
       TX tX = block.ParseTX(
         true,
-        tXRawArray,
+        tXRaw.ToArray(),
         ref indexTXRaw);
 
-      tX.TXRaw = tXRawArray;
+      tX.TXRaw = tXRaw;
 
       block.TXs.Add(tX);
 
@@ -189,7 +184,7 @@ namespace BTokenCore
         return false;
       }
 
-      tXRaw = tX.TXRaw;
+      tXRaw = tX.TXRaw.ToArray();
       return true;
     }
 

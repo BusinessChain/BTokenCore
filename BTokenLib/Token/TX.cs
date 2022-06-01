@@ -10,13 +10,13 @@ namespace BTokenLib
   {
     public byte[] Hash;
 
-    public byte[] TXRaw;
+    public List<byte> TXRaw = new();
 
     public int TXIDShort;
 
     public List<TXInput> TXInputs = new();
     public List<TXOutput> TXOutputs = new();
 
-    public ulong Fee;
+    public long Fee;
   }
 }
