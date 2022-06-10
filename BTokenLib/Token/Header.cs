@@ -63,8 +63,7 @@ namespace BTokenLib
 
       Height = headerPrevious.Height + 1;
 
-      DifficultyAccumulated = 
-        headerPrevious.DifficultyAccumulated + Difficulty;
+      DifficultyAccumulated = headerPrevious.DifficultyAccumulated + Difficulty;
     }
 
     public virtual void AppendToHeader(
@@ -76,7 +75,7 @@ namespace BTokenLib
       Height = headerPrevious.Height + 1;
       headerPrevious.Hash.CopyTo(HashPrevious, 0);
       UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-      Buffer = GetBytes();
+      GetBytes();
 
       ComputeHash(sHA256);
     }

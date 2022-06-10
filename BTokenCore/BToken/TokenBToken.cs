@@ -23,14 +23,15 @@ namespace BTokenCore
     int IndexTrail;
     long TimeUpdatedTrailUnixTimeSeconds;
 
-    const int LENGTH_DATA_ANCHOR_TOKEN = 2 + 32 + 32; //[ID][HashTip][HashPrevious]
-    const int LENGTH_DATA_P2PKH_INPUT = 76; //[Signature][sequence][whatever]
-    const int LENGTH_DATA_TX_SCAFFOLD = 76; //[version][counters][whatever]
-    const int LENGTH_DATA_P2PKH_OUTPUT = 76; //??
+    const int LENGTH_DATA_ANCHOR_TOKEN = 77;
+    const int LENGTH_DATA_P2PKH_INPUT = 180;
+    const int LENGTH_DATA_TX_SCAFFOLD = 10;
+    const int LENGTH_DATA_P2PKH_OUTPUT = 34;
 
     readonly byte[] ID_BTOKEN = { 0x01, 0x00 };
 
-    protected List<TokenAnchor> PoolTokenAnchor = new();
+    const long COUNT_SATOSHIS_PER_DAY_MINING = 4850;
+    const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
 
     public TokenBToken(Token tokenParent)
@@ -77,9 +78,6 @@ namespace BTokenCore
     }
 
 
-
-    const long COUNT_SATOSHIS_PER_DAY_MINING = 100000;
-    const long TIMESPAN_DAY_SECONDS = 24 * 3600;
     List<Block> BlocksMined = new();
     List<Header> HeadersMined = new();
     long FeeDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
@@ -105,17 +103,17 @@ namespace BTokenCore
       while (!FlagMiningCancel)
       {
         TokenAnchor tokenAnchor = CreateAnchorToken(sHA256);
-        tokenAnchor.Serialize(TokenParent.Wallet);
 
         if (
           tokenAnchor.DataAnchorTokens.Count > 0 &&
           DateTimeOffset.Now.ToUnixTimeSeconds() - TimeUpdatedTrailUnixTimeSeconds >
           2 * TIMESPAN_MINING_LOOP_SECONDS)
         {
+          tokenAnchor.Serialize(TokenParent.Wallet, sHA256);
+
           FeeDisposable -= tokenAnchor.Fee;
 
-          PoolTokenAnchor.Add(tokenAnchor);
-          //TokenParent.Network.AdvertizeTX(tokenAnchor.Hash);
+          TokenParent.Network.AdvertizeTX(tokenAnchor);
         }
         else
           FeeDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
@@ -127,16 +125,16 @@ namespace BTokenCore
     }
 
     // Should always try to spend the max number of inputs
-    // But number should be 252 max
+    // But number should be 252 max for inputs and outputs
+    // If more outputs needed, make another token.
     public TokenAnchor CreateAnchorToken(SHA256 sHA256)
-    { 
-      long feeAnchorToken = FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      long feeTXScaffold = FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
-      long feeInput = FeePerByte * LENGTH_DATA_P2PKH_INPUT;
-      long feeChange = FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
+    {
+      long feeAccrued = TokenParent.FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
+      long feeAnchorToken = TokenParent.FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
+      long feeInput = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_INPUT;
+      long feeChange = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
 
       long valueAccrued = 0;
-      long feeAccrued = feeTXScaffold;
 
 
       BlockBToken block = new();
@@ -187,8 +185,8 @@ namespace BTokenCore
 
           feeNext = feeAccrued + feeAnchorToken;
 
-        } while (
-        valueAccrued >= feeNext && 
+        } while (tokenAnchor.DataAnchorTokens.Count < 3 &&
+        valueAccrued >= feeNext &&
         FeeDisposable >= feeNext);
       }
 
@@ -308,7 +306,6 @@ namespace BTokenCore
       if(TryGetBlockFromMiner(tokenAnchorWinner, out Block blockMined))
       {
         InsertBlock(blockMined);
-
         Network.RelayBlock(blockMined);
       }
       else

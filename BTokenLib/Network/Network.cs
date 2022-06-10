@@ -22,7 +22,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333; // Load from correct conf File
 
-    int CountPeersMax = 1; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 8; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -592,7 +592,7 @@ namespace BTokenLib
       return peer != null;
     }
 
-    public void AdvertizeTX(byte[] hash)
+    public void AdvertizeTX(TX tX)
     {
       List<Peer> peers = new();
 
@@ -604,7 +604,7 @@ namespace BTokenLib
         else if (peers.Any())
           break;
 
-      peers.Select(p => p.AdvertizeTX(hash))
+      peers.Select(p => p.AdvertizeTX(tX))
         .ToArray();
     }
 

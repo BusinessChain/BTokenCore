@@ -7,11 +7,11 @@ namespace BTokenCore
 {
   class HeaderBToken : Header
   {
-    public const int COUNT_HEADER_BYTES = 80;
+    public const int COUNT_HEADER_BYTES = 104;
     
     public TX TXAnchor;
 
-    public byte[] HashDatabase;
+    public byte[] HashDatabase = new byte[32];
     
     public byte[] HashHeaderAnchor; // not in protocol
 
@@ -39,7 +39,19 @@ namespace BTokenCore
 
     public override byte[] GetBytes()
     {
-      return null;
+      HashPrevious.CopyTo(Buffer, 0);
+
+      MerkleRoot.CopyTo(Buffer, 32);
+
+      HashDatabase.CopyTo(Buffer, 64);
+
+      BitConverter.GetBytes(UnixTimeSeconds)
+        .CopyTo(Buffer, 96);
+
+      BitConverter.GetBytes(Nonce)
+        .CopyTo(Buffer, 100);
+
+      return Buffer;
     }
   }
 }

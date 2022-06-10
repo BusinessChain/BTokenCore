@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 using BTokenLib;
 
@@ -35,9 +35,8 @@ namespace BTokenCore
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
 
     byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
-    byte[] PublicKeyHash160 = new byte[20];
 
-    public void Serialize(Wallet wallet)
+    public void Serialize(Wallet wallet, SHA256 sHA256)
     {
       TXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // version
       TXRaw.Add((byte)Inputs.Count);
@@ -52,14 +51,14 @@ namespace BTokenCore
         TXRaw.AddRange(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }); // sequence
       }
 
-      TXRaw.AddRange(VarInt.GetBytes(CountOutputs));
+      TXRaw.Add((byte)CountOutputs);
 
-      for (int i = 0; i < DataAnchorTokens.Count; i += 0)
+      for (int i = 0; i < DataAnchorTokens.Count; i += 1)
       {
         TXRaw.AddRange(BitConverter.GetBytes((ulong)0));
-        TXRaw.Add((byte)(DataAnchorTokens.Count + 2));
+        TXRaw.Add((byte)(DataAnchorTokens[i].Length + 2));
         TXRaw.Add(OP_RETURN);
-        TXRaw.Add((byte)DataAnchorTokens.Count);
+        TXRaw.Add((byte)DataAnchorTokens[i].Length);
         TXRaw.AddRange(DataAnchorTokens[i]);
       }
 
@@ -68,11 +67,11 @@ namespace BTokenCore
         TXRaw.AddRange(BitConverter.GetBytes(ValueChange));
         TXRaw.Add(LENGTH_P2PKH);
         TXRaw.AddRange(PREFIX_P2PKH);
-        TXRaw.AddRange(PublicKeyHash160);
+        TXRaw.AddRange(wallet.PublicKeyHash160);
         TXRaw.AddRange(POSTFIX_P2PKH);
       }
 
-      TXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // locktime
+      TXRaw.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // locktime
       TXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // sighash
 
       List<List<byte>> signaturesPerInput = new();
@@ -90,12 +89,20 @@ namespace BTokenCore
       }
 
       for (int i = Inputs.Count - 1; i >= 0; i -= 1)
-        TXRaw.InsertRange(
-          indexFirstInput + 36 * (i + 1) + 5 * i,
-          signaturesPerInput[i]);
+      {
+        int indexSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
+        TXRaw[indexSign++] = (byte)signaturesPerInput[i].Count;
+
+        TXRaw.InsertRange(
+          indexSign,
+          signaturesPerInput[i]);
+      }
 
       TXRaw.RemoveRange(TXRaw.Count - 4, 4);
+
+      Hash = sHA256.ComputeHash(
+       sHA256.ComputeHash(TXRaw.ToArray()));
     }      
   }
 }

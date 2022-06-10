@@ -25,7 +25,7 @@ namespace BTokenLib
 
     SHA256 SHA256 = SHA256.Create();
     readonly RipeMD160Digest RIPEMD160 = new();
-    byte[] PublicKeyHash160 = new byte[20];
+    public byte[] PublicKeyHash160 = new byte[20];
 
 
 
@@ -33,9 +33,11 @@ namespace BTokenLib
     {
       PrivKeyDec = File.ReadAllText("Wallet/wallet");
 
-      byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
+      var hashPublicKey = SHA256.ComputeHash(
+        Crypto.GetPubKeyFromPrivKey(PrivKeyDec));
 
-      GeneratePublicKeyHash160(publicKey);
+      RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
+      RIPEMD160.DoFinal(PublicKeyHash160, 0);
     }
 
 
@@ -58,13 +60,6 @@ namespace BTokenLib
       return scriptSig;
     }
 
-    void GeneratePublicKeyHash160(byte[] publicKey)
-    {
-      var p = SHA256.ComputeHash(publicKey);
-
-      RIPEMD160.BlockUpdate(p, 0, p.Length);
-      RIPEMD160.DoFinal(PublicKeyHash160, 0);
-    }
 
     public string GetStatus()
     {

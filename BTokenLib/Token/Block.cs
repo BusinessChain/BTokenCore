@@ -180,10 +180,6 @@ namespace BTokenLib
       TXs[0].TXOutputs.ForEach(o => Fee += o.Value);
 
       FeePerByte = Fee / Header.CountBlockBytes;
-
-      FeePerByte =
-          10 / 11 * FeePerByte +
-          1 / 10 * FeePerByte;
     }
   }
 }

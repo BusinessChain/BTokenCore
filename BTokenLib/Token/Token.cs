@@ -229,9 +229,8 @@ namespace BTokenLib
 
     public abstract void StartMining();
 
-
-    protected long FeePerByte;
-
+    const int ORDER_AVERAGEING_FEEPERBYTE = 3;
+    public long FeePerByte;
 
     public void InsertBlock(Block block)
     {
@@ -245,6 +244,10 @@ namespace BTokenLib
       InsertInDatabase(block, peer);
 
       Blockchain.AppendHeader(block.Header);
+
+      FeePerByte =
+        ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByte + block.FeePerByte) /
+        ORDER_AVERAGEING_FEEPERBYTE;
 
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();

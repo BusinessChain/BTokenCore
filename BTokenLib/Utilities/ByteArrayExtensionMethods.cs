@@ -36,7 +36,14 @@ namespace BTokenLib
       for (int i = 0; i < array.Length; i += 1)
         stringArrayHex[array.Length - i - 1] = BYTE2HEX[array[i]];
 
-      return string.Join(null, stringArrayHex);
+      return string.Join(
+        separator: null, 
+        stringArrayHex);
+    }
+
+    public static string ToHexString(this List<byte> list)
+    {
+      return ToHexString(list.ToArray());
     }
 
     public static bool IsEqual(

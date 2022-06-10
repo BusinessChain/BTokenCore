@@ -498,25 +498,17 @@ namespace BTokenLib
               GetDataMessage getDataMessage = new(Payload);
 
               foreach (Inventory inventory in getDataMessage.Inventories)
-                if (inventory.Type == InventoryType.MSG_TX)
+                if (inventory.Type == InventoryType.MSG_TX &&
+                  inventory.Hash.IsEqual(TXAdvertized.Hash))
                 {
-                  if (Token.TryRequestTX(
-                    inventory.Hash,
-                    out byte[] tXRaw))
-                  {
-                    await SendMessage(new TXMessage(tXRaw));
+                  await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
 
-                    string.Format(
-                      "{0} received getData {1} and sent tXMessage {2}.",
-                      this,
-                      getDataMessage.Inventories[0],
-                      inventory)
-                      .Log(LogFile);
-                  }
-                  else
-                  {
-                    // Send notfound
-                  }
+                  string.Format(
+                    "{0} received getData {1} and sent tXMessage {2}.",
+                    this,
+                    getDataMessage.Inventories[0],
+                    inventory)
+                    .Log(LogFile);
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 {
@@ -528,6 +520,10 @@ namespace BTokenLib
                 }
                 else
                   await SendMessage(new RejectMessage(inventory.Hash));
+            }
+            else if(Command == "reject")
+            {
+
             }
           }
         }
@@ -605,19 +601,24 @@ namespace BTokenLib
         }
       }
 
-      public async Task AdvertizeTX(byte[] hash)
+
+      TX TXAdvertized;
+
+      public async Task AdvertizeTX(TX tX)
       {
-        $"{this} advertize token {hash.ToHexString()}."
+        $"{this} advertize token {tX.Hash.ToHexString()}."
           .Log(LogFile);
 
         var inventoryTX = new Inventory(
           InventoryType.MSG_TX,
-          hash);
+          tX.Hash);
 
         var invMessage = new InvMessage(
           new List<Inventory> { inventoryTX });
 
         await SendMessage(invMessage);
+
+        TXAdvertized = tX;
 
         Release();
       }
