@@ -15,7 +15,6 @@ namespace BTokenLib
 
     protected SHA256 SHA256 = SHA256.Create();
 
-    public byte[] HashMerkleRoot;
     public List<TX> TXs = new();
     protected List<ushort> IDsBToken = new();
 

@@ -8,9 +8,9 @@ namespace BTokenLib
 {
   public static class VarInt
   {
-    const byte PREFIX_UINT16 = 0XFD;
-    const byte PREFIX_UINT32 = 0XFE;
-    const byte PREFIX_UINT64 = 0XFF;
+    public const byte PREFIX_UINT16 = 0XFD;
+    public const byte PREFIX_UINT32 = 0XFE;
+    public const byte PREFIX_UINT64 = 0XFF;
 
 
     public static List<byte> GetBytes(int value)
@@ -87,6 +87,7 @@ namespace BTokenLib
 
       return BitConverter.ToInt32(value, 0);
     }
+
     public static UInt64 ParseVarInt(Stream stream, out int lengthVarInt)
     {
       byte[] value = new byte[8];
@@ -134,6 +135,7 @@ namespace BTokenLib
 
       return prefix;
     }
+
     public static int GetInt32(Stream stream, byte[] buffer)
     {
       int prefix = stream.ReadByte();
@@ -159,6 +161,7 @@ namespace BTokenLib
       startIndex++;
       return ConvertBytesToLong(prefix, buffer, ref startIndex);
     }
+
     static UInt64 ConvertBytesToLong(UInt64 prefix, byte[] buffer, ref int startIndex)
     {
       try
@@ -174,7 +177,9 @@ namespace BTokenLib
       }
       catch (ArgumentException)
       {
-        throw new ArgumentException(string.Format("VarInt prefix '{0}' inconsistent with buffer length '{1}'.", prefix, buffer.Length - startIndex));
+        throw new ArgumentException(
+          $"VarInt prefix '{prefix}' inconsistent " +
+          $"with buffer length '{buffer.Length - startIndex}'.");
       }
     }
   }

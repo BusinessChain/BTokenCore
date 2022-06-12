@@ -14,9 +14,7 @@ namespace BTokenCore
     public byte[] HashPrevious = new byte[32];
 
     public List<TXOutputWallet> Inputs = new();
-    public List<byte[]> DataAnchorTokens = new();
-
-    public int CountOutputs;
+    public byte[] DataAnchorToken;
 
     public long ValueChange;
 
@@ -51,16 +49,12 @@ namespace BTokenCore
         TXRaw.AddRange(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }); // sequence
       }
 
-      TXRaw.Add((byte)CountOutputs);
-
-      for (int i = 0; i < DataAnchorTokens.Count; i += 1)
-      {
-        TXRaw.AddRange(BitConverter.GetBytes((ulong)0));
-        TXRaw.Add((byte)(DataAnchorTokens[i].Length + 2));
-        TXRaw.Add(OP_RETURN);
-        TXRaw.Add((byte)DataAnchorTokens[i].Length);
-        TXRaw.AddRange(DataAnchorTokens[i]);
-      }
+      TXRaw.Add((byte)(ValueChange > 0 ? 2 : 1));
+      TXRaw.AddRange(BitConverter.GetBytes((ulong)0));
+      TXRaw.Add((byte)(DataAnchorToken.Length + 2));
+      TXRaw.Add(OP_RETURN);
+      TXRaw.Add((byte)DataAnchorToken.Length);
+      TXRaw.AddRange(DataAnchorToken);
 
       if (ValueChange > 0)
       {

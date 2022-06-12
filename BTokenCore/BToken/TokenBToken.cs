@@ -79,8 +79,7 @@ namespace BTokenCore
 
 
     List<Block> BlocksMined = new();
-    List<Header> HeadersMined = new();
-    long FeeDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
+    long FeeMinerDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
 
     public override void StartMining()
     {
@@ -96,113 +95,95 @@ namespace BTokenCore
     const int TIMESPAN_MINING_LOOP_SECONDS = 5;
 
 
+    SHA256 SHA256Miner = SHA256.Create();
+
     async Task RunMining()
     {
-      SHA256 sHA256 = SHA256.Create();
+      int nonce = 0;
 
       while (!FlagMiningCancel)
       {
-        TokenAnchor tokenAnchor = CreateAnchorToken(sHA256);
+        BlockBToken block = new(
+          new HeaderBToken() { Nonce = nonce++ });
 
-        if (
-          tokenAnchor.DataAnchorTokens.Count > 0 &&
-          DateTimeOffset.Now.ToUnixTimeSeconds() - TimeUpdatedTrailUnixTimeSeconds >
-          2 * TIMESPAN_MINING_LOOP_SECONDS)
+        //LoadTXs(block); // trägt referenzen auf TXs im pool, so kann ohne memory leak einfach immer ein neuer Block gmacht werden.
+
+        block.Header.AppendToHeader(
+          Blockchain.HeaderTip,
+          SHA256Miner);
+
+        if (TryCreateAnchorToken(block, out TokenAnchor tokenAnchor))
         {
-          tokenAnchor.Serialize(TokenParent.Wallet, sHA256);
+          BlocksMined.Add(block);
 
-          FeeDisposable -= tokenAnchor.Fee;
+          FeeMinerDisposable -= tokenAnchor.Fee;
 
           TokenParent.Network.AdvertizeTX(tokenAnchor);
+
+          int frequencyTimeAnchorToken = 
+            (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS /
+            COUNT_SATOSHIS_PER_DAY_MINING);
+
+          await Task.Delay(frequencyTimeAnchorToken * 2 * 1000) // double span for average middle
+            .ConfigureAwait(false);
         }
         else
-          FeeDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
+        {
+          FeeMinerDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
             TIMESPAN_MINING_LOOP_SECONDS / TIMESPAN_DAY_SECONDS;
 
-        await Task.Delay(TIMESPAN_MINING_LOOP_SECONDS * 1000)
-          .ConfigureAwait(false);
+          await Task.Delay(TIMESPAN_MINING_LOOP_SECONDS * 1000)
+            .ConfigureAwait(false);
+        }
       }
     }
 
-    // Should always try to spend the max number of inputs
-    // But number should be 252 max for inputs and outputs
-    // If more outputs needed, make another token.
-    public TokenAnchor CreateAnchorToken(SHA256 sHA256)
+
+    public bool TryCreateAnchorToken( 
+      Block block, 
+      out TokenAnchor tokenAnchor)
     {
       long feeAccrued = TokenParent.FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
       long feeAnchorToken = TokenParent.FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      long feeInput = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_INPUT;
-      long feeChange = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
+      long feePerInput = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_INPUT;
+      long feeOutputChange = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
 
       long valueAccrued = 0;
 
-
-      BlockBToken block = new();
-
-      //LoadTXs(block);
-      block.HashMerkleRoot = new byte[32];
-
-      BlocksMined.Add(block);
-
-      uint nonceHeader = 0;
-
-      TokenAnchor tokenAnchor = new();
+      tokenAnchor = new();
 
       foreach (TXOutputWallet outputSpendable in 
-        TokenParent.Wallet.GetOutputsSpendable())
+        TokenParent.Wallet.GetOutputsSpendableSortedValueDescending())
       {
-        long feeNext = feeAccrued + feeInput + feeAnchorToken;
-
         if (
-          FeeDisposable < feeNext || 
-          valueAccrued + outputSpendable.Value < feeNext)
+          outputSpendable.Value <= feePerInput ||
+          tokenAnchor.Inputs.Count == VarInt.PREFIX_UINT16 - 1)
           break;
 
         tokenAnchor.Inputs.Add(outputSpendable);
         valueAccrued += outputSpendable.Value;
-        feeAccrued += feeInput;
-
-        do
-        {
-          HeaderBToken header = new()
-          {
-            Nonce = nonceHeader++
-          };
-
-          header.AppendToHeader(
-            Blockchain.HeaderTip,
-            block.HashMerkleRoot,
-            sHA256);
-
-          HeadersMined.Add(header);
-
-          tokenAnchor.DataAnchorTokens.Add(
-            ID_BTOKEN
-            .Concat(header.Hash)
-            .Concat(header.HashPrevious).ToArray());
-
-          feeAccrued += feeAnchorToken;
-
-          feeNext = feeAccrued + feeAnchorToken;
-
-        } while (tokenAnchor.DataAnchorTokens.Count < 3 &&
-        valueAccrued >= feeNext &&
-        FeeDisposable >= feeNext);
+        feeAccrued += feePerInput;
       }
 
-      tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeChange;
+      feeAccrued += feeAnchorToken;
 
-      tokenAnchor.CountOutputs = tokenAnchor.DataAnchorTokens.Count;
+      if (FeeMinerDisposable < feeAccrued || valueAccrued < feeAccrued)
+        return false;
 
-      if (tokenAnchor.ValueChange > 0)
-      {
-        feeAccrued += feeChange;
-        tokenAnchor.CountOutputs += 1;
-      }
+      tokenAnchor.DataAnchorToken = ID_BTOKEN
+        .Concat(block.Header.Hash)
+        .Concat(block.Header.HashPrevious).ToArray();
+
+      tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeOutputChange;
+
+      if (tokenAnchor.ValueChange > feePerInput / 4)
+        feeAccrued += feeOutputChange;
 
       tokenAnchor.Fee = feeAccrued;
 
-      return tokenAnchor;
+      tokenAnchor.Serialize(TokenParent.Wallet, SHA256);
+
+      return true;
     }
 
     public override HeaderDownload CreateHeaderDownload()
@@ -326,9 +307,9 @@ namespace BTokenCore
 
       lock (LOCK_HeadersMined)
       {
-        foreach(Header header in HeadersMined)
+        foreach(Block blockMined in BlocksMined)
         {
-          if(header.Hash.IsEqual(tokenAnchor.HashBlock))
+          if(blockMined.Header.Hash.IsEqual(tokenAnchor.HashBlock))
             blockMined = BlocksMined.Find(
               b => b.HashMerkleRoot.IsEqual(header.MerkleRoot));
 
@@ -384,7 +365,7 @@ namespace BTokenCore
       tX.TXRaw = tXRaw;
 
       block.TXs = new List<TX>() { tX };
-      block.HashMerkleRoot = tX.Hash;
+      block.Header.MerkleRoot = tX.Hash;
     }
 
     public override void CreateImageDatabase(string pathImage)
@@ -403,7 +384,7 @@ namespace BTokenCore
         ref index);
     }
 
-    public override Block CreateBlock()
+    public override BlockBToken CreateBlock()
     {
       return new BlockBToken(SIZE_BUFFER_BLOCK);
     }

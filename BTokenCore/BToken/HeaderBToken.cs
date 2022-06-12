@@ -27,7 +27,7 @@ namespace BTokenCore
       byte[] hashPrevious,
       byte[] merkleRootHash,
       uint unixTimeSeconds,
-      uint nonce) : base(
+      int nonce) : base(
         headerHash,
         hashPrevious,
         merkleRootHash,

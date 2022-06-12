@@ -23,6 +23,11 @@ namespace BTokenCore
       Buffer = new byte[sizeBuffer];
     }
 
+    public BlockBToken(HeaderBToken header)
+    {
+      Header = header;
+    }
+
 
     public override HeaderBToken ParseHeader(
       byte[] buffer,
@@ -51,7 +56,7 @@ namespace BTokenCore
         buffer, index);
       index += 4;
 
-      uint nonce = BitConverter.ToUInt32(buffer, index);
+      int nonce = BitConverter.ToInt32(buffer, index);
       index += 4;
 
       return new HeaderBToken(

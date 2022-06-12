@@ -13,7 +13,7 @@ namespace BTokenLib
     public byte[] HashPrevious;
     public byte[] MerkleRoot;
     public uint UnixTimeSeconds;
-    public uint Nonce;
+    public int Nonce;
 
     public Header HeaderPrevious;
     public Header HeaderNext;
@@ -41,7 +41,7 @@ namespace BTokenLib
       byte[] hashPrevious,
       byte[] merkleRootHash,
       uint unixTimeSeconds,
-      uint nonce)
+      int nonce)
     {
       Hash = headerHash;
       HashPrevious = hashPrevious;
@@ -68,10 +68,8 @@ namespace BTokenLib
 
     public virtual void AppendToHeader(
       Header headerPrevious,
-      byte[] merkleRoot,
       SHA256 sHA256)
     {
-      MerkleRoot = merkleRoot;
       Height = headerPrevious.Height + 1;
       headerPrevious.Hash.CopyTo(HashPrevious, 0);
       UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -92,7 +90,7 @@ namespace BTokenLib
       Nonce += 1;
 
       if (Nonce == 0)
-        Nonce = (uint)nonceSeed;
+        Nonce = (int)nonceSeed;
 
       // Buffer need to be updated
 

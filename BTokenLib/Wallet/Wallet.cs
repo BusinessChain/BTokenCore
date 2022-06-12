@@ -223,7 +223,11 @@ namespace BTokenLib
       return true;
     }
 
-    public List<TXOutputWallet> GetOutputsSpendable()
+    /// <summary>
+    /// List is not yet sorted !!!
+    /// </summary>
+    /// <returns></returns>
+    public List<TXOutputWallet> GetOutputsSpendableSortedValueDescending()
     {
       return TXOutputsSortedValueDescending;
     }
