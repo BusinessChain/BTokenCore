@@ -91,7 +91,7 @@ namespace BTokenCore
           Blockchain.ReleaseLock();
         }
 
-        Network.RelayBlock(block);
+        Network.RelayBlockToNetwork(block);
       }
 
     LABEL_Exit_Miner:
@@ -148,11 +148,10 @@ namespace BTokenCore
     {
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
-      byte[] merkleRoot = LoadTXs(block);
+      header.MerkleRoot = LoadTXs(block);
 
       header.AppendToHeader(
-        Blockchain.HeaderTip, 
-        merkleRoot,
+        Blockchain.HeaderTip,
         sHA256);
 
       while (header.Hash.IsGreaterThan(header.NBits))

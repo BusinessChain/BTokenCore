@@ -566,20 +566,20 @@ namespace BTokenLib
         FlagThrottle = false;
     }
 
-    public void RelayBlock(Block block)
+    public void RelayBlockToNetwork(Block block)
     {
-      RelayBlock(block, null);
+      RelayBlockToNetwork(block, null);
     }
 
-    void RelayBlock(Block block, Peer peerSource)
+    void RelayBlockToNetwork(Block block, Peer peerSource)
     {
       Peers.ForEach(p =>
       {
-        if (p != peerSource &&
+        if (p != peerSource && p.TryGetBusy() &&
         (p.HeaderUnsolicited == null ||
         !p.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash)))
         {
-          p.SendHeaders(new List<Header>() { block.Header });
+          p.RelayBlock(block);
         }
       });
     }
@@ -594,6 +594,12 @@ namespace BTokenLib
 
     public void AdvertizeTX(TX tX)
     {
+      byte[] tXRaw = tX.TXRaw.ToArray();
+
+      string tXRawString = tXRaw.Reverse().ToArray().ToHexString();
+      $"Advertize rawTX {tXRawString} to {this}."
+        .Log(LogFile);
+
       List<Peer> peers = new();
 
       // should Lock Blockchain

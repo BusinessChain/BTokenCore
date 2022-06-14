@@ -58,7 +58,6 @@ namespace BTokenCore
 
     public override void AppendToHeader(
       Header headerTip,
-      byte[] merkleRoot,
       SHA256 sHA256)
     {
       var headerBitcoinTip = (HeaderBitcoin)headerTip;
@@ -70,7 +69,6 @@ namespace BTokenCore
 
       base.AppendToHeader(
         headerTip,
-        merkleRoot, 
         sHA256);
     }
 

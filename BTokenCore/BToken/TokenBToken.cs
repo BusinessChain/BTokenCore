@@ -79,7 +79,6 @@ namespace BTokenCore
 
 
     List<Block> BlocksMined = new();
-    long FeeMinerDisposable = COUNT_SATOSHIS_PER_DAY_MINING;
 
     public override void StartMining()
     {
@@ -96,6 +95,7 @@ namespace BTokenCore
 
 
     SHA256 SHA256Miner = SHA256.Create();
+    Random RandomGeneratorMiner = new();
 
     async Task RunMining()
     {
@@ -114,27 +114,23 @@ namespace BTokenCore
 
         if (TryCreateAnchorToken(block, out TokenAnchor tokenAnchor))
         {
-          BlocksMined.Add(block);
-
-          FeeMinerDisposable -= tokenAnchor.Fee;
+          lock (LOCK_BlocksMined)
+            BlocksMined.Add(block);
 
           TokenParent.Network.AdvertizeTX(tokenAnchor);
 
-          int frequencyTimeAnchorToken = 
-            (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS /
+          int timeSpanAverageMilliSecondsCreateNextAnchorToken =
+            (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS * 1000 /
             COUNT_SATOSHIS_PER_DAY_MINING);
 
-          await Task.Delay(frequencyTimeAnchorToken * 2 * 1000) // double span for average middle
+          await Task.Delay(RandomGeneratorMiner.Next(
+            timeSpanAverageMilliSecondsCreateNextAnchorToken / 2,
+            timeSpanAverageMilliSecondsCreateNextAnchorToken * 3 / 2))
             .ConfigureAwait(false);
         }
         else
-        {
-          FeeMinerDisposable += COUNT_SATOSHIS_PER_DAY_MINING *
-            TIMESPAN_MINING_LOOP_SECONDS / TIMESPAN_DAY_SECONDS;
-
           await Task.Delay(TIMESPAN_MINING_LOOP_SECONDS * 1000)
             .ConfigureAwait(false);
-        }
       }
     }
 
@@ -167,7 +163,7 @@ namespace BTokenCore
 
       feeAccrued += feeAnchorToken;
 
-      if (FeeMinerDisposable < feeAccrued || valueAccrued < feeAccrued)
+      if (valueAccrued < feeAccrued)
         return false;
 
       tokenAnchor.DataAnchorToken = ID_BTOKEN
@@ -287,7 +283,7 @@ namespace BTokenCore
       if(TryGetBlockFromMiner(tokenAnchorWinner, out Block blockMined))
       {
         InsertBlock(blockMined);
-        Network.RelayBlock(blockMined);
+        Network.RelayBlockToNetwork(blockMined);
       }
       else
         TimeUpdatedTrailUnixTimeSeconds = 
@@ -295,36 +291,23 @@ namespace BTokenCore
     }
 
 
-    readonly object LOCK_HeadersMined = new();
     readonly object LOCK_BlocksMined = new();
 
     bool TryGetBlockFromMiner(
       TokenAnchor tokenAnchor, 
       out Block blockMined)
     {
-      blockMined = null;
-      List<Header> headersMinedPurge = new();
-
-      lock (LOCK_HeadersMined)
-      {
-        foreach(Block blockMined in BlocksMined)
-        {
-          if(blockMined.Header.Hash.IsEqual(tokenAnchor.HashBlock))
-            blockMined = BlocksMined.Find(
-              b => b.HashMerkleRoot.IsEqual(header.MerkleRoot));
-
-          if (header.HashPrevious.IsEqual(tokenAnchor.HashPrevious))
+      lock (LOCK_BlocksMined)
+        foreach (Block b in BlocksMined)
+          if (b.Header.Hash.IsEqual(tokenAnchor.HashBlock))
           {
-            headersMinedPurge.Add(header);
-            BlocksMined.RemoveAll(b => b.HashMerkleRoot.IsEqual(
-              header.MerkleRoot));
+            BlocksMined.Clear();
+            blockMined = b;
+            return true;
           }
-        }
 
-        headersMinedPurge.ForEach(h => HeadersMined.Remove(h));
-      }
-
-      return blockMined != null;
+      blockMined = null;
+      return false;
     }
 
     public void LoadTXs(Block block)

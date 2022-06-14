@@ -300,7 +300,7 @@ namespace BTokenLib
                     $"{this}: Inserted unsolicited block {Block}."
                       .Log(LogFile);
 
-                    Network.RelayBlock(Block, this);
+                    Network.RelayBlockToNetwork(Block, this);
                   }
                   else
                   {
@@ -501,14 +501,10 @@ namespace BTokenLib
                 if (inventory.Type == InventoryType.MSG_TX &&
                   inventory.Hash.IsEqual(TXAdvertized.Hash))
                 {
-                  await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
-
-                  string.Format(
-                    "{0} received getData {1} and sent tXMessage {2}.",
-                    this,
-                    getDataMessage.Inventories[0],
-                    inventory)
+                  $"Received getData {inventory} from {this} and send tX {TXAdvertized}."
                     .Log(LogFile);
+
+                  await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 {
@@ -523,7 +519,7 @@ namespace BTokenLib
             }
             else if(Command == "reject")
             {
-
+              RejectMessage rejectMessage = new(Payload);
             }
           }
         }
@@ -710,6 +706,12 @@ namespace BTokenLib
       public async Task SendHeaders(List<Header> headers)
       {
         await SendMessage(new HeadersMessage(headers));
+      }
+
+      public async Task RelayBlock(Block block)
+      {
+        await SendHeaders(new List<Header>() { block.Header });
+        Release();
       }
 
       public bool TryGetBusy()

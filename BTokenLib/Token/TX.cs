@@ -18,5 +18,11 @@ namespace BTokenLib
     public List<TXOutput> TXOutputs = new();
 
     public long Fee;
+
+
+    public override string ToString()
+    {
+      return Hash.ToHexString();
+    }
   }
 }
