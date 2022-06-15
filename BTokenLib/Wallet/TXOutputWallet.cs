@@ -14,6 +14,5 @@ namespace BTokenLib
     public int TXIDShort;
     public int OutputIndex;
     public long Value;
-    public byte[] ScriptPubKey = new byte[32];
   }
 }

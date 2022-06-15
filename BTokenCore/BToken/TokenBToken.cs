@@ -99,7 +99,7 @@ namespace BTokenCore
 
     async Task RunMining()
     {
-      int nonce = 0;
+      uint nonce = 0;
 
       while (!FlagMiningCancel)
       {
@@ -123,9 +123,12 @@ namespace BTokenCore
             (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS * 1000 /
             COUNT_SATOSHIS_PER_DAY_MINING);
 
-          await Task.Delay(RandomGeneratorMiner.Next(
-            timeSpanAverageMilliSecondsCreateNextAnchorToken / 2,
-            timeSpanAverageMilliSecondsCreateNextAnchorToken * 3 / 2))
+          //await Task.Delay(RandomGeneratorMiner.Next(
+          //  timeSpanAverageMilliSecondsCreateNextAnchorToken / 2,
+          //  timeSpanAverageMilliSecondsCreateNextAnchorToken * 3 / 2))
+          //  .ConfigureAwait(false);
+
+          await Task.Delay(60 * 1000)
             .ConfigureAwait(false);
         }
         else
@@ -173,7 +176,18 @@ namespace BTokenCore
       tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeOutputChange;
 
       if (tokenAnchor.ValueChange > feePerInput / 4)
+      {
         feeAccrued += feeOutputChange;
+
+        TokenParent.Wallet.TXOutputUnconfirmed =
+          new TXOutputWallet
+          {
+            TXID = tokenAnchor.Hash,
+            TXIDShort = tokenAnchor.TXIDShort,
+            OutputIndex = 1,
+            Value = tokenAnchor.ValueChange
+          };
+      }
 
       tokenAnchor.Fee = feeAccrued;
 

@@ -190,15 +190,15 @@ namespace BTokenCore
     public override Header CreateHeaderGenesis()
     {
       HeaderBitcoin header = new(
-         headerHash: "0000000000000000000d37dfef7fe1c7bd22c893dbe4a94272c8cf556e40be99".ToBinary(),
+         headerHash: "00000000000000000005f28764680afdbd8375216ff8f30b17eeb26bd98aac63".ToBinary(),
          version: 0x01,
-         hashPrevious: "000000000000000000029da63650d127e160033c93393da77302320bd8ee4958".ToBinary(),
-         merkleRootHash: "a118d95c5a2f17d50a5bc10a0968476af7d1c19905963d86b65b50144850c26c".ToBinary(),
-         unixTimeSeconds: 1634588757,
-         nBits: 0x170E0408,
-         nonce: 2083236893);
+         hashPrevious: "000000000000000000053385e3fdf37e6edfe7adda2fcbf73f0ac6668ea3715b".ToBinary(),
+         merkleRootHash: "95f089001cd0df1fda0cbcb7ad5ffd6a4c88c65b54bee399a527ea0d305ef0a6".ToBinary(),
+         unixTimeSeconds: 1654751887,
+         nBits: 0x17094B6A,
+         nonce: 3719495940);
 
-      header.Height = 705600;
+      header.Height = 740000;
       header.DifficultyAccumulated = header.Difficulty;
 
       return header;

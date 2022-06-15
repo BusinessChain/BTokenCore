@@ -18,6 +18,8 @@ namespace BTokenCore
 
     public long ValueChange;
 
+    byte OP_RETURN = 0x6A;
+
 
     public TokenAnchor(byte[] buffer, int index)
     {
@@ -27,12 +29,6 @@ namespace BTokenCore
     public TokenAnchor()
     { }
 
-
-    const int LENGTH_P2PKH = 25;
-    byte OP_RETURN = 0x6A;
-    byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
-
-    byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
 
     public void Serialize(Wallet wallet, SHA256 sHA256)
     {
@@ -59,10 +55,8 @@ namespace BTokenCore
       if (ValueChange > 0)
       {
         TXRaw.AddRange(BitConverter.GetBytes(ValueChange));
-        TXRaw.Add(LENGTH_P2PKH);
-        TXRaw.AddRange(PREFIX_P2PKH);
-        TXRaw.AddRange(wallet.PublicKeyHash160);
-        TXRaw.AddRange(POSTFIX_P2PKH);
+        TXRaw.Add((byte)wallet.PublicInputScript.Length);
+        TXRaw.AddRange(wallet.PublicInputScript);
       }
 
       TXRaw.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // locktime
@@ -75,8 +69,8 @@ namespace BTokenCore
         List<byte> tXRawSign = TXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
-        tXRawSign[indexRawSign++] = LENGTH_P2PKH;
-        tXRawSign.InsertRange(indexRawSign, Inputs[i].ScriptPubKey);
+        tXRawSign[indexRawSign++] = (byte)wallet.PublicInputScript.Length;
+        tXRawSign.InsertRange(indexRawSign, wallet.PublicInputScript);
 
         signaturesPerInput.Add(
           wallet.GetScriptSignature(tXRawSign.ToArray()));

@@ -56,7 +56,7 @@ namespace BTokenCore
         buffer, index);
       index += 4;
 
-      int nonce = BitConverter.ToInt32(buffer, index);
+      uint nonce = BitConverter.ToUInt32(buffer, index);
       index += 4;
 
       return new HeaderBToken(

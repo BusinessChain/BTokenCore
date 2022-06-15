@@ -13,7 +13,7 @@ namespace BTokenLib
     public byte[] HashPrevious;
     public byte[] MerkleRoot;
     public uint UnixTimeSeconds;
-    public int Nonce;
+    public uint Nonce;
 
     public Header HeaderPrevious;
     public Header HeaderNext;
@@ -41,7 +41,7 @@ namespace BTokenLib
       byte[] hashPrevious,
       byte[] merkleRootHash,
       uint unixTimeSeconds,
-      int nonce)
+      uint nonce)
     {
       Hash = headerHash;
       HashPrevious = hashPrevious;
@@ -90,7 +90,7 @@ namespace BTokenLib
       Nonce += 1;
 
       if (Nonce == 0)
-        Nonce = (int)nonceSeed;
+        Nonce = (uint)nonceSeed;
 
       // Buffer need to be updated
 

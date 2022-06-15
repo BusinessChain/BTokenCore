@@ -18,14 +18,16 @@ namespace BTokenLib
     string PrivKeyDec;
 
     List<TXOutputWallet> TXOutputsSortedValueDescending = new();
+    public TXOutputWallet TXOutputUnconfirmed;
 
     const int LENGTH_P2PKH = 25;
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
     byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
+    public byte[] PublicInputScript;
 
     SHA256 SHA256 = SHA256.Create();
     readonly RipeMD160Digest RIPEMD160 = new();
-    public byte[] PublicKeyHash160 = new byte[20];
+    byte[] PublicKeyHash160 = new byte[20];
 
 
 
@@ -38,8 +40,11 @@ namespace BTokenLib
 
       RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
       RIPEMD160.DoFinal(PublicKeyHash160, 0);
-    }
 
+      PublicInputScript = 
+        PREFIX_P2PKH.Concat(PublicKeyHash160).Concat(POSTFIX_P2PKH)
+        .ToArray();
+    }
 
     public List<byte> GetScriptSignature(byte[] tXRaw)
     {
@@ -101,10 +106,6 @@ namespace BTokenLib
         tXOutput.Value = BitConverter.ToInt64(buffer, index);
         index += 8;
 
-        tXOutput.ScriptPubKey = new byte[LENGTH_P2PKH];
-        Array.Copy(buffer, index, tXOutput.ScriptPubKey, 0, LENGTH_P2PKH);
-        index += LENGTH_P2PKH;
-
         TXOutputsSortedValueDescending.Add(tXOutput);
       }
     }
@@ -140,10 +141,6 @@ namespace BTokenLib
 
           fileImageWallet.Write(
             value, 0, value.Length);
-
-
-          fileImageWallet.Write(
-            tXOutput.ScriptPubKey, 0, tXOutput.ScriptPubKey.Length);
         }
       }
     }
@@ -186,16 +183,15 @@ namespace BTokenLib
             TXID = tX.Hash,
             TXIDShort = tX.TXIDShort,
             OutputIndex = indexOutput,
-            Value = tXOutput.Value,
-            ScriptPubKey = scriptPubKey
+            Value = tXOutput.Value
           });
 
-        //Console.WriteLine(
-        //  "Detected spendable output {0} " +
-        //  "in tx {1} with {2} satoshis.",
-        //  i,
-        //  tX.Hash.ToHexString(),
-        //  tXOutput.Value);
+        Console.WriteLine(
+          "Detected spendable output {0} " +
+          "in tx {1} with {2} satoshis.",
+          indexOutput,
+          tX.Hash.ToHexString(),
+          tXOutput.Value);
       }
     }
 
@@ -206,11 +202,8 @@ namespace BTokenLib
         o.TXIDShort == tXInput.TXIDOutputShort &&
         o.OutputIndex == tXInput.OutputIndex);
 
-      if (output == null ||
-        !output.TXID.IsEqual(tXInput.TXIDOutput))
-      {
+      if (output == null || !output.TXID.IsEqual(tXInput.TXIDOutput))
         return false;
-      }
 
       TXOutputsSortedValueDescending.Remove(output);
 

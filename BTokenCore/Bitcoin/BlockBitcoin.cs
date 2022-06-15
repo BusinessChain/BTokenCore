@@ -63,7 +63,7 @@ namespace BTokenCore
         throw new ProtocolException(
           $"Header hash {hash.ToHexString()} greater than NBits {nBits}.");
 
-      int nonce = BitConverter.ToInt32(buffer, index);
+      uint nonce = BitConverter.ToUInt32(buffer, index);
       index += 4;
 
       return new HeaderBitcoin(

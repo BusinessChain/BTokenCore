@@ -23,17 +23,6 @@ namespace BTokenLib
 
 
 
-
-    public TXInput(TXOutputWallet tXOutputWallet)
-    {
-      TXIDOutput = tXOutputWallet.TXID;
-      TXIDOutputShort = BitConverter.ToInt32(TXIDOutput, 0);
-      OutputIndex = tXOutputWallet.OutputIndex;
-
-      ScriptPubKey = tXOutputWallet.ScriptPubKey;
-    }
-
-
     public TXInput(byte[] buffer, ref int index)
     {
       TXIDOutput = new byte[HASH_BYTE_SIZE];
