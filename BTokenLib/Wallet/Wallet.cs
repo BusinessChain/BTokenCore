@@ -12,22 +12,21 @@ namespace BTokenLib
   public partial class Wallet
   {
     const int HASH_BYTE_SIZE = 32;
-
-    Crypto Crypto = new();
-
-    string PrivKeyDec;
-
-    List<TXOutputWallet> TXOutputsSortedValueDescending = new();
-    public TXOutputWallet TXOutputUnconfirmed;
-
     const int LENGTH_P2PKH = 25;
     byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
     byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
-    public byte[] PublicInputScript;
+
+    Crypto Crypto = new();
 
     SHA256 SHA256 = SHA256.Create();
     readonly RipeMD160Digest RIPEMD160 = new();
+
+    string PrivKeyDec;
+    byte[] PublicKey;
     byte[] PublicKeyHash160 = new byte[20];
+    public byte[] PublicScript;
+
+    List<TXOutputWallet> TXOutputsValueDesc = new();
 
 
 
@@ -35,15 +34,72 @@ namespace BTokenLib
     {
       PrivKeyDec = File.ReadAllText("Wallet/wallet");
 
-      var hashPublicKey = SHA256.ComputeHash(
-        Crypto.GetPubKeyFromPrivKey(PrivKeyDec));
+      PublicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
 
-      RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
-      RIPEMD160.DoFinal(PublicKeyHash160, 0);
+      PublicKeyHash160 = ComputeHash160Pubkey(PublicKey);
 
-      PublicInputScript = 
+      PublicScript = 
         PREFIX_P2PKH.Concat(PublicKeyHash160).Concat(POSTFIX_P2PKH)
         .ToArray();
+    }
+
+    public byte[] ComputeHash160Pubkey(byte[] publicKey)
+    {
+      byte[] publicKeyHash160 = new byte[20];
+
+      var hashPublicKey = SHA256.ComputeHash(publicKey);
+      RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
+      RIPEMD160.DoFinal(publicKeyHash160, 0);
+
+      return publicKeyHash160;
+    }
+
+
+    public void DetectTXOutputSpendable(TX tX, int indexOutput)
+    {
+      TXOutput tXOutput = tX.TXOutputs[indexOutput];
+
+      if (tXOutput.LengthScript != LENGTH_P2PKH)
+        return;
+
+      int indexScript = tXOutput.StartIndexScript;
+
+      if (!PREFIX_P2PKH.IsEqual(tXOutput.Buffer, indexScript))
+        return;
+
+      indexScript += 3;
+
+      if (!PublicKeyHash160.IsEqual(tXOutput.Buffer, indexScript))
+        return;
+
+      indexScript += 20;
+
+      if (POSTFIX_P2PKH.IsEqual(
+        tXOutput.Buffer,
+        indexScript))
+      {
+        byte[] scriptPubKey = new byte[LENGTH_P2PKH];
+
+        Array.Copy(
+          tXOutput.Buffer,
+          tXOutput.StartIndexScript,
+          scriptPubKey,
+          0,
+          LENGTH_P2PKH);
+
+        AddOutputSpendable(
+          new TXOutputWallet
+          {
+            TXID = tX.Hash,
+            TXIDShort = tX.TXIDShort,
+            OutputIndex = indexOutput,
+            Value = tXOutput.Value
+          });
+
+        Console.WriteLine(
+          $"Detected spendable satoshis {tXOutput.Value} " +
+          $"in tx {tX} output index {indexOutput}.");
+      }
     }
 
     public List<byte> GetScriptSignature(byte[] tXRaw)
@@ -52,26 +108,90 @@ namespace BTokenLib
       PrivKeyDec,
       tXRaw.ToArray());
 
-      byte[] publicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
-
       List<byte> scriptSig = new();
       scriptSig.Add((byte)(signature.Length + 1));
       scriptSig.AddRange(signature);
       scriptSig.Add(0x01);
 
-      scriptSig.Add((byte)publicKey.Length);
-      scriptSig.AddRange(publicKey);
+      scriptSig.Add((byte)PublicKey.Length);
+      scriptSig.AddRange(PublicKey);
 
       return scriptSig;
     }
 
+    public bool TrySpend(TXInput tXInput)
+    {
+      TXOutputWallet output =
+        TXOutputsValueDesc.Find(o =>
+        o.TXID.IsEqual(tXInput.TXIDOutput) &&
+        o.OutputIndex == tXInput.OutputIndex);
+
+      if (output == null)
+        return false;
+
+      TXOutputsValueDesc.Remove(output);
+
+      Console.WriteLine(
+        "Spent output {0} in tx {1} with {2} satoshis.",
+        output.OutputIndex,
+        output.TXID.ToHexString(),
+        output.Value);
+
+      return true;
+    }
+
+    public void AddOutputSpendable(TXOutputWallet output)
+    {
+      bool isOutputInserted = false;
+
+      if(TXOutputsValueDesc.Any())
+        for (int i = 0; i < TXOutputsValueDesc.Count; i += 1)
+          if (output.Value > TXOutputsValueDesc[i].Value)
+          {
+            TXOutputsValueDesc.Insert(i, output);
+            isOutputInserted = true;
+            break;
+          }
+
+      if (!isOutputInserted)
+        TXOutputsValueDesc.Add(output);
+    }
+
+    public bool TryGetOutputSpendable(
+      long fee,
+      out TXOutputWallet tXOutputWallet)
+    {
+      tXOutputWallet = null;
+
+      if (TXOutputsValueDesc.Any() && 
+        TXOutputsValueDesc[0].Value > fee)
+      {
+        tXOutputWallet = TXOutputsValueDesc[0];
+        TXOutputsValueDesc.RemoveAt(0);
+      }
+
+      return tXOutputWallet != null;
+    }
+    
+    public byte[] GetReceptionScript()
+    {
+      byte[] script = new byte[26];
+
+      script[0] = LENGTH_P2PKH;
+
+      PREFIX_P2PKH.CopyTo(script, 1);
+      PublicKeyHash160.CopyTo(script, 4);
+      POSTFIX_P2PKH.CopyTo(script, 24);
+
+      return script;
+    }
 
     public string GetStatus()
     {
       string outputsSpendable =
-        TXOutputsSortedValueDescending.Any() ? "" : "Wallet empty.";
+        TXOutputsValueDesc.Any() ? "" : "Wallet empty.";
 
-      foreach (var output in TXOutputsSortedValueDescending)
+      foreach (var output in TXOutputsValueDesc)
       {
         outputsSpendable += $"TXID: {output.TXID.ToHexString()}\n";
         outputsSpendable += $"Output Index: {output.OutputIndex}\n";
@@ -106,7 +226,7 @@ namespace BTokenLib
         tXOutput.Value = BitConverter.ToInt64(buffer, index);
         index += 8;
 
-        TXOutputsSortedValueDescending.Add(tXOutput);
+        AddOutputSpendable(tXOutput);
       }
     }
 
@@ -123,7 +243,7 @@ namespace BTokenLib
           FileAccess.Write,
           FileShare.None))
       {
-        foreach (TXOutputWallet tXOutput in TXOutputsSortedValueDescending)
+        foreach (TXOutputWallet tXOutput in TXOutputsValueDesc)
         {
           fileImageWallet.Write(
             tXOutput.TXID, 0, tXOutput.TXID.Length);
@@ -143,99 +263,6 @@ namespace BTokenLib
             value, 0, value.Length);
         }
       }
-    }
-
-    public void DetectTXOutputSpendable(TX tX, int indexOutput)
-    {
-      TXOutput tXOutput = tX.TXOutputs[indexOutput];
-
-      if (tXOutput.LengthScript != LENGTH_P2PKH)
-        return;
-
-      int indexScript = tXOutput.StartIndexScript;
-
-      if (!PREFIX_P2PKH.IsEqual(tXOutput.Buffer, indexScript))
-        return;
-
-      indexScript += 3;
-
-      if (!PublicKeyHash160.IsEqual(tXOutput.Buffer, indexScript))
-        return;
-
-      indexScript += 20;
-
-      if (POSTFIX_P2PKH.IsEqual(
-        tXOutput.Buffer,
-        indexScript))
-      {
-        byte[] scriptPubKey = new byte[LENGTH_P2PKH];
-
-        Array.Copy(
-          tXOutput.Buffer,
-          tXOutput.StartIndexScript,
-          scriptPubKey,
-          0,
-          LENGTH_P2PKH);
-
-        TXOutputsSortedValueDescending.Add(
-          new TXOutputWallet
-          {
-            TXID = tX.Hash,
-            TXIDShort = tX.TXIDShort,
-            OutputIndex = indexOutput,
-            Value = tXOutput.Value
-          });
-
-        Console.WriteLine(
-          "Detected spendable output {0} " +
-          "in tx {1} with {2} satoshis.",
-          indexOutput,
-          tX.Hash.ToHexString(),
-          tXOutput.Value);
-      }
-    }
-
-    public bool TrySpend(TXInput tXInput)
-    {
-      TXOutputWallet output =
-        TXOutputsSortedValueDescending.Find(o =>
-        o.TXIDShort == tXInput.TXIDOutputShort &&
-        o.OutputIndex == tXInput.OutputIndex);
-
-      if (output == null || !output.TXID.IsEqual(tXInput.TXIDOutput))
-        return false;
-
-      TXOutputsSortedValueDescending.Remove(output);
-
-      Console.WriteLine(
-        "Spent output {0} in tx {1} with {2} satoshis.",
-        output.OutputIndex,
-        output.TXID.ToHexString(),
-        output.Value);
-
-      return true;
-    }
-
-    /// <summary>
-    /// List is not yet sorted !!!
-    /// </summary>
-    /// <returns></returns>
-    public List<TXOutputWallet> GetOutputsSpendableSortedValueDescending()
-    {
-      return TXOutputsSortedValueDescending;
-    }
-    
-    public byte[] GetReceptionScript()
-    {
-      byte[] script = new byte[26];
-
-      script[0] = LENGTH_P2PKH;
-
-      PREFIX_P2PKH.CopyTo(script, 1);
-      PublicKeyHash160.CopyTo(script, 4);
-      POSTFIX_P2PKH.CopyTo(script, 24);
-
-      return script;
     }
   }
 }

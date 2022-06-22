@@ -29,6 +29,21 @@ namespace BTokenCore
     public TokenAnchor()
     { }
 
+    public void GetInputPublicKey()
+    {
+      byte[] scriptSig = TXInputs[0].ScriptPubKey;
+
+      int startIndex = 0;
+      int lengthScript = scriptSig[startIndex++];
+      startIndex += lengthScript;
+
+      int lengthPubkey = scriptSig[startIndex++];
+      var publicKey = new byte[lengthPubkey];
+      Array.Copy(scriptSig, startIndex, publicKey, 0, lengthPubkey);
+
+      var hashPublicKey = Wallet.ComputeHash160Pubkey(publicKey);
+    }
+
 
     public void Serialize(Wallet wallet, SHA256 sHA256)
     {
@@ -42,7 +57,9 @@ namespace BTokenCore
         TXRaw.AddRange(Inputs[i].TXID);
         TXRaw.AddRange(BitConverter.GetBytes(Inputs[i].OutputIndex));
         TXRaw.Add(0x00); // length empty script
-        TXRaw.AddRange(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF }); // sequence
+        TXRaw.AddRange(new byte[4]); // sequence
+
+        Fee += Inputs[i].Value;
       }
 
       TXRaw.Add((byte)(ValueChange > 0 ? 2 : 1));
@@ -55,8 +72,10 @@ namespace BTokenCore
       if (ValueChange > 0)
       {
         TXRaw.AddRange(BitConverter.GetBytes(ValueChange));
-        TXRaw.Add((byte)wallet.PublicInputScript.Length);
-        TXRaw.AddRange(wallet.PublicInputScript);
+        TXRaw.Add((byte)wallet.PublicScript.Length);
+        TXRaw.AddRange(wallet.PublicScript);
+
+        Fee -= ValueChange;
       }
 
       TXRaw.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // locktime
@@ -69,8 +88,8 @@ namespace BTokenCore
         List<byte> tXRawSign = TXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
-        tXRawSign[indexRawSign++] = (byte)wallet.PublicInputScript.Length;
-        tXRawSign.InsertRange(indexRawSign, wallet.PublicInputScript);
+        tXRawSign[indexRawSign++] = (byte)wallet.PublicScript.Length;
+        tXRawSign.InsertRange(indexRawSign, wallet.PublicScript);
 
         signaturesPerInput.Add(
           wallet.GetScriptSignature(tXRawSign.ToArray()));

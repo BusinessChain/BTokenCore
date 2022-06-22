@@ -219,12 +219,10 @@ namespace BTokenLib
     public abstract Block CreateBlock();
 
     protected bool IsMining;
-    protected bool FlagMiningCancel;
 
     public void StopMining()
     {
-      if (IsMining)
-        FlagMiningCancel = true;
+        IsMining = false;
     }
 
     public abstract void StartMining();
@@ -261,7 +259,7 @@ namespace BTokenLib
       TokenListening.Add(token);
     }
 
-    public virtual void DetectAnchorToken(TXOutput tXOutput)
+    public virtual void DetectAnchorTokenInBlock(TX tX)
     { }
 
     public virtual void SignalCompletionBlockInsertion(byte[] hash) { }

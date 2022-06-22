@@ -37,9 +37,6 @@ namespace BTokenCore
         numberOfProcesses,
         i => RunMining(i * nonceSegment));
 
-      IsMining = false;
-      FlagMiningCancel = false;
-
       Console.WriteLine("Miner canceled.");
     }
 
@@ -47,7 +44,7 @@ namespace BTokenCore
     {
       SHA256 sHA256 = SHA256.Create();
 
-      while (!FlagMiningCancel)
+      while (IsMining)
       {
         BlockBitcoin block = new();
 
@@ -64,7 +61,7 @@ namespace BTokenCore
 
         while (!Blockchain.TryLock())
         {
-          if (FlagMiningCancel)
+          if (!IsMining)
             goto LABEL_Exit_Miner;
 
           Console.WriteLine("Miner awaiting access of BToken blockchain LOCK.");
@@ -156,7 +153,7 @@ namespace BTokenCore
 
       while (header.Hash.IsGreaterThan(header.NBits))
       {
-        if (FlagMiningCancel)
+        if (!IsMining)
           throw new TaskCanceledException();
 
         header.IncrementNonce(
@@ -218,12 +215,13 @@ namespace BTokenCore
           for (int i = 0; i < tX.TXInputs.Count; i += 1)
             Wallet.TrySpend(tX.TXInputs[i]);
 
-          for (int o = 0; o < tX.TXOutputs.Count; o += 1)
-            if (tX.TXOutputs[o].Value > 0)
-              Wallet.DetectTXOutputSpendable(tX, o);
-            else
-              TokenListening.ForEach(
-                t => t.DetectAnchorToken(tX.TXOutputs[o]));
+          if (tX.TXOutputs[0].Value == 0 && t > 0)
+            TokenListening.ForEach(
+              t => t.DetectAnchorTokenInBlock(tX));
+
+          for (int i = 0; i < tX.TXOutputs.Count; i += 1)
+            if (tX.TXOutputs[i].Value > 0)
+              Wallet.DetectTXOutputSpendable(tX, i);
         }
       }
       catch (ProtocolException ex)

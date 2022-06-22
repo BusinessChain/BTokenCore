@@ -303,9 +303,7 @@ namespace BTokenLib
                     Network.RelayBlockToNetwork(Block, this);
                   }
                   else
-                  {
                     HandleHeaderUnsolicitedDuplicateOrOrphan(Block.Header);
-                  }
                 }
                 catch (ProtocolException ex)
                 {

@@ -60,7 +60,6 @@ namespace BTokenCore
       return header;
     }
 
-
     public override void LoadImageDatabase(string pathImage)
     {
       DatabaseAccounts.LoadImage(pathImage);
@@ -91,49 +90,70 @@ namespace BTokenCore
     }
 
 
-    const int TIMESPAN_MINING_LOOP_SECONDS = 5;
-
-
+    /// <summary>
+    /// Ich starte mit der Fee beim aktuellen Average wert, und dann korrigiere ich die FeePerByte immer um 
+    /// 1 satoshis jeweils entsprechend ob ich in ein block reingekommen bin oder nicht. Die korrektur kann 
+    /// auch eskalierend sein {1..2..3..4..}, wenn ich weit daneben liege. 
+    /// 
+    /// 
+    /// Wenn der miner AnchorTokens broadcasted vermerkt er diese in einer Liste.
+    /// Wenn ein Bitcoin Block kommt muss dieser dem Miner gegeben werden. In diesem 
+    /// Moment stoppt der miner die generierung neuer AnchorToken. Wenn er merkt, dass 
+    /// die versendeten Token nich im Block sind, überschribt er sie mit RBF mit der 
+    /// berechneten Fee rate.
+    /// </summary>
+    /// <returns></returns>
+    /// 
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
+    List<TokenAnchor> AnchorTokensMined = new();
+
+    const int TIMESPAN_MINING_LOOP_SECONDS = 5;
 
     async Task RunMining()
     {
       uint nonce = 0;
 
-      while (!FlagMiningCancel)
+      while (IsMining)
       {
-        BlockBToken block = new(
-          new HeaderBToken() { Nonce = nonce++ });
+        int timeMSLoop = TIMESPAN_MINING_LOOP_SECONDS * 1000;
 
-        //LoadTXs(block); // trägt referenzen auf TXs im pool, so kann ohne memory leak einfach immer ein neuer Block gmacht werden.
-
-        block.Header.AppendToHeader(
-          Blockchain.HeaderTip,
-          SHA256Miner);
-
-        if (TryCreateAnchorToken(block, out TokenAnchor tokenAnchor))
+        if (TryLock())
         {
-          lock (LOCK_BlocksMined)
-            BlocksMined.Add(block);
+          BlockBToken block = new(
+            new HeaderBToken() { Nonce = nonce++ });
 
-          TokenParent.Network.AdvertizeTX(tokenAnchor);
+          //LoadTXs(block); // trägt referenzen auf TXs im pool, so kann ohne memory leak einfach immer ein neuer Block gmacht werden.
 
-          int timeSpanAverageMilliSecondsCreateNextAnchorToken =
-            (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS * 1000 /
-            COUNT_SATOSHIS_PER_DAY_MINING);
+          block.Header.AppendToHeader(
+            Blockchain.HeaderTip,
+            SHA256Miner);
 
-          //await Task.Delay(RandomGeneratorMiner.Next(
-          //  timeSpanAverageMilliSecondsCreateNextAnchorToken / 2,
-          //  timeSpanAverageMilliSecondsCreateNextAnchorToken * 3 / 2))
-          //  .ConfigureAwait(false);
+          if (TryCreateAnchorToken(block, out TokenAnchor tokenAnchor))
+          {
+            lock (LOCK_BlocksMined)
+              BlocksMined.Add(block);
 
-          await Task.Delay(60 * 1000)
-            .ConfigureAwait(false);
+            TokenParent.Network.AdvertizeTX(tokenAnchor);
+
+            AnchorTokensMined.Add(tokenAnchor);
+
+            int timeMSCreateNextAnchorToken =
+              (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS * 1000 /
+              COUNT_SATOSHIS_PER_DAY_MINING);
+
+            //await Task.Delay(RandomGeneratorMiner.Next(
+            //  timeMSCreateNextAnchorToken / 2,
+            //  timeMSCreateNextAnchorToken * 3 / 2))
+            //  .ConfigureAwait(false);
+
+            timeMSLoop = 60 * 1000;
+          }
+
+          ReleaseLock();
         }
-        else
-          await Task.Delay(TIMESPAN_MINING_LOOP_SECONDS * 1000)
-            .ConfigureAwait(false);
+
+        await Task.Delay(timeMSLoop).ConfigureAwait(false);
       }
     }
 
@@ -151,14 +171,11 @@ namespace BTokenCore
 
       tokenAnchor = new();
 
-      foreach (TXOutputWallet outputSpendable in 
-        TokenParent.Wallet.GetOutputsSpendableSortedValueDescending())
+      while (tokenAnchor.Inputs.Count < VarInt.PREFIX_UINT16 - 1 &&
+        TokenParent.Wallet.TryGetOutputSpendable(
+          feePerInput,
+          out TXOutputWallet outputSpendable))
       {
-        if (
-          outputSpendable.Value <= feePerInput ||
-          tokenAnchor.Inputs.Count == VarInt.PREFIX_UINT16 - 1)
-          break;
-
         tokenAnchor.Inputs.Add(outputSpendable);
         valueAccrued += outputSpendable.Value;
         feeAccrued += feePerInput;
@@ -175,23 +192,19 @@ namespace BTokenCore
 
       tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeOutputChange;
 
-      if (tokenAnchor.ValueChange > feePerInput / 4)
-      {
-        feeAccrued += feeOutputChange;
+      tokenAnchor.Serialize(TokenParent.Wallet, SHA256Miner);
 
-        TokenParent.Wallet.TXOutputUnconfirmed =
+      if (tokenAnchor.ValueChange > 0)
+      {
+        TokenParent.Wallet.AddOutputSpendable(
           new TXOutputWallet
           {
             TXID = tokenAnchor.Hash,
             TXIDShort = tokenAnchor.TXIDShort,
             OutputIndex = 1,
             Value = tokenAnchor.ValueChange
-          };
+          });
       }
-
-      tokenAnchor.Fee = feeAccrued;
-
-      tokenAnchor.Serialize(TokenParent.Wallet, SHA256);
 
       return true;
     }
@@ -208,7 +221,12 @@ namespace BTokenCore
       Block block, 
       Network.Peer peer)
     {
-      if(IndexTrail == TrailHashesAnchor.Count)
+      if (AnchorTokensMined.Any())
+      {
+        // irgendwo hier wird RBF gemacht.
+      } 
+
+      if (IndexTrail == TrailHashesAnchor.Count)
       {
         Block blockParent = peer.GetBlock(
           ((HeaderBToken)block.Header).HashHeaderAnchor);
@@ -227,11 +245,12 @@ namespace BTokenCore
       Archiver.ArchiveBlock(block);
     }
 
+    List<TokenAnchor> TokensAnchorDetectedInBlock = new();
 
-    List<TokenAnchor> TokensAnchor = new();
-
-    public override void DetectAnchorToken(TXOutput tXOutput)
+    public override void DetectAnchorTokenInBlock(TX tX)
     {
+      TXOutput tXOutput = tX.TXOutputs[0];
+
       int index = tXOutput.StartIndexScript;
 
       if (tXOutput.Buffer[index] != 0x6A)
@@ -239,57 +258,28 @@ namespace BTokenCore
 
       index += 1;
 
-      byte lengthData = tXOutput.Buffer[index];
-
-      if (lengthData != LENGTH_DATA_ANCHOR_TOKEN)
+      if (tXOutput.Buffer[index] != LENGTH_DATA_ANCHOR_TOKEN)
         return;
 
       index += 1;
 
-      if (ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
+      if (!ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
         return;
 
       index += 2;
 
-      if (!TokensAnchor.Any(t => t.HashBlock.IsEqual(tXOutput.Buffer, index)))
-        TokensAnchor.Add(new TokenAnchor(tXOutput.Buffer, index));
-    }
+      var tokenAnchor = (TokenAnchor)tX;
 
-    public override void RevokeBlockInsertion()
-    {
-      TokensAnchor.Clear();
-    }
+      TokensAnchorDetectedInBlock.Add(tokenAnchor);
 
-    SHA256 SHA256 = SHA256.Create();
-
-    TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
-    {
-      byte[] targetValue = SHA256.ComputeHash(hashBlockAnchor);
-      byte[] biggestDifferenceTemp = new byte[32];
-      TokenAnchor tokenAnchorWinner = null;
-
-      TokensAnchor.ForEach(t =>
-      {
-        byte[] differenceHash = targetValue.SubtractByteWise(
-          t.HashBlock);
-
-        if (differenceHash.IsGreaterThan(biggestDifferenceTemp))
-        {
-          biggestDifferenceTemp = differenceHash;
-          tokenAnchorWinner = t;
-        }
-      });
-
-      TokensAnchor.Clear();
-
-      return tokenAnchorWinner;
+      AnchorTokensMined.RemoveAll(t => t.Hash.IsEqual(tokenAnchor.Hash));
     }
 
     public override void SignalCompletionBlockInsertion(byte[] hashBlock)
     {
-      if (TokensAnchor.Count == 0)
+      if (TokensAnchorDetectedInBlock.Count == 0)
         return;
-      
+
       TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlock);
@@ -302,6 +292,37 @@ namespace BTokenCore
       else
         TimeUpdatedTrailUnixTimeSeconds = 
           DateTimeOffset.Now.ToUnixTimeSeconds();
+    }
+
+    TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
+    {
+      SHA256 sHA256 = SHA256.Create();
+
+      byte[] targetValue = sHA256.ComputeHash(hashBlockAnchor);
+      byte[] biggestDifferenceTemp = new byte[32];
+      TokenAnchor tokenAnchorWinner = null;
+
+      TokensAnchorDetectedInBlock.ForEach(t =>
+      {
+        byte[] differenceHash = targetValue.SubtractByteWise(
+          t.HashBlock);
+
+        if (differenceHash.IsGreaterThan(biggestDifferenceTemp))
+        {
+          biggestDifferenceTemp = differenceHash;
+          tokenAnchorWinner = t;
+        }
+      });
+
+      TokensAnchorDetectedInBlock.Clear();
+
+      return tokenAnchorWinner;
+    }
+
+
+    public override void RevokeBlockInsertion()
+    {
+      TokensAnchorDetectedInBlock.Clear();
     }
 
 
