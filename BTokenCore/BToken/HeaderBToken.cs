@@ -10,8 +10,9 @@ namespace BTokenCore
     public const int COUNT_HEADER_BYTES = 104;
     
     public byte[] HashDatabase = new byte[32];
-    
-    public byte[] HashHeaderAnchor; // not in protocol
+
+    public byte[] HashHeaderAnchorPrevious;
+    public Header HeaderAnchor;
 
 
 

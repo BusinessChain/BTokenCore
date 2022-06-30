@@ -439,7 +439,7 @@ namespace BTokenLib
 
                 i += 1;
 
-                if (Token.Blockchain.TryReadHeader(
+                if (Token.Blockchain.TryGetHeader(
                   hashHeaderAncestor,
                   out Header header))
                 {
@@ -567,7 +567,7 @@ namespace BTokenLib
 
       void HandleHeaderUnsolicitedDuplicateOrOrphan(Header header)
       {
-        if (Token.Blockchain.TryReadHeader(
+        if (Token.Blockchain.TryGetHeader(
           header.Hash,
           out Header headerReceivedNow))
         {

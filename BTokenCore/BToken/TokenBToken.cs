@@ -28,7 +28,9 @@ namespace BTokenCore
     const int LENGTH_DATA_TX_SCAFFOLD = 10;
     const int LENGTH_DATA_P2PKH_OUTPUT = 34;
 
-    readonly byte[] ID_BTOKEN = { 0x01, 0x00 };
+    readonly byte[] ID_BTOKEN = { 0x01, 0x00 }; 
+    // Das müsste doch länger sein sonst gibts doch dauernd Kollisionen mit andere OP_Tokens
+    // 8-Byte 0x42 (B) 0x54 (T) 0x4F (O) 0x4B (K) 0x45 (E) 0x4E (N) 0xXX 0xXX (ID-Nummer)
 
     const long COUNT_SATOSHIS_PER_DAY_MINING = 4850;
     const long TIMESPAN_DAY_SECONDS = 24 * 3600;
@@ -221,27 +223,26 @@ namespace BTokenCore
       Block block, 
       Network.Peer peer)
     {
+      Block blockAnchor = ((HeaderBToken)Blockchain.HeaderTip).BlockAnchor.BlockNext;
+
+      if (blockAnchor == null)
+      {
+        blockAnchor = peer.GetBlockAnchor(block.Header.Hash);
+        TokenParent.InsertBlock(blockAnchor, peer);
+
+        if (!blockAnchor.ContainsAnchorWinning(block))
+          throw new ProtocolException();
+      }
+      else if (!blockAnchor.ContainsAnchorWinning(block))
+        throw new NotSynchronizedWithParentException();
+
+      DatabaseAccounts.InsertBlock(block);
+
       if (AnchorTokensMined.Any())
       {
         // irgendwo hier wird RBF gemacht.
-      } 
-
-      if (IndexTrail == TrailHashesAnchor.Count)
-      {
-        Block blockParent = peer.GetBlock(
-          ((HeaderBToken)block.Header).HashHeaderAnchor);
-
-        TokenParent.InsertBlock(blockParent, peer);
       }
 
-      if (
-        IndexTrail == TrailHashesAnchor.Count ||
-        !block.Header.Hash.IsEqual(TrailHashesAnchor[IndexTrail]))
-        throw new ProtocolException(
-          $"Header hash {block} not equal to anchor " +
-          $"trail hash {TrailHashesAnchor[IndexTrail].ToHexString()}.");
-
-      DatabaseAccounts.InsertBlock(block);
       Archiver.ArchiveBlock(block);
     }
 
@@ -283,8 +284,9 @@ namespace BTokenCore
       TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlock);
+      IndexTrail += 1;
 
-      if(TryGetBlockFromMiner(tokenAnchorWinner, out Block blockMined))
+      if (TryGetBlockFromMiner(tokenAnchorWinner, out Block blockMined))
       {
         InsertBlock(blockMined);
         Network.RelayBlockToNetwork(blockMined);

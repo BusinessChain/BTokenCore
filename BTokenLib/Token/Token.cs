@@ -260,14 +260,13 @@ namespace BTokenLib
     }
 
     public virtual void DetectAnchorTokenInBlock(TX tX)
-    { }
+    { throw new NotImplementedException(); }
 
-    public virtual void SignalCompletionBlockInsertion(byte[] hash) { }
+    public virtual void SignalCompletionBlockInsertion(byte[] hash)
+    { throw new NotImplementedException(); }
 
     public virtual void RevokeBlockInsertion()
-    {
-      throw new NotImplementedException();
-    }
+    { throw new NotImplementedException(); }
 
     protected abstract void InsertInDatabase(
       Block block, 

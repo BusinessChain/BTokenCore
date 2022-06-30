@@ -182,7 +182,7 @@ namespace BTokenLib
     {
       foreach (byte[] hash in locatorHashes)
       {
-        if (TryReadHeader(hash, out Header header))
+        if (TryGetHeader(hash, out Header header))
         {
           List<Header> headers = new();
 
@@ -223,7 +223,8 @@ namespace BTokenLib
       IndexingHeaderTip();
     }
 
-    public bool TryReadHeader(
+
+    public bool TryGetHeader(
       byte[] headerHash,
       out Header header)
     {

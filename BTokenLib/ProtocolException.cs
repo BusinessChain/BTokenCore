@@ -18,6 +18,5 @@ namespace BTokenLib
     public ProtocolException(string message, Exception inner)
         : base(message, inner)
     { }
-
   }
 }
