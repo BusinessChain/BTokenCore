@@ -18,6 +18,8 @@ namespace BTokenCore
 
     public long ValueChange;
 
+    public uint NumberSequence;
+
     byte OP_RETURN = 0x6A;
 
 
@@ -57,7 +59,7 @@ namespace BTokenCore
         TXRaw.AddRange(Inputs[i].TXID);
         TXRaw.AddRange(BitConverter.GetBytes(Inputs[i].OutputIndex));
         TXRaw.Add(0x00); // length empty script
-        TXRaw.AddRange(new byte[4]); // sequence
+        TXRaw.AddRange(BitConverter.GetBytes(NumberSequence)); // sequence
 
         Fee += Inputs[i].Value;
       }

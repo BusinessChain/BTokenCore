@@ -16,7 +16,9 @@ namespace BTokenCore
 
 
     public BlockBToken()
-    { }
+    {
+      Header = new HeaderBToken();
+    }
 
     public BlockBToken(int sizeBuffer)
     {

@@ -14,11 +14,16 @@ namespace BTokenCore
     public byte[] HashHeaderAnchorPrevious;
     public Header HeaderAnchor;
 
+    static uint InitializerNonce;
+
 
 
     public HeaderBToken()
     {
       Buffer = new byte[COUNT_HEADER_BYTES];
+
+      lock (this)
+        Nonce = InitializerNonce++;
     }
 
     public HeaderBToken(
