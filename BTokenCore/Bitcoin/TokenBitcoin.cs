@@ -229,7 +229,6 @@ namespace BTokenCore
         // Database (wallet) recovery.
 
         TokenListening.ForEach(t => t.RevokeBlockInsertion());
-
         throw ex;
       }
 

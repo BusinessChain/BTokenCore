@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Security.Cryptography;
 
 using BTokenLib;
 
@@ -11,8 +10,7 @@ namespace BTokenCore
     
     public byte[] HashDatabase = new byte[32];
 
-    public byte[] HashHeaderAnchorPrevious;
-    public Header HeaderAnchor;
+    public int IndexTrailAnchor;
 
     static uint InitializerNonce;
 

@@ -92,30 +92,21 @@ namespace BTokenCore
     }
 
 
-    /// <summary>
-    /// Ich starte mit der Fee beim aktuellen Average wert, und dann korrigiere ich die FeePerByte immer um 
-    /// 1 satoshis jeweils entsprechend ob ich in ein block reingekommen bin oder nicht. Die korrektur kann 
-    /// auch eskalierend sein {1..2..3..4..}, wenn ich weit daneben liege. 
-    /// 
-    /// 
-    /// Wenn der miner AnchorTokens broadcasted vermerkt er diese in einer Liste.
-    /// Wenn ein Bitcoin Block kommt muss dieser dem Miner gegeben werden. In diesem 
-    /// Moment stoppt der miner die generierung neuer AnchorToken. Wenn er merkt, dass 
-    /// die versendeten Token nich im Block sind, überschribt er sie mit RBF mit der 
-    /// berechneten Fee rate.
-    /// </summary>
-    /// <returns></returns>
-    /// 
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
-    List<TokenAnchor> TokensAnchorMined = new();
+    List<TokenAnchor> TokensAnchorMinedUnconfirmed = new();
 
     const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1000;
 
+    double FeePerByte;
+    const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.05;
+
+
     async Task RunMining()
     {
-      uint nonce = 0;
       byte[] hashBTokenBlockTip = Blockchain.HeaderTip.Hash;
+
+      FeePerByte = TokenParent.FeePerByteAverage;
 
       while (IsMining)
       {
@@ -124,8 +115,7 @@ namespace BTokenCore
         if (TryLock())
         {
           if(TryMineAnchorToken(out TokenAnchor tokenAnchor))
-            timeMSLoop =
-              (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS * 1000 /
+            timeMSLoop = (int)(tokenAnchor.Fee * TIMESPAN_DAY_SECONDS * 1000 /
               COUNT_SATOSHIS_PER_DAY_MINING);
 
           //timeMSLoop = RandomGeneratorMiner.Next(
@@ -139,60 +129,66 @@ namespace BTokenCore
       }
     }
 
-    public void RBFAnchorTokensMined()
+    protected override void InsertInDatabase(
+      Block block,
+      Network.Peer peer)
     {
-      if (!TokensAnchorMined.Any())
-        return;
+      int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
 
-      List<TokenAnchor> anchorTokensMined = TokensAnchorMined.ToList();
-      TokensAnchorMined.Clear();
+      if (
+        TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious ||
+        !TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
+        throw new NotSynchronizedWithParentException();
 
-      int i = 0;
-      while (true)
-      {
-        TokenAnchor tokenAnchor = anchorTokensMined[i];
+      DatabaseAccounts.InsertBlock(block);
 
-        if (tokenAnchor.ValueChange <= 0)
-          break;
+      ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
 
-        BlockBToken block = new();
+      RBFAnchorTokensMined();
 
-        //LoadTXs(block);
-
-        block.Header.AppendToHeader(
-          Blockchain.HeaderTip,
-          SHA256Miner);
-
-        tokenAnchor.DataAnchorToken = ID_BTOKEN
-          .Concat(block.Header.Hash)
-          .Concat(block.Header.HashPrevious).ToArray();
-
-        TokensAnchorMined.Add(tokenAnchor);
-
-        long feeBump = tokenAnchor.Fee / 16;
-        tokenAnchor.ValueChange -= feeBump;
-        tokenAnchor.NumberSequence++;
-
-        tokenAnchor.Serialize(TokenParent.Wallet, SHA256Miner);
-
-        if (tokenAnchor.ValueChange <= 0)
-          break;
-
-        i += 1;
-
-        if (i == anchorTokensMined.Count)
-          break;
-
-        anchorTokensMined[i].ValueChange -= feeBump;
-      }
+      Archiver.ArchiveBlock(block);
     }
 
-    public bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
+
+    void RBFAnchorTokensMined()
     {
-      long feeAccrued = TokenParent.FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
-      long feeAnchorToken = TokenParent.FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      long feePerInput = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_INPUT;
-      long feeOutputChange = TokenParent.FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
+      if (!TokensAnchorMinedUnconfirmed.Any())
+      {
+        if(BlocksMined.Any())
+          FeePerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+
+        BlocksMined.Clear();
+        return;
+      }
+
+      TokensAnchorMinedUnconfirmed.Reverse();
+
+      foreach(TokenAnchor tokenAnchorMined in TokensAnchorMinedUnconfirmed)
+      {
+        if (tokenAnchorMined.ValueChange > 0)
+          Wallet.RemoveOutputSpendable(tokenAnchorMined.Hash);
+
+        tokenAnchorMined.Inputs.ForEach(i => Wallet.AddOutputSpendable(i));
+      }
+
+      int countTokensAnchorMined = TokensAnchorMinedUnconfirmed.Count;
+      TokensAnchorMinedUnconfirmed.Clear();
+      BlocksMined.Clear();
+
+      FeePerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+
+      for (int j = 0; j < countTokensAnchorMined; j += 1)
+        if (!TryMineAnchorToken(out TokenAnchor tokenAnchor))
+          break;
+    }
+
+
+    bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
+    {
+      long feeAccrued = (long)FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
+      long feeAnchorToken = (long)FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
+      long feePerInput = (long)FeePerByte * LENGTH_DATA_P2PKH_INPUT;
+      long feeOutputChange = (long)FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
 
       long valueAccrued = 0;
 
@@ -206,7 +202,8 @@ namespace BTokenCore
         Blockchain.HeaderTip,
         SHA256Miner);
 
-      while (tokenAnchor.Inputs.Count < VarInt.PREFIX_UINT16 - 1 &&
+      while (
+        tokenAnchor.Inputs.Count < VarInt.PREFIX_UINT16 - 1 &&
         TokenParent.Wallet.TryGetOutputSpendable(
           feePerInput,
           out TXOutputWallet outputSpendable))
@@ -241,39 +238,16 @@ namespace BTokenCore
           });
       }
 
-      lock (LOCK_BlocksMined)
-        BlocksMined.Add(block);
-
       TokenParent.Network.AdvertizeTX(tokenAnchor);
 
-      TokensAnchorMined.Add(tokenAnchor);
+      TokensAnchorMinedUnconfirmed.Add(tokenAnchor);
+
+      lock (LOCK_BlocksMined)
+        BlocksMined.Add(block);
 
       return true;
     }
 
-    public override HeaderDownload CreateHeaderDownload()
-    {
-      return new HeaderDownloadBToken(
-        Blockchain.GetLocator(),
-        TrailHashesAnchor,
-        IndexTrail);
-    }
-
-    protected override void InsertInDatabase(
-      Block block, 
-      Network.Peer peer)
-    {
-      Block blockAnchor = ((HeaderBToken)Blockchain.HeaderTip).BlockAnchor.BlockNext;
-
-      if (blockAnchor == null || !blockAnchor.ContainsAnchorWinning(block))
-        throw new NotSynchronizedWithParentException();
-
-      DatabaseAccounts.InsertBlock(block);
-
-      RBFAnchorTokensMined();
-
-      Archiver.ArchiveBlock(block);
-    }
 
     List<TokenAnchor> TokensAnchorDetectedInBlock = new();
 
@@ -302,7 +276,7 @@ namespace BTokenCore
 
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
 
-      TokensAnchorMined.RemoveAll(t => t.Hash.IsEqual(tokenAnchor.Hash));
+      TokensAnchorMinedUnconfirmed.RemoveAll(t => t.Hash.IsEqual(tokenAnchor.Hash));
     }
 
     public override void SignalCompletionBlockInsertion(byte[] hashBlock)
@@ -376,7 +350,7 @@ namespace BTokenCore
       return false;
     }
 
-    public void LoadTXs(Block block)
+    void LoadTXs(Block block)
     {
       List<byte> tXRaw = new();
 
@@ -476,6 +450,14 @@ namespace BTokenCore
       throw new NotImplementedException();
     }
 
+
+    public override HeaderDownload CreateHeaderDownload()
+    {
+      return new HeaderDownloadBToken(
+        Blockchain.GetLocator(),
+        TrailHashesAnchor,
+        IndexTrail);
+    }
 
     public override List<string> GetSeedAddresses()
     {

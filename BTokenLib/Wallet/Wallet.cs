@@ -140,6 +140,11 @@ namespace BTokenLib
       return true;
     }
 
+    public void RemoveOutputSpendable(byte[] hash)
+    {
+      TXOutputsValueDesc.RemoveAll(t => t.TXID.Equals(hash));
+    }
+
     public void AddOutputSpendable(TXOutputWallet output)
     {
       bool isOutputInserted = false;

@@ -12,6 +12,7 @@ namespace BTokenLib
     const int HASH_BYTE_SIZE = 32;
 
     public Header Header;
+    public Block BlockNext;
 
     protected SHA256 SHA256 = SHA256.Create();
 
