@@ -21,19 +21,18 @@ namespace BTokenCore
 
     List<byte[]> TrailHashesAnchor = new();
     int IndexTrail;
-    long TimeUpdatedTrailUnixTimeSeconds;
 
     const int LENGTH_DATA_ANCHOR_TOKEN = 77;
     const int LENGTH_DATA_P2PKH_INPUT = 180;
     const int LENGTH_DATA_TX_SCAFFOLD = 10;
     const int LENGTH_DATA_P2PKH_OUTPUT = 34;
 
-    readonly byte[] ID_BTOKEN = { 0x01, 0x00 }; 
-    // Das müsste doch länger sein sonst gibts doch dauernd Kollisionen mit andere OP_Tokens
-    // 8-Byte 0x42 (B) 0x54 (T) 0x4F (O) 0x4B (K) 0x45 (E) 0x4E (N) 0xXX 0xXX (ID-Nummer)
+    readonly byte[] ID_BTOKEN = { 0x01, 0x00 };
 
     const long COUNT_SATOSHIS_PER_DAY_MINING = 4850;
     const long TIMESPAN_DAY_SECONDS = 24 * 3600;
+
+    StreamWriter LogFile;
 
 
     public TokenBToken(Token tokenParent)
@@ -45,6 +44,10 @@ namespace BTokenCore
       DatabaseAccounts = new();
 
       Archiver = new(this, GetName());
+
+      LogFile = new StreamWriter(
+        GetName(),
+        false);
     }
 
     public override Header CreateHeaderGenesis()
@@ -89,6 +92,8 @@ namespace BTokenCore
       IsMining = true;
 
       RunMining();
+
+      "Started miner".Log(LogFile);
     }
 
 
@@ -104,9 +109,9 @@ namespace BTokenCore
 
     async Task RunMining()
     {
-      byte[] hashBTokenBlockTip = Blockchain.HeaderTip.Hash;
-
       FeePerByte = TokenParent.FeePerByteAverage;
+
+      $"Miners starts with fee per byte = {FeePerByte}".Log(LogFile);
 
       while (IsMining)
       {
@@ -154,7 +159,7 @@ namespace BTokenCore
     {
       if (!TokensAnchorMinedUnconfirmed.Any())
       {
-        if(BlocksMined.Any())
+        if (BlocksMined.Any())
           FeePerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
 
         BlocksMined.Clear();
@@ -163,7 +168,7 @@ namespace BTokenCore
 
       TokensAnchorMinedUnconfirmed.Reverse();
 
-      foreach(TokenAnchor tokenAnchorMined in TokensAnchorMinedUnconfirmed)
+      foreach (TokenAnchor tokenAnchorMined in TokensAnchorMinedUnconfirmed)
       {
         if (tokenAnchorMined.ValueChange > 0)
           Wallet.RemoveOutputSpendable(tokenAnchorMined.Hash);
@@ -172,19 +177,31 @@ namespace BTokenCore
       }
 
       int countTokensAnchorMined = TokensAnchorMinedUnconfirmed.Count;
+      int numberSequence = TokensAnchorMinedUnconfirmed[0].NumberSequence + 1;
       TokensAnchorMinedUnconfirmed.Clear();
       BlocksMined.Clear();
 
       FeePerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
 
-      for (int j = 0; j < countTokensAnchorMined; j += 1)
-        if (!TryMineAnchorToken(out TokenAnchor tokenAnchor))
-          break;
+      if (TryMineAnchorToken(out TokenAnchor tokenAnchor, numberSequence))
+        for (int j = 1; j < countTokensAnchorMined; j += 1)
+          if (!TryMineAnchorToken(out tokenAnchor))
+            break;
     }
-
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
     {
+      return TryMineAnchorToken(
+        out tokenAnchor, 
+        numberSequence: 0);
+    }
+
+    bool TryMineAnchorToken(
+      out TokenAnchor tokenAnchor,
+      int numberSequence)
+    {
+      $"Miner tries to mine an anchor token".Log(LogFile);
+
       long feeAccrued = (long)FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
       long feeAnchorToken = (long)FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
       long feePerInput = (long)FeePerByte * LENGTH_DATA_P2PKH_INPUT;
@@ -192,7 +209,10 @@ namespace BTokenCore
 
       long valueAccrued = 0;
 
-      tokenAnchor = new();
+      tokenAnchor = new()
+      {
+        NumberSequence = numberSequence
+      };
 
       BlockBToken block = new();
 
@@ -216,7 +236,11 @@ namespace BTokenCore
       feeAccrued += feeAnchorToken;
 
       if (valueAccrued < feeAccrued)
+      {
+        ($"Miner wallet has not enough value {valueAccrued} to " +
+          $"pay for anchor token fee {feeAccrued}").Log(LogFile);
         return false;
+      }
 
       tokenAnchor.DataAnchorToken = ID_BTOKEN
         .Concat(block.Header.Hash)
@@ -237,6 +261,14 @@ namespace BTokenCore
             Value = tokenAnchor.ValueChange
           });
       }
+
+        ($"Miner advertizes anchor token {tokenAnchor} :\n" +
+        $"Number of inputs: {tokenAnchor.TXInputs.Count}\n" +
+        $"Input value {valueAccrued}\n" +
+        $"Fee: {tokenAnchor.Fee}\n" +
+        $"ValueChange: {tokenAnchor.ValueChange}\n" +
+        $"Sequence number: {tokenAnchor.NumberSequence}\n" +
+        $"Referenced BToken block hash: {tokenAnchor.HashBlock}").Log(LogFile);
 
       TokenParent.Network.AdvertizeTX(tokenAnchor);
 
@@ -272,17 +304,17 @@ namespace BTokenCore
 
       index += 2;
 
-      var tokenAnchor = (TokenAnchor)tX;
-
-      TokensAnchorDetectedInBlock.Add(tokenAnchor);
-
-      TokensAnchorMinedUnconfirmed.RemoveAll(t => t.Hash.IsEqual(tokenAnchor.Hash));
+      TokensAnchorDetectedInBlock.Add(new(tX, index));
     }
 
     public override void SignalCompletionBlockInsertion(byte[] hashBlock)
     {
       if (TokensAnchorDetectedInBlock.Count == 0)
         return;
+
+      TokensAnchorMinedUnconfirmed.RemoveAll(
+        tu => TokensAnchorDetectedInBlock.Any(
+          tb => tb.Hash.IsEqual(tu.Hash)));
 
       TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
 
@@ -294,9 +326,6 @@ namespace BTokenCore
         InsertBlock(blockMined);
         Network.RelayBlockToNetwork(blockMined);
       }
-      else
-        TimeUpdatedTrailUnixTimeSeconds = 
-          DateTimeOffset.Now.ToUnixTimeSeconds();
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)

@@ -187,15 +187,15 @@ namespace BTokenCore
     public override Header CreateHeaderGenesis()
     {
       HeaderBitcoin header = new(
-         headerHash: "00000000000000000005f28764680afdbd8375216ff8f30b17eeb26bd98aac63".ToBinary(),
+         headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
          version: 0x01,
-         hashPrevious: "000000000000000000053385e3fdf37e6edfe7adda2fcbf73f0ac6668ea3715b".ToBinary(),
-         merkleRootHash: "95f089001cd0df1fda0cbcb7ad5ffd6a4c88c65b54bee399a527ea0d305ef0a6".ToBinary(),
-         unixTimeSeconds: 1654751887,
-         nBits: 0x17094B6A,
-         nonce: 3719495940);
+         hashPrevious: "00000000000000000008b5ffa0ae1b604dd27bf4af84602ea53f7920320a3c96".ToBinary(),
+         merkleRootHash: "ef303d1cf8090e1bcea36432eceea2bbc156e81108deff1616d9c6dee64ba7c7".ToBinary(),
+         unixTimeSeconds: 1653490985, // take timestamp from trezor.io explorer and convert to epoch time GMT
+         nBits: 386492960,
+         nonce: 578608666);
 
-      header.Height = 740000;
+      header.Height = 737856; // Should be modulo 2016 so it calculates next target bits correctly.
       header.DifficultyAccumulated = header.Difficulty;
 
       return header;

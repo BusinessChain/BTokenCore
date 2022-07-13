@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using System.Diagnostics;
 
 using BTokenLib;
 
@@ -75,6 +76,9 @@ namespace BTokenCore
     public override void AppendToHeader(Header headerPrevious)
     {
       base.AppendToHeader(headerPrevious);
+
+      if (headerPrevious.ToString() == "000000000000000000050c04aa3e3ca62420b6366e20ebea29ed3042320d2e4b".ToUpper())
+      { }
 
       uint medianTimePastSeconds = GetMedianTimePastSeconds(HeaderPrevious);
 

@@ -45,7 +45,7 @@ namespace BTokenLib
       const string UserAgent = "/BTokenCore:0.0.0/";
       public enum ConnectionType { OUTBOUND, INBOUND };
       ConnectionType Connection;
-      const UInt32 ProtocolVersion = 70013;
+      const UInt32 ProtocolVersion = 70015;
       public IPAddress IPAddress;
       TcpClient TcpClient;
       NetworkStream NetworkStream;

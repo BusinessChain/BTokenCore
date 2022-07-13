@@ -18,21 +18,24 @@ namespace BTokenCore
 
     public long ValueChange;
 
-    public uint NumberSequence;
+    public int NumberSequence;
 
     byte OP_RETURN = 0x6A;
 
 
-    public TokenAnchor(byte[] buffer, int index)
-    {
-      Array.Copy(buffer, index, HashBlock, 0, HashBlock.Length);
-    }
 
     public TokenAnchor()
     { }
 
+    public TokenAnchor(TX tX, int index)
+    {
+      Array.Copy(TXOutputs[0].Buffer, index, HashBlock, 0, HashBlock.Length);
+    }
+
     public void GetInputPublicKey()
     {
+      // Damit ich weiss an wen die BlockReward gehen soll
+      // Es ist die Adresse des Senders des AnkerTokens
       byte[] scriptSig = TXInputs[0].ScriptPubKey;
 
       int startIndex = 0;
@@ -43,7 +46,7 @@ namespace BTokenCore
       var publicKey = new byte[lengthPubkey];
       Array.Copy(scriptSig, startIndex, publicKey, 0, lengthPubkey);
 
-      var hashPublicKey = Wallet.ComputeHash160Pubkey(publicKey);
+      //var hashPublicKey = Wallet.ComputeHash160Pubkey(publicKey);
     }
 
 

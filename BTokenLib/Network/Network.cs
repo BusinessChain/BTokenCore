@@ -22,7 +22,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333; // Load from correct conf File
 
-    int CountPeersMax = 8; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 1; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
