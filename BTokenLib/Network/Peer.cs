@@ -708,6 +708,8 @@ namespace BTokenLib
 
       public async Task RelayBlock(Block block)
       {
+        $"Relay block {block} to peer {this}.".Log(LogFile);
+
         await SendHeaders(new List<Header>() { block.Header });
         Release();
       }

@@ -29,7 +29,7 @@ namespace BTokenCore
 
     readonly byte[] ID_BTOKEN = { 0x01, 0x00 };
 
-    const long COUNT_SATOSHIS_PER_DAY_MINING = 4850;
+    const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
     const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
     StreamWriter LogFile;
@@ -120,8 +120,13 @@ namespace BTokenCore
         if (TryLock())
         {
           if(TryMineAnchorToken(out TokenAnchor tokenAnchor))
+          {
             timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
-              COUNT_SATOSHIS_PER_DAY_MINING);
+                COUNT_SATOSHIS_PER_DAY_MINING);
+
+            ($"Miner successfully mined {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
+              $"Next attempt to create anchor token in {timeMSLoop} ms.").Log(LogFile);
+          }
 
           //timeMSLoop = RandomGeneratorMiner.Next(
           //  timeMSCreateNextAnchorToken / 2,
@@ -142,10 +147,18 @@ namespace BTokenCore
 
       int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
 
-      if (
-        TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious ||
-        !TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
+      if (TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious)
+      {
+        $"The anchoring Bitcoin block does not exist.".Log(LogFile);
         throw new NotSynchronizedWithParentException();
+      }
+
+      if (!TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
+      {
+        ($"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
+          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.").Log(LogFile);
+        throw new NotSynchronizedWithParentException();
+      }
 
       DatabaseAccounts.InsertBlock(block);
 
@@ -159,14 +172,22 @@ namespace BTokenCore
 
     void RBFAnchorTokensMined()
     {
-      if (!TokensAnchorMinedUnconfirmed.Any())
+      if (TokensAnchorMinedUnconfirmed.Count == 0)
       {
+        $"RBF: No unconfirmed anchor tokens.".Log(LogFile);
+
         if (BlocksMined.Any())
+        {
           FeePerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+          $"{BlocksMined.Count} blocks were mined.".Log(LogFile);
+        }
 
         BlocksMined.Clear();
         return;
       }
+
+      ($"RBF: {TokensAnchorMinedUnconfirmed.Count} unconfirmed anchor tokens, " +
+        $"{BlocksMined.Count} blocks were mined..").Log(LogFile);
 
       TokensAnchorMinedUnconfirmed.Reverse();
 
@@ -309,13 +330,29 @@ namespace BTokenCore
 
       index += ID_BTOKEN.Length;
 
-      TokensAnchorDetectedInBlock.Add(new(tX, index));
+      TokenAnchor tokenAnchorDetectedInBlock = new(tX, index);
+
+      TokensAnchorDetectedInBlock.Add(tokenAnchorDetectedInBlock);
+
+      ($"Anchor token {tX} detected.:\n" +
+        $"Number of inputs: {tX.TXInputs.Count}\n" +
+        $"Fee: {tX.Fee}\n" +
+        $"ValueChange: {tokenAnchorDetectedInBlock.ValueChange}\n" +
+        $"Sequence number: {tokenAnchorDetectedInBlock.NumberSequence}\n" +
+        $"Referenced BToken block hash: {tokenAnchorDetectedInBlock.HashBlockReferenced}" +
+        $"Referenced BToken previous block hash: {tokenAnchorDetectedInBlock.HashBlockPreviousReferenced}").Log(LogFile);
+
     }
+
+    readonly object LOCK_BlocksMined = new();
 
     public override void SignalCompletionBlockInsertion(byte[] hashBlock)
     {
       if (TokensAnchorDetectedInBlock.Count == 0)
+      {
+        $"No anchor tokens detected in block {hashBlock.ToHexString()}.".Log(LogFile);
         return;
+      }
 
       TokensAnchorMinedUnconfirmed.RemoveAll(tokenMined =>
       TokensAnchorDetectedInBlock.Any(tokenInBlock =>
@@ -323,16 +360,28 @@ namespace BTokenCore
 
       TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
 
+      $"The winning anchor token is {tokenAnchorWinner.TX}.".Log(LogFile);
+
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
       IndexTrail += 1;
 
-      if (TryGetBlockFromMiner(
-        tokenAnchorWinner.HashBlockReferenced, 
-        out Block blockMined))
-      {
-        InsertBlock(blockMined);
-        Network.RelayBlockToNetwork(blockMined);
-      }
+
+      lock (LOCK_BlocksMined)
+        foreach (Block blockMined in BlocksMined)
+          if (blockMined.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced))
+          {
+            BlocksMined.Clear();
+            ($"The winning anchor token referencing {tokenAnchorWinner.HashBlockReferenced.ToHexString()}" +
+              $"was a self mined block.").Log(LogFile);
+
+            InsertBlock(blockMined);
+
+            $"Inserted mined block {blockMined}.".Log(LogFile);
+
+            Network.RelayBlockToNetwork(blockMined);
+
+            break;
+          }
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
@@ -366,25 +415,6 @@ namespace BTokenCore
       TokensAnchorDetectedInBlock.Clear();
     }
 
-
-    readonly object LOCK_BlocksMined = new();
-
-    bool TryGetBlockFromMiner(
-      byte[] hash, 
-      out Block blockMined)
-    {
-      lock (LOCK_BlocksMined)
-        foreach (Block b in BlocksMined)
-          if (b.Header.Hash.IsEqual(hash))
-          {
-            BlocksMined.Clear();
-            blockMined = b;
-            return true;
-          }
-
-      blockMined = null;
-      return false;
-    }
 
     void LoadTXs(Block block)
     {
