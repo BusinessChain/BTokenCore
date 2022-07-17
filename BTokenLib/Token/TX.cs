@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace BTokenLib
 {
-  public abstract class TX
+  public class TX
   {
     public byte[] Hash;
 
@@ -19,6 +19,12 @@ namespace BTokenLib
 
     public long Fee;
 
+    public string GetStringTXRaw()
+    {
+      return TXRaw.ToArray()
+        .Reverse().ToArray()
+        .ToHexString();
+    }
 
     public override string ToString()
     {

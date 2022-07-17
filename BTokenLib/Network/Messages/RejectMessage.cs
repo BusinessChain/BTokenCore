@@ -10,7 +10,8 @@ namespace BTokenLib
   {
     class RejectMessage : NetworkMessage
     {
-      const int TXAndBlockExtraDataLength = 32;
+      const int LENGTH_EXTRA_DATA_TX_AND_BLOCK = 32;
+
       public enum RejectCode : byte
       {
         MALFORMED = 0x01,
@@ -28,7 +29,6 @@ namespace BTokenLib
       string MessageTypeRejected;
       string RejectionReason;
       byte[] ExtraData;
-
 
       public RejectMessage(byte[] payload) 
         : base("reject", payload)
@@ -54,21 +54,21 @@ namespace BTokenLib
           MessageTypeRejected == "block")
         {
           int extraDataLength = Payload.Length - startIndex;
-          if (extraDataLength != TXAndBlockExtraDataLength)
+          if (extraDataLength != LENGTH_EXTRA_DATA_TX_AND_BLOCK)
           {
             throw new ProtocolException(
               $"Provided extra data length '{extraDataLength}' " +
-              $"not consistent with protocol '{TXAndBlockExtraDataLength}'.");
+              $"not consistent with protocol '{LENGTH_EXTRA_DATA_TX_AND_BLOCK}'.");
           }
 
-          ExtraData = new byte[TXAndBlockExtraDataLength];
+          ExtraData = new byte[LENGTH_EXTRA_DATA_TX_AND_BLOCK];
 
           Array.Copy(
             Payload,
             startIndex,
             ExtraData,
             0,
-            TXAndBlockExtraDataLength);
+            LENGTH_EXTRA_DATA_TX_AND_BLOCK);
         }
       }
 
@@ -95,10 +95,10 @@ namespace BTokenLib
         RejectionReason = rejectionReason;
         ExtraData = extraData;
 
-        createRejectPayload();
+        CreateRejectPayload();
       }
 
-      void createRejectPayload()
+      void CreateRejectPayload()
       {
         List<byte> rejectPayload = new();
 
@@ -108,6 +108,12 @@ namespace BTokenLib
         rejectPayload.AddRange(ExtraData);
 
         Payload = rejectPayload.ToArray();
+      }
+
+      public string GetReasonReject()
+      {
+        return $"Code: {RejectionCode}, type: {MessageTypeRejected}, Reason: {RejectionReason}" +
+          $"Extra data {ExtraData.ToHexString()}";
       }
     }
   }

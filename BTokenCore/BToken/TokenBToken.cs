@@ -22,7 +22,7 @@ namespace BTokenCore
     List<byte[]> TrailHashesAnchor = new();
     int IndexTrail;
 
-    const int LENGTH_DATA_ANCHOR_TOKEN = 77;
+    const int LENGTH_DATA_ANCHOR_TOKEN = 66;
     const int LENGTH_DATA_P2PKH_INPUT = 180;
     const int LENGTH_DATA_TX_SCAFFOLD = 10;
     const int LENGTH_DATA_P2PKH_OUTPUT = 34;
@@ -125,7 +125,7 @@ namespace BTokenCore
                 COUNT_SATOSHIS_PER_DAY_MINING);
 
             ($"Miner successfully mined {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
-              $"Next attempt to create anchor token in {timeMSLoop} ms.").Log(LogFile);
+              $"Next attempt to create anchor token in {timeMSLoop / 60000} minutes.").Log(LogFile);
           }
 
           //timeMSLoop = RandomGeneratorMiner.Next(
@@ -138,37 +138,6 @@ namespace BTokenCore
         await Task.Delay(timeMSLoop).ConfigureAwait(false);
       }
     }
-
-    protected override void InsertInDatabase(
-      Block block,
-      Network.Peer peer)
-    {
-      $"Insert BToken block {block} in database.".Log(LogFile);
-
-      int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
-
-      if (TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious)
-      {
-        $"The anchoring Bitcoin block does not exist.".Log(LogFile);
-        throw new NotSynchronizedWithParentException();
-      }
-
-      if (!TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
-      {
-        ($"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
-          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.").Log(LogFile);
-        throw new NotSynchronizedWithParentException();
-      }
-
-      DatabaseAccounts.InsertBlock(block);
-
-      ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
-
-      RBFAnchorTokensMined();
-
-      Archiver.ArchiveBlock(block);
-    }
-
 
     void RBFAnchorTokensMined()
     {
@@ -196,7 +165,7 @@ namespace BTokenCore
         if (tokenAnchorMined.ValueChange > 0)
           Wallet.RemoveOutputSpendable(tokenAnchorMined.TX.Hash);
 
-        tokenAnchorMined.Inputs.ForEach(i => Wallet.AddOutputSpendable(i));
+        tokenAnchorMined.TXOutputsWallet.ForEach(i => Wallet.AddOutputSpendable(i));
       }
 
       int countTokensAnchorMined = TokensAnchorMinedUnconfirmed.Count;
@@ -246,12 +215,12 @@ namespace BTokenCore
         SHA256Miner);
 
       while (
-        tokenAnchor.Inputs.Count < VarInt.PREFIX_UINT16 - 1 &&
+        tokenAnchor.TXOutputsWallet.Count < VarInt.PREFIX_UINT16 - 1 &&
         TokenParent.Wallet.TryGetOutputSpendable(
           feePerInput,
           out TXOutputWallet outputSpendable))
       {
-        tokenAnchor.Inputs.Add(outputSpendable);
+        tokenAnchor.TXOutputsWallet.Add(outputSpendable);
         valueAccrued += outputSpendable.Value;
         feeAccrued += feePerInput;
       }
@@ -285,14 +254,19 @@ namespace BTokenCore
           });
       }
 
-        ($"Miner advertizes anchor token {tokenAnchor} :\n" +
-        $"Number of inputs: {tokenAnchor.TX.TXInputs.Count}\n" +
-        $"Input value {valueAccrued}\n" +
-        $"Fee: {tokenAnchor.TX.Fee}\n" +
-        $"ValueChange: {tokenAnchor.ValueChange}\n" +
-        $"Sequence number: {tokenAnchor.NumberSequence}\n" +
-        $"Referenced BToken block hash: {tokenAnchor.HashBlockReferenced}" +
-        $"Referenced BToken previous block hash: {tokenAnchor.HashBlockPreviousReferenced}").Log(LogFile);
+      ($"Miner advertizes anchor token {tokenAnchor} :\n" +
+      $"Number of inputs: {tokenAnchor.TX.TXInputs.Count}\n" +
+      $"Input value {valueAccrued}\n" +
+      $"Fee: {tokenAnchor.TX.Fee}\n" +
+      $"ValueChange: {tokenAnchor.ValueChange}\n" +
+      $"Sequence number: {tokenAnchor.NumberSequence}\n" +
+      $"Referenced BToken block hash: {tokenAnchor.HashBlockReferenced.ToHexString()}" +
+      $"Referenced BToken previous block hash: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}")
+      .Log(LogFile);
+
+      // Immer bevor ein Token an einen Peer advertized wird,
+      // fragt man den Peer ob er die Ancestor TX schon hat.
+      // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
 
       TokenParent.Network.AdvertizeTX(tokenAnchor.TX);
 
@@ -336,11 +310,10 @@ namespace BTokenCore
 
       ($"Anchor token {tX} detected.:\n" +
         $"Number of inputs: {tX.TXInputs.Count}\n" +
-        $"Fee: {tX.Fee}\n" +
         $"ValueChange: {tokenAnchorDetectedInBlock.ValueChange}\n" +
-        $"Sequence number: {tokenAnchorDetectedInBlock.NumberSequence}\n" +
-        $"Referenced BToken block hash: {tokenAnchorDetectedInBlock.HashBlockReferenced}" +
-        $"Referenced BToken previous block hash: {tokenAnchorDetectedInBlock.HashBlockPreviousReferenced}").Log(LogFile);
+        //$"Sequence number: {tokenAnchorDetectedInBlock.NumberSequence}\n" +
+        $"Referenced BToken block hash: {tokenAnchorDetectedInBlock.HashBlockReferenced.ToHexString()}" +
+        $"Referenced BToken previous block hash: {tokenAnchorDetectedInBlock.HashBlockPreviousReferenced.ToHexString()}").Log(LogFile);
 
     }
 
@@ -364,7 +337,6 @@ namespace BTokenCore
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
       IndexTrail += 1;
-
 
       lock (LOCK_BlocksMined)
         foreach (Block blockMined in BlocksMined)
@@ -404,17 +376,15 @@ namespace BTokenCore
         }
       });
 
-      TokensAnchorDetectedInBlock.Clear();
+      TokensAnchorDetectedInBlock.Clear(); // warum das hier machen?
 
       return tokenAnchorWinner;
     }
-
 
     public override void RevokeBlockInsertion()
     {
       TokensAnchorDetectedInBlock.Clear();
     }
-
 
     void LoadTXs(Block block)
     {
@@ -516,7 +486,6 @@ namespace BTokenCore
       throw new NotImplementedException();
     }
 
-
     public override HeaderDownload CreateHeaderDownload()
     {
       return new HeaderDownloadBToken(
@@ -528,6 +497,36 @@ namespace BTokenCore
     public override List<string> GetSeedAddresses()
     {
       return new List<string>();
+    }
+
+    protected override void InsertInDatabase(
+      Block block,
+      Network.Peer peer)
+    {
+      $"Insert BToken block {block} in database.".Log(LogFile);
+
+      int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
+
+      if (TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious)
+      {
+        $"The anchoring Bitcoin block does not exist.".Log(LogFile);
+        throw new NotSynchronizedWithParentException();
+      }
+
+      if (!TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
+      {
+        ($"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
+          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.").Log(LogFile);
+        throw new NotSynchronizedWithParentException();
+      }
+
+      DatabaseAccounts.InsertBlock(block);
+
+      ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
+
+      RBFAnchorTokensMined();
+
+      Archiver.ArchiveBlock(block);
     }
   }
 }

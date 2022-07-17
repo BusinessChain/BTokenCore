@@ -518,6 +518,8 @@ namespace BTokenLib
             else if(Command == "reject")
             {
               RejectMessage rejectMessage = new(Payload);
+
+              $"Peer {this} gets reject message: {rejectMessage.GetReasonReject()}".Log(LogFile);
             }
           }
         }
@@ -600,7 +602,7 @@ namespace BTokenLib
 
       public async Task AdvertizeTX(TX tX)
       {
-        $"{this} advertize token {tX.Hash.ToHexString()}."
+        $"Advertize token {tX} to peer {this}."
           .Log(LogFile);
 
         var inventoryTX = new Inventory(

@@ -22,7 +22,7 @@ namespace BTokenLib
 
     const UInt16 Port = 8333; // Load from correct conf File
 
-    int CountPeersMax = 1; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 8; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -594,23 +594,17 @@ namespace BTokenLib
 
     public void AdvertizeTX(TX tX)
     {
-      byte[] tXRaw = tX.TXRaw.ToArray();
-
-      string tXRawString = tXRaw.Reverse().ToArray().ToHexString();
-      $"Advertize rawTX {tXRawString} to {this}."
+      $"Advertize rawTX {tX.GetStringTXRaw()} to {this}."
         .Log(LogFile);
-
-      List<Peer> peers = new();
 
       // should Lock Blockchain
 
-      while (true)
-        if (TryGetPeer(out Peer peer))
-          peers.Add(peer);
-        else if (peers.Any())
-          break;
+      List<Peer> peersAdvertized = new();
 
-      peers.Select(p => p.AdvertizeTX(tX))
+      while (TryGetPeer(out Peer peer))
+        peersAdvertized.Add(peer);
+
+      peersAdvertized.Select(p => p.AdvertizeTX(tX))
         .ToArray();
     }
 
@@ -673,9 +667,14 @@ namespace BTokenLib
       }
 
       return
-        "\n\n Status Network:\n" +
+        "\n\n Status Network: \n" +
         statusPeers +
-        $"\n\nCount peers: {countPeers}\n";
+        $"\n\n Count peers: {countPeers} \n";
+    }
+
+    public override string ToString()
+    {
+      return GetType().Name;
     }
   }
 }
