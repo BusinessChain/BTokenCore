@@ -32,11 +32,13 @@ namespace BTokenCore
     const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
     const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
+    const UInt16 COMPORT_BTOKEN = 8777;
+
     StreamWriter LogFile;
 
 
     public TokenBToken(Token tokenParent)
-      : base()
+      : base(COMPORT_BTOKEN)
     {
       TokenParent = tokenParent;
       tokenParent.AddTokenListening(this);

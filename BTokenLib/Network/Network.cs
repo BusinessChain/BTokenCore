@@ -40,6 +40,8 @@ namespace BTokenLib
       Token = token;
       Blockchain = token.Blockchain;
 
+      Port = token.Port;
+
       string pathRoot = token.GetName();
 
       LogFile = new StreamWriter(

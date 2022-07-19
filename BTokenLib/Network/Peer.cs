@@ -141,7 +141,7 @@ namespace BTokenLib
 
         TcpClient = new();
 
-        await TcpClient.ConnectAsync(IPAddress, Port)
+        await TcpClient.ConnectAsync(IPAddress, Network.Port)
           .ConfigureAwait(false);
 
         NetworkStream = TcpClient.GetStream();
@@ -152,9 +152,9 @@ namespace BTokenLib
           unixTimeSeconds: DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
           networkServicesRemote: 0,
           iPAddressRemote: IPAddress.Loopback,
-          portRemote: Port,
+          portRemote: Network.Port,
           iPAddressLocal: IPAddress.Loopback,
-          portLocal: Port,
+          portLocal: Network.Port,
           nonce: 0,
           userAgent: UserAgent,
           blockchainHeight: 0,
@@ -526,7 +526,7 @@ namespace BTokenLib
         catch (Exception ex)
         {
           if (IsStateAwaitingHeader())
-            Network.Token.ReleaseLock();
+            Token.ReleaseLock();
           else if (IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
 

@@ -15,10 +15,12 @@ namespace BTokenCore
   {
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
+    const UInt16 COMPORT_BITCOIN = 8333;
+
 
 
     public TokenBitcoin()
-      : base()
+      : base(COMPORT_BITCOIN)
     { }
 
 
