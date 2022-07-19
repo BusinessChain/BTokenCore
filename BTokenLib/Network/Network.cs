@@ -20,9 +20,9 @@ namespace BTokenLib
 
     StreamWriter LogFile;
 
-    const UInt16 Port = 8333; // Load from correct conf File
+    UInt16 Port;
 
-    int CountPeersMax = 8; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 1; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -61,7 +61,7 @@ namespace BTokenLib
 
     public void Start()
     {
-      $"Start Network {Token.GetName()}".Log(LogFile);
+      $"Start Network {Token.GetName()}".Log(this, LogFile);
 
       StartPeerConnector(); 
 
@@ -72,7 +72,7 @@ namespace BTokenLib
 
     void LoadNetworkConfiguration (string pathConfigFile)
     {
-      $"Load Network configuration {pathConfigFile}.".Log(LogFile);
+      $"Load Network configuration {pathConfigFile}.".Log(this, LogFile);
     }
 
     async Task StartPeerConnector()
@@ -112,7 +112,7 @@ namespace BTokenLib
           if (iPAddresses.Count > 0)
           {
             ($"Connect with {countPeersCreate} new peers. " +
-              $"{Peers.Count} peers connected currently.").Log(LogFile);
+              $"{Peers.Count} peers connected currently.").Log(this, LogFile);
 
             var createPeerTasks = new Task[iPAddresses.Count];
 
@@ -124,7 +124,7 @@ namespace BTokenLib
             await Task.WhenAll(createPeerTasks);
           }
           else
-            ;// $"No ip address found to connect in protocol {Token}.".Log(LogFile);
+            ;//$"No ip address found to connect in protocol {Token}.".Log(LogFile);
 
           LABEL_DelayAndContinue:
 
@@ -134,7 +134,7 @@ namespace BTokenLib
       catch (Exception ex)
       {
         $"{ex.GetType().Name} in StartPeerConnector of protocol {Token}."
-          .Log(LogFile);
+          .Log(this, LogFile);
       }
     }
 
@@ -194,7 +194,7 @@ namespace BTokenLib
       catch (Exception ex)
       {
         $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
-        .Log(LogFile);
+        .Log(this, LogFile);
 
         return;
       }
@@ -270,7 +270,7 @@ namespace BTokenLib
         PeerSync = peerSync;
 
         $"Start synchronization of {Token.GetName()} with peer {PeerSync}."
-          .Log(LogFile);
+          .Log(this, LogFile);
 
         try
         {
@@ -595,7 +595,7 @@ namespace BTokenLib
     public void AdvertizeTX(TX tX)
     {
       $"Advertize rawTX {tX.GetStringTXRaw()} to {this}."
-        .Log(LogFile);
+        .Log(this, LogFile);
 
       // should Lock Blockchain
 
@@ -628,7 +628,7 @@ namespace BTokenLib
           if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
             continue;
 
-        $"Accept inbound request from {remoteIP}.".Log(LogFile);
+        $"Accept inbound request from {remoteIP}.".Log(this, LogFile);
         
         Peer peer = null;
 
@@ -645,7 +645,7 @@ namespace BTokenLib
         {
           ($"Failed to start listening to inbound peer {remoteIP}: " +
             $"\n{ex.GetType().Name}: {ex.Message}")
-            .Log(LogFile);
+            .Log(this, LogFile);
 
           continue;
         }
@@ -674,7 +674,7 @@ namespace BTokenLib
 
     public override string ToString()
     {
-      return GetType().Name;
+      return Token.GetType().Name + "." + GetType().Name;
     }
   }
 }

@@ -19,6 +19,7 @@ namespace BTokenLib
     public Wallet Wallet;
 
     public Network Network;
+    public UInt16 Port;
 
     protected List<TX> TXPool = new();
 
@@ -40,13 +41,14 @@ namespace BTokenLib
     protected int CountBytesDataTokenBasis = 120;
 
 
-    public Token()
+    public Token(UInt16 port)
     {
       PathRootToken = GetName();
       Directory.CreateDirectory(PathRootToken);
 
       Blockchain = new Blockchain(this);
 
+      Port = port;
       Network = new(this);
 
       Wallet = new();
@@ -72,8 +74,8 @@ namespace BTokenLib
 
     public void Start()
     {
-      if (TokenParent != null)
-        TokenParent.Start();
+      //if (TokenParent != null)
+      //  TokenParent.Start();
 
       LoadImage();
       Network.Start();

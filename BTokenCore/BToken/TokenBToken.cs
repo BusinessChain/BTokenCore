@@ -496,7 +496,10 @@ namespace BTokenCore
 
     public override List<string> GetSeedAddresses()
     {
-      return new List<string>();
+      return new List<string>()
+      {
+        "84.75.2.239", "83.229.86.158"
+      };
     }
 
     protected override void InsertInDatabase(

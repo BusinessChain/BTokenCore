@@ -137,7 +137,7 @@ namespace BTokenLib
 
       public async Task Connect()
       {
-        $"Connect peer {this}".Log(LogFile);
+        $"Connect peer.".Log(this, LogFile);
 
         TcpClient = new();
 
@@ -279,7 +279,7 @@ namespace BTokenLib
             {
               Block.Parse();
 
-              $"Peer {this} received block {Block}".Log(LogFile);
+              $"Peer received block {Block}".Log(this, LogFile);
 
               if (IsStateIdle())
               {
@@ -297,8 +297,8 @@ namespace BTokenLib
                   {
                     Token.InsertBlock(Block, this);
 
-                    $"{this}: Inserted unsolicited block {Block}."
-                      .Log(LogFile);
+                    $"Inserted unsolicited block {Block}."
+                      .Log(this, LogFile);
 
                     Network.RelayBlockToNetwork(Block, this);
                   }
@@ -552,9 +552,9 @@ namespace BTokenLib
 
             Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
-            ($"{this}: Requested block for unsolicited " +
+            ($"Requested block for unsolicited " +
               $"header {HeaderUnsolicited}.")
-              .Log(LogFile);
+              .Log(this, LogFile);
           }
           else
           {
@@ -587,7 +587,7 @@ namespace BTokenLib
             FlagSyncScheduled = true;
 
             $"Stage synchronization because received orphan header {header}"
-              .Log(LogFile);
+              .Log(this, LogFile);
           }
           else if (CountOrphanReceived > 10)
             throw new ProtocolException(
@@ -602,8 +602,8 @@ namespace BTokenLib
 
       public async Task AdvertizeTX(TX tX)
       {
-        $"Advertize token {tX} to peer {this}."
-          .Log(LogFile);
+        $"Advertize token {tX} to peer."
+          .Log(this, LogFile);
 
         var inventoryTX = new Inventory(
           InventoryType.MSG_TX,
@@ -623,8 +623,8 @@ namespace BTokenLib
       {
         HeaderDownload = headerDownload;
                
-        ($"Send getheaders to peer {this},\n" +
-          $"locator: {HeaderDownload}").Log(LogFile);
+        ($"Send getheaders to peer,\n" +
+          $"locator: {HeaderDownload}").Log(this, LogFile);
 
         SetStateHeaderDownload();
 
@@ -640,8 +640,8 @@ namespace BTokenLib
 
       public Block GetBlock(byte[] hash)
       {
-        $"Peer {this} starts downloading block {hash.ToHexString()}."
-          .Log(LogFile);
+        $"Peer starts downloading block {hash.ToHexString()}."
+          .Log(this, LogFile);
 
         SendMessage(new GetDataMessage(
           new List<Inventory>()
@@ -671,7 +671,7 @@ namespace BTokenLib
 
       public async Task RequestBlock()
       {
-        $"Peer {this} starts downloading block {Header}.".Log(LogFile);
+        $"Peer starts downloading block {Header}.".Log(this, LogFile);
 
         lock (this)
         {
@@ -710,7 +710,7 @@ namespace BTokenLib
 
       public async Task RelayBlock(Block block)
       {
-        $"Relay block {block} to peer {this}.".Log(LogFile);
+        $"Relay block {block} to peer.".Log(this, LogFile);
 
         await SendHeaders(new List<Header>() { block.Header });
         Release();
@@ -793,12 +793,12 @@ namespace BTokenLib
 
       public override string ToString()
       {
-        return IPAddress.ToString();
+        return Network + "{" + IPAddress.ToString() + "}";
       }
 
       public void SetFlagDisposed(string message)
       {
-        $"Set flag dispose on peer {this}: {message}".Log(LogFile);
+        $"Set flag dispose on peer: {message}".Log(this, LogFile);
 
         lock (this)
           FlagDispose = true;

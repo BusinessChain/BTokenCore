@@ -314,6 +314,14 @@ namespace BTokenLib
 
     public static void Log(
       this string message,
+      object module,
+      StreamWriter logFile)
+    {
+      (module + " >> " + message).Log(logFile);
+    }
+
+    public static void Log(
+      this string message,
       StreamWriter logFile)
     {
       string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");

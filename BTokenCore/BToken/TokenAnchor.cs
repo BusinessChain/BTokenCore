@@ -55,7 +55,6 @@ namespace BTokenCore
           HashBlockPreviousReferenced.Length);
 
         ValueChange = tX.TXOutputs[1].Value;
-
       }
 
       public void GetInputPublicKey()
