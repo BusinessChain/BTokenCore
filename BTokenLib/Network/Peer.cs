@@ -71,7 +71,6 @@ namespace BTokenLib
 
       DateTime TimePeerCreation = DateTime.Now;
 
-      const int SECONDS_PEER_BANNED = 5;
 
 
 
@@ -806,15 +805,15 @@ namespace BTokenLib
 
       public void Dispose()
       {
+        "Dispose".Log(this, LogFile);
+
         TcpClient.Dispose();
 
         LogFile.Dispose();
 
         File.Move(
-          Path.Combine(Network.DirectoryLogPeers.FullName, ToString()),
-          Path.Combine(Network.DirectoryLogPeersDisposed.FullName, ToString()));
-
-        Debug.WriteLine($"Disposed {this}.");
+          Path.Combine(Network.DirectoryLogPeers.FullName, IPAddress.ToString()),
+          Path.Combine(Network.DirectoryLogPeersDisposed.FullName, IPAddress.ToString()));
       }
 
       public string GetStatus()

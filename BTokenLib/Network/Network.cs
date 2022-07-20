@@ -16,13 +16,14 @@ namespace BTokenLib
     Token Token;
     Blockchain Blockchain;
 
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 3000; 
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 3000;
+    const int SECONDS_PEER_BANNED = 5;
 
     StreamWriter LogFile;
 
     UInt16 Port;
 
-    int CountPeersMax = 1; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 2; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -65,7 +66,7 @@ namespace BTokenLib
     {
       $"Start Network {Token.GetName()}".Log(this, LogFile);
 
-      StartPeerConnector(); 
+      StartPeerConnector();
 
       StartSync();
 
@@ -102,7 +103,8 @@ namespace BTokenLib
           List<string> listExclusion = Peers.Select(p => p.ToString()).ToList();
 
           foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
-            if (DateTime.Now.Subtract(file.LastAccessTime).TotalHours > 4)
+            if (DateTime.Now.Subtract(file.LastAccessTime).TotalSeconds > 
+              SECONDS_PEER_BANNED)
               file.Delete();
             else
               listExclusion.Add(file.Name);
@@ -612,11 +614,14 @@ namespace BTokenLib
 
 
     const int PEERS_COUNT_INBOUND = 8;
-    TcpListener TcpListener = new(IPAddress.Any, Port);
+    TcpListener TcpListener;
 
     async Task StartPeerInboundListener()
     {
+      TcpListener = new(IPAddress.Any, Port);
       TcpListener.Start(PEERS_COUNT_INBOUND);
+
+      $"Start TCP listener on port {Port}".Log(this, LogFile);
 
       while (true)
       {
