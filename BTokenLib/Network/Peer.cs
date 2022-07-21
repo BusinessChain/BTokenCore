@@ -21,7 +21,7 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
-      public bool IsBusy;
+      public bool IsBusy = true;
       public bool FlagDispose;
       public bool FlagSyncScheduled;
 

@@ -23,7 +23,7 @@ namespace BTokenLib
 
     UInt16 Port;
 
-    int CountPeersMax = 2; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 3; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -100,7 +100,8 @@ namespace BTokenLib
           if (countPeersCreate == 0)
             goto LABEL_DelayAndContinue;
 
-          List<string> listExclusion = Peers.Select(p => p.ToString()).ToList();
+          List<string> listExclusion = Peers.Select(
+            p => p.IPAddress.ToString()).ToList();
 
           foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
             if (DateTime.Now.Subtract(file.LastAccessTime).TotalSeconds > 
@@ -182,25 +183,29 @@ namespace BTokenLib
 
     async Task CreatePeer(string iP)
     {
+      Peer peer;
+
       lock (LOCK_Peers)
+      {
         if (Peers.Any(p => p.IPAddress.Equals(iP)))
           return;
 
-      Peer peer;
+        try
+        {
+          peer = new Peer(
+            this,
+            Token,
+            IPAddress.Parse(iP));
 
-      try
-      {
-        peer = new Peer(
-          this,
-          Token,
-          IPAddress.Parse(iP));
-      }
-      catch (Exception ex)
-      {
-        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
-        .Log(this, LogFile);
+          Peers.Add(peer);
+        }
+        catch (Exception ex)
+        {
+          $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
+          .Log(this, LogFile);
 
-        return;
+          return;
+        }
       }
 
       try
@@ -213,8 +218,7 @@ namespace BTokenLib
           $"{ex.GetType().Name} when connecting.: \n{ex.Message}");
       }
 
-      lock (LOCK_Peers)
-        Peers.Add(peer);
+      peer.IsBusy = false;
     }
 
     public void AddPeer()
@@ -631,34 +635,37 @@ namespace BTokenLib
         IPAddress remoteIP = 
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
+        Peer peer = null;
+
         lock (LOCK_Peers)
+        {
           if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
             continue;
 
-        $"Accept inbound request from {remoteIP}.".Log(this, LogFile);
-        
-        Peer peer = null;
+          try
+          {
+            peer = new(
+              this,
+              Token,
+              tcpClient);
 
-        try
-        {
-          peer = new(
-            this,
-            Token,
-            tcpClient);
+            peer.StartMessageListener();
+          }
+          catch (Exception ex)
+          {
+            ($"Failed to start listening to inbound peer {remoteIP}: " +
+              $"\n{ex.GetType().Name}: {ex.Message}")
+              .Log(this, LogFile);
 
-          peer.StartMessageListener();
-        }
-        catch (Exception ex)
-        {
-          ($"Failed to start listening to inbound peer {remoteIP}: " +
-            $"\n{ex.GetType().Name}: {ex.Message}")
-            .Log(this, LogFile);
-
-          continue;
-        }
-
-        lock (LOCK_Peers)
+            continue;
+          }
+          
           Peers.Add(peer);
+
+
+          $"Accept inbound request from {remoteIP}."
+            .Log(this, LogFile);
+        }  
       }
     }
 
