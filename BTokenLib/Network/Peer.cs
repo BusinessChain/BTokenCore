@@ -119,11 +119,11 @@ namespace BTokenLib
         if (File.Exists(pathLogFileDisposed))
         {
           TimeSpan secondsSincePeerDisposal = TimePeerCreation - File.GetLastWriteTime(pathLogFileDisposed);
-          int secondsBannedRemaining = SECONDS_PEER_BANNED - (int)secondsSincePeerDisposal.TotalSeconds;
+          int secondsBannedRemaining = TIMESPAN_PEER_BANNED_SECONDS - (int)secondsSincePeerDisposal.TotalSeconds;
 
           if (secondsBannedRemaining > 0)
             throw new ProtocolException(
-              $"Peer {this} is banned for {SECONDS_PEER_BANNED} seconds.\n" +
+              $"Peer {this} is banned for {TIMESPAN_PEER_BANNED_SECONDS} seconds.\n" +
               $"{secondsBannedRemaining} seconds remaining.");
 
           File.Move(pathLogFileDisposed, pathLogFile);
@@ -423,7 +423,8 @@ namespace BTokenLib
 
               int headersCount = VarInt.GetInt32(Payload, ref startIndex);
 
-              $"Received getHeaders with {headersCount} headers.".Log(LogFile);
+              $"Received getHeaders with {headersCount} headers."
+                .Log(this, LogFile);
 
               int i = 0;
               List<Header> headers = new();
@@ -434,7 +435,8 @@ namespace BTokenLib
                 startIndex += 32;
 
                 ($"Scan locator for common ancestor index {i}, " +
-                  $"{hashHeaderAncestor.ToHexString()}").Log(LogFile);
+                  $"{hashHeaderAncestor.ToHexString()}")
+                  .Log(this, LogFile);
 
                 i += 1;
 
@@ -442,7 +444,8 @@ namespace BTokenLib
                   hashHeaderAncestor,
                   out Header header))
                 {
-                  $"In getheaders locator common ancestor is {header}.".Log(LogFile);
+                  $"In getheaders locator common ancestor is {header}."
+                    .Log(this, LogFile);
 
                   while (header.HeaderNext != null && headers.Count < 2000)
                   {
@@ -451,9 +454,9 @@ namespace BTokenLib
                   }
 
                   if (headers.Any())
-                    $"Send headers {headers.First()}...{headers.Last()}.".Log(LogFile);
+                    $"Send headers {headers.First()}...{headers.Last()}.".Log(this, LogFile);
                   else
-                    $"Send empty headers".Log(LogFile);
+                    $"Send empty headers".Log(this, LogFile);
 
                   await SendHeaders(headers);
 
@@ -471,7 +474,7 @@ namespace BTokenLib
             }
             else if (Command == "notfound")
             {
-              "Received meassage notfound.".Log(LogFile);
+              "Received meassage notfound.".Log(this, LogFile);
 
               if (IsStateBlockDownload())
               {
@@ -499,7 +502,7 @@ namespace BTokenLib
                   inventory.Hash.IsEqual(TXAdvertized.Hash))
                 {
                   $"Received getData {inventory} from {this} and send tX {TXAdvertized}."
-                    .Log(LogFile);
+                    .Log(this, LogFile);
 
                   await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
                 }
@@ -518,7 +521,8 @@ namespace BTokenLib
             {
               RejectMessage rejectMessage = new(Payload);
 
-              $"Peer {this} gets reject message: {rejectMessage.GetReasonReject()}".Log(LogFile);
+              $"Peer {this} gets reject message: {rejectMessage.GetReasonReject()}"
+                .Log(this, LogFile);
             }
           }
         }
@@ -805,15 +809,21 @@ namespace BTokenLib
 
       public void Dispose()
       {
+        Dispose(flagBanPeer: true);
+      }
+
+      public void Dispose(bool flagBanPeer)
+      {
         "Dispose".Log(this, LogFile);
 
         TcpClient.Dispose();
 
         LogFile.Dispose();
 
-        File.Move(
-          Path.Combine(Network.DirectoryLogPeers.FullName, IPAddress.ToString()),
-          Path.Combine(Network.DirectoryLogPeersDisposed.FullName, IPAddress.ToString()));
+        if (flagBanPeer)
+          File.Move(
+            Path.Combine(Network.DirectoryLogPeers.FullName, IPAddress.ToString()),
+            Path.Combine(Network.DirectoryLogPeersDisposed.FullName, IPAddress.ToString()));
       }
 
       public string GetStatus()

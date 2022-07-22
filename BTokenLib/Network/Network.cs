@@ -17,7 +17,8 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 3000;
-    const int SECONDS_PEER_BANNED = 5;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 30;
+    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
 
     StreamWriter LogFile;
 
@@ -105,7 +106,7 @@ namespace BTokenLib
 
           foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
             if (DateTime.Now.Subtract(file.LastAccessTime).TotalSeconds > 
-              SECONDS_PEER_BANNED)
+              TIMESPAN_PEER_BANNED_SECONDS)
               file.Delete();
             else
               listExclusion.Add(file.Name);
@@ -133,7 +134,8 @@ namespace BTokenLib
 
           LABEL_DelayAndContinue:
 
-          await Task.Delay(5000).ConfigureAwait(false);
+          await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS)
+            .ConfigureAwait(false);
         }
       }
       catch (Exception ex)
@@ -196,8 +198,6 @@ namespace BTokenLib
             this,
             Token,
             IPAddress.Parse(iP));
-
-          Peers.Add(peer);
         }
         catch (Exception ex)
         {
@@ -206,6 +206,8 @@ namespace BTokenLib
 
           return;
         }
+
+        Peers.Add(peer);
       }
 
       try
@@ -214,8 +216,13 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        peer.SetFlagDisposed(
-          $"{ex.GetType().Name} when connecting.: \n{ex.Message}");
+        $"Could not connect to {peer}: {ex.Message}"
+          .Log(this, LogFile);
+        
+        peer.Dispose(flagBanPeer: false);
+
+        lock (LOCK_Peers)
+          Peers.Remove(peer);
       }
 
       peer.IsBusy = false;
