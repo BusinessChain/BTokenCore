@@ -105,11 +105,17 @@ namespace BTokenLib
             p => p.IPAddress.ToString()).ToList();
 
           foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
-            if (DateTime.Now.Subtract(file.LastAccessTime).TotalSeconds > 
-              TIMESPAN_PEER_BANNED_SECONDS)
+          {
+            Random random = new (file.GetHashCode());
+            int randomOffset = random.Next(0, 30);
+            int timeSpanBan = TIMESPAN_PEER_BANNED_SECONDS + randomOffset;
+
+            if (DateTime.Now.Subtract(file.LastAccessTime).TotalSeconds >
+              timeSpanBan)
               file.Delete();
             else
               listExclusion.Add(file.Name);
+          }
 
           List<string> iPAddresses = RetrieveIPAdresses(
             countPeersCreate,
@@ -214,11 +220,12 @@ namespace BTokenLib
       {
         await peer.Connect();
 
-        $"Successfully connected with peer {peer + peer.State.ToString()}.".Log(this, LogFile);
+        $"Successfully connected with peer {peer + peer.Connection.ToString()}."
+          .Log(this, LogFile);
       }
       catch (Exception ex)
       {
-        $"Could not connect to {peer + peer.State.ToString()}: {ex.Message}"
+        $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
           .Log(this, LogFile);
         
         peer.Dispose(flagBanPeer: false);
@@ -286,7 +293,7 @@ namespace BTokenLib
 
         PeerSync = peerSync;
 
-        $"Start synchronization of {Token.GetName()} with peer {PeerSync + PeerSync.State.ToString()}."
+        $"Start synchronization of {Token.GetName()} with peer {PeerSync + PeerSync.Connection.ToString()}."
           .Log(this, LogFile);
 
         try
@@ -652,7 +659,10 @@ namespace BTokenLib
         lock (LOCK_Peers)
         {
           if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+          {
+            tcpClient.Dispose();
             continue;
+          }
 
           try
           {

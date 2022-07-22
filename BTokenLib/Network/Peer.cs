@@ -44,7 +44,7 @@ namespace BTokenLib
 
       const string UserAgent = "/BTokenCore:0.0.0/";
       public enum ConnectionType { OUTBOUND, INBOUND };
-      ConnectionType Connection;
+      public ConnectionType Connection;
       const UInt32 ProtocolVersion = 70015;
       public IPAddress IPAddress;
       TcpClient TcpClient;
@@ -136,7 +136,7 @@ namespace BTokenLib
 
       public async Task Connect()
       {
-        $"Connect peer {State}.".Log(this, LogFile);
+        $"Connect peer {Connection}.".Log(this, LogFile);
 
         TcpClient = new();
 
@@ -801,7 +801,7 @@ namespace BTokenLib
 
       public void SetFlagDisposed(string message)
       {
-        $"Set flag dispose on peer: {message}".Log(this, LogFile);
+        $"Set flag dispose on peer {Connection}: {message}".Log(this, LogFile);
 
         lock (this)
           FlagDispose = true;
@@ -814,7 +814,7 @@ namespace BTokenLib
 
       public void Dispose(bool flagBanPeer)
       {
-        "Dispose".Log(this, LogFile);
+        $"Dispose {Connection}".Log(this, LogFile);
 
         TcpClient.Dispose();
 
