@@ -136,7 +136,7 @@ namespace BTokenLib
 
       public async Task Connect()
       {
-        $"Connect peer.".Log(this, LogFile);
+        $"Connect peer {State}.".Log(this, LogFile);
 
         TcpClient = new();
 

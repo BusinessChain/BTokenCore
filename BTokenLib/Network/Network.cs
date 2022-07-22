@@ -213,10 +213,12 @@ namespace BTokenLib
       try
       {
         await peer.Connect();
+
+        $"Successfully connected with peer {peer + peer.State.ToString()}.".Log(this, LogFile);
       }
       catch (Exception ex)
       {
-        $"Could not connect to {peer}: {ex.Message}"
+        $"Could not connect to {peer + peer.State.ToString()}: {ex.Message}"
           .Log(this, LogFile);
         
         peer.Dispose(flagBanPeer: false);
@@ -284,7 +286,7 @@ namespace BTokenLib
 
         PeerSync = peerSync;
 
-        $"Start synchronization of {Token.GetName()} with peer {PeerSync}."
+        $"Start synchronization of {Token.GetName()} with peer {PeerSync + PeerSync.State.ToString()}."
           .Log(this, LogFile);
 
         try
@@ -641,6 +643,9 @@ namespace BTokenLib
 
         IPAddress remoteIP = 
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
+
+        $"Received inbound request on port {Port} from {remoteIP}"
+          .Log(this, LogFile);
 
         Peer peer = null;
 
