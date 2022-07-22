@@ -660,6 +660,9 @@ namespace BTokenLib
         {
           if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
           {
+            $"There is already a connection to {remoteIP}."
+              .Log(this, LogFile);
+
             tcpClient.Dispose();
             continue;
           }
