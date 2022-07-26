@@ -8,7 +8,7 @@ using BTokenLib;
 
 namespace BTokenCore
 {
-  partial class TokenBToken : Token
+  partial class TokenBToken
   {
     class TokenAnchor
     {
@@ -26,6 +26,7 @@ namespace BTokenCore
       byte OP_RETURN = 0x6A;
 
       public TX TX;
+      public bool IsConfirmed;
 
 
 

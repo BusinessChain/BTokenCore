@@ -99,7 +99,7 @@ namespace BTokenCore
         $"{Thread.CurrentThread.ManagedThreadId} canceled.");
     }
 
-    byte[] LoadTXs(BlockBitcoin block)
+    byte[] LoadTXs(BlockBitcoin block, long blockReward)
     {
       List<byte> tXRaw = new();
 
@@ -119,8 +119,7 @@ namespace BTokenCore
 
       tXRaw.Add(0x01); // #TxOut
 
-      ulong valueChange = (ulong)(50000 * 100e8);
-      tXRaw.AddRange(BitConverter.GetBytes(valueChange));
+      tXRaw.AddRange(BitConverter.GetBytes(blockReward));
 
       tXRaw.AddRange(Wallet.GetReceptionScript());
 
@@ -147,7 +146,7 @@ namespace BTokenCore
     {
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
-      header.MerkleRoot = LoadTXs(block);
+      header.MerkleRoot = LoadTXs(block, (long)(50 * 100e8));
 
       header.AppendToHeader(
         Blockchain.HeaderTip,

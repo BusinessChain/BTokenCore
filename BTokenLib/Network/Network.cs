@@ -687,6 +687,7 @@ namespace BTokenLib
           
           Peers.Add(peer);
 
+          peer.IsBusy = false;
 
           $"Accept inbound request from {remoteIP}."
             .Log(this, LogFile);

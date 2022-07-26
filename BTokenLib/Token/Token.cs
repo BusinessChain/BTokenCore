@@ -249,6 +249,8 @@ namespace BTokenLib
         ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
         ORDER_AVERAGEING_FEEPERBYTE;
 
+      // Archive Block
+
       //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         // CreateImage();
     }
