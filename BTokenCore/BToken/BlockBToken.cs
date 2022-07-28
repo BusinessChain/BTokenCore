@@ -35,6 +35,13 @@ namespace BTokenCore
         Header = header;
       }
 
+      public void Parse(byte[] buffer)
+      {
+        int index = 0;
+        // parse Anchor Token
+
+        Parse(index);
+      }
 
       public override HeaderBToken ParseHeader(
         byte[] buffer,

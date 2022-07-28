@@ -36,8 +36,11 @@ namespace BTokenLib
 
     public void Parse()
     {
-      int index = 0;
+      Parse(0);
+    }
 
+    public void Parse(int index)
+    {
       Header = ParseHeader(Buffer, ref index);
 
       ParseTXs(Header.MerkleRoot, ref index);

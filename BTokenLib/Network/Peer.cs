@@ -723,7 +723,7 @@ namespace BTokenLib
       {
         lock (this)
         {
-          if ( FlagDispose || IsBusy)
+          if (FlagDispose || IsBusy)
             return false;
 
           IsBusy = true;

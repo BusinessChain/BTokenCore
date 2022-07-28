@@ -26,7 +26,7 @@ namespace BTokenCore
 
     string PathBlockArchive;
     DirectoryInfo DirectoryBlockArchive;
-    const int COUNT_MAX_BLOCKS_ARCHIVED = 200;
+    const int COUNT_MAX_BLOCKS_ARCHIVED = 2016;
     int CountBlocksArchived;
 
     FileStream FileBlockArchive;
