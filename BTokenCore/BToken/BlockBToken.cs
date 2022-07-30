@@ -16,8 +16,6 @@ namespace BTokenCore
     {
       public const int COUNT_HEADER_BYTES = 80;
 
-      public TokenAnchor TokenAnchor;
-
 
 
       public BlockBToken()

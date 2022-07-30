@@ -123,6 +123,8 @@ namespace BTokenCore
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 5.0;
 
 
+
+
     async Task RunMining()
     {
       FeePerByte = TokenParent.FeePerByteAverage;
@@ -155,17 +157,9 @@ namespace BTokenCore
       }
     }
 
+    int NumberSequence;
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
-    {
-      return TryMineAnchorToken(
-        out tokenAnchor, 
-        numberSequence: 0);
-    }
-
-    bool TryMineAnchorToken(
-      out TokenAnchor tokenAnchor,
-      int numberSequence)
     {
       $"Miner tries to mine an anchor token".Log(LogFile);
 
@@ -178,7 +172,7 @@ namespace BTokenCore
 
       tokenAnchor = new()
       {
-        NumberSequence = numberSequence
+        NumberSequence = NumberSequence
       };
 
       while (
@@ -203,7 +197,6 @@ namespace BTokenCore
       }
 
       BlockBToken block = new();
-      block.TokenAnchor = tokenAnchor;
 
       block.Header.AppendToHeader(
         Blockchain.HeaderTip,
@@ -248,13 +241,12 @@ namespace BTokenCore
       lock (LOCK_BlocksMined)
         BlocksMined.Add(block);
 
-      BlocksMemPool.Add(block);
+      TokensAnchorMinedUnconfirmed.Add(tokenAnchor);
 
       // Immer bevor ein Token an einen Peer advertized wird,
       // fragt man den Peer ob er die Ancestor TX schon hat.
       // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
 
-      Network.RelayBlockToNetwork(block);
       TokenParent.Network.AdvertizeTX(tokenAnchor.TX);
 
       $"{BlocksMined.Count} mined anchor tokens waiting for inclusion in next Bitcoin block."
@@ -264,18 +256,16 @@ namespace BTokenCore
     }
 
 
-    List<BlockBToken> BlocksMemPool = new();
+    List<TokenAnchor> TokensAnchorMinedUnconfirmed = new();
     List<TokenAnchor> TokensAnchorDetectedInBlock = new();
 
     public override void DetectAnchorTokenInBlock(TX tX)
     {
-      TokenAnchor tokenAnchor;
+      TokenAnchor tokenAnchor = TokensAnchorMinedUnconfirmed
+        .Find(t => t.TX.Hash.IsEqual(tX.Hash));
 
-      BlockBToken blockBToken = BlocksMemPool
-        .Find(b => b.TokenAnchor.TX.Hash.IsEqual(tX.Hash));
-
-      if (blockBToken != null)
-        tokenAnchor = blockBToken.TokenAnchor;
+      if (tokenAnchor != null)
+        TokensAnchorMinedUnconfirmed.Remove(tokenAnchor);
       else
       {
         TXOutput tXOutput = tX.TXOutputs[0];
@@ -324,7 +314,6 @@ namespace BTokenCore
         return;
       }
 
-      // Hier gehe ich davon aus, dass ich den Block schon habe
       TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
 
       ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
@@ -332,16 +321,6 @@ namespace BTokenCore
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
       IndexTrail += 1;
-
-      foreach (Block block in BlocksMemPool)
-        if (block.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced))
-        {
-          $"Insert block {block} from mempool.".Log(LogFile);
-
-          InsertBlock(block);
-
-          break;
-        }
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
@@ -369,6 +348,87 @@ namespace BTokenCore
       return tokenAnchorWinner;
     }
 
+
+    protected override void InsertInDatabase(
+      Block block,
+      Network.Peer peer)
+    {
+      // Hier wird davon ausgegangen dass der Block bereits verankert ist 
+
+      $"Insert BToken block {block} in database.".Log(LogFile);
+
+      int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
+
+      if (TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious)
+      {
+        $"The anchoring Bitcoin block has not yet been received.".Log(LogFile);
+        throw new NotSynchronizedWithParentException();
+      }
+
+      if (!TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
+      {
+        ($"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
+          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.").Log(LogFile);
+
+        throw new NotSynchronizedWithParentException();
+      }
+
+      DatabaseAccounts.InsertBlock(block);
+
+      ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
+
+      Archiver.ArchiveBlock(block);
+
+      RBFAnchorTokens();
+    }
+
+    void RBFAnchorTokens()
+    {
+      ($"{BlocksMined.Count} blocks were mined, {TokensAnchorMinedUnconfirmed.Count}"
+        + "tokens did not make it into bitcoin block.").Log(LogFile);
+
+      if (BlocksMined.Count == 0)
+        return;
+
+      if (TokensAnchorMinedUnconfirmed.Count == 0)
+      {
+        FeePerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+        NumberSequence = 0;
+        $"New fee per byte is {FeePerByte}, sequence number {NumberSequence}.".Log(LogFile);
+        $"All anchor tokens made it into Bitcoin block, nothing to RBF.".Log(LogFile);
+        return;
+      }
+
+      FeePerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+      NumberSequence += 1;
+
+      $"{TokensAnchorMinedUnconfirmed.Count} anchor tokens, do RBF.".Log(LogFile);
+      $"New fee per byte is {FeePerByte}, sequence number {NumberSequence}.".Log(LogFile);
+
+      TokensAnchorMinedUnconfirmed.Reverse();
+
+      foreach (TokenAnchor tokenAnchorMinedUnconfirmed in TokensAnchorMinedUnconfirmed)
+      {
+        if (tokenAnchorMinedUnconfirmed.ValueChange > 0)
+          Wallet.RemoveOutputSpendable(tokenAnchorMinedUnconfirmed.TX.Hash);
+
+        tokenAnchorMinedUnconfirmed.TXOutputsWallet
+          .ForEach(i => Wallet.AddOutputSpendable(i));
+      }
+
+      int countTokensAnchorMined = TokensAnchorMinedUnconfirmed.Count;
+
+      TokensAnchorMinedUnconfirmed.Clear();
+
+      foreach (string pathFile in Directory.GetFiles(PathBlocksMinedUnconfirmed))
+        File.Delete(pathFile);
+
+      if (TryMineAnchorToken(out TokenAnchor tokenAnchor))
+        for (int j = 1; j < countTokensAnchorMined; j += 1)
+          if (!TryMineAnchorToken(out tokenAnchor))
+            break;
+    }
+    
     public override void RevokeBlockInsertion()
     {
       TokensAnchorDetectedInBlock.Clear();
@@ -488,74 +548,5 @@ namespace BTokenCore
       };
     }
 
-    protected override void InsertInDatabase(
-      Block block,
-      Network.Peer peer)
-    {
-      $"Insert BToken block {block} in database.".Log(LogFile);
-
-      int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
-
-      if (TrailHashesAnchor.Count - 1 == indexTrailAnchorPrevious)
-      {
-        $"The anchoring Bitcoin block does not exist.".Log(LogFile);
-        throw new NotSynchronizedWithParentException();
-      }
-
-      if (!TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
-      {
-        ($"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
-          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.").Log(LogFile);
-        
-        throw new NotSynchronizedWithParentException();
-      }
-
-      DatabaseAccounts.InsertBlock(block);
-
-      ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
-
-      Archiver.ArchiveBlock(block);
-
-      RBFAnchorTokens();
-    }
-
-    void RBFAnchorTokens()
-    {
-      $"{BlocksMined.Count} blocks were mined.".Log(LogFile);
-
-      if (BlocksMined.Count == 0)
-        return;
-
-      if (BlocksMined.TrueForAll(b => b.TokenAnchor.IsConfirmed))
-        FeePerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
-      else
-        FeePerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
-
-      $"New fee per byte is {FeePerByte}.".Log(LogFile);
-
-      BlocksMined.Reverse();
-
-      foreach (BlockBToken blockMined in BlocksMined)
-      {
-        if (blockMined.TokenAnchor.ValueChange > 0)
-          Wallet.RemoveOutputSpendable(blockMined.TokenAnchor.TX.Hash);
-
-        blockMined.TokenAnchor.TXOutputsWallet
-          .ForEach(i => Wallet.AddOutputSpendable(i));
-      }
-
-      int countTokensAnchorMined = BlocksMined.Count;
-      int numberSequence = BlocksMined[0].TokenAnchor.NumberSequence + 1;
-
-      BlocksMined.Clear();
-
-      foreach (string pathFile in Directory.GetFiles(PathBlocksMinedUnconfirmed))
-        File.Delete(pathFile);
-
-      if (TryMineAnchorToken(out TokenAnchor tokenAnchor, numberSequence))
-        for (int j = 1; j < countTokensAnchorMined; j += 1)
-          if (!TryMineAnchorToken(out tokenAnchor))
-            break;
-    }
   }
 }
