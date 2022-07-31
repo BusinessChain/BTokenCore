@@ -221,16 +221,9 @@ namespace BTokenCore
             OutputIndex = 1,
             Value = tokenAnchor.ValueChange
           });
-
-      ($"Miner advertizes anchor token {tokenAnchor} :\n" +
-      $"Number of inputs: {tokenAnchor.TX.TXInputs.Count}\n" +
-      $"Input value {valueAccrued}\n" +
-      $"Fee: {tokenAnchor.TX.Fee}\n" +
-      $"ValueChange: {tokenAnchor.ValueChange}\n" +
-      $"Sequence number: {tokenAnchor.NumberSequence}\n" +
-      $"Referenced BToken block hash: {tokenAnchor.HashBlockReferenced.ToHexString()}" +
-      $"Referenced BToken previous block hash: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}")
-      .Log(LogFile);
+      
+      $"Miner advertizes anchor token:\n {tokenAnchor.GetDescription()}"
+        .Log(LogFile);
 
       string pathFileBlock = Path.Combine(
         PathBlocksMinedUnconfirmed, 
@@ -296,12 +289,8 @@ namespace BTokenCore
       tokenAnchor.IsConfirmed = true;
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
 
-      ($"Anchor token {tX} detected.:\n" +
-        $"Number of inputs: {tX.TXInputs.Count}\n" +
-        $"ValueChange: {tokenAnchor.ValueChange}\n" +
-        //$"Sequence number: {tokenAnchorDetectedInBlock.NumberSequence}\n" +
-        $"Referenced BToken block hash: {tokenAnchor.HashBlockReferenced.ToHexString()}" +
-        $"Referenced BToken previous block hash: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}").Log(LogFile);
+      $"Anchor token detected.:\n {tokenAnchor.GetDescription()}"
+        .Log(LogFile);
     }
 
     readonly object LOCK_BlocksMined = new();
@@ -321,6 +310,18 @@ namespace BTokenCore
 
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
       IndexTrail += 1;
+
+      BlockBToken blockMined = BlocksMined.Find(b => 
+      b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
+
+      if (blockMined != null)
+      {
+        $"The winning block is self mined.".Log(LogFile);
+        InsertBlock(blockMined);
+        Network.RelayBlockToNetwork(blockMined);
+      }
+      else
+        $"The winning block is not yet received.".Log(LogFile);
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
@@ -353,8 +354,6 @@ namespace BTokenCore
       Block block,
       Network.Peer peer)
     {
-      // Hier wird davon ausgegangen dass der Block bereits verankert ist 
-
       $"Insert BToken block {block} in database.".Log(LogFile);
 
       int indexTrailAnchorPrevious = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor;
@@ -389,6 +388,8 @@ namespace BTokenCore
 
       if (BlocksMined.Count == 0)
         return;
+
+      BlocksMined.Clear();
 
       if (TokensAnchorMinedUnconfirmed.Count == 0)
       {

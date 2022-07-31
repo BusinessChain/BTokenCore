@@ -239,20 +239,33 @@ namespace BTokenLib
 
     public void InsertBlock(Block block, Network.Peer peer)
     {
-      block.AppendToBlockchain(Blockchain);
+      try
+      {
+        block.AppendToBlockchain(Blockchain);
 
-      InsertInDatabase(block, peer);
+        InsertInDatabase(block, peer);
 
-      Blockchain.AppendHeader(block.Header);
+        Blockchain.AppendHeader(block.Header);
 
-      FeePerByteAverage =
-        ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
-        ORDER_AVERAGEING_FEEPERBYTE;
+        FeePerByteAverage =
+          ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
+          ORDER_AVERAGEING_FEEPERBYTE;
 
-      // Archive Block
+        // Archive Block
 
-      //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+        //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         // CreateImage();
+
+        TokenListening.ForEach(
+          t => t.SignalCompletionBlockInsertion(block.Header.Hash));
+      }
+      catch (ProtocolException ex)
+      {
+        // Database (wallet) recovery.
+
+        TokenListening.ForEach(t => t.RevokeBlockInsertion());
+        throw ex;
+      }
     }
 
 

@@ -234,9 +234,6 @@ namespace BTokenCore
         TokenListening.ForEach(t => t.RevokeBlockInsertion());
         throw ex;
       }
-
-      TokenListening.ForEach(
-        t => t.SignalCompletionBlockInsertion(block.Header.Hash));
     }
 
     public override Header ParseHeader(

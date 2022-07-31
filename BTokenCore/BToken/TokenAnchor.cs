@@ -154,6 +154,18 @@ namespace BTokenCore
       {
         return TX.ToString();
       }
+
+      public string GetDescription()
+      {
+        return
+          $"TX Hash: {TX}\n" +
+          $"Number of inputs: {TX.TXInputs.Count}\n" +
+          $"Fee: {TX.Fee}\n" +
+          $"ValueChange: {ValueChange}\n" +
+          $"Sequence number: {NumberSequence}\n" +
+          $"Referenced BToken block hash: {HashBlockReferenced.ToHexString()}" +
+          $"Referenced BToken previous block hash: {HashBlockPreviousReferenced.ToHexString()}";
+      }
     }
   }
 }
