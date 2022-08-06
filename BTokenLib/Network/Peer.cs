@@ -371,7 +371,9 @@ namespace BTokenLib
 
                     byteIndex += 1;
 
-                    HeaderDownload.InsertHeader(header, out flagRequestNoMoreHeaders);
+                    HeaderDownload.InsertHeader(
+                      header, 
+                      out flagRequestNoMoreHeaders);
                   }
                 }
                 catch (ProtocolException ex)
@@ -517,7 +519,7 @@ namespace BTokenLib
                 else
                   await SendMessage(new RejectMessage(inventory.Hash));
             }
-            else if(Command == "reject")
+            else if (Command == "reject")
             {
               RejectMessage rejectMessage = new(Payload);
 
@@ -622,10 +624,10 @@ namespace BTokenLib
         Release();
       }
                             
-      public async Task GetHeaders(HeaderDownload headerDownload)
+      public async Task GetHeaders()
       {
-        HeaderDownload = headerDownload;
-               
+        HeaderDownload = Token.CreateHeaderDownload();
+
         ($"Send getheaders to peer,\n" +
           $"locator: {HeaderDownload}").Log(this, LogFile);
 

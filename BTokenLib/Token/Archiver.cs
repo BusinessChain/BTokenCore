@@ -7,11 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 
-using BTokenLib;
 
-namespace BTokenCore
+namespace BTokenLib
 {
-  public partial class BlockArchiver
+  public class BlockArchiver
   {
     Token Token;
     Blockchain Blockchain;

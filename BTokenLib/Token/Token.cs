@@ -16,6 +16,8 @@ namespace BTokenLib
 
     public Blockchain Blockchain;
 
+    BlockArchiver Archiver;
+
     public Wallet Wallet;
 
     public Network Network;
@@ -41,15 +43,19 @@ namespace BTokenLib
     protected int CountBytesDataTokenBasis = 120;
 
 
-    public Token(UInt16 port)
+    public Token(
+      UInt16 port, 
+      bool flagEnableInboundConnections)
     {
       PathRootToken = GetName();
       Directory.CreateDirectory(PathRootToken);
 
       Blockchain = new Blockchain(this);
 
+      Archiver = new(this, GetName());
+
       Port = port;
-      Network = new(this);
+      Network = new(this, flagEnableInboundConnections);
 
       Wallet = new();
 
@@ -251,10 +257,10 @@ namespace BTokenLib
           ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
           ORDER_AVERAGEING_FEEPERBYTE;
 
-        // Archive Block
+        Archiver.ArchiveBlock(block);
 
-        //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
-        // CreateImage();
+        if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+          CreateImage();
 
         TokenListening.ForEach(
           t => t.SignalCompletionBlockInsertion(block.Header.Hash));

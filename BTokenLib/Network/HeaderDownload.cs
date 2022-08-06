@@ -22,7 +22,9 @@ namespace BTokenLib
       Locator = locator;
     }
 
-    public void InsertHeader(Header header, out bool flagRequestNoMoreHeaders)
+    public virtual void InsertHeader(
+      Header header, 
+      out bool flagRequestNoMoreHeaders)
     {
       flagRequestNoMoreHeaders = false;
       HeaderInsertedLast = header;

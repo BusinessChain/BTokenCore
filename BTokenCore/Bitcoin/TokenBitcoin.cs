@@ -20,10 +20,10 @@ namespace BTokenCore
 
 
     public TokenBitcoin()
-      : base(COMPORT_BITCOIN)
-    {
-      Network.DisableInboundConnections = true;
-    }
+      : base(
+          COMPORT_BITCOIN, 
+          flagEnableInboundConnections: false)
+    { }
 
 
     public override void StartMining()

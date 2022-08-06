@@ -24,54 +24,26 @@ namespace BTokenCore
       IndexTrail = indexTrail;
     }
 
-    public new void InsertHeader(Header header, out bool flagRequestNoMoreHeaders)
+    public override void InsertHeader(
+      Header header, 
+      out bool flagRequestNoMoreHeaders)
     {
-      flagRequestNoMoreHeaders = false;
-      HeaderInsertedLast = header;
-
-      if (HeaderRoot == null)
+      if (IndexTrail >= TrailHashesAnchor.Count)
       {
-        if (HeaderAncestor == null)
-        {
-          HeaderAncestor = Locator.Find(
-            h => h.Hash.IsEqual(header.HashPrevious));
-
-          if (HeaderAncestor == null)
-            throw new ProtocolException(
-              "Header does not connect to locator.");
-        }
-
-        if (HeaderAncestor.HeaderNext != null &&
-          HeaderAncestor.HeaderNext.Hash.IsEqual(header.Hash))
-        {
-          if (Locator.Any(h => h.Hash.IsEqual(header.Hash)))
-            throw new ProtocolException(
-              "Received redundant headers from peer.");
-
-          HeaderAncestor = HeaderAncestor.HeaderNext;
-          return;
-        }
-
-        header.AppendToHeader(HeaderAncestor);
-        HeaderRoot = header;
-        HeaderTip = header;
+        flagRequestNoMoreHeaders = false;
+        return;
       }
-      else
-      {
-        header.AppendToHeader(HeaderTip);
 
-        while (!header.Hash.IsEqual(TrailHashesAnchor[IndexTrail++]))
-          if (IndexTrail == TrailHashesAnchor.Count)
-            throw new ProtocolException(
-              $"Header hash {header} not equal to anchor " +
-              $"trail hash {TrailHashesAnchor[IndexTrail].ToHexString()}.");
+      if (!TrailHashesAnchor[IndexTrail].Equals(header.Hash))
+        throw new ProtocolException(
+          $"Header hash {header} not " +
+          $"equal to trail {TrailHashesAnchor[IndexTrail].ToHexString()}.");
 
-        if (IndexTrail == TrailHashesAnchor.Count)
-          flagRequestNoMoreHeaders = true;
+      IndexTrail += 1;
 
-        HeaderTip.HeaderNext = header;
-        HeaderTip = header;
-      }
+      base.InsertHeader(
+        header,
+        out flagRequestNoMoreHeaders);
     }
   }
 }

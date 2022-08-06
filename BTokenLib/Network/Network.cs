@@ -20,6 +20,8 @@ namespace BTokenLib
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
 
+    public bool EnableInboundConnections;
+
     StreamWriter LogFile;
 
     UInt16 Port;
@@ -37,12 +39,13 @@ namespace BTokenLib
     DirectoryInfo DirectoryLogPeers;
     DirectoryInfo DirectoryLogPeersDisposed;
 
-    public Network(Token token)
+    public Network(Token token, bool flagEnableInboundConnections)
     {
       Token = token;
       Blockchain = token.Blockchain;
 
       Port = token.Port;
+      EnableInboundConnections = flagEnableInboundConnections;
 
       string pathRoot = token.GetName();
 
@@ -71,7 +74,8 @@ namespace BTokenLib
 
       StartSync();
 
-      StartPeerInboundListener();
+      if (EnableInboundConnections)
+        StartPeerInboundListener();
     }
 
     void LoadNetworkConfiguration (string pathConfigFile)
@@ -298,7 +302,7 @@ namespace BTokenLib
 
         try
         {
-          await PeerSync.GetHeaders(Token.CreateHeaderDownload());
+          await PeerSync.GetHeaders();
         }
         catch (Exception ex)
         {

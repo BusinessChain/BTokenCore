@@ -13,11 +13,12 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int COUNT_CACHES = 10;
+    const int COUNT_CACHES = 1000;
     byte[] HashesCaches = new byte[COUNT_CACHES * 32];
-    int IndexCache;
+
     const int COUNT_MAX_CACHE = 2000000; // Read from configuration file
     List<CacheDatabaseAccounts> Caches = new();
+    int IndexCache;
 
     const string PathRootDB = "FilesDB";
     const int COUNT_FILES_DB = 1 << 12;
@@ -90,8 +91,6 @@ namespace BTokenCore
       {
         byte[] iDAccount = tXs[t].TXInputs[0].TXIDOutput;
 
-        feeBlock += tXs[t].Fee;
-
         int c = IndexCache;
         while (true)
         {
@@ -105,7 +104,7 @@ namespace BTokenCore
             break;
           }
 
-          c = (c + COUNT_CACHES - 1) % 10;
+          c = (c + COUNT_CACHES - 1) % COUNT_CACHES;
 
           if (c == IndexCache)
           {
@@ -115,6 +114,8 @@ namespace BTokenCore
         }
 
         InsertOutputs(tXs[t].TXOutputs);
+        
+        feeBlock += tXs[t].Fee;
       }
 
       long outputValueTXCoinbase = 0;

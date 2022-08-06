@@ -15,8 +15,6 @@ namespace BTokenCore
   {
     DatabaseAccounts DatabaseAccounts;
 
-    BlockArchiver Archiver;
-
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
     List<byte[]> TrailHashesAnchor = new();
@@ -39,15 +37,15 @@ namespace BTokenCore
     string PathBlocksMinedUnconfirmed;
 
 
-    public TokenBToken(Token tokenParent)
-      : base(COMPORT_BTOKEN)
+    public TokenBToken(Token tokenParent) 
+      : base(
+          COMPORT_BTOKEN,
+          flagEnableInboundConnections: true)
     {
       TokenParent = tokenParent;
       tokenParent.AddTokenListening(this);
 
       DatabaseAccounts = new();
-
-      Archiver = new(this, GetName());
 
       LogFile = new StreamWriter(
         Path.Combine(GetName(), "LogToken"),
@@ -96,6 +94,11 @@ namespace BTokenCore
 
         IndexTrail += 1;
       }
+    }
+
+    public override void CreateImageDatabase(string pathImage)
+    {
+      DatabaseAccounts.CreateImage(pathImage);
     }
 
 
@@ -311,6 +314,9 @@ namespace BTokenCore
       TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
       IndexTrail += 1;
 
+      if (BlocksMined.Count == 0)
+        return;
+
       BlockBToken blockMined = BlocksMined.Find(b => 
       b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
 
@@ -320,8 +326,6 @@ namespace BTokenCore
         InsertBlock(blockMined);
         Network.RelayBlockToNetwork(blockMined);
       }
-      else
-        $"The winning block is not yet received.".Log(LogFile);
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
@@ -375,8 +379,6 @@ namespace BTokenCore
       DatabaseAccounts.InsertBlock(block);
 
       ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
-
-      Archiver.ArchiveBlock(block);
 
       RBFAnchorTokens();
     }
@@ -472,11 +474,6 @@ namespace BTokenCore
 
       block.TXs = new List<TX>() { tX };
       block.Header.MerkleRoot = tX.Hash;
-    }
-
-    public override void CreateImageDatabase(string pathImage)
-    {
-      DatabaseAccounts.CreateImage(pathImage);
     }
 
     public override Header ParseHeader(

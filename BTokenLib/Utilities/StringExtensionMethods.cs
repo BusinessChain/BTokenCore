@@ -8,7 +8,9 @@ namespace BTokenLib
 {
   public static class StringExtensionMethods
   {
-    public static bool TryMoveDirectoryTo(this string pathSource, string pathDest)
+    public static bool TryMoveDirectoryTo(
+      this string pathSource, 
+      string pathDest)
     {
       if (!Directory.Exists(pathSource))
         return false;
