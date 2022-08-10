@@ -30,7 +30,7 @@ namespace BTokenLib
         }
 
         Payload = payload.ToArray();
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
     }
   }

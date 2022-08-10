@@ -26,7 +26,7 @@ namespace BTokenLib
           i => payload.AddRange(i.GetBytes()));
 
         Payload = payload.ToArray();
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
 
       public InvMessage(byte[] buffer)

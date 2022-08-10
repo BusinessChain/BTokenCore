@@ -44,7 +44,7 @@ namespace BTokenLib
           payload.AddRange(Inventories[i].GetBytes());
 
         Payload = payload.ToArray();
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
     }
   }

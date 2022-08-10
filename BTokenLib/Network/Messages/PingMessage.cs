@@ -26,7 +26,7 @@ namespace BTokenLib
       {
         Nonce = nonce;
         Payload = BitConverter.GetBytes(nonce);
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
     }
   }

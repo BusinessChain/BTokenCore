@@ -40,7 +40,7 @@ namespace BTokenLib
         versionPayload.Add(relayOption);
 
         Payload = versionPayload.ToArray();
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
 
       byte[] GetBytes(UInt16 uint16)

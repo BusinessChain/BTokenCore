@@ -16,7 +16,7 @@ namespace BTokenLib
 
       public byte[] Payload;
       public int OffsetPayload;
-      public int LengthPayload;
+      public int LengthDataPayload;
 
 
 
@@ -43,7 +43,7 @@ namespace BTokenLib
         int lengthPayload)
       {
         OffsetPayload = indexPayloadOffset;
-        LengthPayload = lengthPayload;
+        LengthDataPayload = lengthPayload;
 
         Command = command;
         Payload = payload;

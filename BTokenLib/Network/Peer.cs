@@ -172,21 +172,21 @@ namespace BTokenLib
 
         NetworkStream.Write(command, 0, command.Length);
 
-        byte[] payloadLength = BitConverter.GetBytes(message.Payload.Length);
+        byte[] payloadLength = BitConverter.GetBytes(message.LengthDataPayload);
         NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
         byte[] checksum = SHA256.ComputeHash(
           SHA256.ComputeHash(
             message.Payload,
             message.OffsetPayload,
-            message.Payload.Length));
+            message.LengthDataPayload));
 
         NetworkStream.Write(checksum, 0, ChecksumSize);
 
         await NetworkStream.WriteAsync(
           message.Payload,
           message.OffsetPayload,
-          message.Payload.Length)
+          message.LengthDataPayload)
           .ConfigureAwait(false);
       }
 

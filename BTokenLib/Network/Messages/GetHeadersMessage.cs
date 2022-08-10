@@ -28,7 +28,7 @@ namespace BTokenLib
           "00000000000000000000000000000000").ToBinary());
 
         Payload = payload.ToArray();
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
     }
   }

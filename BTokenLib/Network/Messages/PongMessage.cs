@@ -14,7 +14,7 @@ namespace BTokenLib
         : base("pong")
       {
         Payload = BitConverter.GetBytes(nonce);
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
     }
   }

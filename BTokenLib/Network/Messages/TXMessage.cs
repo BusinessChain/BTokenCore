@@ -14,7 +14,7 @@ namespace BTokenLib
         : base("tx")
       {
         Payload = tXRaw;
-        LengthPayload = Payload.Length;
+        LengthDataPayload = Payload.Length;
       }
     }
   }
