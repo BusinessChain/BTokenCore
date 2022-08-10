@@ -477,6 +477,20 @@ namespace BTokenLib
       return TryChargeHeader(peer);
     }
 
+    async Task SyncDB(List<byte[]> hashesDB)
+    {
+      Peer peer = PeerSync;
+
+      while(peer != null)
+      {
+        TryGetPeer(out peer);
+      }
+
+      // After database is downloaded
+
+      Sync();
+    }
+
     object LOCK_ChargeHeader = new();
     ConcurrentBag<Block> PoolBlocks = new();
 

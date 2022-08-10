@@ -29,7 +29,7 @@ namespace BTokenCore
         FileShare.ReadWrite)
       { }
 
-      public void SpendAccountInDB(byte[] iDAccount, TX tX)
+      public void SpendAccountInFileDB(byte[] iDAccount, TX tX)
       {
         Position = 0;
 

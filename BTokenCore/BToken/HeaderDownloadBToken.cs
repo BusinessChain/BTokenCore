@@ -24,26 +24,17 @@ namespace BTokenCore
       IndexTrail = indexTrail;
     }
 
-    public override void InsertHeader(
-      Header header, 
-      out bool flagRequestNoMoreHeaders)
+    public override void InsertHeader(Header header)
     {
-      if (IndexTrail >= TrailHashesAnchor.Count)
-      {
-        flagRequestNoMoreHeaders = false;
-        return;
-      }
-
-      if (!TrailHashesAnchor[IndexTrail].Equals(header.Hash))
+      if (IndexTrail >= TrailHashesAnchor.Count || 
+        !TrailHashesAnchor[IndexTrail].Equals(header.Hash))
         throw new ProtocolException(
           $"Header hash {header} not " +
           $"equal to trail {TrailHashesAnchor[IndexTrail].ToHexString()}.");
 
       IndexTrail += 1;
 
-      base.InsertHeader(
-        header,
-        out flagRequestNoMoreHeaders);
+      base.InsertHeader(header);
     }
   }
 }

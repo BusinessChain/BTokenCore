@@ -8,7 +8,6 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Diagnostics;
 
 
 
@@ -173,21 +172,21 @@ namespace BTokenLib
 
         NetworkStream.Write(command, 0, command.Length);
 
-        byte[] payloadLength = BitConverter.GetBytes(message.LengthPayload);
+        byte[] payloadLength = BitConverter.GetBytes(message.Payload.Length);
         NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
         byte[] checksum = SHA256.ComputeHash(
           SHA256.ComputeHash(
             message.Payload,
             message.OffsetPayload,
-            message.LengthPayload));
+            message.Payload.Length));
 
         NetworkStream.Write(checksum, 0, ChecksumSize);
 
         await NetworkStream.WriteAsync(
           message.Payload,
           message.OffsetPayload,
-          message.LengthPayload)
+          message.Payload.Length)
           .ConfigureAwait(false);
       }
 
@@ -359,39 +358,37 @@ namespace BTokenLib
 
               if (IsStateGetHeaders())
               {
-                bool flagRequestNoMoreHeaders = countHeaders == 0;
-
-                try
-                {
-                  while (byteIndex < PayloadLength)
-                  {
-                    Header header = Token.ParseHeader(
-                      Payload,
-                      ref byteIndex);
-
-                    byteIndex += 1;
-
-                    HeaderDownload.InsertHeader(
-                      header, 
-                      out flagRequestNoMoreHeaders);
-                  }
-                }
-                catch (ProtocolException ex)
-                {
-                  ($"{ex.GetType().Name} when receiving headers:\n" +
-                    $"{ex.Message}").Log(LogFile);
-
-                  continue; // Does not disconnect on parser exception but on timeout instead.
-                }
-
-                if (flagRequestNoMoreHeaders)
+                if (countHeaders == 0)
                 {
                   Cancellation = new();
+
+                  // irgendwo hier müssten di DB hashes angefragt werden.
 
                   Network.Sync();
                 }
                 else
                 {
+                  try
+                  {
+                    for (int i = 0; i < countHeaders; i += 1)
+                    {
+                      Header header = Token.ParseHeader(
+                        Payload,
+                        ref byteIndex);
+
+                      byteIndex += 1;
+
+                      HeaderDownload.InsertHeader(header);
+                    }
+                  }
+                  catch (ProtocolException ex)
+                  {
+                    ($"{ex.GetType().Name} when receiving headers:\n" +
+                      $"{ex.Message}").Log(LogFile);
+
+                    continue; // Does not disconnect on parser exception but on timeout instead.
+                  }
+
                   ($"Send getheaders to peer {this},\n" +
                     $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
 
@@ -473,6 +470,19 @@ namespace BTokenLib
                   FlagSyncScheduled = true;
                 }
               }
+            }
+            else if (Command == "hashesDB")
+            {
+              // get DBHashes after the last header has been received
+              // wird vom Peer automatisch anstelle headers bei der count == 0 wäre.
+
+              $"{this}: Receiving DB hashes.".Log(LogFile);
+
+              List<byte[]> hashesDB = Token.ParseHashesDB(Payload);
+
+              Cancellation = new();
+
+              Network.SyncDB(hashesDB);
             }
             else if (Command == "notfound")
             {

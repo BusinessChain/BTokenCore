@@ -13,10 +13,10 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int COUNT_CACHES = 1000;
+    const int COUNT_CACHES = 64;
     byte[] HashesCaches = new byte[COUNT_CACHES * 32];
 
-    const int COUNT_MAX_CACHE = 2000000; // Read from configuration file
+    const int COUNT_MAX_CACHE = 40000; // Read from configuration file
     List<CacheDatabaseAccounts> Caches = new();
     int IndexCache;
 
@@ -108,7 +108,7 @@ namespace BTokenCore
 
           if (c == IndexCache)
           {
-            GetFileDB(iDAccount).SpendAccountInDB(iDAccount, tXs[t]);
+            GetFileDB(iDAccount).SpendAccountInFileDB(iDAccount, tXs[t]);
             break;
           }
         }

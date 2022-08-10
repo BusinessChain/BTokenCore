@@ -353,6 +353,12 @@ namespace BTokenCore
       return tokenAnchorWinner;
     }
 
+    public override List<byte[]> ParseHashesDB(byte[] buffer)
+    { 
+      // Validate hashes with database hash in header
+
+      throw new NotImplementedException();
+    }
 
     protected override void InsertInDatabase(
       Block block,

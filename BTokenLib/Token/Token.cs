@@ -291,6 +291,9 @@ namespace BTokenLib
     public virtual void RevokeBlockInsertion()
     { throw new NotImplementedException(); }
 
+    public virtual List<byte[]> ParseHashesDB(byte[] buffer)
+    { throw new NotImplementedException(); }
+
     protected abstract void InsertInDatabase(
       Block block, 
       Network.Peer peer);
@@ -298,6 +301,7 @@ namespace BTokenLib
     public abstract Header ParseHeader(
       byte[] buffer,
       ref int index);
+
 
     public string GetName()
     {
