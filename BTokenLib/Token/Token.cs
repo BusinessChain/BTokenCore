@@ -302,7 +302,6 @@ namespace BTokenLib
       byte[] buffer,
       ref int index);
 
-
     public string GetName()
     {
       return GetType().Name;
@@ -311,5 +310,10 @@ namespace BTokenLib
     public abstract bool TryRequestTX(
       byte[] hash,
       out byte[] tXRaw);
+
+    public virtual bool TryGetDB(
+      byte[] hash,
+      out byte[] dataDB)
+    { throw new NotImplementedException(); }
   }
 }

@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class InvMessage : NetworkMessage
+    class InvMessage : MessageNetwork
     {
       public List<Inventory> Inventories = new();
 

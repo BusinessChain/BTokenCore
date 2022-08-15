@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class AddressMessage : NetworkMessage
+    class AddressMessage : MessageNetwork
     {
       public List<NetworkAddress> NetworkAddresses = new();
 

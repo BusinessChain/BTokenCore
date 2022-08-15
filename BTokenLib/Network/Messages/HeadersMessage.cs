@@ -9,7 +9,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class HeadersMessage : NetworkMessage
+    class HeadersMessage : MessageNetwork
     {
       public List<Header> Headers = new();
 

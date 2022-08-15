@@ -6,7 +6,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class VersionMessage : NetworkMessage
+    class VersionMessage : MessageNetwork
     {
       public VersionMessage(
         uint protocolVersion,

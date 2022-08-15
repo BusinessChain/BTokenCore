@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class GetHashesDBMessage : NetworkMessage
+    class GetHashesDBMessage : MessageNetwork
     {
       public GetHashesDBMessage()
         : base("getHashesDB")

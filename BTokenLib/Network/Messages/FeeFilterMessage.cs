@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class FeeFilterMessage : NetworkMessage
+    class FeeFilterMessage : MessageNetwork
     {
       public ulong FeeFilterValue { get; private set; }
 

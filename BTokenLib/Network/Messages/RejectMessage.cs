@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class RejectMessage : NetworkMessage
+    class RejectMessage : MessageNetwork
     {
       const int LENGTH_EXTRA_DATA_TX_AND_BLOCK = 32;
 

@@ -13,7 +13,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int COUNT_CACHES = 64;
+    const int COUNT_CACHES = 256;
     byte[] HashesCaches = new byte[COUNT_CACHES * 32];
 
     const int COUNT_MAX_CACHE = 40000; // Read from configuration file
@@ -167,6 +167,13 @@ namespace BTokenCore
     {
       ushort keyFileDB = BitConverter.ToUInt16(iDAccount, 0);
       return FilesDB[keyFileDB];
+    }
+
+    public bool TryGetDB(
+      byte[] hash,
+      out byte[] dataDB)
+    {
+      throw new NotImplementedException();
     }
 
     // Validate signature

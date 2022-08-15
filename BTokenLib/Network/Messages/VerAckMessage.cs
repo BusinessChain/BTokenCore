@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class VerAckMessage : NetworkMessage
+    class VerAckMessage : MessageNetwork
     {
       public VerAckMessage() 
         : base("verack")

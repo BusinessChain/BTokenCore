@@ -8,12 +8,12 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class PingMessage : NetworkMessage
+    class PingMessage : MessageNetwork
     {
       public UInt64 Nonce { get; private set; }
 
 
-      public PingMessage(NetworkMessage networkMessage)
+      public PingMessage(MessageNetwork networkMessage)
         : base(
             "ping", 
             networkMessage.Payload)

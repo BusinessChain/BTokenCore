@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class SendHeadersMessage : NetworkMessage
+    class SendHeadersMessage : MessageNetwork
     {
       public SendHeadersMessage() 
         : base("sendheaders") { }

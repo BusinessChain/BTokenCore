@@ -28,13 +28,16 @@ namespace BTokenLib
       {
         IDLE = 0,
         BlockDownload,
+        DBDownload,
         HeaderDownload,
         GetData
       }
       public StateProtocol State;
 
-      internal Header Header;
+      internal Header HeaderSync;
       internal Block Block;
+
+      internal byte[] HashDBSync;
 
       internal HeaderDownload HeaderDownload;
       internal Header HeaderUnsolicited;
@@ -56,9 +59,9 @@ namespace BTokenLib
 
       public string Command;
 
-      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 0x100000;
+      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 40 * 1000 * 1000;
       byte[] Payload = new byte[SIZE_MESSAGE_PAYLOAD_BUFFER];
-      int PayloadLength;
+      int LengthDataPayload;
 
       const int HeaderSize = CommandSize + LengthSize + ChecksumSize;
       byte[] MeassageHeader = new byte[HeaderSize];
@@ -163,7 +166,7 @@ namespace BTokenLib
         StartMessageListener();
       }
 
-      public async Task SendMessage(NetworkMessage message)
+      public async Task SendMessage(MessageNetwork message)
       {
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
@@ -214,15 +217,6 @@ namespace BTokenLib
         }
       }
 
-      async Task ReadMessageBlock()
-      {
-        do
-          await ReadMessage();
-        while (Command != "block");
-
-        FlagBlockReading = false;
-      }
-
       async Task ReadMessage()
       {
         byte[] magicByte = new byte[1];
@@ -239,11 +233,11 @@ namespace BTokenLib
           MeassageHeader,
           MeassageHeader.Length);
 
-        PayloadLength = BitConverter.ToInt32(
+        LengthDataPayload = BitConverter.ToInt32(
           MeassageHeader,
           CommandSize);
 
-        if (PayloadLength > SIZE_MESSAGE_PAYLOAD_BUFFER)
+        if (LengthDataPayload > SIZE_MESSAGE_PAYLOAD_BUFFER)
           throw new ProtocolException(
             $"Message payload too big exceeding " +
             $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
@@ -253,11 +247,10 @@ namespace BTokenLib
           .ToArray()).TrimEnd('\0');
 
         if (Command == "block")
-          await ReadBytes(Block.Buffer, PayloadLength);
+          await ReadBytes(Block.Buffer, LengthDataPayload);
         else
-          await ReadBytes(Payload, PayloadLength);
+          await ReadBytes(Payload, LengthDataPayload);
       }
-
 
       internal Header HeaderDuplicateReceivedLast;
       internal int CountOrphanReceived;
@@ -314,15 +307,34 @@ namespace BTokenLib
               }
               else if (IsStateBlockDownload())
               {
-                if (!Block.Header.Hash.IsEqual(Header.Hash))
+                if (!Block.Header.Hash.IsEqual(HeaderSync.Hash))
                   throw new ProtocolException(
                     $"Unexpected block {Block} at height {Block.Header.Height}.\n" +
-                    $"Excpected {Header}.");
+                    $"Excpected {HeaderSync}.");
 
                 Cancellation = new();
 
-                if (Network.InsertBlockFlagContinue(this))
+                if (Network.InsertBlock_FlagContinue(this))
                   await RequestBlock();
+                else
+                  Release();
+              }
+            }
+            else if(Command == "dataDB")
+            {
+              if (IsStateDBDownload())
+              {
+                byte[] hashDataDB = new byte[32]; // = SHA256(Payload, LengthDataPayload); 
+
+                if (!hashDataDB.IsEqual(HashDBSync))
+                  throw new ProtocolException(
+                    $"Unexpected dataDB with hash {hashDataDB.ToHexString()}.\n" +
+                    $"Excpected hash {HashDBSync.ToHexString()}.");
+
+                Cancellation = new();
+
+                if (Network.InsertDB_FlagContinue(Payload, LengthDataPayload))
+                  await RequestDB();
                 else
                   Release();
               }
@@ -361,8 +373,6 @@ namespace BTokenLib
                 if (countHeaders == 0)
                 {
                   Cancellation = new();
-
-                  // irgendwo hier müssten di DB hashes angefragt werden.
 
                   Network.Sync();
                 }
@@ -519,12 +529,19 @@ namespace BTokenLib
                   await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
-                {
+                { 
+                  // Bei Bitcoin werden die Blöcke ja nicht abgespeichert deshalb existiert allenfalls nur ein Cache
+
                   Block block = Network.BlocksCached
                     .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
 
                   if (block != null)
-                    await SendMessage(new BlockMessage(block));
+                    await SendMessage(new MessageBlock(block));
+                }
+                else if (inventory.Type == InventoryType.MSG_DB)
+                {
+                  if (Token.TryGetDB(inventory.Hash, out byte[] dataDB))
+                    await SendMessage(new MessageDB(dataDB));
                 }
                 else
                   await SendMessage(new RejectMessage(inventory.Hash));
@@ -544,6 +561,8 @@ namespace BTokenLib
             Token.ReleaseLock();
           else if (IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
+          else if (IsStateDBDownload())
+            Network.ReturnPeerDBDownloadIncomplete(HashDBSync);
 
           SetFlagDisposed(
             $"{ex.GetType().Name} in listener: \n{ex.Message}");
@@ -650,50 +669,51 @@ namespace BTokenLib
           ProtocolVersion));
       }
 
-
-      bool FlagBlockReading;
-
-      public Block GetBlock(byte[] hash)
+      public async Task RequestDB()
       {
-        $"Peer starts downloading block {hash.ToHexString()}."
+        $"Peer starts downloading DB {HashDBSync.ToHexString()}."
           .Log(this, LogFile);
 
-        SendMessage(new GetDataMessage(
-          new List<Inventory>()
-          {
-            new Inventory(
-              InventoryType.MSG_BLOCK,
-              hash)
-          }));
+        lock (this)
+        {
+          if (FlagDispose)
+            Network.ReturnPeerDBDownloadIncomplete(HashDBSync);
+
+          State = StateProtocol.DBDownload;
+        }
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
-        FlagBlockReading = true;
-
-        ReadMessageBlock();
-
-        while (FlagBlockReading)
+        try
         {
-          Thread.Sleep(100);
-
-          if (Cancellation.IsCancellationRequested)
-            throw new TaskCanceledException(
-              $"GetBlock {hash.ToHexString()} canceled.");
+          await SendMessage(new GetDataMessage(
+            new List<Inventory>()
+            {
+              new Inventory(
+                InventoryType.MSG_DB,
+                HashDBSync)
+            }));
         }
+        catch (Exception ex)
+        {
+          SetFlagDisposed(
+            $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
 
-        return Block;
+          Network.ReturnPeerDBDownloadIncomplete(HashDBSync);
+          return;
+        }
       }
 
       public async Task RequestBlock()
       {
-        $"Peer starts downloading block {Header}.".Log(this, LogFile);
+        $"Peer starts downloading block {HeaderSync}.".Log(this, LogFile);
 
         lock (this)
         {
-          if(FlagDispose)
-            Network.ReturnPeerBlockDownloadIncomplete(this);
-
           State = StateProtocol.BlockDownload;
+
+          if (FlagDispose)
+            Network.ReturnPeerBlockDownloadIncomplete(this);
         }
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
@@ -705,7 +725,7 @@ namespace BTokenLib
             {
               new Inventory(
                 InventoryType.MSG_BLOCK,
-                Header.Hash)
+                HeaderSync.Hash)
             }));
         }
         catch(Exception ex)
@@ -804,6 +824,12 @@ namespace BTokenLib
       {
         lock (this)
           return State == StateProtocol.BlockDownload;
+      }
+
+      public bool IsStateDBDownload()
+      {
+        lock (this)
+          return State == StateProtocol.DBDownload;
       }
 
       public override string ToString()

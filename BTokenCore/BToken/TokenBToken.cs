@@ -536,6 +536,14 @@ namespace BTokenCore
       throw new NotImplementedException();
     }
 
+
+    public override bool TryGetDB(
+      byte[] hash,
+      out byte[] dataDB)
+    {
+      return DatabaseAccounts.TryGetDB(hash, out dataDB);
+    }
+
     public override HeaderDownload CreateHeaderDownload()
     {
       return new HeaderDownloadBToken(

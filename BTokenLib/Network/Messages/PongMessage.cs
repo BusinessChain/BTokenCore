@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class PongMessage : NetworkMessage
+    class PongMessage : MessageNetwork
     {
       public PongMessage(ulong nonce) 
         : base("pong")

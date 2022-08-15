@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class GetHeadersMessage : NetworkMessage
+    class GetHeadersMessage : MessageNetwork
     {
       public GetHeadersMessage(
         List<Header> headerLocator,

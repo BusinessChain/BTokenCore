@@ -12,7 +12,8 @@ namespace BTokenLib
     MSG_TX = 1,
     MSG_BLOCK = 2,
     MSG_FILTERED_BLOCK = 3,
-    MSG_CMPCT_BLOCK = 4
+    MSG_CMPCT_BLOCK = 4,
+    MSG_DB = 5
   }
 
   class Inventory

@@ -379,18 +379,21 @@ namespace BTokenLib
           if (peer != null)
             if (TryChargeHeader(peer))
               await peer.RequestBlock();
-            else if (Peers.Any(p => p.IsStateBlockDownload()))
-              peer.Release();
             else
             {
-              if (
-                difficultyOld > 0 &&
-                Blockchain.HeaderTip.Difficulty > difficultyOld)
-              {
-                Token.Reorganize();
-              }
+              peer.Release();
 
-              break;
+              if (Peers.All(p => !p.IsStateBlockDownload()))
+              {
+                if (
+                  difficultyOld > 0 &&
+                  Blockchain.HeaderTip.Difficulty > difficultyOld)
+                {
+                  Token.Reorganize();
+                }
+
+                break;
+              }
             }
 
           TryGetPeer(out peer);
@@ -421,22 +424,22 @@ namespace BTokenLib
       Token.ReleaseLock();
     }
 
-    bool InsertBlockFlagContinue(Peer peer)
+    bool InsertBlock_FlagContinue(Peer peer)
     {
       Block block = peer.Block;
 
       lock (LOCK_HeightInsertion)
       {
-        if (peer.Header.Height > HeightInsertion)
+        if (peer.HeaderSync.Height > HeightInsertion)
         {
           QueueBlockInsertion.Add(
-            peer.Header.Height,
+            peer.HeaderSync.Height,
             block);
 
           if (!PoolBlocks.TryTake(out peer.Block))
             peer.Block = Token.CreateBlock();
         }
-        else if (peer.Header.Height == HeightInsertion)
+        else if (peer.HeaderSync.Height == HeightInsertion)
         {
           bool flagReturnBlockDownloadToPool = false;
 
@@ -477,20 +480,6 @@ namespace BTokenLib
       return TryChargeHeader(peer);
     }
 
-    async Task SyncDB(List<byte[]> hashesDB)
-    {
-      Peer peer = PeerSync;
-
-      while(peer != null)
-      {
-        TryGetPeer(out peer);
-      }
-
-      // After database is downloaded
-
-      Sync();
-    }
-
     object LOCK_ChargeHeader = new();
     ConcurrentBag<Block> PoolBlocks = new();
 
@@ -498,18 +487,18 @@ namespace BTokenLib
     {
       lock (LOCK_ChargeHeader)
       {
-        if(
-          peer.Header != null && 
-          HeadersBeingDownloadedByCountPeers.ContainsKey(peer.Header.Height))
+        if (
+          peer.HeaderSync != null &&
+          HeadersBeingDownloadedByCountPeers.ContainsKey(peer.HeaderSync.Height))
         {
           (Header headerBeingDownloaded, int countPeers) =
-            HeadersBeingDownloadedByCountPeers[peer.Header.Height];
+            HeadersBeingDownloadedByCountPeers[peer.HeaderSync.Height];
 
           if (countPeers > 1)
-            HeadersBeingDownloadedByCountPeers[peer.Header.Height] = 
+            HeadersBeingDownloadedByCountPeers[peer.HeaderSync.Height] =
               (headerBeingDownloaded, countPeers - 1);
           else
-            HeadersBeingDownloadedByCountPeers.Remove(peer.Header.Height);
+            HeadersBeingDownloadedByCountPeers.Remove(peer.HeaderSync.Height);
         }
 
         if (QueueBlockInsertion.Count > CAPACITY_MAX_QueueBlocksInsertion)
@@ -523,14 +512,14 @@ namespace BTokenLib
             if (keyHeightMin < HeightInsertion)
               goto LABEL_ChargingWithHeaderMinHeight;
 
-          HeadersBeingDownloadedByCountPeers[keyHeightMin] = 
+          HeadersBeingDownloadedByCountPeers[keyHeightMin] =
             (headerBeingDownloadedMinHeight, countPeersMinHeight + 1);
 
-          peer.Header = headerBeingDownloadedMinHeight;
+          peer.HeaderSync = headerBeingDownloadedMinHeight;
           return true;
         }
 
-        LABEL_ChargingWithHeaderMinHeight:
+      LABEL_ChargingWithHeaderMinHeight:
 
         while (QueueDownloadsIncomplete.Any())
         {
@@ -542,7 +531,7 @@ namespace BTokenLib
             if (heightSmallestHeadersIncomplete < HeightInsertion)
               continue;
 
-          peer.Header = header;
+          peer.HeaderSync = header;
 
           return true;
         }
@@ -550,7 +539,7 @@ namespace BTokenLib
         if (HeaderRoot != null)
         {
           HeadersBeingDownloadedByCountPeers.Add(HeaderRoot.Height, (HeaderRoot, 1));
-          peer.Header = HeaderRoot;
+          peer.HeaderSync = HeaderRoot;
           HeaderRoot = HeaderRoot.HeaderNext;
 
           return true;
@@ -563,21 +552,161 @@ namespace BTokenLib
     void ReturnPeerBlockDownloadIncomplete(Peer peer)
     {
       lock (LOCK_ChargeHeader)
-        if (QueueDownloadsIncomplete.ContainsKey(peer.Header.Height))
+        if (QueueDownloadsIncomplete.ContainsKey(peer.HeaderSync.Height))
         {
           (Header headerBeingDownloaded, int countPeers) =
-            HeadersBeingDownloadedByCountPeers[peer.Header.Height];
+            HeadersBeingDownloadedByCountPeers[peer.HeaderSync.Height];
 
           if (countPeers > 1)
-            HeadersBeingDownloadedByCountPeers[peer.Header.Height] = 
+            HeadersBeingDownloadedByCountPeers[peer.HeaderSync.Height] =
               (headerBeingDownloaded, countPeers - 1);
         }
         else
-        {
           QueueDownloadsIncomplete.Add(
-            peer.Header.Height,
-            peer.Header);
+            peer.HeaderSync.Height,
+            peer.HeaderSync);
+    }
+
+    bool FlagSyncDBAbort;
+    List<byte[]> HashesDB;
+
+    async Task SyncDB(List<byte[]> hashesDB)
+    {
+      Peer peer = PeerSync;
+      HashesDB = hashesDB;
+
+      while (true)
+      {
+        if (FlagSyncDBAbort)
+        {
+          $"Synchronization with {PeerSync} was abort.".Log(LogFile);
+          Token.LoadImage();
+
+          lock (LOCK_Peers)
+            Peers
+              .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
+              .ForEach(p => p.Release());
+
+          while (true)
+          {
+            lock (LOCK_Peers)
+              if (!Peers.Any(p => p.IsBusy))
+                break;
+
+            "Waiting for all peers to exit state 'synchronization busy'."
+              .Log(LogFile);
+
+            await Task.Delay(1000).ConfigureAwait(false);
+          }
+
+          break;
         }
+
+        if (peer != null)
+          if (TryChargeHashDB(peer))
+            await peer.RequestDB();
+          else
+          {
+            peer.Release();
+
+            if (Peers.All(p => !p.IsStateBlockDownload()))
+              break;
+          }
+
+        TryGetPeer(out peer);
+
+        await Task.Delay(1000).ConfigureAwait(false);
+      }
+
+      // After database is downloaded
+
+      Sync();
+    }
+
+    bool InsertDB_FlagContinue(byte[] buffer, int lengthBuffer)
+    {
+      lock (LOCK_HeightInsertion)
+      {
+        if (peer.HeaderSync.Height > HeightInsertion)
+        {
+          QueueBlockInsertion.Add(
+            peer.HeaderSync.Height,
+            block);
+
+          if (!PoolBlocks.TryTake(out peer.Block))
+            peer.Block = Token.CreateBlock();
+        }
+        else if (peer.HeaderSync.Height == HeightInsertion)
+        {
+          bool flagReturnBlockDownloadToPool = false;
+
+          while (true)
+          {
+            try
+            {
+              Token.InsertBlock(block, peer);
+
+              block.Clear();
+
+              $"Inserted block {Blockchain.HeaderTip.Height}, {block}."
+              .Log(LogFile);
+            }
+            catch (Exception ex)
+            {
+              $"Insertion of block {block} failed:\n {ex.Message}.".Log(LogFile);
+
+              FlagSyncAbort = true;
+
+              return false;
+            }
+
+            HeightInsertion += 1;
+
+            if (flagReturnBlockDownloadToPool)
+              PoolBlocks.Add(block);
+
+            if (!QueueBlockInsertion.TryGetValue(HeightInsertion, out block))
+              break;
+
+            QueueBlockInsertion.Remove(HeightInsertion);
+            flagReturnBlockDownloadToPool = true;
+          }
+        }
+      }
+
+      return TryChargeHeader(peer);
+    }
+
+    object LOCK_ChargeHashDB = new();
+    List<byte[]> QueueHashesDBDownloadIncomplete = new();
+
+    bool TryChargeHashDB(Peer peer)
+    {
+      lock (LOCK_ChargeHashDB)
+      {
+        if (QueueHashesDBDownloadIncomplete.Any())
+        {
+          peer.HashDBSync = QueueHashesDBDownloadIncomplete[0];
+          QueueHashesDBDownloadIncomplete.RemoveAt(0);
+
+          return true;
+        }
+
+        if (HashesDB.Any())
+        {
+          peer.HashDBSync = HashesDB[0];
+          HashesDB.RemoveAt(0);
+
+          return true;
+        }
+
+        return false;
+      }
+    }
+
+    void ReturnPeerDBDownloadIncomplete(byte[] hashDBSync)
+    {
+      QueueHashesDBDownloadIncomplete.Add(hashDBSync);
     }
 
     object LOCK_FlagThrottle = new();

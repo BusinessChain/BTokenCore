@@ -9,9 +9,9 @@ namespace BTokenLib
 {
   partial class Network
   {
-    class BlockMessage : NetworkMessage
+    class MessageBlock : MessageNetwork
     {
-      public BlockMessage(Block block)
+      public MessageBlock(Block block)
         : base(
             "block",
             block.Buffer,

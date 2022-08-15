@@ -8,7 +8,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    public class TXMessage : NetworkMessage
+    public class TXMessage : MessageNetwork
     {
       public TXMessage(byte[] tXRaw) 
         : base("tx")

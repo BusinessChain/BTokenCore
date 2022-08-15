@@ -10,7 +10,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    public class NetworkMessage
+    public class MessageNetwork
     {
       public string Command;
 
@@ -20,13 +20,13 @@ namespace BTokenLib
 
 
 
-      public NetworkMessage(string command)
+      public MessageNetwork(string command)
         : this(
             command,
             new byte[0])
       { }
 
-      public NetworkMessage(
+      public MessageNetwork(
         string command,
         byte[] payload)
         : this(
@@ -36,7 +36,7 @@ namespace BTokenLib
             payload.Length)
       { }
 
-      public NetworkMessage(
+      public MessageNetwork(
         string command,
         byte[] payload,
         int indexPayloadOffset,
