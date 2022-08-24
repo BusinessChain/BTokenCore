@@ -61,7 +61,7 @@ namespace BTokenCore
           .Concat(VarInt.GetBytes(block.TXs.Count))
           .Concat(block.TXs[0].TXRaw).ToArray();
 
-        block.Header.CountBlockBytes = block.Buffer.Length;
+        block.Header.CountBytesBlock = block.Buffer.Length;
 
         while (!Blockchain.TryLock())
         {
@@ -205,9 +205,7 @@ namespace BTokenCore
     }
 
 
-    protected override void InsertInDatabase(
-      Block block, 
-      Network.Peer peer)
+    protected override void InsertInDatabase(Block block)
     {
       try
       {

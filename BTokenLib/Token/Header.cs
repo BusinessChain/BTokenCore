@@ -22,7 +22,9 @@ namespace BTokenLib
 
     public int IndexBlockArchive;
     public int StartIndexBlockArchive;
-    public int CountBlockBytes;
+
+    public int CountBytesBlock;
+    public long CountBytesBlocksAccumulated;
 
     public double Difficulty;
     public double DifficultyAccumulated;
@@ -64,12 +66,14 @@ namespace BTokenLib
       Height = headerPrevious.Height + 1;
 
       DifficultyAccumulated = headerPrevious.DifficultyAccumulated + Difficulty;
+      CountBytesBlocksAccumulated = headerPrevious.CountBytesBlocksAccumulated + CountBytesBlock;
     }
 
     public virtual void AppendToHeader(
       Header headerPrevious,
       SHA256 sHA256)
     {
+      HeaderPrevious = headerPrevious;
       Height = headerPrevious.Height + 1;
       headerPrevious.Hash.CopyTo(HashPrevious, 0);
       UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();

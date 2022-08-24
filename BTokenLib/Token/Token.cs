@@ -25,6 +25,8 @@ namespace BTokenLib
 
     protected List<TX> TXPool = new();
 
+    protected StreamWriter LogFile;
+
 
 
     static string NameFork = "Fork";
@@ -76,6 +78,10 @@ namespace BTokenLib
         PathRootToken,
         NameFork,
         NameImageOld);
+
+      LogFile = new StreamWriter(
+        Path.Combine(GetName(), "LogToken"),
+        false);
     }
 
     public void Start()
@@ -238,18 +244,14 @@ namespace BTokenLib
     const int ORDER_AVERAGEING_FEEPERBYTE = 3;
     public double FeePerByteAverage;
 
-    public void InsertBlock(Block block)
-    {
-      InsertBlock(block, null); 
-    }
 
-    public void InsertBlock(Block block, Network.Peer peer)
+    public void InsertBlock(Block block)
     {
       try
       {
-        block.AppendToBlockchain(Blockchain);
+        block.Header.AppendToHeader(Blockchain.HeaderTip);
 
-        InsertInDatabase(block, peer);
+        InsertInDatabase(block);
 
         Blockchain.AppendHeader(block.Header);
 
@@ -294,9 +296,7 @@ namespace BTokenLib
     public virtual List<byte[]> ParseHashesDB(byte[] buffer)
     { throw new NotImplementedException(); }
 
-    protected abstract void InsertInDatabase(
-      Block block, 
-      Network.Peer peer);
+    protected abstract void InsertInDatabase(Block block);
 
     public abstract Header ParseHeader(
       byte[] buffer,

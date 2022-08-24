@@ -34,6 +34,7 @@ namespace BTokenLib
       Buffer = new byte[sizeBuffer];
     }
 
+
     public void Parse()
     {
       Parse(0);
@@ -45,7 +46,7 @@ namespace BTokenLib
 
       ParseTXs(Header.MerkleRoot, ref index);
 
-      Header.CountBlockBytes = index;
+      Header.CountBytesBlock = index;
     }
 
     public abstract Header ParseHeader(
@@ -170,19 +171,6 @@ namespace BTokenLib
     public void Clear()
     {
       TXs.Clear();
-    }
-
-    public void AppendToBlockchain(Blockchain blockchain)
-    {
-      Header.AppendToHeader(blockchain.HeaderTip);
-      ComputeFee();
-    }
-
-    protected virtual void ComputeFee()
-    {
-      TXs[0].TXOutputs.ForEach(o => Fee += o.Value);
-
-      FeePerByte = Fee / Header.CountBlockBytes;
     }
   }
 }

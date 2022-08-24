@@ -124,7 +124,7 @@ namespace BTokenCore
 
       public void WriteRecordDBAccount(RecordDBAccounts account)
       {
-        Seek(0, SeekOrigin.End);
+        Seek(Position, SeekOrigin.End);
 
         Write(account.IDAccount);
         Write(BitConverter.GetBytes(account.CountdownToReplay));
@@ -135,9 +135,9 @@ namespace BTokenCore
         FlagHashOutdated = true;
       }
 
-      public void TryDefragment()
+      public void Defragment()
       {
-        if(CountRecords / CountRecordsNullyfied <= TresholdRatioDefragmentation)
+        if(CountRecords / CountRecordsNullyfied < TresholdRatioDefragmentation)
         {
           Position = 0;
           byte[] bytesFileDB = new byte[Length];

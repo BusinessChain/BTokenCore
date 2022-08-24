@@ -21,8 +21,8 @@ namespace BTokenCore
     int IndexCache;
 
     const string PathRootDB = "FilesDB";
-    const int COUNT_FILES_DB = 1 << 12;
-    FileDB[] FilesDB;
+    const int COUNT_FILES_DB = byte.MaxValue + 1; // file index will be idAccount[0]
+    List<FileDB> FilesDB = new();
     byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
 
     const int LENGTH_RECORD_DB = 44;
@@ -40,10 +40,8 @@ namespace BTokenCore
 
       Directory.CreateDirectory(PathRootDB);
 
-      FilesDB = new FileDB[COUNT_FILES_DB];
-
       for (int i = 0; i < COUNT_FILES_DB; i += 1)
-        FilesDB[i] = new FileDB(Path.Combine(PathRootDB, i.ToString()));
+        FilesDB.Add(new FileDB(Path.Combine(PathRootDB, i.ToString())));
     }
 
     public void LoadImage(string path)
@@ -81,7 +79,8 @@ namespace BTokenCore
       Caches.ForEach(c => c.Clear());
     }
 
-    public void InsertBlock(Block block)
+
+    public void InsertBlock(BlockBToken block)
     {
       List<TX> tXs = block.TXs;
 
@@ -124,6 +123,8 @@ namespace BTokenCore
       long blockReward = BLOCK_REWARD_INITIAL >> 
         block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
 
+      block.SetFee(outputValueTXCoinbase - blockReward);
+
       if (blockReward + feeBlock != outputValueTXCoinbase)
         throw new ProtocolException(
           $"Output value of Coinbase TX {tXs[0].Hash.ToHexString()}\n" +
@@ -146,7 +147,10 @@ namespace BTokenCore
       for (int i = 0; i < COUNT_CACHES; i += 1)
       {
         Caches[i].UpdateHash();
-        Caches[i].Hash.CopyTo(HashesCaches, i << 5);
+
+        Caches[i].Hash.CopyTo(
+          HashesCaches, 
+          i * Caches[i].Hash.Length);
       }
 
       byte[] hashCaches = SHA256.ComputeHash(HashesCaches);
@@ -154,7 +158,10 @@ namespace BTokenCore
       for (int i = 0; i < COUNT_FILES_DB; i += 1)
       {
         FilesDB[i].UpdateHash();
-        FilesDB[i].Hash.CopyTo(HashesFilesDB, i << 5);
+
+        FilesDB[i].Hash.CopyTo(
+          HashesFilesDB, 
+          i * FilesDB[i].Hash.Length);
       }
 
       byte[] hashFilesDB = SHA256.ComputeHash(HashesFilesDB);
@@ -165,8 +172,7 @@ namespace BTokenCore
 
     FileDB GetFileDB(byte[] iDAccount)
     {
-      ushort keyFileDB = BitConverter.ToUInt16(iDAccount, 0);
-      return FilesDB[keyFileDB];
+      return FilesDB[iDAccount[0]];
     }
 
     public bool TryGetDB(
@@ -251,7 +257,7 @@ namespace BTokenCore
       if(Caches[IndexCache].Count > COUNT_MAX_CACHE)
       {
         for (int i = 0; i < COUNT_FILES_DB; i += 1)
-          FilesDB[i].TryDefragment();
+          FilesDB[i].Defragment();
 
         IndexCache = (IndexCache + COUNT_CACHES + 1) % COUNT_CACHES;
 
@@ -260,6 +266,16 @@ namespace BTokenCore
 
         Caches[IndexCache].Clear();
       }
+    }
+
+    public long GetCountBytes()
+    {
+      long countBytes = 0;
+
+      Caches.ForEach(c => countBytes += c.Count * LENGTH_RECORD_DB);
+      FilesDB.ForEach(f => countBytes += f.Length);
+
+      return countBytes;
     }
   }
 }

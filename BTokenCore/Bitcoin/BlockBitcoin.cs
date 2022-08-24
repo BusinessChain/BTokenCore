@@ -13,6 +13,9 @@ namespace BTokenCore
   {
     public const int COUNT_HEADER_BYTES = 80;
 
+    const long VALUE_REWARD_INITIAL_SATOSHI = 5000000000;
+    const int NUMBER_OF_BLOCKS_HALFING_CYCLE = 210000;
+
 
     public BlockBitcoin()
     {
@@ -136,18 +139,6 @@ namespace BTokenCore
         throw new ProtocolException(
           "ArgumentOutOfRangeException thrown in ParseTX.");
       }
-    }
-
-
-    const long VALUE_REWARD_INITIAL_SATOSHI = 5000000000;
-    const int NUMBER_OF_BLOCKS_HALFING_CYCLE = 210000;
-
-    protected override void ComputeFee()
-    {
-      Fee = -(VALUE_REWARD_INITIAL_SATOSHI >>
-        (Header.Height / NUMBER_OF_BLOCKS_HALFING_CYCLE));
-
-      base.ComputeFee();
     }
   }
 }

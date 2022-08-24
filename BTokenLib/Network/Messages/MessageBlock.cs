@@ -16,7 +16,7 @@ namespace BTokenLib
             "block",
             block.Buffer,
             block.Header.StartIndexBlockArchive,
-            block.Header.CountBlockBytes)
+            block.Header.CountBytesBlock)
       { }
     }
   }

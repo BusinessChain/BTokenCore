@@ -286,7 +286,7 @@ namespace BTokenLib
                   if (Block.Header.HashPrevious.IsEqual(
                     Token.Blockchain.HeaderTip.Hash))
                   {
-                    Token.InsertBlock(Block, this);
+                    Token.InsertBlock(Block);
 
                     $"Inserted unsolicited block {Block}."
                       .Log(this, LogFile);
@@ -333,7 +333,7 @@ namespace BTokenLib
 
                 Cancellation = new();
 
-                if (Network.InsertDB_FlagContinue(Payload, LengthDataPayload))
+                if (Network.InsertDB_FlagContinue(this))
                   await RequestDB();
                 else
                   Release();

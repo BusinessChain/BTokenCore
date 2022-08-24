@@ -85,7 +85,7 @@ namespace BTokenLib
         }
 
         IndexHeaders += 1;
-        CountBytes += block.Header.CountBlockBytes;
+        CountBytes += block.Header.CountBytesBlock;
 
         if (IsComplete())
         {

@@ -447,7 +447,7 @@ namespace BTokenLib
           {
             try
             {
-              Token.InsertBlock(block, peer);
+              Token.InsertBlock(block);
 
               block.Clear();
 
@@ -618,63 +618,30 @@ namespace BTokenLib
         await Task.Delay(1000).ConfigureAwait(false);
       }
 
-      // After database is downloaded
-
       Sync();
     }
 
-    bool InsertDB_FlagContinue(byte[] buffer, int lengthBuffer)
+    bool InsertDB_FlagContinue(Peer peer)
     {
-      lock (LOCK_HeightInsertion)
+      try
       {
-        if (peer.HeaderSync.Height > HeightInsertion)
-        {
-          QueueBlockInsertion.Add(
-            peer.HeaderSync.Height,
-            block);
+        Token.InsertDB(peer);
 
-          if (!PoolBlocks.TryTake(out peer.Block))
-            peer.Block = Token.CreateBlock();
-        }
-        else if (peer.HeaderSync.Height == HeightInsertion)
-        {
-          bool flagReturnBlockDownloadToPool = false;
+        block.Clear();
 
-          while (true)
-          {
-            try
-            {
-              Token.InsertBlock(block, peer);
+        $"Inserted block {Blockchain.HeaderTip.Height}, {block}."
+        .Log(LogFile);
+      }
+      catch (Exception ex)
+      {
+        $"Insertion of block {block} failed:\n {ex.Message}.".Log(LogFile);
 
-              block.Clear();
+        FlagSyncAbort = true;
 
-              $"Inserted block {Blockchain.HeaderTip.Height}, {block}."
-              .Log(LogFile);
-            }
-            catch (Exception ex)
-            {
-              $"Insertion of block {block} failed:\n {ex.Message}.".Log(LogFile);
-
-              FlagSyncAbort = true;
-
-              return false;
-            }
-
-            HeightInsertion += 1;
-
-            if (flagReturnBlockDownloadToPool)
-              PoolBlocks.Add(block);
-
-            if (!QueueBlockInsertion.TryGetValue(HeightInsertion, out block))
-              break;
-
-            QueueBlockInsertion.Remove(HeightInsertion);
-            flagReturnBlockDownloadToPool = true;
-          }
-        }
+        return false;
       }
 
-      return TryChargeHeader(peer);
+      return TryChargeHashDB(peer);
     }
 
     object LOCK_ChargeHashDB = new();

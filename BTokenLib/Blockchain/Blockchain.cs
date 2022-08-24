@@ -103,7 +103,7 @@ namespace BTokenLib
             bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
 
           byte[] bytesCountBlockBytes =
-            BitConverter.GetBytes(header.CountBlockBytes);
+            BitConverter.GetBytes(header.CountBytesBlock);
 
           fileImageHeaderchain.Write(
             bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
@@ -139,12 +139,17 @@ namespace BTokenLib
 
         index += 4;
 
-        header.CountBlockBytes = BitConverter.ToInt32(
+        header.CountBytesBlock = BitConverter.ToInt32(
           bytesHeaderImage, index);
 
         index += 4;
 
-        InsertHeader(header);
+        header.AppendToHeader(HeaderTip);
+
+        HeaderTip.HeaderNext = header;
+        HeaderTip = header;
+
+        IndexingHeaderTip();
       }
 
       if (HeaderTip.Height > heightMax)
@@ -205,15 +210,6 @@ namespace BTokenLib
         "Locator does not root in headerchain."));
     }
 
-    public void InsertHeader(Header header)
-    {
-      header.AppendToHeader(HeaderTip);      
-
-      HeaderTip.HeaderNext = header;
-      HeaderTip = header;
-
-      IndexingHeaderTip();
-    }
 
     public void AppendHeader(Header header)
     {

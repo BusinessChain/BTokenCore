@@ -32,8 +32,6 @@ namespace BTokenCore
 
     const UInt16 COMPORT_BTOKEN = 8777;
 
-    StreamWriter LogFile;
-
     string PathBlocksMinedUnconfirmed;
 
 
@@ -46,10 +44,6 @@ namespace BTokenCore
       tokenParent.AddTokenListening(this);
 
       DatabaseAccounts = new();
-
-      LogFile = new StreamWriter(
-        Path.Combine(GetName(), "LogToken"),
-        false);
 
       PathBlocksMinedUnconfirmed = Path.Combine(
         GetName(),
@@ -74,7 +68,6 @@ namespace BTokenCore
         unixTimeSeconds: 1231006505,
         nonce: 0);
 
-      header.Height = 0;
       header.DifficultyAccumulated = header.Difficulty;
 
       return header;
@@ -360,9 +353,7 @@ namespace BTokenCore
       throw new NotImplementedException();
     }
 
-    protected override void InsertInDatabase(
-      Block block,
-      Network.Peer peer)
+    protected override void InsertInDatabase(Block block)
     {
       $"Insert BToken block {block} in database.".Log(LogFile);
 
@@ -382,7 +373,7 @@ namespace BTokenCore
         throw new NotSynchronizedWithParentException();
       }
 
-      DatabaseAccounts.InsertBlock(block);
+      DatabaseAccounts.InsertBlock((BlockBToken)block);
 
       ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
 
