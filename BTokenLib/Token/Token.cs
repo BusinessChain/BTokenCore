@@ -315,5 +315,10 @@ namespace BTokenLib
       byte[] hash,
       out byte[] dataDB)
     { throw new NotImplementedException(); }
+
+    public virtual bool FlagDownloadDBWhenSync(HeaderDownload headerDownload)
+    {
+      return false;
+    }
   }
 }

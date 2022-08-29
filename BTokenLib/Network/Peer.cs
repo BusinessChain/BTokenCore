@@ -59,7 +59,8 @@ namespace BTokenLib
 
       public string Command;
 
-      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 40 * 1000 * 1000;
+      // Payload buffer does not accomodate Block data, which is read into the block buffer directly
+      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 1000000; 
       byte[] Payload = new byte[SIZE_MESSAGE_PAYLOAD_BUFFER];
       int LengthDataPayload;
 
@@ -217,40 +218,6 @@ namespace BTokenLib
         }
       }
 
-      async Task ReadMessage()
-      {
-        byte[] magicByte = new byte[1];
-
-        for (int i = 0; i < MagicBytes.Length; i++)
-        {
-          await ReadBytes(magicByte, 1);
-
-          if (MagicBytes[i] != magicByte[0])
-            i = magicByte[0] == MagicBytes[0] ? 0 : -1;
-        }
-
-        await ReadBytes(
-          MeassageHeader,
-          MeassageHeader.Length);
-
-        LengthDataPayload = BitConverter.ToInt32(
-          MeassageHeader,
-          CommandSize);
-
-        if (LengthDataPayload > SIZE_MESSAGE_PAYLOAD_BUFFER)
-          throw new ProtocolException(
-            $"Message payload too big exceeding " +
-            $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
-
-        Command = Encoding.ASCII.GetString(
-          MeassageHeader.Take(CommandSize)
-          .ToArray()).TrimEnd('\0');
-
-        if (Command == "block")
-          await ReadBytes(Block.Buffer, LengthDataPayload);
-        else
-          await ReadBytes(Payload, LengthDataPayload);
-      }
 
       internal Header HeaderDuplicateReceivedLast;
       internal int CountOrphanReceived;
@@ -264,10 +231,37 @@ namespace BTokenLib
             if (FlagDispose)
               return;
 
-            await ReadMessage();
+            byte[] magicByte = new byte[1];
+
+            for (int i = 0; i < MagicBytes.Length; i++)
+            {
+              await ReadBytes(magicByte, 1);
+
+              if (MagicBytes[i] != magicByte[0])
+                i = magicByte[0] == MagicBytes[0] ? 0 : -1;
+            }
+
+            await ReadBytes(
+              MeassageHeader,
+              MeassageHeader.Length);
+
+            LengthDataPayload = BitConverter.ToInt32(
+              MeassageHeader,
+              CommandSize);
+
+            if (LengthDataPayload > SIZE_MESSAGE_PAYLOAD_BUFFER)
+              throw new ProtocolException(
+                $"Message payload too big exceeding " +
+                $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
+
+            Command = Encoding.ASCII.GetString(
+              MeassageHeader.Take(CommandSize)
+              .ToArray()).TrimEnd('\0');
 
             if (Command == "block")
             {
+              await ReadBytes(Block.Buffer, LengthDataPayload);
+
               Block.Parse();
 
               $"Peer received block {Block}".Log(this, LogFile);
@@ -322,9 +316,11 @@ namespace BTokenLib
             }
             else if(Command == "dataDB")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               if (IsStateDBDownload())
               {
-                byte[] hashDataDB = new byte[32]; // = SHA256(Payload, LengthDataPayload); 
+                byte[] hashDataDB = SHA256(Payload, LengthDataPayload); 
 
                 if (!hashDataDB.IsEqual(HashDBSync))
                   throw new ProtocolException(
@@ -341,11 +337,14 @@ namespace BTokenLib
             }
             else if (Command == "ping")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               await SendMessage(new PongMessage(
                 BitConverter.ToUInt64(Payload, 0)));
             }
             else if (Command == "addr")
             {
+              await ReadBytes(Payload, LengthDataPayload);
               AddressMessage addressMessage = new(Payload);
             }
             else if (Command == "sendheaders")
@@ -354,11 +353,15 @@ namespace BTokenLib
             }
             else if (Command == "feefilter")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               FeeFilterMessage feeFilterMessage = new(Payload);
               FeeFilterValue = feeFilterMessage.FeeFilterValue;
             }
             else if (Command == "headers")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               int byteIndex = 0;
 
               int countHeaders = VarInt.GetInt32(
@@ -368,15 +371,9 @@ namespace BTokenLib
               $"{this}: Receiving {countHeaders} headers."
                 .Log(LogFile);
 
-              if (IsStateGetHeaders())
+              if (IsStateHeaderDownload())
               {
-                if (countHeaders == 0)
-                {
-                  Cancellation = new();
-
-                  Network.Sync();
-                }
-                else
+                if (countHeaders > 0)
                 {
                   try
                   {
@@ -408,6 +405,12 @@ namespace BTokenLib
 
                   Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
                 }
+                else
+                {
+                  Cancellation = new();
+
+                  Network.Sync(this);
+                }
               }
               else
               {
@@ -426,13 +429,15 @@ namespace BTokenLib
             }
             else if (Command == "getheaders")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               byte[] hashHeaderAncestor = new byte[32];
 
               int startIndex = 4;
 
               int headersCount = VarInt.GetInt32(Payload, ref startIndex);
 
-              $"Received getHeaders with {headersCount} headers."
+              $"Received getHeaders with {headersCount} locator hashes."
                 .Log(this, LogFile);
 
               int i = 0;
@@ -473,7 +478,8 @@ namespace BTokenLib
                 }
                 else if (i == headersCount)
                 {
-                  $"Found no common ancestor in getheaders locator... Schedule synchronization ".Log(LogFile);
+                  ($"Found no common ancestor in getheaders locator... " +
+                    $"Schedule synchronization ").Log(LogFile);
 
                   await SendHeaders(headers);
 
@@ -483,8 +489,7 @@ namespace BTokenLib
             }
             else if (Command == "hashesDB")
             {
-              // get DBHashes after the last header has been received
-              // wird vom Peer automatisch anstelle headers bei der count == 0 wäre.
+              await ReadBytes(Payload, LengthDataPayload);
 
               $"{this}: Receiving DB hashes.".Log(LogFile);
 
@@ -496,6 +501,8 @@ namespace BTokenLib
             }
             else if (Command == "notfound")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               "Received meassage notfound.".Log(this, LogFile);
 
               if (IsStateBlockDownload())
@@ -512,11 +519,15 @@ namespace BTokenLib
             }
             else if (Command == "inv")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               InvMessage invMessage = new(Payload);
               GetDataMessage getDataMessage = new(invMessage.Inventories);
             }
             else if (Command == "getdata")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               GetDataMessage getDataMessage = new(Payload);
 
               foreach (Inventory inventory in getDataMessage.Inventories)
@@ -548,6 +559,8 @@ namespace BTokenLib
             }
             else if (Command == "reject")
             {
+              await ReadBytes(Payload, LengthDataPayload);
+
               RejectMessage rejectMessage = new(Payload);
 
               $"Peer {this} gets reject message: {rejectMessage.GetReasonReject()}"
@@ -652,7 +665,8 @@ namespace BTokenLib
 
         Release();
       }
-                            
+                      
+      
       public async Task GetHeaders()
       {
         HeaderDownload = Token.CreateHeaderDownload();
@@ -802,7 +816,7 @@ namespace BTokenLib
           State = StateProtocol.HeaderDownload;
       }
 
-      bool IsStateGetHeaders()
+      bool IsStateHeaderDownload()
       {
         lock (this)
           return State == StateProtocol.HeaderDownload;

@@ -13,12 +13,7 @@ namespace BTokenCore
 {
   partial class TokenBToken : Token
   {
-    DatabaseAccounts DatabaseAccounts;
-
     const int SIZE_BUFFER_BLOCK = 0x400000;
-
-    List<byte[]> TrailHashesAnchor = new();
-    int IndexTrail;
 
     const int LENGTH_DATA_ANCHOR_TOKEN = 66;
     const int LENGTH_DATA_P2PKH_INPUT = 180;
@@ -33,6 +28,13 @@ namespace BTokenCore
     const UInt16 COMPORT_BTOKEN = 8777;
 
     string PathBlocksMinedUnconfirmed;
+
+    DatabaseAccounts DatabaseAccounts;
+
+    List<byte[]> TrailHashesAnchor = new();
+    int IndexTrail;
+
+
 
 
     public TokenBToken(Token tokenParent) 
@@ -551,5 +553,17 @@ namespace BTokenCore
       };
     }
 
+
+    const int COUNT_BLOCKS_DOWNLOAD_DEPTH_MAX = 1000;
+
+    public override bool FlagDownloadDBWhenSync(HeaderDownload h)
+    {
+      return
+        DatabaseAccounts.GetCountBytes() < 
+        h.HeaderTip.CountBytesBlocksAccumulated - h.HeaderRoot.CountBytesBlocksAccumulated
+        ||
+        COUNT_BLOCKS_DOWNLOAD_DEPTH_MAX < 
+        h.HeaderTip.Height - h.HeaderRoot.Height;
+    }
   }
 }
