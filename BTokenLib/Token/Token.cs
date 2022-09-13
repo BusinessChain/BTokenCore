@@ -12,7 +12,6 @@ namespace BTokenLib
   public abstract partial class Token
   {
     public Token TokenParent;
-    public List<Token> TokenChilds = new();
 
     public Blockchain Blockchain;
 
@@ -276,6 +275,13 @@ namespace BTokenLib
       }
     }
 
+    public virtual void InsertDB(
+      byte[] bufferDB,
+      int lengthDataInBuffer)
+    { throw new NotImplementedException(); }
+
+    public virtual void DeleteDB()
+    { throw new NotImplementedException(); }
 
     protected List<Token> TokenListening = new();
 
@@ -293,7 +299,10 @@ namespace BTokenLib
     public virtual void RevokeBlockInsertion()
     { throw new NotImplementedException(); }
 
-    public virtual List<byte[]> ParseHashesDB(byte[] buffer)
+    public virtual List<byte[]> ParseHashesDB(
+      byte[] buffer,
+      int length,
+      Header headerTip)
     { throw new NotImplementedException(); }
 
     protected abstract void InsertInDatabase(Block block);

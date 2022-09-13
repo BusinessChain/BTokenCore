@@ -37,7 +37,7 @@ namespace BTokenCore
 
 
 
-    public TokenBToken(Token tokenParent) 
+    public TokenBToken(Token tokenParent)
       : base(
           COMPORT_BTOKEN,
           flagEnableInboundConnections: true)
@@ -348,11 +348,35 @@ namespace BTokenCore
       return tokenAnchorWinner;
     }
 
-    public override List<byte[]> ParseHashesDB(byte[] buffer)
-    { 
-      // Validate hashes with database hash in header
+    public override List<byte[]> ParseHashesDB(
+      byte[] buffer,
+      int length,
+      Header headerTip)
+    {
+      SHA256 sHA256 = SHA256.Create();
 
-      throw new NotImplementedException();
+      byte[] hashRootHashesDB = sHA256.ComputeHash(
+        buffer,
+        0,
+        length);
+
+      if (!((HeaderBToken)headerTip).HashDatabase.IsEqual(hashRootHashesDB))
+        throw new ProtocolException(
+          $"Root hash of hashesDB not equal to database hash in header tip");
+
+      List<byte[]> hashesDB = new();
+
+      for (
+        int i = 0;
+        i < DatabaseAccounts.COUNT_CACHES + DatabaseAccounts.COUNT_FILES_DB;
+        i += 32)
+      {
+        byte[] hashDB = new byte[32];
+        Array.Copy(buffer, i, hashDB, 0, 32);
+        hashesDB.Add(hashDB);
+      }
+
+      return hashesDB;
     }
 
     protected override void InsertInDatabase(Block block)
@@ -380,6 +404,19 @@ namespace BTokenCore
       ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
 
       RBFAnchorTokens();
+    }
+
+
+    public override void InsertDB(
+      byte[] bufferDB,
+      int lengthDataInBuffer)
+    {
+      DatabaseAccounts.InsertDB(bufferDB, lengthDataInBuffer);
+    }
+
+    public override void DeleteDB()
+    { 
+      DatabaseAccounts.Delete(); 
     }
 
     void RBFAnchorTokens()
@@ -517,7 +554,7 @@ namespace BTokenCore
     public override void Reset()
     {
       base.Reset();
-      DatabaseAccounts.Reset();
+      DatabaseAccounts.ClearCache();
       TrailHashesAnchor.Clear();
       IndexTrail = 0;
     }

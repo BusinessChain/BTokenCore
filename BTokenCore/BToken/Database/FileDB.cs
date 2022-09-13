@@ -11,7 +11,7 @@ namespace BTokenCore
   partial class DatabaseAccounts
   {
     class FileDB : FileStream
-    {
+    { 
       int TresholdRatioDefragmentation = 10;
       int CountRecords;
       int CountRecordsNullyfied;
@@ -46,7 +46,7 @@ namespace BTokenCore
               byte[] value = new byte[8];
               Read(value);
 
-              RecordDBAccounts account = new()
+              RecordDB account = new()
               {
                 IDAccount = iDAccount,
                 CountdownToReplay = BitConverter.ToUInt32(value),
@@ -83,7 +83,7 @@ namespace BTokenCore
 
       public bool TryFetchAccount(
         byte[] iDAccount,
-        out RecordDBAccounts account)
+        out RecordDB account)
       {
         Position = 0;
 
@@ -122,7 +122,7 @@ namespace BTokenCore
         return false;
       }
 
-      public void WriteRecordDBAccount(RecordDBAccounts account)
+      public void WriteRecordDBAccount(RecordDB account)
       {
         Seek(Position, SeekOrigin.End);
 

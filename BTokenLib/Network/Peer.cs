@@ -34,13 +34,14 @@ namespace BTokenLib
       }
       public StateProtocol State;
 
-      internal Header HeaderSync;
-      internal Block Block;
+      public Header HeaderSync;
+      public Block Block;
 
-      internal byte[] HashDBSync;
+      public byte[] HashDBDownload;
+      public List<byte[]> HashesDB;
 
-      internal HeaderDownload HeaderDownload;
-      internal Header HeaderUnsolicited;
+      public HeaderDownload HeaderDownload;
+      public Header HeaderUnsolicited;
 
       ulong FeeFilterValue;
 
@@ -59,10 +60,9 @@ namespace BTokenLib
 
       public string Command;
 
-      // Payload buffer does not accomodate Block data, which is read into the block buffer directly
-      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 1000000; 
-      byte[] Payload = new byte[SIZE_MESSAGE_PAYLOAD_BUFFER];
-      int LengthDataPayload;
+      const int SIZE_MESSAGE_PAYLOAD_BUFFER = 1 << 24; // 16 MB
+      public byte[] Payload = new byte[SIZE_MESSAGE_PAYLOAD_BUFFER];
+      public int LengthDataPayload;
 
       const int HeaderSize = CommandSize + LengthSize + ChecksumSize;
       byte[] MeassageHeader = new byte[HeaderSize];
@@ -73,7 +73,6 @@ namespace BTokenLib
       StreamWriter LogFile;
 
       DateTime TimePeerCreation = DateTime.Now;
-
 
 
 
@@ -320,12 +319,15 @@ namespace BTokenLib
 
               if (IsStateDBDownload())
               {
-                byte[] hashDataDB = SHA256(Payload, LengthDataPayload); 
+                byte[] hashDataDB = SHA256.ComputeHash(
+                  Payload, 
+                  0, 
+                  LengthDataPayload); 
 
-                if (!hashDataDB.IsEqual(HashDBSync))
+                if (!hashDataDB.IsEqual(HashDBDownload))
                   throw new ProtocolException(
                     $"Unexpected dataDB with hash {hashDataDB.ToHexString()}.\n" +
-                    $"Excpected hash {HashDBSync.ToHexString()}.");
+                    $"Excpected hash {HashDBDownload.ToHexString()}.");
 
                 Cancellation = new();
 
@@ -409,7 +411,14 @@ namespace BTokenLib
                 {
                   Cancellation = new();
 
-                  Network.Sync(this);
+                  if (Token.FlagDownloadDBWhenSync(HeaderDownload))
+                  {
+                    await SendMessage(new GetHashesDBMessage());
+
+                    Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+                  }
+                  else
+                    Network.SyncBlocks(this);
                 }
               }
               else
@@ -493,11 +502,14 @@ namespace BTokenLib
 
               $"{this}: Receiving DB hashes.".Log(LogFile);
 
-              List<byte[]> hashesDB = Token.ParseHashesDB(Payload);
+              HashesDB = Token.ParseHashesDB(
+                Payload,
+                LengthDataPayload, 
+                HeaderDownload.HeaderTip);
 
               Cancellation = new();
 
-              Network.SyncDB(hashesDB);
+              Network.SyncDB(this);
             }
             else if (Command == "notfound")
             {
@@ -506,16 +518,7 @@ namespace BTokenLib
               "Received meassage notfound.".Log(this, LogFile);
 
               if (IsStateBlockDownload())
-              {
                 Network.ReturnPeerBlockDownloadIncomplete(this);
-
-                lock (this)
-                  State = StateProtocol.IDLE;
-
-                if (this == Network.PeerSync)
-                  throw new ProtocolException(
-                    $"Peer has sent headers but does not deliver blocks.");
-              }
             }
             else if (Command == "inv")
             {
@@ -575,7 +578,7 @@ namespace BTokenLib
           else if (IsStateBlockDownload())
             Network.ReturnPeerBlockDownloadIncomplete(this);
           else if (IsStateDBDownload())
-            Network.ReturnPeerDBDownloadIncomplete(HashDBSync);
+            Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
 
           SetFlagDisposed(
             $"{ex.GetType().Name} in listener: \n{ex.Message}");
@@ -685,13 +688,13 @@ namespace BTokenLib
 
       public async Task RequestDB()
       {
-        $"Peer starts downloading DB {HashDBSync.ToHexString()}."
+        $"Peer starts downloading DB {HashDBDownload.ToHexString()}."
           .Log(this, LogFile);
 
         lock (this)
         {
           if (FlagDispose)
-            Network.ReturnPeerDBDownloadIncomplete(HashDBSync);
+            Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
 
           State = StateProtocol.DBDownload;
         }
@@ -705,7 +708,7 @@ namespace BTokenLib
             {
               new Inventory(
                 InventoryType.MSG_DB,
-                HashDBSync)
+                HashDBDownload)
             }));
         }
         catch (Exception ex)
@@ -713,7 +716,7 @@ namespace BTokenLib
           SetFlagDisposed(
             $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
 
-          Network.ReturnPeerDBDownloadIncomplete(HashDBSync);
+          Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
           return;
         }
       }

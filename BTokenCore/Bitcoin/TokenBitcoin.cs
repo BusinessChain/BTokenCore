@@ -167,8 +167,7 @@ namespace BTokenCore
 
     public override Block CreateBlock()
     {
-      return new BlockBitcoin(
-        SIZE_BUFFER_BLOCK);
+      return new BlockBitcoin(SIZE_BUFFER_BLOCK);
     }
 
     public override bool TryRequestTX(

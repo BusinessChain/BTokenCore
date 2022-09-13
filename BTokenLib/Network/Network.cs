@@ -300,7 +300,7 @@ namespace BTokenLib
 
         try
         {
-          await peer.GetHeaders(); // geht hier await Sync(peer) ?
+          await peer.GetHeaders();
         }
         catch (Exception ex)
         {
@@ -314,7 +314,6 @@ namespace BTokenLib
 
     bool FlagSyncAbort;
     int HeightInsertion;
-    int HeightInsertionOld;
     object LOCK_HeightInsertion = new();
     const int CAPACITY_MAX_QueueBlocksInsertion = 20;
     Dictionary<int, Block> QueueBlockInsertion = new();
@@ -325,17 +324,34 @@ namespace BTokenLib
     bool FlagSyncDBAbort;
     List<byte[]> HashesDB;
 
-    async Task Sync(Peer peer)
+    async Task SyncBlocks(Peer peer)
     {
       Peer peerSync = peer;
 
-      if (Token.FlagDownloadDBWhenSync(peerSync.HeaderDownload))
+      double difficultyOld = 0.0;
+      HeaderDownload headerDownload = peerSync.HeaderDownload;
+
+      if (
+        headerDownload.HeaderTip != null &&
+        headerDownload.HeaderTip.DifficultyAccumulated >
+        Blockchain.HeaderTip.DifficultyAccumulated)
       {
-        HashesDB = peer.HashesDB;
+        if (headerDownload.HeaderAncestor != Blockchain.HeaderTip)
+        {
+          difficultyOld = Blockchain.HeaderTip.Difficulty;
+          Token.LoadImage(headerDownload.HeaderAncestor.Height);
+        }
+
+        FlagSyncAbort = false;
+        QueueBlockInsertion.Clear();
+        QueueDownloadsIncomplete.Clear();
+
+        HeaderRoot = headerDownload.HeaderRoot;
+        HeightInsertion = HeaderRoot.Height;
 
         while (true)
         {
-          if (FlagSyncDBAbort)
+          if (FlagSyncAbort)
           {
             $"Synchronization with {peerSync} was abort.".Log(LogFile);
             Token.LoadImage();
@@ -361,14 +377,23 @@ namespace BTokenLib
           }
 
           if (peer != null)
-            if (TryChargeHashDB(peer))
-              await peer.RequestDB();
+            if (TryChargeHeader(peer))
+              await peer.RequestBlock();
             else
             {
               peer.Release();
 
               if (Peers.All(p => !p.IsStateBlockDownload()))
+              {
+                if (
+                  difficultyOld > 0 &&
+                  Blockchain.HeaderTip.Difficulty > difficultyOld)
+                {
+                  Token.Reorganize();
+                }
+
                 break;
+              }
             }
 
           TryGetPeer(out peer);
@@ -377,100 +402,12 @@ namespace BTokenLib
         }
       }
       else
-      {
-        double difficultyOld = 0.0;
-        HeaderDownload headerDownload = peerSync.HeaderDownload;
-
-        if (
-          headerDownload.HeaderTip != null &&
-          headerDownload.HeaderTip.DifficultyAccumulated >
-          Blockchain.HeaderTip.DifficultyAccumulated)
-        {
-          if (headerDownload.HeaderAncestor != Blockchain.HeaderTip)
-          {
-            difficultyOld = Blockchain.HeaderTip.Difficulty;
-            Token.LoadImage(headerDownload.HeaderAncestor.Height);
-          }
-
-          FlagSyncAbort = false;
-          QueueBlockInsertion.Clear();
-          QueueDownloadsIncomplete.Clear();
-
-          HeaderRoot = headerDownload.HeaderRoot;
-          HeightInsertion = HeaderRoot.Height;
-
-          while (true)
-          {
-            if (FlagSyncAbort)
-            {
-              $"Synchronization with {peerSync} was abort.".Log(LogFile);
-              Token.LoadImage();
-
-              lock (LOCK_Peers)
-                Peers
-                  .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
-                  .ForEach(p => p.Release());
-
-              while (true)
-              {
-                lock (LOCK_Peers)
-                  if (!Peers.Any(p => p.IsBusy))
-                    break;
-
-                "Waiting for all peers to exit state 'synchronization busy'."
-                  .Log(LogFile);
-
-                await Task.Delay(1000).ConfigureAwait(false);
-              }
-
-              break;
-            }
-
-            if (peer != null)
-              if (TryChargeHeader(peer))
-                await peer.RequestBlock();
-              else
-              {
-                peer.Release();
-
-                if (Peers.All(p => !p.IsStateBlockDownload()))
-                {
-                  if (
-                    difficultyOld > 0 &&
-                    Blockchain.HeaderTip.Difficulty > difficultyOld)
-                  {
-                    Token.Reorganize();
-                  }
-
-                  break;
-                }
-              }
-
-            TryGetPeer(out peer);
-
-            await Task.Delay(1000).ConfigureAwait(false);
-          }
-        }
-        else
-          peerSync.SendHeaders(
-            new List<Header>() { Blockchain.HeaderTip });
-      }
+        peerSync.SendHeaders(
+          new List<Header>() { Blockchain.HeaderTip });
 
 
       $"Synchronization with {peerSync} of {Token.GetName()} completed."
         .Log(LogFile);
-
-      //if (HeightInsertion == HeightInsertionOld)
-      //{
-      //  if(Token.TokenParent != null)
-      //    Token.GetParentRoot().Network.ScheduleSynchronization();
-      //}
-      //else if (Token.TokenChilds.Any())
-      //  Token.TokenChilds.ForEach(t => t.Network.ScheduleSynchronization());
-      //else if (Token.TokenParent != null)
-      //  Token.GetParentRoot().Network.ScheduleSynchronization();
-
-      //HeightInsertionOld = HeightInsertion;
 
       peerSync.Release();
       Token.ReleaseLock();
@@ -619,20 +556,71 @@ namespace BTokenLib
             peer.HeaderSync);
     }
 
+    async Task SyncDB(Peer peer)
+    {
+      Peer peerSync = peer;
+      HashesDB = peerSync.HashesDB;
+
+      Token.DeleteDB();
+
+      while (true)
+      {
+        if (FlagSyncDBAbort)
+        {
+          $"Synchronization with {peerSync} was abort.".Log(LogFile);
+
+          Token.LoadImage();
+
+          lock (LOCK_Peers)
+            Peers
+              .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
+              .ForEach(p => p.Release());
+
+          while (true)
+          {
+            lock (LOCK_Peers)
+              if (!Peers.Any(p => p.IsBusy))
+                break;
+
+            "Waiting for all peers to exit state 'synchronization busy'."
+              .Log(LogFile);
+
+            await Task.Delay(1000).ConfigureAwait(false);
+          }
+
+          break;
+        }
+
+        if (peer != null)
+          if (TryChargeHashDB(peer))
+            await peer.RequestDB();
+          else
+          {
+            peer.Release();
+
+            if (Peers.All(p => !p.IsStateBlockDownload()))
+              break;
+          }
+
+        TryGetPeer(out peer);
+
+        await Task.Delay(1000).ConfigureAwait(false);
+      }
+    }
+
     bool InsertDB_FlagContinue(Peer peer)
     {
       try
       {
-        Token.InsertDB(peer);
+        Token.InsertDB(peer.Payload, peer.LengthDataPayload);
 
-        block.Clear();
-
-        $"Inserted block {Blockchain.HeaderTip.Height}, {block}."
+        $"Inserted DB {peer.HashDBDownload.ToHexString()} from {peer}."
         .Log(LogFile);
       }
       catch (Exception ex)
       {
-        $"Insertion of block {block} failed:\n {ex.Message}.".Log(LogFile);
+        ($"Insertion of DB {peer.HashDBDownload.ToHexString()} failed:\n " +
+          $"{ex.Message}.").Log(LogFile);
 
         FlagSyncAbort = true;
 
@@ -651,7 +639,7 @@ namespace BTokenLib
       {
         if (QueueHashesDBDownloadIncomplete.Any())
         {
-          peer.HashDBSync = QueueHashesDBDownloadIncomplete[0];
+          peer.HashDBDownload = QueueHashesDBDownloadIncomplete[0];
           QueueHashesDBDownloadIncomplete.RemoveAt(0);
 
           return true;
@@ -659,7 +647,7 @@ namespace BTokenLib
 
         if (HashesDB.Any())
         {
-          peer.HashDBSync = HashesDB[0];
+          peer.HashDBDownload = HashesDB[0];
           HashesDB.RemoveAt(0);
 
           return true;

@@ -28,8 +28,7 @@ namespace BTokenLib
     public Block()
     { }
 
-    public Block(
-      int sizeBuffer)
+    public Block(int sizeBuffer)
     {
       Buffer = new byte[sizeBuffer];
     }
@@ -52,7 +51,6 @@ namespace BTokenLib
     public abstract Header ParseHeader(
       byte[] buffer,
       ref int index);
-
 
     void ParseTXs(
       byte[] hashMerkleRoot,

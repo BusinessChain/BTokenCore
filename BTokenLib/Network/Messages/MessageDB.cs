@@ -13,10 +13,8 @@ namespace BTokenLib
     {
       public MessageDB(byte[] dataDB)
         : base(
-            "db",
-            block.Buffer,
-            block.Header.StartIndexBlockArchive,
-            block.Header.CountBlockBytes)
+            "dataDB",
+            dataDB)
       { }
     }
   }
