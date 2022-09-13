@@ -240,11 +240,12 @@ namespace BTokenCore
       for (int i = 0; i < HashesCaches.Length; i += 1)
         if (hash.IsEqual(HashesCaches, i * 32))
         {
-          Caches[i].
-          dataDB = new byte[FilesDB[i].Length];
-          FilesDB[i].Write(dataDB, 0, dataDB.Length);
+          dataDB = Caches[i].GetBytes();
           return true;
         }
+
+      dataDB = null;
+      return false;
     }
 
     // Validate signature

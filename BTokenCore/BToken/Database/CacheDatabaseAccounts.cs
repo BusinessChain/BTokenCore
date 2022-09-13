@@ -50,6 +50,26 @@ namespace BTokenCore
             file.Write(BitConverter.GetBytes(record.Value));
           }
       }
+    
+      public byte[] GetBytes()
+      {
+        byte[] dataDB = new byte[LENGTH_RECORD_DB * Count];
+        int index = 0;
+
+        foreach(RecordDB recordDB in Values)
+        {
+          BitConverter.GetBytes(recordDB.CountdownToReplay).CopyTo(dataDB, index);
+          index += 4;
+
+          BitConverter.GetBytes(recordDB.Value).CopyTo(dataDB, index);
+          index += 8;
+
+          recordDB.IDAccount.CopyTo(dataDB, index);
+          index += 32;
+        }
+
+        return dataDB;
+      }
     }
   }
 }
