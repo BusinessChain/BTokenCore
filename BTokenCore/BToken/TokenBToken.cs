@@ -586,7 +586,7 @@ namespace BTokenCore
     {
       return new List<string>()
       {
-        "84.75.2.239", "83.229.86.158"
+        //"84.75.2.239", "83.229.86.158"
       };
     }
 
@@ -596,11 +596,13 @@ namespace BTokenCore
     public override bool FlagDownloadDBWhenSync(HeaderDownload h)
     {
       return
-        DatabaseAccounts.GetCountBytes() < 
+        h.HeaderTip != null
+        &&
+        (DatabaseAccounts.GetCountBytes() <
         h.HeaderTip.CountBytesBlocksAccumulated - h.HeaderRoot.CountBytesBlocksAccumulated
         ||
-        COUNT_BLOCKS_DOWNLOAD_DEPTH_MAX < 
-        h.HeaderTip.Height - h.HeaderRoot.Height;
+        COUNT_BLOCKS_DOWNLOAD_DEPTH_MAX <
+        h.HeaderTip.Height - h.HeaderRoot.Height);
     }
   }
 }

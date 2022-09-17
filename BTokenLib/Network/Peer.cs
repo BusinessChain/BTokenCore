@@ -414,7 +414,6 @@ namespace BTokenLib
                   if (Token.FlagDownloadDBWhenSync(HeaderDownload))
                   {
                     await SendMessage(new GetHashesDBMessage());
-
                     Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
                   }
                   else

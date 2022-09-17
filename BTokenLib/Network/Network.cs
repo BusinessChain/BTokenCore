@@ -18,7 +18,7 @@ namespace BTokenLib
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 3000;
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;
-    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
+    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 60;
 
     public bool EnableInboundConnections;
 
