@@ -85,8 +85,8 @@ namespace BTokenLib
 
     public void Start()
     {
-      //if (TokenParent != null)
-      //  TokenParent.Start();
+      if (TokenParent != null)
+        TokenParent.Start();
 
       LoadImage();
       Network.Start();
@@ -258,7 +258,7 @@ namespace BTokenLib
           ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
           ORDER_AVERAGEING_FEEPERBYTE;
 
-        Archiver.ArchiveBlock(block);
+        // Archiver.ArchiveBlock(block);
 
         if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
           CreateImage();

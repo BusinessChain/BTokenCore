@@ -113,9 +113,9 @@ namespace BTokenLib
 
       void CreateLogFile(string name)
       {
-        string pathLogFile = Path.Combine(Network.DirectoryLogPeers.FullName, name);
+        string pathLogFile = Path.Combine(Network.DirectoryPeersActive.FullName, name);
         string pathLogFileDisposed = Path.Combine(
-          Network.DirectoryLogPeersDisposed.FullName, 
+          Network.DirectoryPeersDisposed.FullName, 
           name);
 
         if (File.Exists(pathLogFileDisposed))
@@ -348,6 +348,9 @@ namespace BTokenLib
             {
               await ReadBytes(Payload, LengthDataPayload);
               AddressMessage addressMessage = new(Payload);
+
+              Network.AddNetworkAddressesAdvertized(
+                addressMessage.NetworkAddresses);
             }
             else if (Command == "sendheaders")
             {
@@ -861,12 +864,8 @@ namespace BTokenLib
           FlagDispose = true;
       }
 
-      public void Dispose()
-      {
-        Dispose(flagBanPeer: true);
-      }
 
-      public void Dispose(bool flagBanPeer)
+      public void Dispose()
       {
         $"Dispose {Connection}".Log(this, LogFile);
 
@@ -874,20 +873,19 @@ namespace BTokenLib
 
         LogFile.Dispose();
 
-        if (flagBanPeer)
-          File.Move(
-            Path.Combine(Network.DirectoryLogPeers.FullName, IPAddress.ToString()),
-            Path.Combine(Network.DirectoryLogPeersDisposed.FullName, IPAddress.ToString()));
+        File.Move(
+          Path.Combine(Network.DirectoryPeersActive.FullName, IPAddress.ToString()),
+          Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));
       }
 
       public string GetStatus()
       {
-        int lifeTime = (DateTime.Now - TimePeerCreation).Seconds;
+        int lifeTime = (int)(DateTime.Now - TimePeerCreation).TotalMinutes;
         
         lock (this)
           return
             $"\n Status peer {this}:\n" +
-            $"lifeTime: {lifeTime}\n" +
+            $"lifeTime minutes: {lifeTime}\n" +
             $"IsBusy: {IsBusy}\n" +
             $"State: {State}\n" +
             $"FlagDispose: {FlagDispose}\n" +

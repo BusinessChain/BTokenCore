@@ -24,9 +24,14 @@ namespace BTokenLib
 
         for (int i = 0; i < addressesCount; i++)
         {
-          NetworkAddresses.Add(
-            NetworkAddress.ParseAddress(
-              Payload, ref startIndex));
+          NetworkAddress address = NetworkAddress.ParseAddress(
+              Payload, ref startIndex);
+
+          if (NetworkAddresses.Any(
+            a => a.IPAddress.ToString() == address.IPAddress.ToString()))
+            throw new ProtocolException("Duplicate network address advertized.");
+
+          NetworkAddresses.Add(address);
         }
       }
     }

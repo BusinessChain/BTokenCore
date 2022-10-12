@@ -16,9 +16,9 @@ namespace BTokenLib
     Token Token;
     Blockchain Blockchain;
 
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 3000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 30;
-    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 60;
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 24 * 3600;
+    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
     public bool EnableInboundConnections;
 
@@ -26,7 +26,7 @@ namespace BTokenLib
 
     UInt16 Port;
 
-    int CountPeersMax = 3; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 4; // Math.Max(Environment.ProcessorCount - 1, 4);
 
     List<string> IPAddressPool = new();
 
@@ -35,10 +35,14 @@ namespace BTokenLib
 
     List<Block> BlocksCached = new();
 
-    DirectoryInfo DirectoryLogPeers;
-    DirectoryInfo DirectoryLogPeersDisposed;
+    DirectoryInfo DirectoryPeers;
+    DirectoryInfo DirectoryPeersActive;
+    DirectoryInfo DirectoryPeersDisposed; 
+    DirectoryInfo DirectoryPeersArchive;
 
-    public Network(Token token, bool flagEnableInboundConnections)
+    public Network(
+      Token token, 
+      bool flagEnableInboundConnections)
     {
       Token = token;
       Blockchain = token.Blockchain;
@@ -52,17 +56,25 @@ namespace BTokenLib
         Path.Combine(pathRoot, "LogNetwork"),
         false);
 
-      DirectoryLogPeers = Directory.CreateDirectory(
+      DirectoryPeers = Directory.CreateDirectory(
         Path.Combine(pathRoot, "logPeers"));
 
-      DirectoryLogPeersDisposed = Directory.CreateDirectory(
+      DirectoryPeersActive = Directory.CreateDirectory(
         Path.Combine(
-          DirectoryLogPeers.FullName,
+          DirectoryPeers.FullName,
+          "active"));
+
+      DirectoryPeersDisposed = Directory.CreateDirectory(
+        Path.Combine(
+          DirectoryPeers.FullName,
           "disposed"));
+
+      DirectoryPeersArchive = Directory.CreateDirectory(
+        Path.Combine(DirectoryPeers.FullName, "archive"));
 
       LoadNetworkConfiguration(pathRoot);
 
-      IPAddressPool = Token.GetSeedAddresses();
+      LoadIPAddressPool();
     }
 
     public void Start()
@@ -101,47 +113,49 @@ namespace BTokenLib
             countPeersCreate = CountPeersMax - Peers.Count;
           }
 
-          if (countPeersCreate == 0)
-            goto LABEL_DelayAndContinue;
-
-          List<string> listExclusion = Peers.Select(
-            p => p.IPAddress.ToString()).ToList();
-
-          foreach (FileInfo file in DirectoryLogPeersDisposed.GetFiles())
+          if (countPeersCreate > 0)
           {
-            Random random = new (file.GetHashCode());
-            int randomOffset = random.Next(0, 30);
-            int timeSpanBan = TIMESPAN_PEER_BANNED_SECONDS + randomOffset;
+            List<string> iPAddresses = new();
+            Random randomGenerator = new();
 
-            if (DateTime.Now.Subtract(file.LastAccessTime).TotalSeconds >
-              timeSpanBan)
-              file.Delete();
+            if (IPAddressPool.Count == 0)
+            {
+              //load pool
+            }
+
+            while (
+              iPAddresses.Count < countPeersCreate &&
+              IPAddressPool.Count > 0)
+            {
+              int randomIndex = randomGenerator.Next(IPAddressPool.Count);
+
+              iPAddresses.Add(IPAddressPool[randomIndex]);
+              IPAddressPool.RemoveAt(randomIndex);
+            }
+
+            // Now dismiss iPaddresses that are active or disposed
+
+            //List<string> iPAddresses = DirectoryPeersActive.EnumerateFiles()
+            //  .Select(f => f.Name).ToList();
+
+            if (iPAddresses.Count > 0)
+            {
+              ($"Connect with {iPAddresses.Count} new peers. " +
+                $"{Peers.Count} peers connected currently.").Log(this, LogFile);
+
+              var createPeerTasks = new Task[iPAddresses.Count];
+
+              Parallel.For(
+                0,
+                iPAddresses.Count,
+                i => createPeerTasks[i] = CreatePeer(iPAddresses[i]));
+
+              await Task.WhenAll(createPeerTasks);
+            }
             else
-              listExclusion.Add(file.Name);
+              ;//$"No ip address found to connect in protocol {Token}.".Log(LogFile);
+
           }
-
-          List<string> iPAddresses = RetrieveIPAdresses(
-            countPeersCreate,
-            listExclusion);
-
-          if (iPAddresses.Count > 0)
-          {
-            ($"Connect with {countPeersCreate} new peers. " +
-              $"{Peers.Count} peers connected currently.").Log(this, LogFile);
-
-            var createPeerTasks = new Task[iPAddresses.Count];
-
-            Parallel.For(
-              0,
-              iPAddresses.Count,
-              i => createPeerTasks[i] = CreatePeer(iPAddresses[i]));
-
-            await Task.WhenAll(createPeerTasks);
-          }
-          else
-            ;//$"No ip address found to connect in protocol {Token}.".Log(LogFile);
-
-          LABEL_DelayAndContinue:
 
           await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS)
             .ConfigureAwait(false);
@@ -154,42 +168,47 @@ namespace BTokenLib
       }
     }
 
-    public List<string> RetrieveIPAdresses(
-      int countMax,
-      List<string> iPAddressesExclusion)
+    void TransferLogfilesDisposedToArchive()
     {
-      List<string> iPAddresses = new();
-      List<string> iPAddressesTemporaryRemovedFromPool = new();
-
-      iPAddressesExclusion.ForEach(i => {
-        if (IPAddressPool.Contains(i))
-        {
-          IPAddressPool.Remove(i);
-          iPAddressesTemporaryRemovedFromPool.Add(i);
-        }
-      });
-
-      Random randomGenerator = new();
-
-      while (
-        iPAddresses.Count < countMax &&
-        IPAddressPool.Count > 0)
+      foreach (FileInfo fileDisposed in DirectoryPeersDisposed.EnumerateFiles())
       {
-        int randomIndex = randomGenerator
-          .Next(IPAddressPool.Count);
+        TimeSpan timeSpanSinceLastDisposal = DateTime.Now - fileDisposed.LastAccessTime;
 
-        string iPAddress = IPAddressPool[randomIndex];
+        if (0 < TIMESPAN_PEER_BANNED_SECONDS - (int)timeSpanSinceLastDisposal.TotalSeconds)
+          continue;
 
-        IPAddressPool.RemoveAt(randomIndex);
-        iPAddressesTemporaryRemovedFromPool.Add(iPAddress);
-
-        if (!iPAddressesExclusion.Contains(iPAddress))
-          iPAddresses.Add(iPAddress);
+        fileDisposed.MoveTo(Path.Combine(
+          DirectoryPeersArchive.FullName,
+          fileDisposed.Name));
       }
+    }
 
-      IPAddressPool.AddRange(iPAddressesTemporaryRemovedFromPool);
+    void LoadIPAddressPool()
+    {
+      IPAddressPool = Token.GetSeedAddresses();
 
-      return iPAddresses;
+      foreach (FileInfo file in DirectoryPeersActive.GetFiles())
+        file.MoveTo(Path.Combine(
+          DirectoryPeersArchive.FullName,
+          file.Name));
+
+      TransferLogfilesDisposedToArchive();
+
+      foreach (FileInfo fileIPAddress in DirectoryPeersArchive.EnumerateFiles())
+        if (!IPAddressPool.Contains(fileIPAddress.Name))
+          IPAddressPool.Add(fileIPAddress.Name);
+    }
+
+    void AddNetworkAddressesAdvertized(
+      List<NetworkAddress> addresses)
+    {
+      foreach (NetworkAddress address in addresses)
+      {
+        string addressString = address.IPAddress.ToString();
+
+        if (!IPAddressPool.Contains(addressString))
+          IPAddressPool.Add(addressString);
+      }
     }
 
     async Task CreatePeer(string iP)
@@ -231,7 +250,7 @@ namespace BTokenLib
         $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
           .Log(this, LogFile);
         
-        peer.Dispose(flagBanPeer: false);
+        peer.Dispose();
 
         lock (LOCK_Peers)
           Peers.Remove(peer);
@@ -751,7 +770,7 @@ namespace BTokenLib
         IPAddress remoteIP = 
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
-        $"Received inbound request on port {Port} from {remoteIP}"
+        $"Received inbound request on port {Port} from {remoteIP}."
           .Log(this, LogFile);
 
         Peer peer = null;
