@@ -74,6 +74,9 @@ namespace BTokenLib
 
       DateTime TimePeerCreation = DateTime.Now;
 
+      const string LITERAL_CONNECT_PEER = "Connect peer";
+      const int MAX_COUNT_DISPOSALS = 3;
+
 
 
       public Peer(
@@ -110,7 +113,6 @@ namespace BTokenLib
         State = StateProtocol.IDLE;
       }
 
-
       void CreateLogFile(string name)
       {
         string pathLogFile = Path.Combine(Network.DirectoryPeersActive.FullName, name);
@@ -138,7 +140,7 @@ namespace BTokenLib
 
       public async Task Connect()
       {
-        $"Connect peer {Connection}.".Log(this, LogFile);
+        $"{LITERAL_CONNECT_PEER} {Connection}.".Log(this, LogFile);
 
         TcpClient = new();
 
@@ -873,9 +875,16 @@ namespace BTokenLib
 
         LogFile.Dispose();
 
-        File.Move(
-          Path.Combine(Network.DirectoryPeersActive.FullName, IPAddress.ToString()),
-          Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));
+        string pathLogFile = ((FileStream)LogFile.BaseStream).Name;
+
+        string textLogFile = File.ReadAllText(pathLogFile);
+
+        if(textLogFile.CountSubstring(LITERAL_CONNECT_PEER) >= MAX_COUNT_DISPOSALS)
+          File.Delete(pathLogFile);
+        else
+          File.Move(
+            pathLogFile,
+            Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));
       }
 
       public string GetStatus()

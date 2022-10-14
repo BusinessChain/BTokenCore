@@ -28,7 +28,7 @@ namespace BTokenLib
 
     int CountPeersMax = 4; // Math.Max(Environment.ProcessorCount - 1, 4);
 
-    List<string> IPAddressPool = new();
+    List<string> PoolIPAddress = new();
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
@@ -118,25 +118,22 @@ namespace BTokenLib
             List<string> iPAddresses = new();
             Random randomGenerator = new();
 
-            if (IPAddressPool.Count == 0)
-            {
-              //load pool
-            }
+            if (PoolIPAddress.Count == 0)
+              LoadArchiveToPoolIPAddress();
 
             while (
               iPAddresses.Count < countPeersCreate &&
-              IPAddressPool.Count > 0)
+              PoolIPAddress.Count > 0)
             {
-              int randomIndex = randomGenerator.Next(IPAddressPool.Count);
+              int randomIndex = randomGenerator.Next(PoolIPAddress.Count);
 
-              iPAddresses.Add(IPAddressPool[randomIndex]);
-              IPAddressPool.RemoveAt(randomIndex);
+              iPAddresses.Add(PoolIPAddress[randomIndex]);
+              PoolIPAddress.RemoveAt(randomIndex);
             }
 
-            // Now dismiss iPaddresses that are active or disposed
-
-            //List<string> iPAddresses = DirectoryPeersActive.EnumerateFiles()
-            //  .Select(f => f.Name).ToList();
+            iPAddresses = iPAddresses.Except(DirectoryPeersActive.EnumerateFiles()
+              .Select(f => f.Name)).Except(DirectoryPeersDisposed.EnumerateFiles()
+              .Select(f => f.Name)).ToList();
 
             if (iPAddresses.Count > 0)
             {
@@ -153,8 +150,7 @@ namespace BTokenLib
               await Task.WhenAll(createPeerTasks);
             }
             else
-              ;//$"No ip address found to connect in protocol {Token}.".Log(LogFile);
-
+              ;// $"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
 
           await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS)
@@ -168,7 +164,7 @@ namespace BTokenLib
       }
     }
 
-    void TransferLogfilesDisposedToArchive()
+    void LoadArchiveToPoolIPAddress()
     {
       foreach (FileInfo fileDisposed in DirectoryPeersDisposed.EnumerateFiles())
       {
@@ -181,22 +177,22 @@ namespace BTokenLib
           DirectoryPeersArchive.FullName,
           fileDisposed.Name));
       }
+
+      foreach (FileInfo fileIPAddress in DirectoryPeersArchive.EnumerateFiles())
+        if (!PoolIPAddress.Contains(fileIPAddress.Name))
+          PoolIPAddress.Add(fileIPAddress.Name);
     }
 
     void LoadIPAddressPool()
     {
-      IPAddressPool = Token.GetSeedAddresses();
+      PoolIPAddress = Token.GetSeedAddresses();
 
       foreach (FileInfo file in DirectoryPeersActive.GetFiles())
         file.MoveTo(Path.Combine(
           DirectoryPeersArchive.FullName,
           file.Name));
 
-      TransferLogfilesDisposedToArchive();
-
-      foreach (FileInfo fileIPAddress in DirectoryPeersArchive.EnumerateFiles())
-        if (!IPAddressPool.Contains(fileIPAddress.Name))
-          IPAddressPool.Add(fileIPAddress.Name);
+      LoadArchiveToPoolIPAddress();
     }
 
     void AddNetworkAddressesAdvertized(
@@ -206,8 +202,8 @@ namespace BTokenLib
       {
         string addressString = address.IPAddress.ToString();
 
-        if (!IPAddressPool.Contains(addressString))
-          IPAddressPool.Add(addressString);
+        if (!PoolIPAddress.Contains(addressString))
+          PoolIPAddress.Add(addressString);
       }
     }
 
