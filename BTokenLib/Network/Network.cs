@@ -211,28 +211,23 @@ namespace BTokenLib
     {
       Peer peer;
 
-      lock (LOCK_Peers)
+      try
       {
-        if (Peers.Any(p => p.IPAddress.Equals(iP)))
-          return;
-
-        try
-        {
-          peer = new Peer(
-            this,
-            Token,
-            IPAddress.Parse(iP));
-        }
-        catch (Exception ex)
-        {
-          $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
-          .Log(this, LogFile);
-
-          return;
-        }
-
-        Peers.Add(peer);
+        peer = new Peer(
+          this,
+          Token,
+          IPAddress.Parse(iP));
       }
+      catch (Exception ex)
+      {
+        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
+        .Log(this, LogFile);
+
+        return;
+      }
+
+      lock (LOCK_Peers)
+        Peers.Add(peer);
 
       try
       {
@@ -262,6 +257,10 @@ namespace BTokenLib
 
     public void AddPeer(string iP)
     {
+      lock (LOCK_Peers)
+        if (Peers.Any(p => p.IPAddress.Equals(iP)))
+          return;
+
       CreatePeer(iP);
     }
 

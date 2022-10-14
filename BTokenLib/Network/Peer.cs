@@ -115,9 +115,15 @@ namespace BTokenLib
 
       void CreateLogFile(string name)
       {
-        string pathLogFile = Path.Combine(Network.DirectoryPeersActive.FullName, name);
+        string pathLogFileActive = Path.Combine(
+          Network.DirectoryPeersActive.FullName,
+          name);
+
+        if (File.Exists(pathLogFileActive))
+          throw new ProtocolException($"Peer {this} already active.");
+
         string pathLogFileDisposed = Path.Combine(
-          Network.DirectoryPeersDisposed.FullName, 
+          Network.DirectoryPeersDisposed.FullName,
           name);
 
         if (File.Exists(pathLogFileDisposed))
@@ -127,14 +133,20 @@ namespace BTokenLib
 
           if (secondsBannedRemaining > 0)
             throw new ProtocolException(
-              $"Peer {this} is banned for {TIMESPAN_PEER_BANNED_SECONDS} seconds.\n" +
-              $"{secondsBannedRemaining} seconds remaining.");
+              $"Peer {this} is banned for {secondsBannedRemaining} seconds.");
 
-          File.Move(pathLogFileDisposed, pathLogFile);
+          File.Move(pathLogFileDisposed, pathLogFileActive);
         }
 
+        string pathLogFileArchive = Path.Combine(
+          Network.DirectoryPeersArchive.FullName,
+          name);
+
+        if (File.Exists(pathLogFileArchive))
+          File.Move(pathLogFileArchive, pathLogFileActive);
+
         LogFile = new StreamWriter(
-          pathLogFile,
+          pathLogFileActive,
           append: true);
       }
 
