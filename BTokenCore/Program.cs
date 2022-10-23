@@ -41,7 +41,6 @@ namespace BTokenCore
         switch (inputCommand)
         {
           case "status":
-
             Console.WriteLine(BToken.GetStatus());
             break;
 

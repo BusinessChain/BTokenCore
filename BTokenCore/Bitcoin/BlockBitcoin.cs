@@ -18,9 +18,7 @@ namespace BTokenCore
 
 
     public BlockBitcoin()
-    {
-      Header = new HeaderBitcoin();
-    }
+    { }
 
     public BlockBitcoin(int sizeBuffer)
       : base(sizeBuffer)

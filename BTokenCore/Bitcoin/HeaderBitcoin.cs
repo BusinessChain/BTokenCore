@@ -184,5 +184,22 @@ namespace BTokenCore
 
       return Buffer;
     }
+
+
+    public void IncrementNonce(
+      long nonceSeed,
+      SHA256 sHA256)
+    {
+      Nonce += 1;
+
+      if (Nonce == 0)
+        Nonce = (uint)nonceSeed;
+
+      byte[] nonceArray = BitConverter.GetBytes(Nonce);
+
+      Array.Copy(nonceArray, 0, Buffer, 76, 4);
+
+      ComputeHash(sHA256);
+    }
   }
 }

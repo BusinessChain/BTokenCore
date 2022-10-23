@@ -84,9 +84,7 @@ namespace BTokenLib
       bytes.Add((byte)((factorBits & 0xFF00) >> 8));
       bytes.Add((byte)((factorBits & 0xFF0000) >> 16));
 
-      byte[] arrayFromNBits = bytes.ToArray();
-
-      return array.IsGreaterThan(arrayFromNBits);
+      return array.IsGreaterThan(bytes.ToArray());
     }
 
     public static bool IsGreaterThan(this byte[] a1, byte[] a2)

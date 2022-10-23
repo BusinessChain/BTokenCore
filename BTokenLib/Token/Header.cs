@@ -82,26 +82,10 @@ namespace BTokenLib
       ComputeHash(sHA256);
     }
 
-    void ComputeHash(SHA256 sHA256)
+    public void ComputeHash(SHA256 sHA256)
     {
       Hash = sHA256.ComputeHash(sHA256.ComputeHash(Buffer));
     }
-
-    public void IncrementNonce(
-      long nonceSeed, 
-      SHA256 sHA256)
-    {
-      Nonce += 1;
-
-      if (Nonce == 0)
-        Nonce = (uint)nonceSeed;
-
-      // Buffer need to be updated
-
-      ComputeHash(sHA256);
-    }
-
-
 
     public override string ToString()
     {

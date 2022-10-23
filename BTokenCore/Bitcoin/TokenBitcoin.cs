@@ -46,16 +46,26 @@ namespace BTokenCore
 
     void RunMining(long seed)
     {
+      Debug.WriteLine($"Start {GetName()} miner on thread " +
+        $"{Thread.CurrentThread.ManagedThreadId} with seed {seed}.");
+
       SHA256 sHA256 = SHA256.Create();
 
       while (IsMining)
       {
-        BlockBitcoin block = new();
+        while (!Blockchain.TryLock())
+          Thread.Sleep(100);
 
-        ComputePoW(
-          block,
-          sHA256,
-          seed);
+        BlockBitcoin block = CreateBlockMining(seed);
+
+        Blockchain.ReleaseLock();
+
+        ComputePoW(block, sHA256, seed);
+
+        Debug.WriteLine($"Miner {Thread.CurrentThread.ManagedThreadId}" +
+          $" found PoW for {block}.");
+
+        Console.Beep();
 
         block.Buffer = block.Header.Buffer
           .Concat(VarInt.GetBytes(block.TXs.Count))
@@ -64,21 +74,16 @@ namespace BTokenCore
         block.Header.CountBytesBlock = block.Buffer.Length;
 
         while (!Blockchain.TryLock())
-        {
-          if (!IsMining)
-            goto LABEL_Exit_Miner;
-
-          Console.WriteLine("Miner awaiting access of BToken blockchain LOCK.");
-          Thread.Sleep(1000);
-        }
-
-        Console.Beep();
+          Thread.Sleep(100);
 
         try
         {
           InsertBlock(block);
 
-          Debug.WriteLine($"Mined block {block}.");
+          Debug.WriteLine($"Miner {Thread.CurrentThread.ManagedThreadId}" +
+            $" successfully inserted {block}.");
+
+          Console.Beep();
         }
         catch (Exception ex)
         {
@@ -95,10 +100,52 @@ namespace BTokenCore
         Network.RelayBlockToNetwork(block);
       }
 
-    LABEL_Exit_Miner:
-
       Console.WriteLine($"{GetName()} miner on thread " +
         $"{Thread.CurrentThread.ManagedThreadId} canceled.");
+    }
+
+    BlockBitcoin CreateBlockMining(long seed)
+    {
+      BlockBitcoin block = new();
+
+      block.Header = new HeaderBitcoin()
+      {
+        Version = 0x01,
+        HashPrevious = Blockchain.HeaderTip.Hash,
+        UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
+        NBits = 0x1d00ffff,
+        Nonce = (uint)seed
+      };
+
+      block.Header.MerkleRoot = LoadTXs(block, (long)(50 * 100e8));
+
+      return block;
+    }
+
+    void ComputePoW(
+      BlockBitcoin block,
+      SHA256 sHA256,
+      long nonceSeed)
+    {
+      HeaderBitcoin header = (HeaderBitcoin)block.Header;
+
+      header.AppendToHeader(
+        Blockchain.HeaderTip,
+        sHA256);
+
+      while (header.Hash.IsGreaterThan(header.NBits))
+      {
+        if (!IsMining)
+          throw new TaskCanceledException();
+
+        header.IncrementNonce(
+          nonceSeed,
+          sHA256);
+
+        if (header.Nonce % 10000000 == 0)
+          Debug.WriteLine($"Miner {Thread.CurrentThread.ManagedThreadId}" +
+            $" nonce {header.Nonce} hash {header}.");
+      }
     }
 
     byte[] LoadTXs(BlockBitcoin block, long blockReward)
@@ -141,30 +188,6 @@ namespace BTokenCore
       return tX.Hash;
     }
 
-    void ComputePoW(
-      BlockBitcoin block,
-      SHA256 sHA256,
-      long nonceSeed)
-    {
-      HeaderBitcoin header = (HeaderBitcoin)block.Header;
-
-      header.MerkleRoot = LoadTXs(block, (long)(50 * 100e8));
-
-      header.AppendToHeader(
-        Blockchain.HeaderTip,
-        sHA256);
-
-      while (header.Hash.IsGreaterThan(header.NBits))
-      {
-        if (!IsMining)
-          throw new TaskCanceledException();
-
-        header.IncrementNonce(
-          nonceSeed,
-          sHA256);
-      }
-    }
-
     public override Block CreateBlock()
     {
       return new BlockBitcoin(SIZE_BUFFER_BLOCK);
@@ -188,16 +211,29 @@ namespace BTokenCore
 
     public override Header CreateHeaderGenesis()
     {
-      HeaderBitcoin header = new(
-         headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
-         version: 0x01,
-         hashPrevious: "00000000000000000008b5ffa0ae1b604dd27bf4af84602ea53f7920320a3c96".ToBinary(),
-         merkleRootHash: "ef303d1cf8090e1bcea36432eceea2bbc156e81108deff1616d9c6dee64ba7c7".ToBinary(),
-         unixTimeSeconds: 1653490985, // take timestamp from trezor.io explorer and convert to epoch time GMT
-         nBits: 386492960,
-         nonce: 578608666);
+      //HeaderBitcoin header = new(
+      //   headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
+      //   version: 0x01,
+      //   hashPrevious: "00000000000000000008b5ffa0ae1b604dd27bf4af84602ea53f7920320a3c96".ToBinary(),
+      //   merkleRootHash: "ef303d1cf8090e1bcea36432eceea2bbc156e81108deff1616d9c6dee64ba7c7".ToBinary(),
+      //   unixTimeSeconds: 1653490985, // take timestamp from trezor.io explorer and convert to epoch time GMT
+      //   nBits: 386492960,
+      //   nonce: 578608666);
 
-      header.Height = 737856; // Should be modulo 2016 so it calculates next target bits correctly.
+      //header.Height = 737856; // Should be modulo 2016 so it calculates next target bits correctly.
+
+      HeaderBitcoin header = new HeaderBitcoin(
+         headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
+         version: 0x01,
+         hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+         merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
+         unixTimeSeconds: 1231006505,
+         nBits: 0x1dffffff,
+         nonce: 2083236893);
+
+      header.Height = 0; // Should be modulo 2016 so it calculates next target bits correctly.
+
+
       header.DifficultyAccumulated = header.Difficulty;
 
       return header;
@@ -243,7 +279,6 @@ namespace BTokenCore
         buffer, 
         ref index);
     }
-
 
     public override List<string> GetSeedAddresses()
     {

@@ -17,7 +17,7 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 24 * 3600;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
     public bool EnableInboundConnections;
@@ -755,12 +755,12 @@ namespace BTokenLib
       TcpListener = new(IPAddress.Any, Port);
       TcpListener.Start(PEERS_COUNT_INBOUND);
 
-      $"Start TCP listener on port {Port}".Log(this, LogFile);
+      $"Start TCP listener on port {Port}.".Log(this, LogFile);
 
       while (true)
       {
-        TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync().
-          ConfigureAwait(false);
+        TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync()
+          .ConfigureAwait(false);
 
         IPAddress remoteIP = 
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
