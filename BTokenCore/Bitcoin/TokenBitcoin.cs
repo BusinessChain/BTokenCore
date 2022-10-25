@@ -26,6 +26,9 @@ namespace BTokenCore
     { }
 
 
+    bool[] FlagsOtherThreadFoundPoW;
+    int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
+
     public override void StartMining()
     {
       if (IsMining)
@@ -33,39 +36,25 @@ namespace BTokenCore
 
       IsMining = true;
 
-      int numberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
-      long nonceSegment = uint.MaxValue / numberOfProcesses;
+      FlagsOtherThreadFoundPoW = new bool[NumberOfProcesses];
 
       Parallel.For(
         0,
-        numberOfProcesses,
-        i => RunMining(i * nonceSegment));
+        NumberOfProcesses,
+        i => RunMining(i));
 
       Console.WriteLine("Miner canceled.");
     }
 
-    void RunMining(long seed)
+    void RunMining(int indexThread)
     {
-      Debug.WriteLine($"Start {GetName()} miner on thread " +
-        $"{Thread.CurrentThread.ManagedThreadId} with seed {seed}.");
+      Debug.WriteLine($"Start {GetName()} miner on thread {indexThread}.");
 
       SHA256 sHA256 = SHA256.Create();
 
       while (IsMining)
       {
-        while (!Blockchain.TryLock())
-          Thread.Sleep(100);
-
-        BlockBitcoin block = CreateBlockMining(seed);
-
-        Blockchain.ReleaseLock();
-
-        ComputePoW(block, sHA256, seed);
-
-        Debug.WriteLine($"Miner {Thread.CurrentThread.ManagedThreadId}" +
-          $" found PoW for {block}.");
-
-        Console.Beep();
+        ComputePoW(out BlockBitcoin block, sHA256, indexThread);
 
         block.Buffer = block.Header.Buffer
           .Concat(VarInt.GetBytes(block.TXs.Count))
@@ -73,22 +62,25 @@ namespace BTokenCore
 
         block.Header.CountBytesBlock = block.Buffer.Length;
 
-        while (!Blockchain.TryLock())
+        while (!Blockchain.TryLock()) 
           Thread.Sleep(100);
 
         try
         {
           InsertBlock(block);
 
-          Debug.WriteLine($"Miner {Thread.CurrentThread.ManagedThreadId}" +
-            $" successfully inserted {block}.");
+          for (int i = 0; i < FlagsOtherThreadFoundPoW.Length; i += 1)
+            if (i != indexThread)
+              FlagsOtherThreadFoundPoW[i] = true;
 
+          Debug.WriteLine($"Miner {indexThread} successfully inserted {block}.");
           Console.Beep();
         }
         catch (Exception ex)
         {
           Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting mined block {block}.");
+            $"{ex.GetType().Name} when inserting mined block {block}. \n" +
+            $"{ex.Message}");
 
           continue;
         }
@@ -100,8 +92,46 @@ namespace BTokenCore
         Network.RelayBlockToNetwork(block);
       }
 
-      Console.WriteLine($"{GetName()} miner on thread " +
-        $"{Thread.CurrentThread.ManagedThreadId} canceled.");
+      Console.WriteLine($"{GetName()} miner on thread {indexThread} canceled.");
+    }
+
+    void ComputePoW(
+      out BlockBitcoin block,
+      SHA256 sHA256,
+      int indexThread)
+    {
+    LABEL_StartPoW:
+
+      long seed = indexThread * uint.MaxValue / NumberOfProcesses;
+
+      while (!Blockchain.TryLock())
+        Thread.Sleep(100);
+
+      FlagsOtherThreadFoundPoW[indexThread] = false;
+
+      block = CreateBlockMining(seed);
+
+      Blockchain.ReleaseLock();
+
+      HeaderBitcoin header = (HeaderBitcoin)block.Header;
+
+      header.AppendToHeader(
+        Blockchain.HeaderTip,
+        sHA256);
+
+      while (header.Hash.IsGreaterThan(header.NBits))
+      {
+        if (FlagsOtherThreadFoundPoW[indexThread])
+          goto LABEL_StartPoW;
+
+        if (!IsMining)
+          throw new TaskCanceledException();
+
+        header.IncrementNonce(seed, sHA256);
+
+        if (header.Nonce % 10000000 == 0)
+          Debug.WriteLine($"Miner {indexThread} nonce {header.Nonce} hash {header}.");
+      }
     }
 
     BlockBitcoin CreateBlockMining(long seed)
@@ -113,39 +143,12 @@ namespace BTokenCore
         Version = 0x01,
         HashPrevious = Blockchain.HeaderTip.Hash,
         UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-        NBits = 0x1d00ffff,
         Nonce = (uint)seed
       };
 
       block.Header.MerkleRoot = LoadTXs(block, (long)(50 * 100e8));
 
       return block;
-    }
-
-    void ComputePoW(
-      BlockBitcoin block,
-      SHA256 sHA256,
-      long nonceSeed)
-    {
-      HeaderBitcoin header = (HeaderBitcoin)block.Header;
-
-      header.AppendToHeader(
-        Blockchain.HeaderTip,
-        sHA256);
-
-      while (header.Hash.IsGreaterThan(header.NBits))
-      {
-        if (!IsMining)
-          throw new TaskCanceledException();
-
-        header.IncrementNonce(
-          nonceSeed,
-          sHA256);
-
-        if (header.Nonce % 10000000 == 0)
-          Debug.WriteLine($"Miner {Thread.CurrentThread.ManagedThreadId}" +
-            $" nonce {header.Nonce} hash {header}.");
-      }
     }
 
     byte[] LoadTXs(BlockBitcoin block, long blockReward)
@@ -238,7 +241,6 @@ namespace BTokenCore
 
       return header;
     }
-
 
     protected override void InsertInDatabase(Block block)
     {
