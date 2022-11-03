@@ -81,7 +81,7 @@ namespace BTokenLib
     {
       $"Start Network {Token.GetName()}".Log(this, LogFile);
 
-      StartPeerConnector();
+      //StartPeerConnector();
 
       StartSync();
 
@@ -258,7 +258,7 @@ namespace BTokenLib
     public void AddPeer(string iP)
     {
       lock (LOCK_Peers)
-        if (Peers.Any(p => p.IPAddress.Equals(iP)))
+        if (Peers.Any(p => p.IPAddress.ToString() == iP))
           return;
 
       CreatePeer(iP);

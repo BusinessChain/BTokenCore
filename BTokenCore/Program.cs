@@ -66,7 +66,7 @@ namespace BTokenCore
             break;
 
           case "addPeerIP":
-            BToken.Network.AddPeer("83.229.86.158"); // "84.75.2.239"
+            BToken.TokenParent.Network.AddPeer("83.229.86.158");
             break;
 
           case "sync":

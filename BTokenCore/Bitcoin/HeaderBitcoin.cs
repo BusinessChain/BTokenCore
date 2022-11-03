@@ -185,7 +185,6 @@ namespace BTokenCore
       return Buffer;
     }
 
-
     public void IncrementNonce(
       long nonceSeed,
       SHA256 sHA256)

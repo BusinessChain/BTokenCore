@@ -89,7 +89,7 @@ namespace BTokenLib
         TokenParent.Start();
 
       LoadImage();
-      // Network.Start();
+      Network.Start();
     }
 
     public virtual HeaderDownload CreateHeaderDownload()

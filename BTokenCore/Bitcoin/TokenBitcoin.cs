@@ -21,8 +21,8 @@ namespace BTokenCore
 
     public TokenBitcoin()
       : base(
-          COMPORT_BITCOIN, 
-          flagEnableInboundConnections: false)
+          COMPORT_BITCOIN,
+          flagEnableInboundConnections: true)
     { }
 
 
@@ -62,7 +62,7 @@ namespace BTokenCore
 
         block.Header.CountBytesBlock = block.Buffer.Length;
 
-        while (!Blockchain.TryLock()) 
+        while (!Blockchain.TryLock())
           Thread.Sleep(100);
 
         try
@@ -197,12 +197,12 @@ namespace BTokenCore
     }
 
     public override bool TryRequestTX(
-      byte[] hash, 
+      byte[] hash,
       out byte[] tXRaw)
     {
       TX tX = TXPool.Find(t => t.Hash.IsEqual(hash));
 
-      if(tX == null)
+      if (tX == null)
       {
         tXRaw = null;
         return false;
@@ -226,13 +226,13 @@ namespace BTokenCore
       //header.Height = 737856; // Should be modulo 2016 so it calculates next target bits correctly.
 
       HeaderBitcoin header = new HeaderBitcoin(
-         headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
+         headerHash: "000000A13F15EC9FECECAB8EF438F8E16E729AC2AF816C3DBE7E27BAF110F66A".ToBinary(),
          version: 0x01,
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-         merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
-         unixTimeSeconds: 1231006505,
+         merkleRootHash: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+         unixTimeSeconds: 1667333891,
          nBits: 0x1dffffff,
-         nonce: 2083236893);
+         nonce: 1441757173);
 
       header.Height = 0; // Should be modulo 2016 so it calculates next target bits correctly.
 
@@ -278,7 +278,7 @@ namespace BTokenCore
       BlockBitcoin bitcoinBlock = new();
 
       return bitcoinBlock.ParseHeader(
-        buffer, 
+        buffer,
         ref index);
     }
 
