@@ -533,7 +533,8 @@ namespace BTokenLib
 
               NotFoundMessage notFoundMessage = new(Payload);
 
-              "Received meassage notfound.".Log(this, LogFile);
+              notFoundMessage.Inventories.ForEach(
+                i => $"Did not find {i.Hash.ToHexString()}".Log(this, LogFile));
 
               if (IsStateBlockDownload())
                 Network.ReturnPeerBlockDownloadIncomplete(this);
@@ -566,10 +567,10 @@ namespace BTokenLib
                     .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
 
                   if (block == null)
-                    await SendMessage(new MessageBlock(block));
-                  else
                     await SendMessage(new NotFoundMessage(
                       new List<Inventory>() { inventory }));
+                  else
+                    await SendMessage(new MessageBlock(block));
                 }
                 else if (inventory.Type == InventoryType.MSG_DB)
                 {
