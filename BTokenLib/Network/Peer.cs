@@ -562,9 +562,8 @@ namespace BTokenLib
                   await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
-                { 
-                  Block block = Network.BlocksCached
-                    .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
+                {
+                  Block block = Token.GetBlock(inventory.Hash);
 
                   if (block == null)
                     await SendMessage(new NotFoundMessage(

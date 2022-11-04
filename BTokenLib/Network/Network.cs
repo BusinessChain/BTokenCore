@@ -33,8 +33,6 @@ namespace BTokenLib
     object LOCK_Peers = new();
     List<Peer> Peers = new();
 
-    List<Block> BlocksCached = new();
-
     DirectoryInfo DirectoryPeers;
     DirectoryInfo DirectoryPeersActive;
     DirectoryInfo DirectoryPeersDisposed; 

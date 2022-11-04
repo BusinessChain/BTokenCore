@@ -28,6 +28,7 @@ namespace BTokenCore
 
     bool[] FlagsOtherThreadFoundPoW;
     int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
+    List<BlockBitcoin> BlocksMined = new();
 
     public override void StartMining()
     {
@@ -88,6 +89,8 @@ namespace BTokenCore
         {
           Blockchain.ReleaseLock();
         }
+
+        BlocksMined.Add(block);
 
         Network.RelayBlockToNetwork(block);
       }
@@ -269,6 +272,11 @@ namespace BTokenCore
         TokenListening.ForEach(t => t.RevokeBlockInsertion());
         throw ex;
       }
+    }
+
+    public override Block GetBlock(byte[] hash)
+    {
+      return BlocksMined.Find(b => b.Header.Hash.IsEqual(hash));
     }
 
     public override Header ParseHeader(

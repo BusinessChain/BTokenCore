@@ -243,7 +243,6 @@ namespace BTokenLib
     const int ORDER_AVERAGEING_FEEPERBYTE = 3;
     public double FeePerByteAverage;
 
-
     public void InsertBlock(Block block)
     {
       try
@@ -274,6 +273,9 @@ namespace BTokenLib
         throw ex;
       }
     }
+
+    public virtual Block GetBlock(byte[] hash)
+    { throw new NotImplementedException(); }
 
     public virtual void InsertDB(
       byte[] bufferDB,
