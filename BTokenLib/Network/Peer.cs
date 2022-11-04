@@ -65,7 +65,7 @@ namespace BTokenLib
       public int LengthDataPayload;
 
       const int HeaderSize = CommandSize + LengthSize + ChecksumSize;
-      byte[] MeassageHeader = new byte[HeaderSize];
+      byte[] MessageHeader = new byte[HeaderSize];
       byte[] MagicBytes = new byte[4] { 0xF9, 0xBE, 0xB4, 0xD9 };
 
       SHA256 SHA256 = SHA256.Create();
@@ -255,11 +255,11 @@ namespace BTokenLib
             }
 
             await ReadBytes(
-              MeassageHeader,
-              MeassageHeader.Length);
+              MessageHeader,
+              MessageHeader.Length);
 
             LengthDataPayload = BitConverter.ToInt32(
-              MeassageHeader,
+              MessageHeader,
               CommandSize);
 
             if (LengthDataPayload > SIZE_MESSAGE_PAYLOAD_BUFFER)
@@ -268,7 +268,7 @@ namespace BTokenLib
                 $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
 
             Command = Encoding.ASCII.GetString(
-              MeassageHeader.Take(CommandSize)
+              MessageHeader.Take(CommandSize)
               .ToArray()).TrimEnd('\0');
 
             if (Command == "block")
@@ -531,6 +531,8 @@ namespace BTokenLib
             {
               await ReadBytes(Payload, LengthDataPayload);
 
+              NotFoundMessage notFoundMessage = new(Payload);
+
               "Received meassage notfound.".Log(this, LogFile);
 
               if (IsStateBlockDownload())
@@ -560,13 +562,14 @@ namespace BTokenLib
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 { 
-                  // Bei Bitcoin werden die Blöcke ja nicht abgespeichert deshalb existiert allenfalls nur ein Cache
-
                   Block block = Network.BlocksCached
                     .Find(b => b.Header.Hash.IsEqual(inventory.Hash));
 
-                  if (block != null)
+                  if (block == null)
                     await SendMessage(new MessageBlock(block));
+                  else
+                    await SendMessage(new NotFoundMessage(
+                      new List<Inventory>() { inventory }));
                 }
                 else if (inventory.Type == InventoryType.MSG_DB)
                 {
