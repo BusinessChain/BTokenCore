@@ -20,19 +20,19 @@ namespace BTokenLib
     const int TIMESPAN_PEER_BANNED_SECONDS = 7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
-    const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
-    public bool EnableInboundConnections;
-
     StreamWriter LogFile;
 
     UInt16 Port;
 
-    int CountPeersMax = 4; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 0; // Math.Max(Environment.ProcessorCount - 1, 4);
 
-    List<string> PoolIPAddress = new();
+    const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
+    public bool EnableInboundConnections;
 
     object LOCK_Peers = new();
     List<Peer> Peers = new();
+
+    List<string> PoolIPAddress = new();
 
     DirectoryInfo DirectoryPeers;
     DirectoryInfo DirectoryPeersActive;
@@ -80,7 +80,7 @@ namespace BTokenLib
     {
       $"Start Network {Token.GetName()}".Log(this, LogFile);
 
-      //StartPeerConnector();
+      StartPeerConnector();
 
       StartSync();
 
