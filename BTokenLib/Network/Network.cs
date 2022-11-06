@@ -17,7 +17,7 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 7 * 24 * 3600;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 10;//7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
     StreamWriter LogFile;
