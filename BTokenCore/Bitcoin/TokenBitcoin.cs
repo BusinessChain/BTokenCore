@@ -50,9 +50,15 @@ namespace BTokenCore
 
       SHA256 sHA256 = SHA256.Create();
 
-      while (IsMining)
+      while (true)
       {
         ComputePoW(out BlockBitcoin block, sHA256, indexThread);
+
+        if (!IsMining)
+        {
+          Console.WriteLine($"{GetName()} miner on thread {indexThread} canceled.");
+          return;
+        }
 
         block.Buffer = block.Header.Buffer
           .Concat(VarInt.GetBytes(block.TXs.Count))
@@ -87,8 +93,6 @@ namespace BTokenCore
 
         Network.RelayBlockToNetwork(block);
       }
-
-      Console.WriteLine($"{GetName()} miner on thread {indexThread} canceled.");
     }
 
     void ComputePoW(
@@ -119,7 +123,7 @@ namespace BTokenCore
           goto LABEL_StartPoW;
 
         if (!IsMining)
-          throw new TaskCanceledException();
+          return;
 
         header.IncrementNonce(seed, sHA256);
 
