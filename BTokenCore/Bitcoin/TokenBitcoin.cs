@@ -26,7 +26,6 @@ namespace BTokenCore
     { }
 
 
-    bool[] FlagsOtherThreadFoundPoW;
     int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
     List<BlockBitcoin> BlocksMined = new();
 
@@ -36,8 +35,6 @@ namespace BTokenCore
         return;
 
       IsMining = true;
-
-      FlagsOtherThreadFoundPoW = new bool[NumberOfProcesses];
 
       Parallel.For(
         0,
@@ -69,10 +66,6 @@ namespace BTokenCore
         try
         {
           InsertBlock(block);
-
-          for (int i = 0; i < FlagsOtherThreadFoundPoW.Length; i += 1)
-            if (i != indexThread)
-              FlagsOtherThreadFoundPoW[i] = true;
 
           Debug.WriteLine($"Miner {indexThread} successfully inserted {block}.");
           Console.Beep();
@@ -110,8 +103,6 @@ namespace BTokenCore
       while (!Blockchain.TryLock())
         Thread.Sleep(100);
 
-      FlagsOtherThreadFoundPoW[indexThread] = false;
-
       block = CreateBlockMining(seed);
 
       Blockchain.ReleaseLock();
@@ -124,7 +115,7 @@ namespace BTokenCore
 
       while (header.Hash.IsGreaterThan(header.NBits))
       {
-        if (FlagsOtherThreadFoundPoW[indexThread])
+        if (Blockchain.HeaderTip.Height >= block.Header.Height)
           goto LABEL_StartPoW;
 
         if (!IsMining)
