@@ -126,9 +126,6 @@ namespace BTokenCore
           return;
 
         header.IncrementNonce(seed, sHA256);
-
-        if (header.Nonce % 10000000 == 0)
-          Debug.WriteLine($"Miner {indexThread} nonce {header.Nonce} hash {header}.");
       }
     }
 
