@@ -1,12 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.Concurrent;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace BTokenLib
@@ -20,6 +20,7 @@ namespace BTokenLib
     const int TIMESPAN_PEER_BANNED_SECONDS = 7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
+    const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
     public bool EnableInboundConnections;
 
     StreamWriter LogFile;
@@ -35,11 +36,11 @@ namespace BTokenLib
 
     DirectoryInfo DirectoryPeers;
     DirectoryInfo DirectoryPeersActive;
-    DirectoryInfo DirectoryPeersDisposed; 
+    DirectoryInfo DirectoryPeersDisposed;
     DirectoryInfo DirectoryPeersArchive;
 
     public Network(
-      Token token, 
+      Token token,
       bool flagEnableInboundConnections)
     {
       Token = token;
@@ -87,7 +88,7 @@ namespace BTokenLib
         StartPeerInboundListener();
     }
 
-    void LoadNetworkConfiguration (string pathConfigFile)
+    void LoadNetworkConfiguration(string pathConfigFile)
     {
       $"Load Network configuration {pathConfigFile}.".Log(this, LogFile);
     }
@@ -238,7 +239,7 @@ namespace BTokenLib
       {
         $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
           .Log(this, LogFile);
-        
+
         peer.Dispose();
 
         lock (LOCK_Peers)
@@ -269,7 +270,7 @@ namespace BTokenLib
         Peer peerRemove = Peers.
           Find(p => p.ToString() == iPAddress);
 
-        if(peerRemove != null)
+        if (peerRemove != null)
         {
           CountPeersMax--;
           peerRemove.SetFlagDisposed("Manually removed peer.");
@@ -679,9 +680,9 @@ namespace BTokenLib
 
     void ThrottleDownloadBlockUnsolicited()
     {
-      while(true)
+      while (true)
       {
-        lock(LOCK_FlagThrottle)
+        lock (LOCK_FlagThrottle)
           if (!FlagThrottle)
           {
             FlagThrottle = true;
@@ -745,13 +746,12 @@ namespace BTokenLib
     }
 
 
-    const int PEERS_COUNT_INBOUND = 8;
     TcpListener TcpListener;
 
     async Task StartPeerInboundListener()
     {
       TcpListener = new(IPAddress.Any, Port);
-      TcpListener.Start(PEERS_COUNT_INBOUND);
+      TcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
 
       $"Start TCP listener on port {Port}.".Log(this, LogFile);
 
@@ -760,7 +760,7 @@ namespace BTokenLib
         TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync()
           .ConfigureAwait(false);
 
-        IPAddress remoteIP = 
+        IPAddress remoteIP =
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
         $"Received inbound request on port {Port} from {remoteIP}."
@@ -770,6 +770,11 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
         {
+          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
+            ($"Reject inbound request from {remoteIP}.\n" +
+              $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.")
+              .Log(this, LogFile);
+
           if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
           {
             $"There is already a connection to {remoteIP}."
@@ -796,14 +801,14 @@ namespace BTokenLib
 
             continue;
           }
-          
+
           Peers.Add(peer);
 
           peer.IsBusy = false;
 
           $"Accept inbound request from {remoteIP}."
             .Log(this, LogFile);
-        }  
+        }
       }
     }
 
@@ -811,8 +816,8 @@ namespace BTokenLib
     {
       string statusPeers = "";
       int countPeers;
-      
-      lock(LOCK_Peers)
+
+      lock (LOCK_Peers)
       {
         Peers.ForEach(p => { statusPeers += p.GetStatus(); });
         countPeers = Peers.Count;
