@@ -183,28 +183,23 @@ namespace BTokenCore
 
       block.TXs.Add(tX);
 
-      return tX.Hash;
+      block.TXs.AddRange(TXPool);
+
+      int tXsLengthMod2 = block.TXs.Count & 1;
+      var merkleList = new byte[block.TXs.Count + tXsLengthMod2][];
+
+      for (int i = 0; i < block.TXs.Count; i += 1)
+        merkleList[i] = block.TXs[i].Hash;
+
+      if (tXsLengthMod2 != 0)
+        merkleList[block.TXs.Count] = merkleList[block.TXs.Count - 1];
+
+      return block.GetRoot(merkleList);
     }
 
     public override Block CreateBlock()
     {
       return new BlockBitcoin(SIZE_BUFFER_BLOCK);
-    }
-
-    public override bool TryRequestTX(
-      byte[] hash,
-      out byte[] tXRaw)
-    {
-      TX tX = TXPool.Find(t => t.Hash.IsEqual(hash));
-
-      if (tX == null)
-      {
-        tXRaw = null;
-        return false;
-      }
-
-      tXRaw = tX.TXRaw.ToArray();
-      return true;
     }
 
     public override Header CreateHeaderGenesis()

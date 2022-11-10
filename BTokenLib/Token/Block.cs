@@ -119,7 +119,7 @@ namespace BTokenLib
       ref int indexBuffer);
 
 
-    byte[] GetRoot(byte[][] merkleList)
+    public byte[] GetRoot(byte[][] merkleList)
     {
       int merkleIndex = merkleList.Length;
 

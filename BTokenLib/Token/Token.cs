@@ -318,9 +318,6 @@ namespace BTokenLib
       return GetType().Name;
     }
 
-    public abstract bool TryRequestTX(
-      byte[] hash,
-      out byte[] tXRaw);
 
     public virtual bool TryGetDB(
       byte[] hash,
@@ -330,6 +327,12 @@ namespace BTokenLib
     public virtual bool FlagDownloadDBWhenSync(HeaderDownload headerDownload)
     {
       return false;
+    }
+
+    public void BroadcastTX(TX tX)
+    {
+      TXPool.Add(tX);
+      Network.AdvertizeTX(tX);
     }
   }
 }

@@ -422,6 +422,8 @@ namespace BTokenLib
       $"Synchronization with {peerSync} of {Token.GetName()} completed."
         .Log(LogFile);
 
+      Blockchain.GetStatus().Log(LogFile);
+
       peerSync.Release();
       Token.ReleaseLock();
     }

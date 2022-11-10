@@ -655,7 +655,7 @@ namespace BTokenLib
             CountOrphanReceived = 0;
             FlagSyncScheduled = true;
 
-            $"Schedule synchronization because received orphan header {header}"
+            $"Schedule synchronization because received orphan header {header}."
               .Log(this, LogFile);
           }
           else if (CountOrphanReceived > 10)

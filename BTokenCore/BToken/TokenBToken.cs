@@ -117,17 +117,15 @@ namespace BTokenCore
 
     const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1000;
 
-    double FeePerByte;
+    double FeeSatoshiPerByte;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 5.0;
-
-
 
 
     async Task RunMining()
     {
-      FeePerByte = TokenParent.FeePerByteAverage;
+      FeeSatoshiPerByte = 1; // TokenParent.FeePerByteAverage;
 
-      $"Miners starts with fee per byte = {FeePerByte}".Log(LogFile);
+      $"Miners starts with fee per byte = {FeeSatoshiPerByte}".Log(LogFile);
 
       while (IsMining)
       {
@@ -161,10 +159,10 @@ namespace BTokenCore
     {
       $"Miner tries to mine an anchor token".Log(LogFile);
 
-      long feeAccrued = (long)FeePerByte * LENGTH_DATA_TX_SCAFFOLD;
-      long feeAnchorToken = (long)FeePerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      long feePerInput = (long)FeePerByte * LENGTH_DATA_P2PKH_INPUT;
-      long feeOutputChange = (long)FeePerByte * LENGTH_DATA_P2PKH_OUTPUT;
+      long feeAccrued = (long)FeeSatoshiPerByte * LENGTH_DATA_TX_SCAFFOLD;
+      long feeAnchorToken = (long)FeeSatoshiPerByte * LENGTH_DATA_ANCHOR_TOKEN;
+      long feePerInput = (long)FeeSatoshiPerByte * LENGTH_DATA_P2PKH_INPUT;
+      long feeOutputChange = (long)FeeSatoshiPerByte * LENGTH_DATA_P2PKH_OUTPUT;
 
       long valueAccrued = 0;
 
@@ -202,6 +200,10 @@ namespace BTokenCore
 
       LoadTXs(block, (long)(200 * 100e8));
 
+      block.Buffer = block.Header.Buffer
+          .Concat(VarInt.GetBytes(block.TXs.Count))
+          .Concat(block.TXs[0].TXRaw).ToArray();
+
       tokenAnchor.IDToken = ID_BTOKEN;
       tokenAnchor.HashBlockReferenced = block.Header.Hash;
       tokenAnchor.HashBlockPreviousReferenced = block.Header.HashPrevious;
@@ -238,7 +240,8 @@ namespace BTokenCore
       // fragt man den Peer ob er die Ancestor TX schon hat.
       // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
 
-      TokenParent.Network.AdvertizeTX(tokenAnchor.TX);
+
+      TokenParent.BroadcastTX(tokenAnchor.TX);
 
       $"{BlocksMined.Count} mined anchor tokens waiting for inclusion in next Bitcoin block."
         .Log(LogFile);
@@ -431,18 +434,18 @@ namespace BTokenCore
 
       if (TokensAnchorMinedUnconfirmed.Count == 0)
       {
-        FeePerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+        FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
         NumberSequence = 0;
-        $"New fee per byte is {FeePerByte}, sequence number {NumberSequence}.".Log(LogFile);
+        $"New fee per byte is {FeeSatoshiPerByte}, sequence number {NumberSequence}.".Log(LogFile);
         $"All anchor tokens made it into Bitcoin block, nothing to RBF.".Log(LogFile);
         return;
       }
 
-      FeePerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+      FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
       NumberSequence += 1;
 
       $"{TokensAnchorMinedUnconfirmed.Count} anchor tokens, do RBF.".Log(LogFile);
-      $"New fee per byte is {FeePerByte}, sequence number {NumberSequence}.".Log(LogFile);
+      $"New fee per byte is {FeeSatoshiPerByte}, sequence number {NumberSequence}.".Log(LogFile);
 
       TokensAnchorMinedUnconfirmed.Reverse();
 
@@ -557,13 +560,6 @@ namespace BTokenCore
       DatabaseAccounts.ClearCache();
       TrailHashesAnchor.Clear();
       IndexTrail = 0;
-    }
-
-    public override bool TryRequestTX(
-      byte[] hash,
-      out byte[] tXRaw)
-    {
-      throw new NotImplementedException();
     }
 
 
