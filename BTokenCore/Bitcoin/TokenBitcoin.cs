@@ -61,8 +61,8 @@ namespace BTokenCore
         }
 
         block.Buffer = block.Header.Buffer
-          .Concat(VarInt.GetBytes(block.TXs.Count))
-          .Concat(block.TXs[0].TXRaw).ToArray();
+          .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
+        block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
 
         block.Header.CountBytesBlock = block.Buffer.Length;
 
@@ -107,7 +107,17 @@ namespace BTokenCore
       while (!Blockchain.TryLock())
         Thread.Sleep(100);
 
-      block = CreateBlockMining(seed);
+      block = new();
+
+      block.Header = new HeaderBitcoin()
+      {
+        Version = 0x01,
+        HashPrevious = Blockchain.HeaderTip.Hash,
+        UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
+        Nonce = (uint)seed
+      };
+
+      LoadTXs(block, (long)(50 * 100e8));
 
       Blockchain.ReleaseLock();
 
@@ -129,24 +139,7 @@ namespace BTokenCore
       }
     }
 
-    BlockBitcoin CreateBlockMining(long seed)
-    {
-      BlockBitcoin block = new();
-
-      block.Header = new HeaderBitcoin()
-      {
-        Version = 0x01,
-        HashPrevious = Blockchain.HeaderTip.Hash,
-        UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-        Nonce = (uint)seed
-      };
-
-      block.Header.MerkleRoot = LoadTXs(block, (long)(50 * 100e8));
-
-      return block;
-    }
-
-    byte[] LoadTXs(BlockBitcoin block, long blockReward)
+    void LoadTXs(BlockBitcoin block, long blockReward)
     {
       List<byte> tXRaw = new();
 
@@ -185,16 +178,7 @@ namespace BTokenCore
 
       block.TXs.AddRange(TXPool);
 
-      int tXsLengthMod2 = block.TXs.Count & 1;
-      var merkleList = new byte[block.TXs.Count + tXsLengthMod2][];
-
-      for (int i = 0; i < block.TXs.Count; i += 1)
-        merkleList[i] = block.TXs[i].Hash;
-
-      if (tXsLengthMod2 != 0)
-        merkleList[block.TXs.Count] = merkleList[block.TXs.Count - 1];
-
-      return block.GetRoot(merkleList);
+      block.Header.MerkleRoot = block.ComputeMerkleRoot();
     }
 
     public override Block CreateBlock()

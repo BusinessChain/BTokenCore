@@ -264,6 +264,9 @@ namespace BTokenLib
 
         TokenListening.ForEach(
           t => t.SignalCompletionBlockInsertion(block.Header.Hash));
+
+        TXPool.RemoveAll(
+          tp => block.TXs.Any(tb => tb.Hash.IsEqual(tp.Hash)));
       }
       catch (ProtocolException ex)
       {

@@ -107,7 +107,7 @@ namespace BTokenLib
         if (tXsLengthMod2 != 0)
           merkleList[tXCount] = merkleList[tXCount - 1];
 
-        if (!hashMerkleRoot.IsEqual(GetRoot(merkleList)))
+        if (!hashMerkleRoot.IsEqual(ComputeMerkleRoot()))
           throw new ProtocolException(
             "Payload hash not equal to merkle root.");
       }
@@ -119,9 +119,17 @@ namespace BTokenLib
       ref int indexBuffer);
 
 
-    public byte[] GetRoot(byte[][] merkleList)
+    public byte[] ComputeMerkleRoot()
     {
+      int tXsLengthMod2 = TXs.Count & 1;
+      var merkleList = new byte[TXs.Count + tXsLengthMod2][];
       int merkleIndex = merkleList.Length;
+
+      for (int i = 0; i < TXs.Count; i += 1)
+        merkleList[i] = TXs[i].Hash;
+
+      if (tXsLengthMod2 != 0)
+        merkleList[TXs.Count] = merkleList[TXs.Count - 1];
 
       while (true)
       {

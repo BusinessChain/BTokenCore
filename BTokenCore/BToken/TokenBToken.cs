@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 
 
 using BTokenLib;
+using System.Diagnostics;
 
 namespace BTokenCore
 {
@@ -55,9 +56,16 @@ namespace BTokenCore
 
       foreach (string pathFile in Directory.GetFiles(PathBlocksMinedUnconfirmed))
       {
-        BlockBToken block = new();
-        block.Parse(File.ReadAllBytes(pathFile));
-        BlocksMined.Add(block);
+        try
+        {
+          BlockBToken block = new();
+          block.Parse(File.ReadAllBytes(pathFile));
+          BlocksMined.Add(block);
+        }
+        catch(Exception ex)
+        {
+          $"Failed to parse unconfirmed mined block {pathFile}.\n{ex.Message}".Log(LogFile);
+        }
       }
     }
 
@@ -201,8 +209,8 @@ namespace BTokenCore
       LoadTXs(block, (long)(200 * 100e8));
 
       block.Buffer = block.Header.Buffer
-          .Concat(VarInt.GetBytes(block.TXs.Count))
-          .Concat(block.TXs[0].TXRaw).ToArray();
+        .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
+      block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
 
       tokenAnchor.IDToken = ID_BTOKEN;
       tokenAnchor.HashBlockReferenced = block.Header.Hash;
@@ -512,7 +520,8 @@ namespace BTokenCore
       tX.TXRaw = tXRaw;
 
       block.TXs = new List<TX>() { tX };
-      block.Header.MerkleRoot = tX.Hash;
+
+      block.Header.MerkleRoot = block.ComputeMerkleRoot();
     }
 
     public override Header ParseHeader(

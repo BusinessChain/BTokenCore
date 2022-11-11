@@ -209,7 +209,6 @@ namespace BTokenLib
         "Locator does not root in headerchain."));
     }
 
-
     public void AppendHeader(Header header)
     {
       HeaderTip.HeaderNext = header;
