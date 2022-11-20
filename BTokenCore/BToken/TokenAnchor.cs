@@ -76,9 +76,10 @@ namespace BTokenCore
       }
 
 
-      public void Serialize(Wallet wallet, SHA256 sHA256)
+      public void Serialize(Token tokenParent, SHA256 sHA256)
       {
         List<byte> tXRaw = new();
+        long feeTX = 0;
 
         tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // version
         tXRaw.Add((byte)TXOutputsWallet.Count);
@@ -92,7 +93,7 @@ namespace BTokenCore
           tXRaw.Add(0x00); // length empty script
           tXRaw.AddRange(BitConverter.GetBytes(NumberSequence)); // sequence
 
-          TX.Fee += TXOutputsWallet[i].Value;
+          feeTX += TXOutputsWallet[i].Value;
         }
 
         byte[] dataAnchorToken = IDToken.Concat(HashBlockReferenced)
@@ -105,13 +106,15 @@ namespace BTokenCore
         tXRaw.Add(LENGTH_DATA_ANCHOR_TOKEN);
         tXRaw.AddRange(dataAnchorToken);
 
+        Wallet wallet = tokenParent.Wallet;
+
         if (ValueChange > 0)
         {
           tXRaw.AddRange(BitConverter.GetBytes(ValueChange));
           tXRaw.Add((byte)wallet.PublicScript.Length);
           tXRaw.AddRange(wallet.PublicScript);
 
-          TX.Fee -= ValueChange;
+          feeTX -= ValueChange;
         }
 
         tXRaw.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // locktime
@@ -144,10 +147,20 @@ namespace BTokenCore
 
         tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
+        int index = 0;
+        Block block = tokenParent.CreateBlock();
+
+        TX = block.ParseTX(
+          isCoinbase: false,
+          tXRaw.ToArray(),
+          ref index);
+
         TX.TXRaw = tXRaw;
 
         TX.Hash = sHA256.ComputeHash(
          sHA256.ComputeHash(tXRaw.ToArray()));
+
+        TX.Fee = feeTX;
       }
 
       public override string ToString()

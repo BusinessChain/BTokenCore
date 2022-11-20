@@ -127,9 +127,6 @@ namespace BTokenCore
 
         tX.TXIDShort = BitConverter.ToInt32(tX.Hash, 0);
 
-        int lengthUTXOBits =
-          UTXOTable.COUNT_NON_OUTPUT_BITS + countTXOutputs;
-
         return tX;
       }
       catch (ArgumentOutOfRangeException)

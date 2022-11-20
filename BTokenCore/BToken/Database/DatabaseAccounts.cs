@@ -173,12 +173,12 @@ namespace BTokenCore
       long blockReward = BLOCK_REWARD_INITIAL >> 
         block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
 
-      block.SetFee(outputValueTXCoinbase - blockReward);
-
       if (blockReward + feeBlock != outputValueTXCoinbase)
         throw new ProtocolException(
           $"Output value of Coinbase TX {tXs[0].Hash.ToHexString()}\n" +
           $"does not add up to block reward {blockReward} plus block fee {feeBlock}.");
+
+      block.SetFee(feeBlock);
 
       InsertOutputs(tXs[0].TXOutputs);
 

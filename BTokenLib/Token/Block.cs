@@ -178,5 +178,11 @@ namespace BTokenLib
     {
       TXs.Clear();
     }
+
+    public void SetFee(long fee)
+    {
+      Fee = fee;
+      FeePerByte = Fee / Header.CountBytesBlock;
+    }
   }
 }

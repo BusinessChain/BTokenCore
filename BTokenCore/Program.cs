@@ -52,7 +52,7 @@ namespace BTokenCore
             new Thread(BToken.TokenParent.StartMining).Start();
             break;
 
-          case "stopBTokenMiner":
+          case "stopMiner":
             BToken.StopMining();
             BToken.TokenParent.StopMining();
             break;

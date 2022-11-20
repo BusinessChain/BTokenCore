@@ -79,6 +79,7 @@ namespace BTokenCore
         nonce: 0);
 
       header.DifficultyAccumulated = header.Difficulty;
+      header.IndexTrailAnchor = -1;
 
       return header;
     }
@@ -212,13 +213,15 @@ namespace BTokenCore
         .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
       block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
 
+      block.Header.CountBytesBlock = block.Buffer.Length;
+
       tokenAnchor.IDToken = ID_BTOKEN;
       tokenAnchor.HashBlockReferenced = block.Header.Hash;
       tokenAnchor.HashBlockPreviousReferenced = block.Header.HashPrevious;
 
       tokenAnchor.ValueChange = valueAccrued - feeAccrued - feeOutputChange;
 
-      tokenAnchor.Serialize(TokenParent.Wallet, SHA256Miner);
+      tokenAnchor.Serialize(TokenParent, SHA256Miner);
 
       if (tokenAnchor.ValueChange > 0)
         TokenParent.Wallet.AddOutputSpendable(
@@ -247,7 +250,6 @@ namespace BTokenCore
       // Immer bevor ein Token an einen Peer advertized wird,
       // fragt man den Peer ob er die Ancestor TX schon hat.
       // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
-
 
       TokenParent.BroadcastTX(tokenAnchor.TX);
 
@@ -405,7 +407,8 @@ namespace BTokenCore
       if (!TrailHashesAnchor[indexTrailAnchorPrevious + 1].IsEqual(block.Header.Hash))
       {
         ($"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
-          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.").Log(LogFile);
+          $"but {TrailHashesAnchor[indexTrailAnchorPrevious + 1].ToHexString()}.")
+          .Log(LogFile);
 
         throw new NotSynchronizedWithParentException();
       }
@@ -488,8 +491,6 @@ namespace BTokenCore
     {
       List<byte> tXRaw = new();
 
-      tXRaw.AddRange(new byte[4] { 0x01, 0x00, 0x00, 0x00 }); // version
-
       tXRaw.Add(0x01); // #TxIn
 
       tXRaw.AddRange(new byte[32]); // TxOutHash
@@ -519,7 +520,9 @@ namespace BTokenCore
 
       tX.TXRaw = tXRaw;
 
-      block.TXs = new List<TX>() { tX };
+      block.TXs.Add(tX);
+
+      block.TXs.AddRange(TXPool);
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
     }

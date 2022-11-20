@@ -92,24 +92,24 @@ namespace BTokenCore
           buffer,
           ref indexBuffer);
 
-        //if (isCoinbase)
-        //  new UTXOTable.TXInput(buffer, ref indexBuffer);
-        //else
-        //  for (int i = 0; i < countInputs; i += 1)
-        //    tX.TXInputs.Add(
-        //      new UTXOTable.TXInput(
-        //        buffer,
-        //        ref indexBuffer));
+        if (isCoinbase)
+          new TXInput(buffer, ref indexBuffer);
+        else
+          for (int i = 0; i < countInputs; i += 1)
+            tX.TXInputs.Add(
+              new TXInput(
+                buffer,
+                ref indexBuffer));
 
         int countTXOutputs = VarInt.GetInt32(
           buffer,
           ref indexBuffer);
 
-        //for (int i = 0; i < countTXOutputs; i += 1)
-        //  tX.TXOutputs.Add(
-        //    new UTXOTable.TXOutput(
-        //      buffer,
-        //      ref indexBuffer));
+        for (int i = 0; i < countTXOutputs; i += 1)
+          tX.TXOutputs.Add(
+            new TXOutput(
+              buffer,
+              ref indexBuffer));
 
         indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
 
@@ -121,9 +121,6 @@ namespace BTokenCore
 
         tX.TXIDShort = BitConverter.ToInt32(tX.Hash, 0);
 
-        int lengthUTXOBits =
-          UTXOTable.COUNT_NON_OUTPUT_BITS + countTXOutputs;
-
         return tX;
       }
       catch (ArgumentOutOfRangeException)
@@ -131,13 +128,6 @@ namespace BTokenCore
         throw new ProtocolException(
           "ArgumentOutOfRangeException thrown in ParseTX.");
       }
-    }
-
-
-    public void SetFee(long fee)
-    {
-      Fee = fee;
-      FeePerByte = Fee / Header.CountBytesBlock;
     }
   }
 }
