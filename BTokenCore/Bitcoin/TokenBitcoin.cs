@@ -13,6 +13,9 @@ namespace BTokenCore
 {
   class TokenBitcoin : Token
   {
+    const long BLOCK_REWARD_INITIAL = 5000000000; // 50 BTK
+    const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
+
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
     const UInt16 COMPORT_BITCOIN = 8333;
@@ -117,7 +120,7 @@ namespace BTokenCore
         Nonce = (uint)seed
       };
 
-      LoadTXs(block, (long)(50 * 100e8));
+      LoadTXs(block);
 
       Blockchain.ReleaseLock();
 
@@ -139,7 +142,7 @@ namespace BTokenCore
       }
     }
 
-    void LoadTXs(BlockBitcoin block, long blockReward)
+    void LoadTXs(BlockBitcoin block)
     {
       List<byte> tXRaw = new();
 
@@ -158,6 +161,9 @@ namespace BTokenCore
       tXRaw.AddRange("FFFFFFFF".ToBinary()); // sequence
 
       tXRaw.Add(0x01); // #TxOut
+
+      long blockReward = BLOCK_REWARD_INITIAL >>
+        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
 
       tXRaw.AddRange(BitConverter.GetBytes(blockReward));
 

@@ -14,6 +14,9 @@ namespace BTokenCore
 {
   partial class TokenBToken : Token
   {
+    const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
+    const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
+
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
     const int LENGTH_DATA_ANCHOR_TOKEN = 66;
@@ -207,7 +210,7 @@ namespace BTokenCore
         Blockchain.HeaderTip,
         SHA256Miner);
 
-      LoadTXs(block, (long)(200 * 100e8));
+      LoadTXs(block);
 
       block.Buffer = block.Header.Buffer
         .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
@@ -413,7 +416,19 @@ namespace BTokenCore
         throw new NotSynchronizedWithParentException();
       }
 
-      DatabaseAccounts.InsertBlock((BlockBToken)block);
+      DatabaseAccounts.InsertBlock((BlockBToken)block); 
+      
+      long outputValueTXCoinbase = 0;
+      block.TXs[0].TXOutputs.ForEach(o => outputValueTXCoinbase += o.Value);
+
+      long blockReward = BLOCK_REWARD_INITIAL >>
+        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
+
+      if (blockReward + block.Fee != outputValueTXCoinbase)
+        throw new ProtocolException(
+          $"Output value of Coinbase TX {block.TXs[0].Hash.ToHexString()}\n" +
+          $"does not add up to block reward {blockReward} plus block fee {block.Fee}.");
+
 
       ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchorPrevious + 1;
 
@@ -487,7 +502,7 @@ namespace BTokenCore
       TokensAnchorDetectedInBlock.Clear();
     }
 
-    void LoadTXs(Block block, long blockReward)
+    void LoadTXs(Block block)
     {
       List<byte> tXRaw = new();
 
@@ -504,6 +519,9 @@ namespace BTokenCore
       tXRaw.AddRange("FFFFFFFF".ToBinary()); // sequence
 
       tXRaw.Add(0x01); // #TxOut
+
+      long blockReward = BLOCK_REWARD_INITIAL >>
+        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
 
       tXRaw.AddRange(BitConverter.GetBytes(blockReward));
 

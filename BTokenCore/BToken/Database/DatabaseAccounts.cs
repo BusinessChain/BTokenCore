@@ -10,9 +10,6 @@ namespace BTokenCore
 {
   partial class DatabaseAccounts
   {
-    const long BLOCK_REWARD_INITIAL = 100000000000000; // 100 BTK
-    const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
-
     public const int COUNT_CACHES = 256;
     byte[] HashesCaches = new byte[COUNT_CACHES * 32];
     const int COUNT_MAX_CACHE = 40000; // Read from configuration file
@@ -166,18 +163,7 @@ namespace BTokenCore
         
         feeBlock += tXs[t].Fee;
       }
-
-      long outputValueTXCoinbase = 0;
-      tXs[0].TXOutputs.ForEach(o => outputValueTXCoinbase += o.Value);
-
-      long blockReward = BLOCK_REWARD_INITIAL >> 
-        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
-
-      if (blockReward + feeBlock != outputValueTXCoinbase)
-        throw new ProtocolException(
-          $"Output value of Coinbase TX {tXs[0].Hash.ToHexString()}\n" +
-          $"does not add up to block reward {blockReward} plus block fee {feeBlock}.");
-
+      
       block.SetFee(feeBlock);
 
       InsertOutputs(tXs[0].TXOutputs);
