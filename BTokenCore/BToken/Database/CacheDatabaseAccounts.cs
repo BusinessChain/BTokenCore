@@ -28,13 +28,13 @@ namespace BTokenCore
         foreach (RecordDB record in Values)
         {
           record.IDAccount.CopyTo(bytesCaches, i);
-          i += 32;
-          BitConverter.GetBytes(record.CountdownToReplay)
-            .CopyTo(bytesCaches, i);
-          i += 4;
-          BitConverter.GetBytes(record.Value)
-            .CopyTo(bytesCaches, i);
-          i += 8;
+          i += LENGTH_ID_ACCOUNT;
+
+          BitConverter.GetBytes(record.CountdownToReplay).CopyTo(bytesCaches, i);
+          i += LENGTH_COUNTDOWN_TO_REPLAY;
+
+          BitConverter.GetBytes(record.Value).CopyTo(bytesCaches, i);
+          i += LENGTH_VALUE;
         }
 
         Hash = SHA256.ComputeHash(bytesCaches);

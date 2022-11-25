@@ -218,6 +218,9 @@ namespace BTokenCore
 
       block.Header.CountBytesBlock = block.Buffer.Length;
 
+      // Hier muss irgendwo noch das einfügen in die DB durchgespielt werden
+      // damit der DB Hash eingefügt werden kann.
+
       tokenAnchor.IDToken = ID_BTOKEN;
       tokenAnchor.HashBlockReferenced = block.Header.Hash;
       tokenAnchor.HashBlockPreviousReferenced = block.Header.HashPrevious;
@@ -236,7 +239,7 @@ namespace BTokenCore
             Value = tokenAnchor.ValueChange
           });
       
-      $"Miner advertizes anchor token:\n {tokenAnchor.GetDescription()}"
+      $"Miner broadcasts anchor token:\n {tokenAnchor.GetDescription()}"
         .Log(LogFile);
 
       string pathFileBlock = Path.Combine(

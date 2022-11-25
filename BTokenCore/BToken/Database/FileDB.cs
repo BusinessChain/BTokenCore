@@ -24,10 +24,13 @@ namespace BTokenCore
 
       public FileDB(string path) : base(
         path,
-        FileMode.Append,
-        FileAccess.Write,
+        FileMode.OpenOrCreate,
+        FileAccess.ReadWrite,
         FileShare.ReadWrite)
-      { }
+      {
+        Hash = SHA256.ComputeHash(this);
+        Seek(0, SeekOrigin.End);
+      }
 
       public void SpendAccountInFileDB(byte[] iDAccount, TX tX)
       {

@@ -21,8 +21,8 @@ namespace BTokenCore
     List<FileDB> FilesDB = new();
     byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
 
-    const int LENGTH_RECORD_DB = 44;
-    const int LENGTH_ID_ACCOUNT = 32;
+    const int LENGTH_RECORD_DB = 37;
+    const int LENGTH_ID_ACCOUNT = 25;
     const int LENGTH_COUNTDOWN_TO_REPLAY = 4;
     const int LENGTH_VALUE = 8;
 
@@ -37,7 +37,8 @@ namespace BTokenCore
       Directory.CreateDirectory(PathRootDB);
 
       for (int i = 0; i < COUNT_FILES_DB; i += 1)
-        FilesDB.Add(new FileDB(Path.Combine(PathRootDB, i.ToString())));
+        FilesDB.Add(new FileDB(
+          Path.Combine(PathRootDB, i.ToString())));
     }
 
     public void LoadImage(string path)
@@ -171,11 +172,9 @@ namespace BTokenCore
       UpdateHashDatabase();
 
       if(!Hash.IsEqual(((HeaderBToken)block.Header).HashDatabase))
-      {
         throw new ProtocolException(
           $"Hash database not equal as given in header {block},\n" +
           $"height {block.Header.Height}.");
-      }
     }
 
     void UpdateHashDatabase()
@@ -258,7 +257,10 @@ namespace BTokenCore
     {
       for (int i = 0; i < tXOutputs.Count; i++)
       {
-        byte[] iDAccount = tXOutputs[i].Buffer;
+        byte[] iDAccount = tXOutputs[i].Buffer
+          .Skip(tXOutputs[i].StartIndexScript)
+          .Take(LENGTH_ID_ACCOUNT).ToArray();
+
         long outputValueTX = tXOutputs[i].Value;
 
         int c = IndexCache;

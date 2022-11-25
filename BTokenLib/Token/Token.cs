@@ -270,6 +270,7 @@ namespace BTokenLib
       }
       catch (ProtocolException ex)
       {
+        ex.Message.Log(LogFile);
         // Database (wallet) recovery.
 
         TokenListening.ForEach(t => t.RevokeBlockInsertion());
