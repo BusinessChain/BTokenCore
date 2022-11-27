@@ -171,10 +171,15 @@ namespace BTokenCore
 
       UpdateHashDatabase();
 
-      if(!Hash.IsEqual(((HeaderBToken)block.Header).HashDatabase))
-        throw new ProtocolException(
-          $"Hash database not equal as given in header {block},\n" +
-          $"height {block.Header.Height}.");
+      // Statt den aktuellen DB Hash, könnte auch der diesem Block vorangehende DB Hash
+      // aufgeführt werden. Dies hätte beim Mining der vorteil, dass das Inserten des 
+      // gemineden Block nicht durchgespielt werden müsste.
+
+      //if(!Hash.IsEqual(((HeaderBToken)block.Header).HashDatabase))
+      //  throw new ProtocolException(
+      //    $"Hash database not equal as given in header {block},\n" +
+      //    $"height {block.Header.Height}.");
+
     }
 
     void UpdateHashDatabase()

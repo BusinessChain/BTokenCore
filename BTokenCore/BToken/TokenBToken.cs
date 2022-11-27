@@ -127,7 +127,7 @@ namespace BTokenCore
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 60000;
 
     double FeeSatoshiPerByte;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 5.0;
@@ -147,8 +147,8 @@ namespace BTokenCore
         {
           if(TryMineAnchorToken(out TokenAnchor tokenAnchor))
           {
-            timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
-                COUNT_SATOSHIS_PER_DAY_MINING);
+            //timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
+            //    COUNT_SATOSHIS_PER_DAY_MINING);
 
             ($"Miner successfully mined {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
               $"Next attempt to create anchor token in {timeMSLoop / 60000} minutes.").Log(LogFile);
@@ -217,9 +217,6 @@ namespace BTokenCore
       block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
 
       block.Header.CountBytesBlock = block.Buffer.Length;
-
-      // Hier muss irgendwo noch das einfügen in die DB durchgespielt werden
-      // damit der DB Hash eingefügt werden kann.
 
       tokenAnchor.IDToken = ID_BTOKEN;
       tokenAnchor.HashBlockReferenced = block.Header.Hash;
@@ -594,7 +591,6 @@ namespace BTokenCore
       TrailHashesAnchor.Clear();
       IndexTrail = 0;
     }
-
 
     public override bool TryGetDB(
       byte[] hash,
