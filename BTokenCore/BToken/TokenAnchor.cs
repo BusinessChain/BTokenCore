@@ -171,7 +171,7 @@ namespace BTokenCore
       public string GetDescription()
       {
         return
-          $"TX Hash: {TX}\n" +
+          $"Anchor token TX hash: {TX}\n" +
           $"Number of inputs: {TX.TXInputs.Count}\n" +
           $"Fee: {TX.Fee}\n" +
           $"ValueChange: {ValueChange}\n" +

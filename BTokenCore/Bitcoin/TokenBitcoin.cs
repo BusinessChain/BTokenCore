@@ -49,7 +49,7 @@ namespace BTokenCore
 
     void RunMining(int indexThread)
     {
-      Debug.WriteLine($"Start {GetName()} miner on thread {indexThread}.");
+      $"Start {GetName()} miner on thread {indexThread}.".Log(LogFile);
 
       SHA256 sHA256 = SHA256.Create();
 
@@ -59,7 +59,7 @@ namespace BTokenCore
 
         if (!IsMining)
         {
-          Console.WriteLine($"{GetName()} miner on thread {indexThread} canceled.");
+          $"{GetName()} miner on thread {indexThread} canceled.".Log(LogFile);
           return;
         }
 
@@ -76,14 +76,15 @@ namespace BTokenCore
         {
           InsertBlock(block);
 
-          Debug.WriteLine($"Miner {indexThread} successfully inserted {block}.");
+          $"Bitcoin Miner {indexThread} successfully inserted {block}."
+            .Log(LogFile);
+
           Console.Beep();
         }
         catch (Exception ex)
         {
-          Debug.WriteLine(
-            $"{ex.GetType().Name} when inserting mined block {block}. \n" +
-            $"{ex.Message}");
+          ($"{ex.GetType().Name} when inserting mined block {block}.\n" +
+            $"{ex.Message}").Log(LogFile);
 
           continue;
         }
@@ -234,8 +235,7 @@ namespace BTokenCore
             Wallet.TrySpend(tX.TXInputs[i]);
 
           if (tX.TXOutputs[0].Value == 0 && t > 0)
-            TokenListening.ForEach(
-              t => t.DetectAnchorTokenInBlock(tX));
+            TokenListening.ForEach(t => t.DetectAnchorTokenInBlock(tX));
 
           for (int i = 0; i < tX.TXOutputs.Count; i += 1)
             if (tX.TXOutputs[i].Value > 0)

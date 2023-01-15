@@ -733,8 +733,8 @@ namespace BTokenLib
 
     public void AdvertizeTX(TX tX)
     {
-      $"Advertize rawTX {tX.GetStringTXRaw()} to {this}."
-        .Log(this, LogFile);
+      //$"Advertize rawTX {tX.GetStringTXRaw()} to {this}."
+      //  .Log(this, LogFile);
 
       // should Lock Blockchain
 
