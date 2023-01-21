@@ -27,9 +27,9 @@ namespace BTokenLib
       public enum StateProtocol
       {
         IDLE = 0,
-        BlockDownload,
+        HeaderSynchronization,
+        BlockSynchronization,
         DBDownload,
-        HeaderDownload,
         GetData
       }
       public StateProtocol State;
@@ -42,6 +42,8 @@ namespace BTokenLib
 
       public HeaderDownload HeaderDownload;
       public Header HeaderUnsolicited;
+
+      TX TXAdvertized;
 
       ulong FeeFilterValue;
 
@@ -279,40 +281,7 @@ namespace BTokenLib
 
               $"Peer received block {Block}".Log(this, LogFile);
 
-              if (IsStateIdle())
-              {
-                Console.Beep(1600, 100);
-
-                Cancellation = new();
-
-                if (!Token.TryLock())
-                  continue;
-
-                try
-                {
-                  if (Block.Header.HashPrevious.IsEqual(
-                    Token.Blockchain.HeaderTip.Hash))
-                  {
-                    Token.InsertBlock(Block);
-
-                    $"Inserted unsolicited block {Block}."
-                      .Log(this, LogFile);
-
-                    Network.RelayBlockToNetwork(Block, this);
-                  }
-                  else
-                    HandleHeaderUnsolicitedDuplicateOrOrphan(Block.Header);
-                }
-                catch (ProtocolException ex)
-                {
-                  SetFlagDisposed(ex.Message);
-                }
-                finally
-                {
-                  Token.ReleaseLock();
-                }
-              }
-              else if (IsStateBlockDownload())
+              if (IsStateBlockSynchronization())
               {
                 if (!Block.Header.Hash.IsEqual(HeaderSync.Hash))
                   throw new ProtocolException(
@@ -325,6 +294,33 @@ namespace BTokenLib
                   await RequestBlock();
                 else
                   Release();
+              }
+              else
+              {
+                Console.Beep(1600, 100);
+
+                Cancellation = new();
+
+                if (!Token.TryLock())
+                  continue;
+
+                try
+                {
+                  // Unsolicited blocks are supposed to be advertized by header messages.
+                  Token.InsertBlock(Block);
+
+                  $"Inserted block {Block}.".Log(this, LogFile);
+
+                  Network.RelayBlockToNetwork(Block, this);
+                }
+                catch (ProtocolException ex)
+                {
+                  SetFlagDisposed(ex.Message);
+                }
+                finally
+                {
+                  Token.ReleaseLock();
+                }
               }
             }
             else if(Command == "dataDB")
@@ -390,7 +386,7 @@ namespace BTokenLib
               $"{this}: Receiving {countHeaders} headers."
                 .Log(LogFile);
 
-              if (IsStateHeaderDownload())
+              if (IsStateHeaderSynchronization())
               {
                 if (countHeaders > 0)
                 {
@@ -412,7 +408,7 @@ namespace BTokenLib
                     ($"{ex.GetType().Name} when receiving headers:\n" +
                       $"{ex.Message}").Log(LogFile);
 
-                    continue; // Does not disconnect on parser exception but on timeout instead.
+                    continue; // Do not disconnect on parser exception but on timeout instead.
                   }
 
                   ($"Send getheaders to peer {this},\n" +
@@ -449,7 +445,52 @@ namespace BTokenLib
 
                 Network.ThrottleDownloadBlockUnsolicited();
 
-                ProcessHeaderUnsolicited();
+                if (HeaderUnsolicited.HashPrevious.IsEqual(
+                  Token.Blockchain.HeaderTip.Hash))
+                {
+                  await SendMessage(new GetDataMessage(
+                    new List<Inventory>()
+                    {
+                        new Inventory(
+                          InventoryType.MSG_BLOCK,
+                          HeaderUnsolicited.Hash)
+                    }));
+
+                  Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+                  ($"Requested block for unsolicited " +
+                    $"header {HeaderUnsolicited}.")
+                    .Log(this, LogFile);
+                }
+                else
+                {
+                  if (Token.Blockchain.TryGetHeader(
+                    HeaderUnsolicited.Hash,
+                    out Header headerReceivedNow))
+                  {
+                    if (HeaderDuplicateReceivedLast != null &&
+                      HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
+                      throw new ProtocolException($"Sent duplicate header {HeaderUnsolicited}.");
+
+                    HeaderDuplicateReceivedLast = headerReceivedNow;
+                  }
+                  else
+                  {
+                    if (!FlagSyncScheduled)
+                    {
+                      CountOrphanReceived = 0;
+                      FlagSyncScheduled = true;
+
+                      $"Schedule synchronization because received orphan header {HeaderUnsolicited}."
+                        .Log(this, LogFile);
+                    }
+                    else if (CountOrphanReceived > 10)
+                      throw new ProtocolException(
+                        "Too many orphan headers received.");
+                    else
+                      CountOrphanReceived += 1;
+                  }
+                }
               }
             }
             else if (Command == "getheaders")
@@ -536,7 +577,7 @@ namespace BTokenLib
               notFoundMessage.Inventories.ForEach(
                 i => $"Did not find {i.Hash.ToHexString()}".Log(this, LogFile));
 
-              if (IsStateBlockDownload())
+              if (IsStateBlockSynchronization())
                 Network.ReturnPeerBlockDownloadIncomplete(this);
             }
             else if (Command == "inv")
@@ -592,9 +633,9 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          if (IsStateAwaitingHeader())
+          if (IsStateHeaderSynchronization())
             Token.ReleaseLock();
-          else if (IsStateBlockDownload())
+          else if (IsStateBlockSynchronization())
             Network.ReturnPeerBlockDownloadIncomplete(this);
           else if (IsStateDBDownload())
             Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
@@ -603,71 +644,6 @@ namespace BTokenLib
             $"{ex.GetType().Name} in listener: \n{ex.Message}");
         }
       }
-
-      async Task ProcessHeaderUnsolicited()
-      {
-        try
-        {
-          if (HeaderUnsolicited.HashPrevious.IsEqual(
-            Token.Blockchain.HeaderTip.Hash))
-          {
-            await SendMessage(new GetDataMessage(
-              new List<Inventory>()
-              {
-                new Inventory(
-                  InventoryType.MSG_BLOCK,
-                  HeaderUnsolicited.Hash)
-              }));
-
-            Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-
-            ($"Requested block for unsolicited " +
-              $"header {HeaderUnsolicited}.")
-              .Log(this, LogFile);
-          }
-          else
-          {
-            HandleHeaderUnsolicitedDuplicateOrOrphan(HeaderUnsolicited);
-          }
-        }
-        catch (ProtocolException ex)
-        {
-          SetFlagDisposed(ex.Message);
-        }
-      }
-
-      void HandleHeaderUnsolicitedDuplicateOrOrphan(Header header)
-      {
-        if (Token.Blockchain.TryGetHeader(
-          header.Hash,
-          out Header headerReceivedNow))
-        {
-          if (HeaderDuplicateReceivedLast != null &&
-            HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
-            throw new ProtocolException($"Sent duplicate header {header}.");
-
-          HeaderDuplicateReceivedLast = headerReceivedNow;
-        }
-        else
-        {
-          if (!FlagSyncScheduled)
-          {
-            CountOrphanReceived = 0;
-            FlagSyncScheduled = true;
-
-            $"Schedule synchronization because received orphan header {header}."
-              .Log(this, LogFile);
-          }
-          else if (CountOrphanReceived > 10)
-            throw new ProtocolException(
-              "Too many orphan headers received.");
-          else
-            CountOrphanReceived += 1;
-        }
-      }
-
-
-      TX TXAdvertized;
 
       public async Task AdvertizeTX(TX tX)
       {
@@ -696,7 +672,7 @@ namespace BTokenLib
         ($"Send getheaders to peer,\n" +
           $"locator: {HeaderDownload}").Log(this, LogFile);
 
-        SetStateHeaderDownload();
+        SetStateHeaderSynchronization();
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
@@ -746,7 +722,7 @@ namespace BTokenLib
 
         lock (this)
         {
-          State = StateProtocol.BlockDownload;
+          State = StateProtocol.BlockSynchronization;
 
           if (FlagDispose)
             Network.ReturnPeerBlockDownloadIncomplete(this);
@@ -832,16 +808,16 @@ namespace BTokenLib
           return State == StateProtocol.IDLE;
       }
 
-      public void SetStateHeaderDownload()
+      void SetStateHeaderSynchronization()
       {
         lock (this)
-          State = StateProtocol.HeaderDownload;
+          State = StateProtocol.HeaderSynchronization;
       }
 
-      bool IsStateHeaderDownload()
+      bool IsStateHeaderSynchronization()
       {
         lock (this)
-          return State == StateProtocol.HeaderDownload;
+          return State == StateProtocol.HeaderSynchronization;
       }
 
       bool IsStateAwaitingGetDataTX()
@@ -850,27 +826,16 @@ namespace BTokenLib
           return State == StateProtocol.GetData;
       }
 
-      public bool IsStateAwaitingHeader()
+      public bool IsStateBlockSynchronization()
       {
         lock (this)
-          return State == StateProtocol.HeaderDownload;
-      }
-
-      public bool IsStateBlockDownload()
-      {
-        lock (this)
-          return State == StateProtocol.BlockDownload;
+          return State == StateProtocol.BlockSynchronization;
       }
 
       public bool IsStateDBDownload()
       {
         lock (this)
           return State == StateProtocol.DBDownload;
-      }
-
-      public override string ToString()
-      {
-        return Network + "{" + IPAddress.ToString() + "}";
       }
 
       public void SetFlagDisposed(string message)
@@ -880,7 +845,6 @@ namespace BTokenLib
         lock (this)
           FlagDispose = true;
       }
-
 
       public void Dispose()
       {
@@ -915,6 +879,11 @@ namespace BTokenLib
             $"FlagDispose: {FlagDispose}\n" +
             $"Connection: {Connection}\n" +
             $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
+      }
+
+      public override string ToString()
+      {
+        return Network + "{" + IPAddress.ToString() + "}";
       }
     }
   }

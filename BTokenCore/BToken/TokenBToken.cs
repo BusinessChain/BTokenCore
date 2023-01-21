@@ -3,12 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
-using System.Text;
 using System.Security.Cryptography;
 
-
 using BTokenLib;
-using System.Diagnostics;
+
 
 namespace BTokenCore
 {
@@ -522,6 +520,8 @@ namespace BTokenCore
         ref int index)
     {
       BlockBToken bTokenBlock = new();
+
+      // Hier muss getestet werden, ob der Header im Bitcoin Block vernankert ist.
 
       return bTokenBlock.ParseHeader(
         buffer,

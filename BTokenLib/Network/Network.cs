@@ -396,7 +396,7 @@ namespace BTokenLib
             {
               peer.Release();
 
-              if (Peers.All(p => !p.IsStateBlockDownload()))
+              if (Peers.All(p => !p.IsStateBlockSynchronization()))
               {
                 if (
                   difficultyOld > 0 &&
@@ -613,7 +613,7 @@ namespace BTokenLib
           {
             peer.Release();
 
-            if (Peers.All(p => !p.IsStateBlockDownload()))
+            if (Peers.All(p => !p.IsStateBlockSynchronization()))
               break;
           }
 

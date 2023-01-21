@@ -12,6 +12,7 @@ namespace BTokenLib
   public abstract partial class Token
   {
     public Token TokenParent;
+    protected List<Token> TokenChilds = new();
 
     public Blockchain Blockchain;
 
@@ -262,7 +263,7 @@ namespace BTokenLib
         if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
           CreateImage();
 
-        TokenListening.ForEach(
+        TokenChilds.ForEach(
           t => t.SignalCompletionBlockInsertion(block.Header.Hash));
 
         TXPool.RemoveAll(
@@ -273,7 +274,7 @@ namespace BTokenLib
         ex.Message.Log(LogFile);
         // Database (wallet) recovery.
 
-        TokenListening.ForEach(t => t.RevokeBlockInsertion());
+        TokenChilds.ForEach(t => t.RevokeBlockInsertion());
         throw ex;
       }
     }
@@ -289,11 +290,9 @@ namespace BTokenLib
     public virtual void DeleteDB()
     { throw new NotImplementedException(); }
 
-    protected List<Token> TokenListening = new();
-
     public void AddTokenListening(Token token)
     {
-      TokenListening.Add(token);
+      TokenChilds.Add(token);
     }
 
     public virtual void DetectAnchorTokenInBlock(TX tX)

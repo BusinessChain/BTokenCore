@@ -235,7 +235,7 @@ namespace BTokenCore
             Wallet.TrySpend(tX.TXInputs[i]);
 
           if (tX.TXOutputs[0].Value == 0 && t > 0)
-            TokenListening.ForEach(t => t.DetectAnchorTokenInBlock(tX));
+            TokenChilds.ForEach(t => t.DetectAnchorTokenInBlock(tX));
 
           for (int i = 0; i < tX.TXOutputs.Count; i += 1)
             if (tX.TXOutputs[i].Value > 0)
@@ -246,7 +246,7 @@ namespace BTokenCore
       {
         // Database (wallet) recovery.
 
-        TokenListening.ForEach(t => t.RevokeBlockInsertion());
+        TokenChilds.ForEach(t => t.RevokeBlockInsertion());
         throw ex;
       }
     }
