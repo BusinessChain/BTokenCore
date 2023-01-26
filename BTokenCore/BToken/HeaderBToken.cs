@@ -26,6 +26,8 @@ namespace BTokenCore
 
       lock (this)
         Nonce = InitializerNonce++;
+
+      Difficulty = 1;
     }
 
     public HeaderBToken(

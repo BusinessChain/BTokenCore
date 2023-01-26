@@ -15,6 +15,9 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 100;
+    const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
+
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
     const int LENGTH_DATA_ANCHOR_TOKEN = 66;
@@ -118,19 +121,16 @@ namespace BTokenCore
 
       IsMining = true;
 
-      RunMining();
+      "Start BToken miner".Log(LogFile);
 
-      "Started miner".Log(LogFile);
+      RunMining();
     }
 
 
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 10 /*seconds*/ * 1000;
-
     double FeeSatoshiPerByte;
-    const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     List<TokenAnchor> TokensAnchorUnconfirmed = new();
 
@@ -151,7 +151,7 @@ namespace BTokenCore
             //timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
             //    COUNT_SATOSHIS_PER_DAY_MINING);
 
-            ($"BToken miner successfully mined {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
+            ($"BToken miner successfully broadcasted anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
               $"{BlocksMined.Count} mined anchor tokens waiting for inclusion in next Bitcoin block.")
               .Log(LogFile);
           }
@@ -168,6 +168,7 @@ namespace BTokenCore
     }
 
     int NumberSequence;
+
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
     {
       long feeAccrued = (long)FeeSatoshiPerByte * LENGTH_DATA_TX_SCAFFOLD;
@@ -234,10 +235,9 @@ namespace BTokenCore
         PathBlocksMinedUnconfirmed, 
         block.ToString());
 
-      File.WriteAllBytes(pathFileBlock, block.Buffer);
+      // File.WriteAllBytes(pathFileBlock, block.Buffer);
 
-      lock (LOCK_BlocksMined)
-        BlocksMined.Add(block);
+      BlocksMined.Add(block);
 
       TokensAnchorUnconfirmed.Add(tokenAnchor);
 
@@ -292,32 +292,58 @@ namespace BTokenCore
       $"Anchor token detected {tokenAnchor.TX}".Log(LogFile);
     }
 
-    readonly object LOCK_BlocksMined = new();
-
     public override void SignalCompletionBlockInsertion(byte[] hashBlock)
     {
-      if (TokensAnchorDetectedInBlock.Count == 0)
-        return;
+      $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block."
+        .Log(LogFile);
 
-      TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
-
-      ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
-        $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
-
-      TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
-      IndexTrail += 1;
-
-      if (BlocksMined.Count == 0)
-        return;
-
-      BlockBToken blockMined = BlocksMined.Find(b => 
-      b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
-
-      if (blockMined != null)
+      if (TokensAnchorDetectedInBlock.Count > 0)
       {
-        InsertBlock(blockMined);
-        Network.RelayBlockToNetwork(blockMined);
+        TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
+
+        TokensAnchorDetectedInBlock.Clear();
+
+        ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
+          $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
+
+        TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
+        IndexTrail += 1;
+
+        if(BlocksMined.Count > 0)
+        {
+          BlockBToken blockMined = BlocksMined.Find(b =>
+          b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
+
+          if (blockMined != null)
+          {
+            InsertBlock(blockMined);
+            Network.RelayBlockToNetwork(blockMined);
+          }
+
+          if(TokensAnchorUnconfirmed.Count == 0)
+          {
+            NumberSequence = 0;
+            FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+          }
+        }
       }
+
+      BlocksMined.Clear();
+
+      if (TokensAnchorUnconfirmed.Count > 0)
+      {
+        FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+
+        ($"{BlocksMined.Count} BToken blocks were mined," +
+          $"{TokensAnchorUnconfirmed.Count} anchor tokens unconfirmed, do RBF.")
+          .Log(LogFile);
+
+        NumberSequence += 1;
+
+        RBFAnchorTokens();
+      }
+
+      $"New fee per byte is {FeeSatoshiPerByte}.".Log(LogFile);
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)
@@ -340,40 +366,7 @@ namespace BTokenCore
         }
       });
 
-      TokensAnchorDetectedInBlock.Clear(); // warum das hier machen?
-
       return tokenAnchorWinner;
-    }
-
-    public override List<byte[]> ParseHashesDB(
-      byte[] buffer,
-      int length,
-      Header headerTip)
-    {
-      SHA256 sHA256 = SHA256.Create();
-
-      byte[] hashRootHashesDB = sHA256.ComputeHash(
-        buffer,
-        0,
-        length);
-
-      if (!((HeaderBToken)headerTip).HashDatabase.IsEqual(hashRootHashesDB))
-        throw new ProtocolException(
-          $"Root hash of hashesDB not equal to database hash in header tip");
-
-      List<byte[]> hashesDB = new();
-
-      for (
-        int i = 0;
-        i < DatabaseAccounts.COUNT_CACHES + DatabaseAccounts.COUNT_FILES_DB;
-        i += 32)
-      {
-        byte[] hashDB = new byte[32];
-        Array.Copy(buffer, i, hashDB, 0, 32);
-        hashesDB.Add(hashDB);
-      }
-
-      return hashesDB;
     }
 
     protected override void InsertInDatabase(Block block)
@@ -405,29 +398,6 @@ namespace BTokenCore
         throw new ProtocolException(
           $"Output value of Coinbase TX {block.TXs[0]}\n" +
           $"does not add up to block reward {blockReward} plus block fee {block.Fee}.");
-
-      ($"{BlocksMined.Count} blocks were mined, {TokensAnchorUnconfirmed.Count} "
-        + "tokens did not make it into bitcoin block.").Log(LogFile);
-
-      BlocksMined.Clear();
-
-      if (TokensAnchorUnconfirmed.Count > 0)
-      {
-        FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
-
-        $"{TokensAnchorUnconfirmed.Count} anchor tokens, do RBF.".Log(LogFile);
-
-        NumberSequence += 1;
-
-        RBFAnchorTokens();
-      }
-      else
-      {
-        NumberSequence = 0;
-        FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
-      }
-
-      $"New fee per byte is {FeeSatoshiPerByte}.".Log(LogFile);
     }
 
     void RBFAnchorTokens()
@@ -510,9 +480,40 @@ namespace BTokenCore
 
       block.TXs.Add(tX);
 
-      block.TXs.AddRange(TXPool);
+      block.TXs.AddRange(TXPool.GetTXs(out int countTXs));
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
+    }
+
+    public override List<byte[]> ParseHashesDB(
+      byte[] buffer,
+      int length,
+      Header headerTip)
+    {
+      SHA256 sHA256 = SHA256.Create();
+
+      byte[] hashRootHashesDB = sHA256.ComputeHash(
+        buffer,
+        0,
+        length);
+
+      if (!((HeaderBToken)headerTip).HashDatabase.IsEqual(hashRootHashesDB))
+        throw new ProtocolException(
+          $"Root hash of hashesDB not equal to database hash in header tip");
+
+      List<byte[]> hashesDB = new();
+
+      for (
+        int i = 0;
+        i < DatabaseAccounts.COUNT_CACHES + DatabaseAccounts.COUNT_FILES_DB;
+        i += 32)
+      {
+        byte[] hashDB = new byte[32];
+        Array.Copy(buffer, i, hashDB, 0, 32);
+        hashesDB.Add(hashDB);
+      }
+
+      return hashesDB;
     }
 
     public override Header ParseHeader(

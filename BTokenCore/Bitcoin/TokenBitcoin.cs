@@ -69,7 +69,7 @@ namespace BTokenCore
 
         block.Header.CountBytesBlock = block.Buffer.Length;
 
-        while (!Blockchain.TryLock())
+        while (!TryLock())
           Thread.Sleep(100);
 
         try
@@ -90,7 +90,7 @@ namespace BTokenCore
         }
         finally
         {
-          Blockchain.ReleaseLock();
+          ReleaseLock();
         }
 
         BlocksMined.Add(block);
@@ -108,11 +108,7 @@ namespace BTokenCore
 
       long seed = indexThread * uint.MaxValue / NumberOfProcesses;
 
-      while (!Blockchain.TryLock())
-        Thread.Sleep(100);
-
       block = new();
-
       block.Header = new HeaderBitcoin()
       {
         Version = 0x01,
@@ -121,19 +117,19 @@ namespace BTokenCore
         Nonce = (uint)seed
       };
 
-      LoadTXs(block);
+      block.TXs.Add(CreateCoinbaseTX(block));
+      block.TXs.AddRange(TXPool.GetTXs(out int countTXsPool));
 
-      Blockchain.ReleaseLock();
+      block.Header.MerkleRoot = block.ComputeMerkleRoot();
 
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
-      header.AppendToHeader(
-        Blockchain.HeaderTip,
-        sHA256);
+      header.AppendToHeader(Blockchain.HeaderTip, sHA256);
 
       while (header.Hash.IsGreaterThan(header.NBits))
       {
-        if (Blockchain.HeaderTip.Height >= block.Header.Height)
+        if (Blockchain.HeaderTip.Height >= block.Header.Height
+          || TXPool.GetCountTXs() != countTXsPool)
           goto LABEL_StartPoW;
 
         if (!IsMining)
@@ -143,7 +139,7 @@ namespace BTokenCore
       }
     }
 
-    void LoadTXs(BlockBitcoin block)
+    TX CreateCoinbaseTX(Block block)
     {
       List<byte> tXRaw = new();
 
@@ -181,11 +177,7 @@ namespace BTokenCore
 
       tX.TXRaw = tXRaw;
 
-      block.TXs.Add(tX);
-
-      block.TXs.AddRange(TXPool);
-
-      block.Header.MerkleRoot = block.ComputeMerkleRoot();
+      return tX;
     }
 
     public override Block CreateBlock()

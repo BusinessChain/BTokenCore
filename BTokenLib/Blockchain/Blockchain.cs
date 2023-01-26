@@ -18,9 +18,6 @@ namespace BTokenLib
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    object LOCK_IsBlockchainLocked = new();
-    bool IsBlockchainLocked;
-
 
 
     public Blockchain(Token token)
@@ -37,24 +34,6 @@ namespace BTokenLib
 
       HeaderIndex.Clear();
       IndexingHeaderTip();
-    }
-
-    public bool TryLock()
-    {
-      lock (LOCK_IsBlockchainLocked)
-      {
-        if (IsBlockchainLocked)
-          return false;
-
-        IsBlockchainLocked = true;
-        return true;
-      }
-    }
-
-    public void ReleaseLock()
-    {
-      lock (LOCK_IsBlockchainLocked)
-        IsBlockchainLocked = false;
     }
 
     public string GetStatus()

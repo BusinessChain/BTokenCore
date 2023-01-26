@@ -20,10 +20,10 @@ namespace BTokenLib
 
     public Wallet Wallet;
 
+    protected TXPool TXPool;
+
     public Network Network;
     public UInt16 Port;
-
-    protected List<TX> TXPool = new();
 
     protected StreamWriter LogFile;
 
@@ -55,6 +55,8 @@ namespace BTokenLib
       Blockchain = new Blockchain(this);
 
       Archiver = new(this, GetName());
+
+      TXPool = new();
 
       Port = port;
       Network = new(this, flagEnableInboundConnections);
@@ -266,8 +268,7 @@ namespace BTokenLib
         TokenChilds.ForEach(
           t => t.SignalCompletionBlockInsertion(block.Header.Hash));
 
-        TXPool.RemoveAll(
-          tp => block.TXs.Any(tb => tb.Hash.IsEqual(tp.Hash)));
+        TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
       }
       catch (ProtocolException ex)
       {
@@ -334,7 +335,7 @@ namespace BTokenLib
 
     public void BroadcastTX(TX tX)
     {
-      TXPool.Add(tX);
+      TXPool.AddTX(tX);
       Network.AdvertizeTX(tX);
     }
   }
