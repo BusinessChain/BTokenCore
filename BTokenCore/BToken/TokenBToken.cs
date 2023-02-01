@@ -15,7 +15,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 100;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 5 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -130,7 +130,7 @@ namespace BTokenCore
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
 
-    double FeeSatoshiPerByte;
+    double FeeSatoshiPerByte = 1.0;
 
     List<TokenAnchor> TokensAnchorUnconfirmed = new();
 
@@ -151,7 +151,7 @@ namespace BTokenCore
             //timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
             //    COUNT_SATOSHIS_PER_DAY_MINING);
 
-            ($"BToken miner successfully broadcasted anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
+            ($"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
               $"{BlocksMined.Count} mined anchor tokens waiting for inclusion in next Bitcoin block.")
               .Log(LogFile);
           }
@@ -171,10 +171,10 @@ namespace BTokenCore
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
     {
-      long feeAccrued = (long)FeeSatoshiPerByte * LENGTH_DATA_TX_SCAFFOLD;
-      long feeAnchorToken = (long)FeeSatoshiPerByte * LENGTH_DATA_ANCHOR_TOKEN;
-      long feePerInput = (long)FeeSatoshiPerByte * LENGTH_DATA_P2PKH_INPUT;
-      long feeOutputChange = (long)FeeSatoshiPerByte * LENGTH_DATA_P2PKH_OUTPUT;
+      long feeAccrued = (long)(FeeSatoshiPerByte * LENGTH_DATA_TX_SCAFFOLD);
+      long feeAnchorToken = (long)(FeeSatoshiPerByte * LENGTH_DATA_ANCHOR_TOKEN);
+      long feePerInput = (long)(FeeSatoshiPerByte * LENGTH_DATA_P2PKH_INPUT);
+      long feeOutputChange = (long)(FeeSatoshiPerByte * LENGTH_DATA_P2PKH_OUTPUT);
 
       long valueAccrued = 0;
 
@@ -184,12 +184,15 @@ namespace BTokenCore
 
       while (
         tokenAnchor.TXOutputsWallet.Count < VarInt.PREFIX_UINT16 - 1 &&
-        TokenParent.Wallet.TryGetOutputSpendable(
+        TokenParent.Wallet.TryGetOutput(
           feePerInput,
-          out TXOutputWallet outputSpendable))
+          out TXOutputWallet output))
       {
-        tokenAnchor.TXOutputsWallet.Add(outputSpendable);
-        valueAccrued += outputSpendable.Value;
+        $"Anchor token miner drew output {output.TXIDShort}/{output.Index} from wallet with amount {output.Value}".Log(LogFile);
+
+        tokenAnchor.TXOutputsWallet.Add(output);
+        valueAccrued += output.Value;
+
         feeAccrued += feePerInput;
       }
 
@@ -222,12 +225,12 @@ namespace BTokenCore
       tokenAnchor.Serialize(TokenParent, SHA256Miner);
 
       if (tokenAnchor.ValueChange > 0)
-        TokenParent.Wallet.AddOutputSpendable(
+        TokenParent.Wallet.AddOutput(
           new TXOutputWallet
           {
             TXID = tokenAnchor.TX.Hash,
             TXIDShort = tokenAnchor.TX.TXIDShort,
-            OutputIndex = 1,
+            Index = 1,
             Value = tokenAnchor.ValueChange
           });
       
@@ -402,15 +405,17 @@ namespace BTokenCore
 
     void RBFAnchorTokens()
     {
+      // hier allenfalls nur den output vom letzten token in der wallet löschen
+      // was ist mit imput vom ersten wenn alle rbf'ed werden?
       TokensAnchorUnconfirmed.Reverse();
 
       foreach (TokenAnchor tokenAnchorMinedUnconfirmed in TokensAnchorUnconfirmed)
       {
         if (tokenAnchorMinedUnconfirmed.ValueChange > 0)
-          Wallet.RemoveOutputSpendable(tokenAnchorMinedUnconfirmed.TX.Hash);
+          Wallet.RemoveOutput(tokenAnchorMinedUnconfirmed.TX.Hash);
 
         tokenAnchorMinedUnconfirmed.TXOutputsWallet
-          .ForEach(i => Wallet.AddOutputSpendable(i));
+          .ForEach(i => Wallet.AddOutput(i));
 
         File.Delete(Path.Combine(
           PathBlocksMinedUnconfirmed,

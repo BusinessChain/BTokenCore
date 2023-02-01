@@ -12,7 +12,7 @@ namespace BTokenLib
   {
     public byte[] TXID = new byte[32];
     public int TXIDShort;
-    public int OutputIndex;
+    public int Index;
     public long Value;
   }
 }

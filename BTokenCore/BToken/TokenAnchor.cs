@@ -89,7 +89,7 @@ namespace BTokenCore
         for (int i = 0; i < TXOutputsWallet.Count; i += 1)
         {
           tXRaw.AddRange(TXOutputsWallet[i].TXID);
-          tXRaw.AddRange(BitConverter.GetBytes(TXOutputsWallet[i].OutputIndex));
+          tXRaw.AddRange(BitConverter.GetBytes(TXOutputsWallet[i].Index));
           tXRaw.Add(0x00); // length empty script
           tXRaw.AddRange(BitConverter.GetBytes(NumberSequence)); // sequence
 

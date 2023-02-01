@@ -63,8 +63,8 @@ namespace BTokenCore
           return;
         }
 
-        block.Buffer = block.Header.Buffer
-          .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
+        block.Buffer = block.Header.Buffer.Concat(
+          VarInt.GetBytes(block.TXs.Count)).ToArray();
         block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
 
         block.Header.CountBytesBlock = block.Buffer.Length;
@@ -74,17 +74,18 @@ namespace BTokenCore
 
         try
         {
-          InsertBlock(block);
+          ($"Bitcoin Miner {indexThread} mined block height " +
+            $"{block.Header.Height} with hash {block}.").Log(LogFile);
 
-          $"Bitcoin Miner {indexThread} successfully inserted {block}."
-            .Log(LogFile);
+          InsertBlock(block);
 
           Console.Beep();
         }
         catch (Exception ex)
         {
-          ($"{ex.GetType().Name} when inserting mined block {block}.\n" +
-            $"{ex.Message}").Log(LogFile);
+          ($"{ex.GetType().Name} when inserting mined " +
+            $"block height {block.Header.Height} {block}.\n" +
+            $"exception message: {ex.Message}").Log(LogFile);
 
           continue;
         }
@@ -94,7 +95,6 @@ namespace BTokenCore
         }
 
         BlocksMined.Add(block);
-
         Network.RelayBlockToNetwork(block);
       }
     }
@@ -113,6 +113,7 @@ namespace BTokenCore
       {
         Version = 0x01,
         HashPrevious = Blockchain.HeaderTip.Hash,
+        Height = Blockchain.HeaderTip.Height + 1,
         UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
         Nonce = (uint)seed
       };
