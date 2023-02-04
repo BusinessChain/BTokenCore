@@ -15,7 +15,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 5 * 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 100;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -183,14 +183,14 @@ namespace BTokenCore
       tokenAnchor.IDToken = ID_BTOKEN;
 
       while (
-        tokenAnchor.TXOutputsWallet.Count < VarInt.PREFIX_UINT16 - 1 &&
+        tokenAnchor.Inputs.Count < VarInt.PREFIX_UINT16 - 1 &&
         TokenParent.Wallet.TryGetOutput(
           feePerInput,
           out TXOutputWallet output))
       {
         $"Anchor token miner drew output {output.TXIDShort}/{output.Index} from wallet with amount {output.Value}".Log(LogFile);
 
-        tokenAnchor.TXOutputsWallet.Add(output);
+        tokenAnchor.Inputs.Add(output);
         valueAccrued += output.Value;
 
         feeAccrued += feePerInput;
@@ -304,8 +304,6 @@ namespace BTokenCore
       {
         TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
 
-        TokensAnchorDetectedInBlock.Clear();
-
         ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
           $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
@@ -331,14 +329,14 @@ namespace BTokenCore
         }
       }
 
+      TokensAnchorDetectedInBlock.Clear();
       BlocksMined.Clear();
 
       if (TokensAnchorUnconfirmed.Count > 0)
       {
         FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
 
-        ($"{BlocksMined.Count} BToken blocks were mined," +
-          $"{TokensAnchorUnconfirmed.Count} anchor tokens unconfirmed, do RBF.")
+        $"{TokensAnchorUnconfirmed.Count} anchor tokens unconfirmed, do RBF."
           .Log(LogFile);
 
         NumberSequence += 1;
@@ -372,6 +370,32 @@ namespace BTokenCore
       return tokenAnchorWinner;
     }
 
+    void RBFAnchorTokens()
+    {
+      TokensAnchorUnconfirmed.Reverse();
+
+      foreach (TokenAnchor t in TokensAnchorUnconfirmed)
+      {
+        if (t.ValueChange > 0)
+          TokenParent.Wallet.RemoveOutput(t.TX.Hash);
+
+        t.Inputs.ForEach(i => TokenParent.Wallet.AddOutput(i));
+
+        File.Delete(Path.Combine(
+          PathBlocksMinedUnconfirmed,
+          t.HashBlockReferenced.ToHexString()));
+      }
+
+      int countTokensAnchorUnconfirmed = TokensAnchorUnconfirmed.Count;
+      TokensAnchorUnconfirmed.Clear();
+
+      $"RBF {countTokensAnchorUnconfirmed} anchorTokens".Log(LogFile);
+
+      while (countTokensAnchorUnconfirmed-- > 0)
+        if (!TryMineAnchorToken(out TokenAnchor tokenAnchor))
+          break;
+    }
+
     protected override void InsertInDatabase(Block block)
     {
       $"Insert BToken block {block} in database.".Log(LogFile);
@@ -389,8 +413,8 @@ namespace BTokenCore
           $"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
           $"but {TrailHashesAnchor[indexTrailAnchor].ToHexString()}.");
 
-      DatabaseAccounts.InsertBlock((BlockBToken)block); 
-      
+      DatabaseAccounts.InsertBlock((BlockBToken)block);
+
       long outputValueTXCoinbase = 0;
       block.TXs[0].TXOutputs.ForEach(o => outputValueTXCoinbase += o.Value);
 
@@ -401,33 +425,6 @@ namespace BTokenCore
         throw new ProtocolException(
           $"Output value of Coinbase TX {block.TXs[0]}\n" +
           $"does not add up to block reward {blockReward} plus block fee {block.Fee}.");
-    }
-
-    void RBFAnchorTokens()
-    {
-      // hier allenfalls nur den output vom letzten token in der wallet löschen
-      // was ist mit imput vom ersten wenn alle rbf'ed werden?
-      TokensAnchorUnconfirmed.Reverse();
-
-      foreach (TokenAnchor tokenAnchorMinedUnconfirmed in TokensAnchorUnconfirmed)
-      {
-        if (tokenAnchorMinedUnconfirmed.ValueChange > 0)
-          Wallet.RemoveOutput(tokenAnchorMinedUnconfirmed.TX.Hash);
-
-        tokenAnchorMinedUnconfirmed.TXOutputsWallet
-          .ForEach(i => Wallet.AddOutput(i));
-
-        File.Delete(Path.Combine(
-          PathBlocksMinedUnconfirmed,
-          tokenAnchorMinedUnconfirmed.HashBlockReferenced.ToHexString()));
-      }
-
-      int countTokensAnchorUnconfirmed = TokensAnchorUnconfirmed.Count;
-      TokensAnchorUnconfirmed.Clear();
-
-      while (countTokensAnchorUnconfirmed-- > 0)
-        if (!TryMineAnchorToken(out TokenAnchor tokenAnchor))
-          break;
     }
 
     public override void InsertDB(

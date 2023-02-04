@@ -14,7 +14,7 @@ namespace BTokenCore
     {
       public byte[] IDToken;
 
-      public List<TXOutputWallet> TXOutputsWallet = new();
+      public List<TXOutputWallet> Inputs = new();
 
       public int NumberSequence;
 
@@ -82,18 +82,18 @@ namespace BTokenCore
         long feeTX = 0;
 
         tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // version
-        tXRaw.Add((byte)TXOutputsWallet.Count);
+        tXRaw.Add((byte)Inputs.Count);
 
         int indexFirstInput = tXRaw.Count;
 
-        for (int i = 0; i < TXOutputsWallet.Count; i += 1)
+        for (int i = 0; i < Inputs.Count; i += 1)
         {
-          tXRaw.AddRange(TXOutputsWallet[i].TXID);
-          tXRaw.AddRange(BitConverter.GetBytes(TXOutputsWallet[i].Index));
+          tXRaw.AddRange(Inputs[i].TXID);
+          tXRaw.AddRange(BitConverter.GetBytes(Inputs[i].Index));
           tXRaw.Add(0x00); // length empty script
           tXRaw.AddRange(BitConverter.GetBytes(NumberSequence)); // sequence
 
-          feeTX += TXOutputsWallet[i].Value;
+          feeTX += Inputs[i].Value;
         }
 
         byte[] dataAnchorToken = IDToken.Concat(HashBlockReferenced)
@@ -122,7 +122,7 @@ namespace BTokenCore
 
         List<List<byte>> signaturesPerInput = new();
 
-        for (int i = 0; i < TXOutputsWallet.Count; i += 1)
+        for (int i = 0; i < Inputs.Count; i += 1)
         {
           List<byte> tXRawSign = tXRaw.ToList();
           int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
@@ -134,7 +134,7 @@ namespace BTokenCore
             wallet.GetScriptSignature(tXRawSign.ToArray()));
         }
 
-        for (int i = TXOutputsWallet.Count - 1; i >= 0; i -= 1)
+        for (int i = Inputs.Count - 1; i >= 0; i -= 1)
         {
           int indexSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 

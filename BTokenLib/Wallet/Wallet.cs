@@ -140,7 +140,11 @@ namespace BTokenLib
 
     public void RemoveOutput(byte[] hash)
     {
-      OutputsValueDesc.RemoveAll(t => t.TXID.Equals(hash));
+      int i = OutputsValueDesc.RemoveAll(t => t.TXID.Equals(hash));
+
+      if(i > 0)
+        Debug.WriteLine(
+          $"Remove {i} output with hash {hash.ToHexString()}");
     }
 
     public void AddOutput(TXOutputWallet output)
