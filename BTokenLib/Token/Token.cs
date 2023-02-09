@@ -322,16 +322,13 @@ namespace BTokenLib
       return GetType().Name;
     }
 
-
     public virtual bool TryGetDB(
       byte[] hash,
       out byte[] dataDB)
     { throw new NotImplementedException(); }
 
     public virtual bool FlagDownloadDBWhenSync(HeaderDownload headerDownload)
-    {
-      return false;
-    }
+    { return false; }
 
     public void BroadcastTX(TX tX)
     {

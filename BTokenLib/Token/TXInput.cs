@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Formats.Asn1;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ namespace BTokenLib
     public int OutputIndex;
 
     public byte[] ScriptPubKey;
+
+    public uint Sequence;
 
 
 
@@ -54,7 +57,11 @@ namespace BTokenLib
 
       index += LengthScript;
 
-      index += 4; // sequence
+      Sequence = BitConverter.ToUInt32(
+        buffer,
+        index);
+
+      index += 4;
     }
   }
 }

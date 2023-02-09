@@ -152,7 +152,7 @@ namespace BTokenCore
             //    COUNT_SATOSHIS_PER_DAY_MINING);
 
             ($"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
-              $"{BlocksMined.Count} mined anchor tokens waiting for inclusion in next Bitcoin block.")
+              $"{TokensAnchorUnconfirmed.Count} mined anchor tokens waiting for inclusion in next Bitcoin block.")
               .Log(LogFile);
           }
 
@@ -241,7 +241,6 @@ namespace BTokenCore
       // File.WriteAllBytes(pathFileBlock, block.Buffer);
 
       BlocksMined.Add(block);
-
       TokensAnchorUnconfirmed.Add(tokenAnchor);
 
       // Immer bevor ein Token an einen Peer advertized wird,
@@ -261,7 +260,11 @@ namespace BTokenCore
         .Find(t => t.TX.Hash.IsEqual(tX.Hash));
 
       if (tokenAnchor != null)
+      {
+        $"Detected self mined anchor token {tX} in Bitcoin block".Log(LogFile);
+
         TokensAnchorUnconfirmed.Remove(tokenAnchor);
+      }
       else
       {
         TXOutput tXOutput = tX.TXOutputs[0];
@@ -281,8 +284,7 @@ namespace BTokenCore
         if (!ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
           return;
 
-        $"Detected anchor token {tX} in Bitcoin block, BToken block not yet in MemPool."
-        .Log(LogFile);
+        $"Detected foreign - mined anchor token {tX} in Bitcoin block".Log(LogFile);
 
         index += ID_BTOKEN.Length;
 
@@ -292,7 +294,7 @@ namespace BTokenCore
       tokenAnchor.IsConfirmed = true;
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
 
-      $"Anchor token detected {tokenAnchor.TX}".Log(LogFile);
+      $"Anchor token references {tokenAnchor.HashBlockReferenced.ToHexString()}".Log(LogFile);
     }
 
     public override void SignalCompletionBlockInsertion(byte[] hashBlock)
@@ -317,6 +319,7 @@ namespace BTokenCore
 
           if (blockMined != null)
           {
+            $"Self mined block {blockMined}".Log(LogFile);
             InsertBlock(blockMined);
             Network.RelayBlockToNetwork(blockMined);
           }
@@ -481,7 +484,6 @@ namespace BTokenCore
       tX.TXRaw = tXRaw;
 
       block.TXs.Add(tX);
-
       block.TXs.AddRange(TXPool.GetTXs(out int countTXs));
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
