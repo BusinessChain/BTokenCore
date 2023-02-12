@@ -8,6 +8,9 @@ namespace BTokenLib
 {
   public class TXPool
   {
+    const int CAPACITY_POOL_MAX = 3;
+    const bool FLAG_ENABLE_RBF = true;
+
     Dictionary<byte[], List<(TXInput, TX)>> InputsPool =
       new(new EqualityComparerByteArray());
 
@@ -59,47 +62,46 @@ namespace BTokenLib
     // beides muss funktioneren.
     public bool AddTX(TX tX)
     {
+      bool flagRemoveTXInPoolbeingRBFed = false;
+      TX tXInPoolBeingRBFed = null;
+
       lock (LOCK_TXsPool)
       {
-        bool flagRemoveTXInPoolbeingRBFed = false;
-        TX tXInPoolBeingRBFed = null;
-
         foreach (TXInput tXInput in tX.TXInputs)
-        {
-          if(TXPoolDict.TryGetValue(tXInput.TXIDOutput, out TX tXInPoolWithReferencedOutput))
-          {
-            TXOutput output = tXInPoolWithReferencedOutput.TXOutputs[tXInput.OutputIndex];
-            // check signature
-          }
-          else
-          {
-            Debug.WriteLine(
-              $"Output {tXInput.TXIDOutput} / {tXInput.OutputIndex}" +
-              $"referenced by tX {tX} not in pool.");
-
-            return false;
-          }
-
           if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput, TX)> inputsInPool))
             foreach ((TXInput input, TX tX) tupelInputsInPool in inputsInPool)
               if (tupelInputsInPool.input.OutputIndex == tXInput.OutputIndex)
               {
                 Debug.WriteLine(
-                  $"TX input referencing {tXInput.TXIDOutput} / {tXInput.OutputIndex}" +
-                  $"of tX {tX} already in pool.");
+                  $"Output {tXInput.TXIDOutput} / {tXInput.OutputIndex} referenced by tX {tX}" +
+                  $"already spent by tX {tupelInputsInPool.tX}.");
 
-                if (tXInput.Sequence > tupelInputsInPool.input.Sequence)
+                if (
+                  FLAG_ENABLE_RBF &&
+                  tXInput.Sequence > tupelInputsInPool.input.Sequence)
                 {
+                  Debug.WriteLine(
+                    $"Replace tX {tupelInputsInPool.tX} (sequence = {tupelInputsInPool.input.Sequence}) " +
+                    $"with tX {tX} (sequence = {tXInput.Sequence}).");
+
                   flagRemoveTXInPoolbeingRBFed = true;
                   tXInPoolBeingRBFed = tupelInputsInPool.tX;
                 }
                 else
                   return false;
               }
+
+        if (flagRemoveTXInPoolbeingRBFed)
+          RemoveTX(tXInPoolBeingRBFed.Hash);
+        else if (TXPoolDict.Count >= CAPACITY_POOL_MAX)
+        {
+          Debug.WriteLine($"Max capacity of TXPool reached. " +
+            $"TX {tX} not added to pool.");
+
+          return false;
         }
 
-        if(flagRemoveTXInPoolbeingRBFed)
-          RemoveTX(tXInPoolBeingRBFed.Hash);
+        TXPoolDict.Add(tX.Hash, tX);
 
         foreach (TXInput tXInput in tX.TXInputs)
           if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput input, TX)> inputsInPool))
@@ -107,7 +109,7 @@ namespace BTokenLib
           else
             InputsPool.Add(tXInput.TXIDOutput, new List<(TXInput, TX)>() { (tXInput, tX) });
 
-        TXPoolDict.Add(tX.Hash, tX);
+        Debug.WriteLine($"Added {tX} to TXPool. {TXPoolDict.Count} tXs in pool.");
 
         return true;
       }

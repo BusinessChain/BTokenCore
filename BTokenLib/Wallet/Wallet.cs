@@ -55,10 +55,8 @@ namespace BTokenLib
     }
 
 
-    public void DetectTXOutputSpendable(TX tX, int indexOutput)
+    public void DetectTXOutputSpendable(TX tX, TXOutput tXOutput)
     {
-      TXOutput tXOutput = tX.TXOutputs[indexOutput];
-
       if (tXOutput.LengthScript != LENGTH_P2PKH)
         return;
 
@@ -92,13 +90,9 @@ namespace BTokenLib
           {
             TXID = tX.Hash,
             TXIDShort = tX.TXIDShort,
-            Index = indexOutput,
+            Index = tX.TXOutputs.IndexOf(tXOutput),
             Value = tXOutput.Value
           });
-
-        Console.WriteLine(
-          $"Detected spendable satoshis {tXOutput.Value} " +
-          $"in tx {tX} output index {indexOutput}.");
       }
     }
 
@@ -144,7 +138,7 @@ namespace BTokenLib
 
       if(i > 0)
         Debug.WriteLine(
-          $"Remove {i} output with hash {hash.ToHexString()}");
+          $"Remove {i} output from wallet with hash {hash.ToHexString()}");
     }
 
     public void AddOutput(TXOutputWallet output)

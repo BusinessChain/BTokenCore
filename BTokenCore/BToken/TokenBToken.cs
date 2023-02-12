@@ -15,7 +15,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 100;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 10 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -150,10 +150,6 @@ namespace BTokenCore
           {
             //timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
             //    COUNT_SATOSHIS_PER_DAY_MINING);
-
-            ($"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
-              $"{TokensAnchorUnconfirmed.Count} mined anchor tokens waiting for inclusion in next Bitcoin block.")
-              .Log(LogFile);
           }
 
           //timeMSLoop = RandomGeneratorMiner.Next(
@@ -188,7 +184,7 @@ namespace BTokenCore
           feePerInput,
           out TXOutputWallet output))
       {
-        $"Anchor token miner drew output {output.TXIDShort}/{output.Index} from wallet with amount {output.Value}".Log(LogFile);
+        $"BToken miner drew output {output.TXIDShort}/{output.Index} from wallet with amount {output.Value}".Log(LogFile);
 
         tokenAnchor.Inputs.Add(output);
         valueAccrued += output.Value;
@@ -248,6 +244,10 @@ namespace BTokenCore
       // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
 
       TokenParent.BroadcastTX(tokenAnchor.TX);
+
+      ($"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
+        $"{TokensAnchorUnconfirmed.Count} mined unconfirmed anchor tokens.")
+        .Log(LogFile);
 
       return true;
     }

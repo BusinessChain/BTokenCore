@@ -218,22 +218,20 @@ namespace BTokenCore
 
     protected override void InsertInDatabase(Block block)
     {
+      List<TX> tXs = block.TXs;
+
       try
       {
-        for (int t = 0; t < block.TXs.Count; t += 1)
-        {
-          TX tX = block.TXs[t];
+        foreach (TX tX in tXs)
+          foreach (TXOutput tXOutput in tX.TXOutputs)
+            if (tXOutput.Value > 0)
+              Wallet.DetectTXOutputSpendable(tX, tXOutput);
+            else
+              TokenChilds.ForEach(t => t.DetectAnchorTokenInBlock(tX));
 
-          for (int i = 0; i < tX.TXInputs.Count; i += 1)
-            Wallet.TrySpend(tX.TXInputs[i]);
-
-          if (tX.TXOutputs[0].Value == 0 && t > 0)
-            TokenChilds.ForEach(t => t.DetectAnchorTokenInBlock(tX));
-
-          for (int i = 0; i < tX.TXOutputs.Count; i += 1)
-            if (tX.TXOutputs[i].Value > 0)
-              Wallet.DetectTXOutputSpendable(tX, i);
-        }
+        foreach (TX tX in tXs)
+          foreach (TXInput tXInput in tX.TXInputs)
+            Wallet.TrySpend(tXInput);
       }
       catch (ProtocolException ex)
       {
