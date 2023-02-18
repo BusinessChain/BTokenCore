@@ -254,6 +254,8 @@ namespace BTokenLib
 
         InsertInDatabase(block);
 
+        TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
+
         Blockchain.AppendHeader(block.Header);
 
         FeePerByteAverage =
@@ -267,8 +269,6 @@ namespace BTokenLib
 
         TokenChilds.ForEach(
           t => t.SignalCompletionBlockInsertion(block.Header.Hash));
-
-        TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
       }
       catch (ProtocolException ex)
       {

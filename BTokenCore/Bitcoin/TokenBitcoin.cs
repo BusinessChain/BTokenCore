@@ -29,6 +29,7 @@ namespace BTokenCore
     { }
 
 
+    const int COUNT_TXS_PER_BLOCK_MAX = 3;
     int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
     List<BlockBitcoin> BlocksMined = new();
 
@@ -119,7 +120,7 @@ namespace BTokenCore
       };
 
       block.TXs.Add(CreateCoinbaseTX(block));
-      block.TXs.AddRange(TXPool.GetTXs(out int countTXsPool));
+      block.TXs.AddRange(TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
 

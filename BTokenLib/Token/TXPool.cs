@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using Org.BouncyCastle.Asn1.X509;
 
 namespace BTokenLib
 {
   public class TXPool
   {
-    const int CAPACITY_POOL_MAX = 3;
     const bool FLAG_ENABLE_RBF = true;
 
     Dictionary<byte[], List<(TXInput, TX)>> InputsPool =
@@ -22,44 +22,113 @@ namespace BTokenLib
     public TXPool()
     { }
 
-    public void RemoveTX(byte[] hashTX)
+    /// <summary>
+    /// Removes a tX and all tXs that reference its outputs.
+    /// </summary>
+    public void RemoveTXRecursive(byte[] hashTX)
     {
-      if (TXPoolDict.TryGetValue(hashTX, out TX tXInPool))
+      if (TXPoolDict.Remove(hashTX, out TX tX))
       {
-        foreach (TXInput tXInput in tXInPool.TXInputs)
+        List<(TXInput input, TX)> tupelInputs = null;
+
+        foreach (TXInput tXInput in tX.TXInputs)
         {
-          List<(TXInput input, TX)> tupelInputsInPool = InputsPool[tXInput.TXIDOutput];
+          tupelInputs = InputsPool[tXInput.TXIDOutput];
 
-          tupelInputsInPool.RemoveAll(t => t.input.OutputIndex == tXInput.OutputIndex);
+          tupelInputs.RemoveAll(t => t.input.OutputIndex == tXInput.OutputIndex);
 
-          if (tupelInputsInPool.Count == 0)
+          if (tupelInputs.Count == 0)
             InputsPool.Remove(tXInput.TXIDOutput);
         }
 
-        TXPoolDict.Remove(hashTX);
+        if (InputsPool.TryGetValue(hashTX, out tupelInputs))
+          foreach ((TXInput input, TX tX) tupelInputInPool in tupelInputs)
+            RemoveTXRecursive(tX.Hash);
       }
-
     }
 
     public void RemoveTXs(IEnumerable<byte[]> hashesTX)
     {
       lock (LOCK_TXsPool)
         foreach (byte[] hashTX in hashesTX)
-          RemoveTX(hashTX);
+          RemoveTXRecursive(hashTX);
     }
 
-    public IEnumerable<TX> GetTXs(out int countTXs)
+
+    List<TX> TXsGet = new();
+    int CountMaxTXsGet;
+
+    public List<TX> GetTXs(out int countTXsPool, int countMax)
     {
+      TXsGet.Clear();
+      CountMaxTXsGet = countMax;
+
       lock (LOCK_TXsPool)
       {
-        countTXs = TXPoolDict.Count;
-        return TXPoolDict.ToList().Select(k => k.Value);
+        countTXsPool = TXPoolDict.Count;
+
+        foreach (KeyValuePair<byte[], TX> tXInPool in TXPoolDict)
+          if (TXsGet.Count < CountMaxTXsGet)
+            ExtractBranch(tXInPool.Value);
+          else
+            break;
+
+        return TXsGet;
       }
     }
 
-    // TXPoolList soll ein dict sein. Dann kann bei gleichem Input die Sequenznummer
-    // berücksichtigt werden. Tests machen mit und ohne Sequenznummer berüclsichtigung
-    // beides muss funktioneren.
+    void AddLeaves(TX tXBranch)
+    {
+
+    }
+
+    void ExtractBranch(TX tXRoot)
+    {
+      List<TX> tXsBranch = new() { tXRoot };
+
+      SeekTXLeaf(tXsBranch);
+
+      foreach(TX tXBranch in tXsBranch)
+        AddLeaves(tXBranch);
+
+
+      if (InputsPool.TryGetValue(tXLeaf.Hash, out List<(TXInput input, TX tX)> inputsLeaf))
+        foreach ((TXInput input, TX tX) inputLeaf in inputsLeaf)
+        {
+          foreach (TXInput input in inputLeaf.tX.TXInputs)
+          {
+            if (TXsGet.Count >= CountMaxTXsGet)
+              return;
+
+            if (TXPoolDict.TryGetValue(input.TXIDOutput, out TX tX))
+              if (TXsGet.Contains(tX))
+                continue;
+              else
+                ExtractBranch(tX);
+          }
+
+          if (TXsGet.Count >= CountMaxTXsGet)
+            return;
+
+          TXsGet.Add(inputLeaf.tX);
+
+          if (inputLeaf.tX == tXStart)
+            return;
+        }
+    }
+
+    void SeekTXLeaf(List<TX> tXsBranch)
+    {
+      foreach (TXInput input in tXsBranch[0].TXInputs)
+        if (TXPoolDict.TryGetValue(input.TXIDOutput, out TX tXInPool))
+          if (!TXsGet.Contains(tXInPool))
+          {
+            tXsBranch.Insert(0, tXInPool);
+            SeekTXLeaf(tXsBranch);
+            return;
+          }
+    }
+
     public bool AddTX(TX tX)
     {
       bool flagRemoveTXInPoolbeingRBFed = false;
@@ -73,7 +142,7 @@ namespace BTokenLib
               if (tupelInputsInPool.input.OutputIndex == tXInput.OutputIndex)
               {
                 Debug.WriteLine(
-                  $"Output {tXInput.TXIDOutput} / {tXInput.OutputIndex} referenced by tX {tX}" +
+                  $"Output {tXInput.TXIDOutput.ToHexString()} / {tXInput.OutputIndex} referenced by tX {tX} " +
                   $"already spent by tX {tupelInputsInPool.tX}.");
 
                 if (
@@ -92,14 +161,7 @@ namespace BTokenLib
               }
 
         if (flagRemoveTXInPoolbeingRBFed)
-          RemoveTX(tXInPoolBeingRBFed.Hash);
-        else if (TXPoolDict.Count >= CAPACITY_POOL_MAX)
-        {
-          Debug.WriteLine($"Max capacity of TXPool reached. " +
-            $"TX {tX} not added to pool.");
-
-          return false;
-        }
+          RemoveTXRecursive(tXInPoolBeingRBFed.Hash);
 
         TXPoolDict.Add(tX.Hash, tX);
 

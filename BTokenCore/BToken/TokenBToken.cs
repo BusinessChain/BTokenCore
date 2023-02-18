@@ -12,10 +12,12 @@ namespace BTokenCore
 {
   partial class TokenBToken : Token
   {
+    const int COUNT_TXS_PER_BLOCK_MAX = 3;
+
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 10 * 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 5 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -484,7 +486,7 @@ namespace BTokenCore
       tX.TXRaw = tXRaw;
 
       block.TXs.Add(tX);
-      block.TXs.AddRange(TXPool.GetTXs(out int countTXs));
+      block.TXs.AddRange(TXPool.GetTXs(out int countTXs, COUNT_TXS_PER_BLOCK_MAX));
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
     }
