@@ -29,21 +29,22 @@ namespace BTokenLib
     {
       if (TXPoolDict.Remove(hashTX, out TX tX))
       {
+        Debug.WriteLine($"Remove tX {tX} from mempool.");
+
         List<(TXInput input, TX)> tupelInputs = null;
 
         foreach (TXInput tXInput in tX.TXInputs)
-        {
-          tupelInputs = InputsPool[tXInput.TXIDOutput];
+          if (InputsPool.TryGetValue(tXInput.TXIDOutput, out tupelInputs))
+          {
+            tupelInputs.RemoveAll(t => t.input.OutputIndex == tXInput.OutputIndex);
 
-          tupelInputs.RemoveAll(t => t.input.OutputIndex == tXInput.OutputIndex);
-
-          if (tupelInputs.Count == 0)
-            InputsPool.Remove(tXInput.TXIDOutput);
-        }
+            if (tupelInputs.Count == 0)
+              InputsPool.Remove(tXInput.TXIDOutput);
+          }
 
         if (InputsPool.TryGetValue(hashTX, out tupelInputs))
-          foreach ((TXInput input, TX tX) tupelInputInPool in tupelInputs)
-            RemoveTXRecursive(tX.Hash);
+          foreach ((TXInput input, TX tX) tupelInputInPool in tupelInputs.ToList())
+            RemoveTXRecursive(tupelInputInPool.tX.Hash);
       }
     }
 
@@ -60,11 +61,11 @@ namespace BTokenLib
 
     public List<TX> GetTXs(out int countTXsPool, int countMax)
     {
-      TXsGet.Clear();
-      CountMaxTXsGet = countMax;
-
       lock (LOCK_TXsPool)
       {
+        TXsGet.Clear();
+        CountMaxTXsGet = countMax;
+
         countTXsPool = TXPoolDict.Count;
 
         foreach (KeyValuePair<byte[], TX> tXInPool in TXPoolDict)
@@ -73,60 +74,47 @@ namespace BTokenLib
           else
             break;
 
-        return TXsGet;
+        if (TXsGet.Any(t => t == null))
+          Debug.WriteLine($"TXsGet contains TXs that are null.");
+
+        return TXsGet.ToList();
       }
-    }
-
-    void AddLeaves(TX tXBranch)
-    {
-
     }
 
     void ExtractBranch(TX tXRoot)
     {
+      if (TXsGet.Contains(tXRoot))
+        return;
+
       List<TX> tXsBranch = new() { tXRoot };
 
-      SeekTXLeaf(tXsBranch);
+      TraceTXToLeaf(tXsBranch);
 
       foreach(TX tXBranch in tXsBranch)
-        AddLeaves(tXBranch);
-
-
-      if (InputsPool.TryGetValue(tXLeaf.Hash, out List<(TXInput input, TX tX)> inputsLeaf))
-        foreach ((TXInput input, TX tX) inputLeaf in inputsLeaf)
+      {
+        foreach (TXInput input in tXBranch.TXInputs)
         {
-          foreach (TXInput input in inputLeaf.tX.TXInputs)
-          {
-            if (TXsGet.Count >= CountMaxTXsGet)
-              return;
-
-            if (TXPoolDict.TryGetValue(input.TXIDOutput, out TX tX))
-              if (TXsGet.Contains(tX))
-                continue;
-              else
-                ExtractBranch(tX);
-          }
-
           if (TXsGet.Count >= CountMaxTXsGet)
             return;
 
-          TXsGet.Add(inputLeaf.tX);
-
-          if (inputLeaf.tX == tXStart)
-            return;
+          if (TXPoolDict.TryGetValue(input.TXIDOutput, out TX tXRootSubBranch))
+            ExtractBranch(tXRootSubBranch);
         }
+
+        TXsGet.Add(tXBranch);
+      }
     }
 
-    void SeekTXLeaf(List<TX> tXsBranch)
+    void TraceTXToLeaf(List<TX> tXsBranch)
     {
       foreach (TXInput input in tXsBranch[0].TXInputs)
-        if (TXPoolDict.TryGetValue(input.TXIDOutput, out TX tXInPool))
-          if (!TXsGet.Contains(tXInPool))
-          {
-            tXsBranch.Insert(0, tXInPool);
-            SeekTXLeaf(tXsBranch);
-            return;
-          }
+        if (TXPoolDict.TryGetValue(input.TXIDOutput, out TX tXInPool) &&
+            !TXsGet.Contains(tXInPool))
+        {
+          tXsBranch.Insert(0, tXInPool);
+          TraceTXToLeaf(tXsBranch);
+          return;
+        }
     }
 
     public bool AddTX(TX tX)

@@ -8,6 +8,8 @@ using System.Security.Cryptography;
 
 
 using BTokenLib;
+using System.Runtime.CompilerServices;
+using Org.BouncyCastle.Asn1.X509;
 
 namespace BTokenCore
 {
@@ -20,6 +22,10 @@ namespace BTokenCore
 
     const UInt16 COMPORT_BITCOIN = 8333;
 
+    const int COUNT_TXS_PER_BLOCK_MAX = 5;
+    int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
+    List<BlockBitcoin> BlocksMined = new();
+
 
 
     public TokenBitcoin()
@@ -27,11 +33,6 @@ namespace BTokenCore
           COMPORT_BITCOIN,
           flagEnableInboundConnections: true)
     { }
-
-
-    const int COUNT_TXS_PER_BLOCK_MAX = 3;
-    int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
-    List<BlockBitcoin> BlocksMined = new();
 
     public override void StartMining()
     {
@@ -120,7 +121,11 @@ namespace BTokenCore
       };
 
       block.TXs.Add(CreateCoinbaseTX(block));
-      block.TXs.AddRange(TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
+      var bla = TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX);
+      block.TXs.AddRange(bla);
+
+      if (block.TXs.Any(t => t == null))
+        Debug.WriteLine($"TXsGet contains TXs that are null.");
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
 
@@ -128,8 +133,14 @@ namespace BTokenCore
 
       header.AppendToHeader(Blockchain.HeaderTip, sHA256);
 
-      while (header.Hash.IsGreaterThan(header.NBits))
-      {
+      byte[] target = new byte[32] {
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0x09, 0x00, 0x00};
+
+      while (header.Hash.IsGreaterThan(target))
+      { //while (header.Hash.IsGreaterThan(header.NBits))
         if (Blockchain.HeaderTip.Height >= block.Header.Height
           || TXPool.GetCountTXs() != countTXsPool)
           goto LABEL_StartPoW;

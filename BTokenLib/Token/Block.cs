@@ -4,6 +4,7 @@ using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
+using System.Diagnostics;
 
 namespace BTokenLib
 {
@@ -106,6 +107,9 @@ namespace BTokenLib
 
         if (tXsLengthMod2 != 0)
           merkleList[tXCount] = merkleList[tXCount - 1];
+
+        if (TXs.Any(t => t == null))
+          Debug.WriteLine($"TXs in block parser contains TXs that are null.");
 
         if (!hashMerkleRoot.IsEqual(ComputeMerkleRoot()))
           throw new ProtocolException(

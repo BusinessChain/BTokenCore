@@ -17,7 +17,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 5 * 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 500;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -210,7 +210,7 @@ namespace BTokenCore
         Blockchain.HeaderTip,
         SHA256Miner);
 
-      LoadTXs(block);
+      // LoadTXs(block);
 
       block.Buffer = block.Header.Buffer
         .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
@@ -418,6 +418,8 @@ namespace BTokenCore
           $"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
           $"but {TrailHashesAnchor[indexTrailAnchor].ToHexString()}.");
 
+      return;
+
       DatabaseAccounts.InsertBlock((BlockBToken)block);
 
       long outputValueTXCoinbase = 0;
@@ -487,6 +489,9 @@ namespace BTokenCore
 
       block.TXs.Add(tX);
       block.TXs.AddRange(TXPool.GetTXs(out int countTXs, COUNT_TXS_PER_BLOCK_MAX));
+
+      if (block.TXs.Any(t => t == null))
+        $"TXsGet contains TXs that are null.".Log(LogFile);
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
     }
