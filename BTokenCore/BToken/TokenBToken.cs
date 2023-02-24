@@ -17,7 +17,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 500;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 400;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -132,13 +132,14 @@ namespace BTokenCore
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
 
-    double FeeSatoshiPerByte = 1.0;
+    const double FEE_SATOSHI_PER_BYTE_INITIAL = 1.0;
+    double FeeSatoshiPerByte;
 
     List<TokenAnchor> TokensAnchorUnconfirmed = new();
 
     async Task RunMining()
     {
-      FeeSatoshiPerByte = 1; // TokenParent.FeePerByteAverage;
+      FeeSatoshiPerByte = FEE_SATOSHI_PER_BYTE_INITIAL; // TokenParent.FeePerByteAverage;
 
       $"Miners starts with fee per byte = {FeeSatoshiPerByte}".Log(LogFile);
 
@@ -148,15 +149,17 @@ namespace BTokenCore
 
         if (TryLock())
         {
-          if(TryMineAnchorToken(out TokenAnchor tokenAnchor))
+          if (TryMineAnchorToken(out TokenAnchor tokenAnchor))
           {
             //timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
             //    COUNT_SATOSHIS_PER_DAY_MINING);
-          }
 
-          //timeMSLoop = RandomGeneratorMiner.Next(
-          //  timeMSCreateNextAnchorToken / 2,
-          //  timeMSCreateNextAnchorToken * 3 / 2);
+            //timeMSLoop = RandomGeneratorMiner.Next(
+            //  timeMSCreateNextAnchorToken / 2,
+            //  timeMSCreateNextAnchorToken * 3 / 2);
+          }
+          else
+            IsMining = false;
 
           ReleaseLock();
         }
@@ -186,8 +189,6 @@ namespace BTokenCore
           feePerInput,
           out TXOutputWallet output))
       {
-        $"BToken miner drew output {output.TXIDShort}/{output.Index} from wallet with amount {output.Value}".Log(LogFile);
-
         tokenAnchor.Inputs.Add(output);
         valueAccrued += output.Value;
 
@@ -321,7 +322,6 @@ namespace BTokenCore
 
           if (blockMined != null)
           {
-            $"Self mined block {blockMined}".Log(LogFile);
             InsertBlock(blockMined);
             Network.RelayBlockToNetwork(blockMined);
           }

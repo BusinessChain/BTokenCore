@@ -135,25 +135,14 @@ namespace BTokenLib
     public void RemoveOutput(byte[] hash)
     {
       int i = OutputsValueDesc.RemoveAll(t => t.TXID.Equals(hash));
-
-      if(i > 0)
-        Debug.WriteLine(
-          $"Remove {i} output from wallet with hash {hash.ToHexString()}");
     }
 
     public void AddOutput(TXOutputWallet output)
     {
-      Debug.WriteLine(
-        $"Add output {output.TXIDShort}/{output.Index} " +
-        $"to wallet with value {output.Value}.");
-
       if (OutputsValueDesc.Any(
         o => o.TXID.IsEqual(output.TXID) && 
         o.Index == output.Index))
-      {
-        Debug.WriteLine($"Output already in wallet.");
         return;
-      }
 
       int j = 0;
 

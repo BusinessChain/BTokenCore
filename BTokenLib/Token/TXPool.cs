@@ -29,8 +29,6 @@ namespace BTokenLib
     {
       if (TXPoolDict.Remove(hashTX, out TX tX))
       {
-        Debug.WriteLine($"Remove tX {tX} from mempool.");
-
         List<(TXInput input, TX)> tupelInputs = null;
 
         foreach (TXInput tXInput in tX.TXInputs)
@@ -158,8 +156,6 @@ namespace BTokenLib
             inputsInPool.Add((tXInput,tX));
           else
             InputsPool.Add(tXInput.TXIDOutput, new List<(TXInput, TX)>() { (tXInput, tX) });
-
-        Debug.WriteLine($"Added {tX} to TXPool. {TXPoolDict.Count} tXs in pool.");
 
         return true;
       }

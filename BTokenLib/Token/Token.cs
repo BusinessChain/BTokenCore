@@ -118,13 +118,14 @@ namespace BTokenLib
     public abstract List<string> GetSeedAddresses();
 
     bool IsLocked;
+    static object LOCK_Token = new();
 
     public bool TryLock()
     {
       if (TokenParent != null)
         return TokenParent.TryLock();
 
-      lock (this)
+      lock (LOCK_Token)
       {
         if (IsLocked)
           return false;
@@ -142,14 +143,6 @@ namespace BTokenLib
         IsLocked = false;
     }
 
-    public Token GetParentRoot()
-    {
-      if (TokenParent == null)
-        return this;
-
-      return TokenParent.GetParentRoot();
-    }
-
     public abstract Header CreateHeaderGenesis();
 
     public virtual void CreateImageDatabase(string path) 
@@ -157,6 +150,8 @@ namespace BTokenLib
 
     internal void Reorganize()
     {
+      $"Reorganize token {this.GetType().Name}".Log(LogFile);
+
       PathImageFork.TryMoveDirectoryTo(PathImage);
       PathImageForkOld.TryMoveDirectoryTo(PathImageOld);
     }
@@ -264,8 +259,8 @@ namespace BTokenLib
 
         // Archiver.ArchiveBlock(block);
 
-        if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
-          CreateImage();
+        //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+        //  CreateImage();
 
         TokenChilds.ForEach(
           t => t.SignalCompletionBlockInsertion(block.Header.Hash));

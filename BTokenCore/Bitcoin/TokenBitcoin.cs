@@ -8,8 +8,6 @@ using System.Security.Cryptography;
 
 
 using BTokenLib;
-using System.Runtime.CompilerServices;
-using Org.BouncyCastle.Asn1.X509;
 
 namespace BTokenCore
 {
@@ -60,10 +58,7 @@ namespace BTokenCore
         ComputePoW(out BlockBitcoin block, sHA256, indexThread);
 
         if (!IsMining)
-        {
-          $"{GetName()} miner on thread {indexThread} canceled.".Log(LogFile);
           return;
-        }
 
         block.Buffer = block.Header.Buffer.Concat(
           VarInt.GetBytes(block.TXs.Count)).ToArray();
@@ -124,9 +119,6 @@ namespace BTokenCore
       var bla = TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX);
       block.TXs.AddRange(bla);
 
-      if (block.TXs.Any(t => t == null))
-        Debug.WriteLine($"TXsGet contains TXs that are null.");
-
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
 
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
@@ -137,7 +129,7 @@ namespace BTokenCore
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0x09, 0x00, 0x00};
+        0xff, 0xff, 0xff, 0xff, 0xff, 0x18, 0x00, 0x00};
 
       while (header.Hash.IsGreaterThan(target))
       { //while (header.Hash.IsGreaterThan(header.NBits))
