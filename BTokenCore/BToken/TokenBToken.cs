@@ -17,7 +17,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 400;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 10 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -40,6 +40,8 @@ namespace BTokenCore
 
     List<byte[]> TrailHashesAnchor = new();
     int IndexTrail;
+
+    List<BlockBToken> BlocksMined = new();
 
 
 
@@ -114,8 +116,6 @@ namespace BTokenCore
     }
 
 
-    List<BlockBToken> BlocksMined = new();
-
     public override void StartMining()
     {
       if (IsMining)
@@ -151,12 +151,12 @@ namespace BTokenCore
         {
           if (TryMineAnchorToken(out TokenAnchor tokenAnchor))
           {
-            //timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
-            //    COUNT_SATOSHIS_PER_DAY_MINING);
+            // timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
+            // COUNT_SATOSHIS_PER_DAY_MINING);
 
-            //timeMSLoop = RandomGeneratorMiner.Next(
-            //  timeMSCreateNextAnchorToken / 2,
-            //  timeMSCreateNextAnchorToken * 3 / 2);
+            // timeMSLoop = RandomGeneratorMiner.Next(
+            // timeMSCreateNextAnchorToken / 2,
+            // timeMSCreateNextAnchorToken * 3 / 2);
           }
           else
             IsMining = false;
@@ -169,6 +169,7 @@ namespace BTokenCore
     }
 
     int NumberSequence;
+    int CounterBlocksMined;
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
     {
@@ -315,18 +316,31 @@ namespace BTokenCore
         TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
         IndexTrail += 1;
 
-        if(BlocksMined.Count > 0)
+        if (BlocksMined.Count > 0)
         {
           BlockBToken blockMined = BlocksMined.Find(b =>
           b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
 
           if (blockMined != null)
           {
+            int indexTrailAnchor = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor + 1;
+
+            ((HeaderBToken)blockMined.Header).IndexTrailAnchor = indexTrailAnchor;
+
+            if (TrailHashesAnchor.Count == indexTrailAnchor)
+              throw new NotSynchronizedWithParentException(
+                "The anchoring Bitcoin block has not yet been received.");
+
+            if (!TrailHashesAnchor[indexTrailAnchor].IsEqual(blockMined.Header.Hash))
+              throw new NotSynchronizedWithParentException(
+                $"The anchoring Bitcoin block does not anchor BToken block {blockMined}\n" +
+                $"but {TrailHashesAnchor[indexTrailAnchor].ToHexString()}.");
+
             InsertBlock(blockMined);
             Network.RelayBlockToNetwork(blockMined);
           }
 
-          if(TokensAnchorUnconfirmed.Count == 0)
+          if (TokensAnchorUnconfirmed.Count == 0)
           {
             NumberSequence = 0;
             FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
@@ -404,19 +418,6 @@ namespace BTokenCore
     protected override void InsertInDatabase(Block block)
     {
       $"Insert BToken block {block} in database.".Log(LogFile);
-
-      int indexTrailAnchor = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor + 1;
-
-      ((HeaderBToken)block.Header).IndexTrailAnchor = indexTrailAnchor;
-
-      if (TrailHashesAnchor.Count == indexTrailAnchor)
-        throw new NotSynchronizedWithParentException(
-          "The anchoring Bitcoin block has not yet been received.");
-
-      if (!TrailHashesAnchor[indexTrailAnchor].IsEqual(block.Header.Hash))
-        throw new NotSynchronizedWithParentException(
-          $"The anchoring Bitcoin block does not anchor BToken block {block}\n" +
-          $"but {TrailHashesAnchor[indexTrailAnchor].ToHexString()}.");
 
       return;
 

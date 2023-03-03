@@ -72,9 +72,6 @@ namespace BTokenLib
           else
             break;
 
-        if (TXsGet.Any(t => t == null))
-          Debug.WriteLine($"TXsGet contains TXs that are null.");
-
         return TXsGet.ToList();
       }
     }

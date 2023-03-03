@@ -116,8 +116,8 @@ namespace BTokenCore
       };
 
       block.TXs.Add(CreateCoinbaseTX(block));
-      var bla = TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX);
-      block.TXs.AddRange(bla);
+      block.TXs.AddRange(
+        TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
 
@@ -129,7 +129,7 @@ namespace BTokenCore
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0x18, 0x00, 0x00};
+        0xff, 0xff, 0xff, 0xff, 0xff, 0x04, 0x00, 0x00};
 
       while (header.Hash.IsGreaterThan(target))
       { //while (header.Hash.IsGreaterThan(header.NBits))
