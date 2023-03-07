@@ -12,12 +12,14 @@ namespace BTokenCore
 {
   partial class TokenBToken : Token
   {
-    const int COUNT_TXS_PER_BLOCK_MAX = 3;
+    const int COUNT_TXS_PER_BLOCK_MAX = 5;
+
+    const int PERIODE_DISCARD_BLOCKSMINED = 3;
 
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 10 * 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -101,13 +103,13 @@ namespace BTokenCore
       byte[] bytesBlockTrail = File.ReadAllBytes(
         Path.Combine(pathImage, "ImageBlockTrail"));
 
-      for (int i = 0; i * 32 < bytesBlockTrail.Length; i += 1)
-      {
-        TrailHashesAnchor[i] = new byte[32];
-        Array.Copy(bytesBlockTrail, i * 32, TrailHashesAnchor[i], 0, 32);
+      //for (int i = 0; i * 32 < bytesBlockTrail.Length; i += 1)
+      //{
+      //  TrailHashesAnchor[i] = new byte[32];
+      //  Array.Copy(bytesBlockTrail, i * 32, TrailHashesAnchor[i], 0, 32);
 
-        IndexTrail += 1;
-      }
+      //  IndexTrail += 1;
+      //}
     }
 
     public override void CreateImageDatabase(string pathImage)
@@ -313,29 +315,17 @@ namespace BTokenCore
         ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
           $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
-        TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
-        IndexTrail += 1;
+        //TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
+        //IndexTrail += 1;
 
         if (BlocksMined.Count > 0)
         {
           BlockBToken blockMined = BlocksMined.Find(b =>
           b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
 
-          if (blockMined != null)
+          if (blockMined != null &&
+            ++CounterBlocksMined % PERIODE_DISCARD_BLOCKSMINED != 0)
           {
-            int indexTrailAnchor = ((HeaderBToken)Blockchain.HeaderTip).IndexTrailAnchor + 1;
-
-            ((HeaderBToken)blockMined.Header).IndexTrailAnchor = indexTrailAnchor;
-
-            if (TrailHashesAnchor.Count == indexTrailAnchor)
-              throw new NotSynchronizedWithParentException(
-                "The anchoring Bitcoin block has not yet been received.");
-
-            if (!TrailHashesAnchor[indexTrailAnchor].IsEqual(blockMined.Header.Hash))
-              throw new NotSynchronizedWithParentException(
-                $"The anchoring Bitcoin block does not anchor BToken block {blockMined}\n" +
-                $"but {TrailHashesAnchor[indexTrailAnchor].ToHexString()}.");
-
             InsertBlock(blockMined);
             Network.RelayBlockToNetwork(blockMined);
           }
@@ -573,8 +563,8 @@ namespace BTokenCore
     {
       base.Reset();
       DatabaseAccounts.ClearCache();
-      TrailHashesAnchor.Clear();
-      IndexTrail = 0;
+      //TrailHashesAnchor.Clear();
+      //IndexTrail = 0;
     }
 
     public override bool TryGetDB(

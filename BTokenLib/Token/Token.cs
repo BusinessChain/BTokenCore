@@ -245,6 +245,7 @@ namespace BTokenLib
     {
       try
       {
+        $"Append block {block} to blockchain tip {Blockchain.HeaderTip}".Log(LogFile);
         block.Header.AppendToHeader(Blockchain.HeaderTip);
 
         InsertInDatabase(block);
