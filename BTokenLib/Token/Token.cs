@@ -243,37 +243,26 @@ namespace BTokenLib
 
     public void InsertBlock(Block block)
     {
-      try
-      {
-        $"Append block {block} to blockchain tip {Blockchain.HeaderTip}".Log(LogFile);
-        block.Header.AppendToHeader(Blockchain.HeaderTip);
+      $"Append block {block} to blockchain tip {Blockchain.HeaderTip}".Log(LogFile);
+      block.Header.AppendToHeader(Blockchain.HeaderTip);
 
-        InsertInDatabase(block);
+      InsertInDatabase(block);
 
-        TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
+      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
 
-        Blockchain.AppendHeader(block.Header);
+      Blockchain.AppendHeader(block.Header);
 
-        FeePerByteAverage =
-          ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
-          ORDER_AVERAGEING_FEEPERBYTE;
+      FeePerByteAverage =
+        ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
+        ORDER_AVERAGEING_FEEPERBYTE;
 
-        // Archiver.ArchiveBlock(block);
+      // Archiver.ArchiveBlock(block);
 
-        //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
-        //  CreateImage();
+      //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+      //  CreateImage();
 
-        TokenChilds.ForEach(
-          t => t.SignalCompletionBlockInsertion(block.Header.Hash));
-      }
-      catch (ProtocolException ex)
-      {
-        ex.Message.Log(LogFile);
-        // Database (wallet) recovery.
-
-        TokenChilds.ForEach(t => t.RevokeBlockInsertion());
-        throw ex;
-      }
+      TokenChilds.ForEach(
+        t => t.SignalCompletionBlockInsertion(block.Header));
     }
 
     public virtual Block GetBlock(byte[] hash)
@@ -295,8 +284,9 @@ namespace BTokenLib
     public virtual void DetectAnchorTokenInBlock(TX tX)
     { throw new NotImplementedException(); }
 
-    public virtual void SignalCompletionBlockInsertion(byte[] hash)
+    public virtual void SignalCompletionBlockInsertion(Header header)
     { throw new NotImplementedException(); }
+
 
     public virtual void RevokeBlockInsertion()
     { throw new NotImplementedException(); }

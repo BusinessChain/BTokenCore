@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
-
 
 namespace BTokenCore
 {
@@ -14,12 +14,13 @@ namespace BTokenCore
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
 
-    const int PERIODE_DISCARD_BLOCKSMINED = 3;
+    const int PERIODE_DISCARD_BLOCKSMINED = 10;
+    const int PERIODE_FORK_BLOCKMINED = 3;
 
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 2 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -40,6 +41,7 @@ namespace BTokenCore
 
     DatabaseAccounts DatabaseAccounts;
 
+    // Brauch ich nur, wenn auf ein BToken block getriggert wird. 
     List<byte[]> TrailHashesAnchor = new();
     int IndexTrail;
 
@@ -210,9 +212,22 @@ namespace BTokenCore
 
       BlockBToken block = new();
 
-      block.Header.AppendToHeader(
-        Blockchain.HeaderTip,
-        SHA256Miner);
+      if ((CounterBlocksMined + 1) % PERIODE_FORK_BLOCKMINED != 0)
+      {
+        $"Mine new block and append it to tip {Blockchain.HeaderTip}".Log(LogFile);
+
+        block.Header.AppendToHeader(
+          Blockchain.HeaderTip,
+          SHA256Miner);
+      }
+      else
+      {
+        $"Mine new block and fork it to previous block {Blockchain.HeaderTip.HeaderPrevious}".Log(LogFile);
+        
+        block.Header.AppendToHeader(
+          Blockchain.HeaderTip.HeaderPrevious,
+          SHA256Miner);
+      }     
 
       // LoadTXs(block);
 
@@ -303,57 +318,67 @@ namespace BTokenCore
       $"Anchor token references {tokenAnchor.HashBlockReferenced.ToHexString()}".Log(LogFile);
     }
 
-    public override void SignalCompletionBlockInsertion(byte[] hashBlock)
+    public override void SignalCompletionBlockInsertion(Header headerParent)
     {
-      $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block."
-        .Log(LogFile);
-
-      if (TokensAnchorDetectedInBlock.Count > 0)
+      try
       {
-        TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(hashBlock);
-
-        ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
-          $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
-
-        //TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
-        //IndexTrail += 1;
-
-        if (BlocksMined.Count > 0)
-        {
-          BlockBToken blockMined = BlocksMined.Find(b =>
-          b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
-
-          if (blockMined != null &&
-            ++CounterBlocksMined % PERIODE_DISCARD_BLOCKSMINED != 0)
-          {
-            InsertBlock(blockMined);
-            Network.RelayBlockToNetwork(blockMined);
-          }
-
-          if (TokensAnchorUnconfirmed.Count == 0)
-          {
-            NumberSequence = 0;
-            FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
-          }
-        }
-      }
-
-      TokensAnchorDetectedInBlock.Clear();
-      BlocksMined.Clear();
-
-      if (TokensAnchorUnconfirmed.Count > 0)
-      {
-        FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
-
-        $"{TokensAnchorUnconfirmed.Count} anchor tokens unconfirmed, do RBF."
+        $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block."
           .Log(LogFile);
 
-        NumberSequence += 1;
+        if (TokensAnchorDetectedInBlock.Count > 0)
+        {
+          TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(headerParent.Hash);
 
-        RBFAnchorTokens();
+          ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
+            $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
+
+          //TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
+          //IndexTrail += 1;
+
+          if (BlocksMined.Count > 0)
+          {
+            BlockBToken blockMined = BlocksMined.Find(b =>
+            b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
+
+            if (blockMined != null &&
+              ++CounterBlocksMined % PERIODE_DISCARD_BLOCKSMINED != 0)
+            {
+              InsertBlock(blockMined);
+            }
+
+            if (TokensAnchorUnconfirmed.Count == 0)
+            {
+              NumberSequence = 0;
+              FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+            }
+          }
+
+          Network.ScheduleSynchronization();
+        }
+
+        TokensAnchorDetectedInBlock.Clear();
+        BlocksMined.Clear();
+
+        if (TokensAnchorUnconfirmed.Count > 0)
+        {
+          FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+
+          $"{TokensAnchorUnconfirmed.Count} anchor tokens unconfirmed, do RBF."
+            .Log(LogFile);
+
+          NumberSequence += 1;
+
+          RBFAnchorTokens();
+        }
+
+        $"New fee per byte is {FeeSatoshiPerByte}.".Log(LogFile);
       }
-
-      $"New fee per byte is {FeeSatoshiPerByte}.".Log(LogFile);
+      catch(Exception ex)
+      {
+        ($"{ex.GetType().Name} when signaling Bitcoin block {headerParent}" +
+          $" with height {headerParent.Height} to BToken.\n" +
+          $"Exception message: {ex.Message}").Log(this, LogFile);
+      }
     }
 
     TokenAnchor GetTXAnchorWinner(byte[] hashBlockAnchor)

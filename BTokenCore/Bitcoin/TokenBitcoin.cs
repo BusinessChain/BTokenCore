@@ -20,7 +20,7 @@ namespace BTokenCore
 
     const UInt16 COMPORT_BITCOIN = 8333;
 
-    const int COUNT_TXS_PER_BLOCK_MAX = 5;
+    const int COUNT_TXS_PER_BLOCK_MAX = 20;
     int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
     List<BlockBitcoin> BlocksMined = new();
 
@@ -80,11 +80,13 @@ namespace BTokenCore
         }
         catch (Exception ex)
         {
-          ($"{ex.GetType().Name} when inserting mined " +
+          ($"{ex.GetType().Name} when inserting mined bitcoin " +
             $"block height {block.Header.Height} {block}.\n" +
-            $"exception message: {ex.Message}").Log(LogFile);
+            $"Stop Bitcoin miner. This is thought to be a bug because the Bitcoin miner is not " +
+            $"supposed to create invalid blocks.\n" +
+            $"Exception message: {ex.Message}").Log(LogFile);
 
-          continue;
+          IsMining = false;
         }
         finally
         {
