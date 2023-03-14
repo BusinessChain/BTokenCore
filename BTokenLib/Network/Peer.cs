@@ -275,53 +275,26 @@ namespace BTokenLib
 
             if (Command == "block")
             {
+              if (!IsStateBlockSynchronization())
+                throw new ProtocolException($"Received unrequested block message.");
+
               await ReadBytes(Block.Buffer, LengthDataPayload);
 
               Block.Parse();
 
               $"Peer received block {Block}".Log(this, LogFile);
 
-              if (IsStateBlockSynchronization())
-              {
-                if (!Block.Header.Hash.IsEqual(HeaderSync.Hash))
-                  throw new ProtocolException(
-                    $"Unexpected block {Block} at height {Block.Header.Height}.\n" +
-                    $"Excpected {HeaderSync}.");
+              if (!Block.Header.Hash.IsEqual(HeaderSync.Hash))
+                throw new ProtocolException(
+                  $"Received unexpected block {Block} at height {Block.Header.Height} from peer {this}.\n" +
+                  $"Requested was {HeaderSync}.");
 
-                Cancellation = new();
+              Cancellation = new();
 
-                if (Network.InsertBlock_FlagContinue(this))
-                  await RequestBlock();
-                else
-                  Release();
-              }
+              if (Network.InsertBlock_FlagContinue(this))
+                await RequestBlock();
               else
-              {
-                Console.Beep(1600, 100);
-
-                Cancellation = new();
-
-                if (!Token.TryLock())
-                  continue;
-
-                try
-                {
-                  // Unsolicited blocks are supposed to be advertized by header messages.
-                  Token.InsertBlock(Block);
-
-                  $"Inserted block {Block}.".Log(this, LogFile);
-
-                  Network.RelayBlockToNetwork(Block, this);
-                }
-                catch (ProtocolException ex)
-                {
-                  SetFlagDisposed(ex.Message);
-                }
-                finally
-                {
-                  Token.ReleaseLock();
-                }
-              }
+                Release();
             }
             else if(Command == "dataDB")
             {

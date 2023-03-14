@@ -20,7 +20,7 @@ namespace BTokenCore
 
     const UInt16 COMPORT_BITCOIN = 8333;
 
-    const int COUNT_TXS_PER_BLOCK_MAX = 20;
+    const int COUNT_TXS_PER_BLOCK_MAX = 10;
     int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
     List<BlockBitcoin> BlocksMined = new();
 
@@ -82,11 +82,9 @@ namespace BTokenCore
         {
           ($"{ex.GetType().Name} when inserting mined bitcoin " +
             $"block height {block.Header.Height} {block}.\n" +
-            $"Stop Bitcoin miner. This is thought to be a bug because the Bitcoin miner is not " +
-            $"supposed to create invalid blocks.\n" +
             $"Exception message: {ex.Message}").Log(LogFile);
 
-          IsMining = false;
+          continue;
         }
         finally
         {
@@ -131,7 +129,7 @@ namespace BTokenCore
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0x04, 0x00, 0x00};
+        0xff, 0xff, 0xff, 0xff, 0xff, 0x0f, 0x00, 0x00};
 
       while (header.Hash.IsGreaterThan(target))
       { //while (header.Hash.IsGreaterThan(header.NBits))

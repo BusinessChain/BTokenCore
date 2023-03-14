@@ -14,13 +14,10 @@ namespace BTokenCore
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
 
-    const int PERIODE_DISCARD_BLOCKSMINED = 10;
-    const int PERIODE_FORK_BLOCKMINED = 3;
-
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 2 * 1000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 500;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
@@ -173,7 +170,6 @@ namespace BTokenCore
     }
 
     int NumberSequence;
-    int CounterBlocksMined;
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
     {
@@ -212,22 +208,9 @@ namespace BTokenCore
 
       BlockBToken block = new();
 
-      if ((CounterBlocksMined + 1) % PERIODE_FORK_BLOCKMINED != 0)
-      {
-        $"Mine new block and append it to tip {Blockchain.HeaderTip}".Log(LogFile);
-
-        block.Header.AppendToHeader(
-          Blockchain.HeaderTip,
-          SHA256Miner);
-      }
-      else
-      {
-        $"Mine new block and fork it to previous block {Blockchain.HeaderTip.HeaderPrevious}".Log(LogFile);
-        
-        block.Header.AppendToHeader(
-          Blockchain.HeaderTip.HeaderPrevious,
-          SHA256Miner);
-      }     
+      block.Header.AppendToHeader(
+        Blockchain.HeaderTip,
+        SHA256Miner);
 
       // LoadTXs(block);
 
@@ -340,11 +323,8 @@ namespace BTokenCore
             BlockBToken blockMined = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
 
-            if (blockMined != null &&
-              ++CounterBlocksMined % PERIODE_DISCARD_BLOCKSMINED != 0)
-            {
+            if (blockMined != null)
               InsertBlock(blockMined);
-            }
 
             if (TokensAnchorUnconfirmed.Count == 0)
             {
