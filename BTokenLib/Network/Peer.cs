@@ -236,6 +236,7 @@ namespace BTokenLib
 
       internal Header HeaderDuplicateReceivedLast;
       internal int CountOrphanReceived;
+      internal int CountExceptionsOnReceivingHeader;
 
       public async Task StartMessageListener()
       {
@@ -296,16 +297,16 @@ namespace BTokenLib
               else
                 Release();
             }
-            else if(Command == "dataDB")
+            else if (Command == "dataDB")
             {
               await ReadBytes(Payload, LengthDataPayload);
 
               if (IsStateDBDownload())
               {
                 byte[] hashDataDB = SHA256.ComputeHash(
-                  Payload, 
-                  0, 
-                  LengthDataPayload); 
+                  Payload,
+                  0,
+                  LengthDataPayload);
 
                 if (!hashDataDB.IsEqual(HashDBDownload))
                   throw new ProtocolException(
@@ -356,114 +357,58 @@ namespace BTokenLib
                 Payload,
                 ref byteIndex);
 
-              $"{this}: Receiving {countHeaders} headers."
-                .Log(LogFile);
+              $"{this}: Receiving {countHeaders} headers.".Log(LogFile);
 
-              if (IsStateHeaderSynchronization())
+              if (countHeaders > 0)
               {
-                if (countHeaders > 0)
+                if (!Network.TryEnterStateSynchronization(this))
+                  continue;
+
+                try
                 {
-                  try
+                  for (int i = 0; i < countHeaders; i += 1)
                   {
-                    for (int i = 0; i < countHeaders; i += 1)
-                    {
-                      Header header = Token.ParseHeader(
-                        Payload,
-                        ref byteIndex);
+                    Header header = Token.ParseHeader(
+                      Payload,
+                      ref byteIndex);
 
-                      byteIndex += 1;
+                    byteIndex += 1;
 
-                      HeaderDownload.InsertHeader(header);
-                    }
+                    Network.InsertHeader(header);
                   }
-                  catch (ProtocolException ex)
-                  {
-                    ($"{ex.GetType().Name} when receiving headers:\n" +
-                      $"{ex.Message}").Log(LogFile);
-
-                    continue; // Do not disconnect on parser exception but on timeout instead.
-                  }
-
-                  ($"Send getheaders to peer {this},\n" +
-                    $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
-
-                  await SendMessage(new GetHeadersMessage(
-                    new List<Header> { HeaderDownload.HeaderInsertedLast },
-                    ProtocolVersion));
-
-                  Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
                 }
-                else
+                catch (ProtocolException ex)
                 {
-                  Cancellation = new();
+                  ($"{ex.GetType().Name} when receiving headers:\n" +
+                    $"{ex.Message}").Log(LogFile);
 
-                  if (Token.FlagDownloadDBWhenSync(HeaderDownload))
-                  {
-                    await SendMessage(new GetHashesDBMessage());
-                    Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-                  }
-                  else
-                    Network.SyncBlocks(this);
+                  if (CountExceptionsOnReceivingHeader++ > 3)
+                    throw new ProtocolException(
+                      $"Too many exceptions when receiving headers.\n" +
+                      $"Inner exception {ex.Message}.");
+
+                  FlagSyncScheduled = true;
+
+                  continue; // Do not disconnect on parser exception but on timeout instead.
                 }
+
+                ($"Send getheaders to peer {this},\n" +
+                  $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
+
+                await TryStartSynchronization(
+                  new List<Header> { HeaderDownload.HeaderInsertedLast });
               }
               else
               {
-                HeaderUnsolicited = Token.ParseHeader(
-                  Payload,
-                  ref byteIndex);
+                Cancellation = new();
 
-                $"Parsed unsolicited header {HeaderUnsolicited}.".Log(LogFile);
-
-                Console.Beep(800, 100);
-
-                Network.ThrottleDownloadBlockUnsolicited();
-
-                if (HeaderUnsolicited.HashPrevious.IsEqual(
-                  Token.Blockchain.HeaderTip.Hash))
+                if (Token.FlagDownloadDBWhenSync(HeaderDownload))
                 {
-                  await SendMessage(new GetDataMessage(
-                    new List<Inventory>()
-                    {
-                        new Inventory(
-                          InventoryType.MSG_BLOCK,
-                          HeaderUnsolicited.Hash)
-                    }));
-
+                  await SendMessage(new GetHashesDBMessage());
                   Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-
-                  ($"Requested block for unsolicited " +
-                    $"header {HeaderUnsolicited}.")
-                    .Log(this, LogFile);
                 }
                 else
-                {
-                  if (Token.Blockchain.TryGetHeader(
-                    HeaderUnsolicited.Hash,
-                    out Header headerReceivedNow))
-                  {
-                    if (HeaderDuplicateReceivedLast != null &&
-                      HeaderDuplicateReceivedLast.Height >= headerReceivedNow.Height)
-                      throw new ProtocolException($"Sent duplicate header {HeaderUnsolicited}.");
-
-                    HeaderDuplicateReceivedLast = headerReceivedNow;
-                  }
-                  else
-                  {
-                    if (!FlagSyncScheduled)
-                    {
-                      CountOrphanReceived = 0;
-                      FlagSyncScheduled = true;
-
-                      $"Schedule synchronization because received orphan header {HeaderUnsolicited}."
-                        .Log(this, LogFile);
-                    }
-                    else if (CountOrphanReceived > 10)
-                      throw new ProtocolException(
-                        "Too many orphan headers received.");
-                    else
-                      CountOrphanReceived += 1;
-                  }
-                }
+                  Network.SyncBlocks(this);
               }
             }
             else if (Command == "getheaders")
@@ -534,7 +479,7 @@ namespace BTokenLib
 
               HashesDB = Token.ParseHashesDB(
                 Payload,
-                LengthDataPayload, 
+                LengthDataPayload,
                 HeaderDownload.HeaderTip);
 
               Cancellation = new();
@@ -606,16 +551,43 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          if (IsStateHeaderSynchronization())
-            Token.ReleaseLock();
-          else if (IsStateBlockSynchronization())
-            Network.ReturnPeerBlockDownloadIncomplete(this);
-          else if (IsStateDBDownload())
-            Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
+          lock(this)
+          {
+            if (IsStateHeaderSynchronization())
+              Network.ExitSynchronization();
+            else if (IsStateBlockSynchronization())
+              Network.ReturnPeerBlockDownloadIncomplete(this);
+            else if (IsStateDBDownload())
+              Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
 
-          SetFlagDisposed(
-            $"{ex.GetType().Name} in listener: \n{ex.Message}");
+            SetFlagDisposed(
+              $"{ex.GetType().Name} in listener: \n{ex.Message}");
+          }
         }
+      }                           
+      
+      public async Task<bool> TryStartSynchronization(
+        List<Header> locator)
+      {
+        ($"Send getheaders to peer {this},\n" +
+          $"locator: {locator.First()} ... {locator.Last()}").Log(this, LogFile);
+
+        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+
+        try
+        {
+          await SendMessage(new GetHeadersMessage(
+            locator,
+            ProtocolVersion));
+        }
+        catch (Exception ex)
+        {
+          SetFlagDisposed(
+            $"{ex.GetType().Name} in getheaders: \n{ex.Message}");
+        }
+
+        lock (this)
+          return !FlagDispose;
       }
 
       public async Task AdvertizeTX(TX tX)
@@ -635,23 +607,6 @@ namespace BTokenLib
         TXAdvertized = tX;
 
         Release();
-      }
-                      
-      
-      public async Task GetHeaders()
-      {
-        HeaderDownload = Token.CreateHeaderDownload();
-
-        ($"Send getheaders to peer,\n" +
-          $"locator: {HeaderDownload}").Log(this, LogFile);
-
-        SetStateHeaderSynchronization();
-
-        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
-
-        await SendMessage(new GetHeadersMessage(
-          HeaderDownload.Locator,
-          ProtocolVersion));
       }
 
       public async Task RequestDB()
@@ -781,7 +736,7 @@ namespace BTokenLib
           return State == StateProtocol.IDLE;
       }
 
-      void SetStateHeaderSynchronization()
+      public void SetStateHeaderSynchronization()
       {
         lock (this)
           State = StateProtocol.HeaderSynchronization;
