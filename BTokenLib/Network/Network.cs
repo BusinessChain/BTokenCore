@@ -371,24 +371,23 @@ namespace BTokenLib
       Peer peerSync = peer;
 
       double difficultyOld = 0.0;
-      HeaderDownload headerDownload = peerSync.HeaderDownload;
 
       if (
-        headerDownload.HeaderTip != null &&
-        headerDownload.HeaderTip.DifficultyAccumulated >
+        HeaderDownload.HeaderTip != null &&
+        HeaderDownload.HeaderTip.DifficultyAccumulated >
         Blockchain.HeaderTip.DifficultyAccumulated)
       {
-        if (headerDownload.HeaderAncestor != Blockchain.HeaderTip)
+        if (HeaderDownload.HeaderAncestor != Blockchain.HeaderTip)
         {
           difficultyOld = Blockchain.HeaderTip.Difficulty;
-          Token.LoadImage(headerDownload.HeaderAncestor.Height);
+          Token.LoadImage(HeaderDownload.HeaderAncestor.Height);
         }
 
         FlagSyncAbort = false;
         QueueBlockInsertion.Clear();
         QueueDownloadsIncomplete.Clear();
 
-        HeaderRoot = headerDownload.HeaderRoot;
+        HeaderRoot = HeaderDownload.HeaderRoot;
         HeightInsertion = HeaderRoot.Height;
 
         while (true)
