@@ -307,22 +307,20 @@ namespace BTokenLib
       }
     }
 
-    void ExitSynchronization()
-    {
-      IsStateSynchronizing = false;
-    }
-
     void EnterStateSynchronization(Peer peer)
     {
       PeerSynchronizing = peer;
       PeerSynchronizing.SetStateHeaderSynchronization();
       IsStateSynchronizing = true;
 
-      HeaderDownload = Token.CreateHeaderDownload();
-
       ($"Enter state synchronization of {Token.GetName()} with peer " +
         $"{peer + peer.Connection.ToString()}.")
         .Log(this, LogFile);
+    }
+
+    void ExitSynchronization()
+    {
+      IsStateSynchronizing = false;
     }
 
     async Task StartSync()
@@ -345,6 +343,8 @@ namespace BTokenLib
             if (peer == null)
               continue;
           }
+
+          HeaderDownload = Token.CreateHeaderDownload();
 
           EnterStateSynchronization(peer);
         }
