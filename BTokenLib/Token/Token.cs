@@ -293,7 +293,8 @@ namespace BTokenLib
 
     public virtual List<byte[]> ParseHashesDB(
       byte[] buffer,
-      int length)
+      int length,
+      Header headerTip)
     { throw new NotImplementedException(); }
 
     protected abstract void InsertInDatabase(Block block);
@@ -312,7 +313,7 @@ namespace BTokenLib
       out byte[] dataDB)
     { throw new NotImplementedException(); }
 
-    public virtual bool FlagDownloadDBWhenSync()
+    public virtual bool FlagDownloadDBWhenSync(HeaderDownload header)
     { return false; }
 
     public void BroadcastTX(TX tX)

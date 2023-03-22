@@ -403,7 +403,7 @@ namespace BTokenLib
               {
                 Cancellation = new();
 
-                if (Token.FlagDownloadDBWhenSync())
+                if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
                 {
                   await SendMessage(new GetHashesDBMessage());
                   Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
@@ -480,7 +480,8 @@ namespace BTokenLib
 
               HashesDB = Token.ParseHashesDB(
                 Payload,
-                LengthDataPayload);
+                LengthDataPayload,
+                Network.HeaderDownload.HeaderTip);
 
               Cancellation = new();
 
