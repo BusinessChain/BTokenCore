@@ -14,7 +14,6 @@ namespace BTokenLib
     public Header HeaderTip;
     public Header HeaderRoot;
     public Header HeaderAncestor;
-    public Header HeaderInsertedLast;
 
 
     public HeaderDownload(List<Header> locator)
@@ -24,8 +23,6 @@ namespace BTokenLib
 
     public virtual void InsertHeader(Header header)
     {
-      HeaderInsertedLast = header;
-
       if (HeaderRoot == null)
       {
         if (HeaderAncestor == null)

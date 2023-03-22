@@ -40,7 +40,6 @@ namespace BTokenLib
       public byte[] HashDBDownload;
       public List<byte[]> HashesDB;
 
-      public HeaderDownload HeaderDownload;
       public Header HeaderUnsolicited;
 
       TX TXAdvertized;
@@ -364,11 +363,13 @@ namespace BTokenLib
                 if (!Network.TryEnterStateSynchronization(this))
                   continue;
 
+                Header header = null;
+
                 try
                 {
                   for (int i = 0; i < countHeaders; i += 1)
                   {
-                    Header header = Token.ParseHeader(
+                    header = Token.ParseHeader(
                       Payload,
                       ref byteIndex);
 
@@ -393,16 +394,16 @@ namespace BTokenLib
                 }
 
                 ($"Send getheaders to peer {this},\n" +
-                  $"locator: {HeaderDownload.HeaderInsertedLast}").Log(LogFile);
+                  $"locator: {header}").Log(LogFile);
 
                 await TryStartSynchronization(
-                  new List<Header> { HeaderDownload.HeaderInsertedLast });
+                  new List<Header> { header });
               }
               else
               {
                 Cancellation = new();
 
-                if (Token.FlagDownloadDBWhenSync(HeaderDownload))
+                if (Token.FlagDownloadDBWhenSync())
                 {
                   await SendMessage(new GetHashesDBMessage());
                   Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
@@ -479,8 +480,7 @@ namespace BTokenLib
 
               HashesDB = Token.ParseHashesDB(
                 Payload,
-                LengthDataPayload,
-                HeaderDownload.HeaderTip);
+                LengthDataPayload);
 
               Cancellation = new();
 
