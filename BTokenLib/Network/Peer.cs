@@ -8,8 +8,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-
-
+using System.Diagnostics;
 
 namespace BTokenLib
 {
@@ -183,6 +182,8 @@ namespace BTokenLib
 
       public async Task SendMessage(MessageNetwork message)
       {
+        Debug.WriteLine($"Send message {message.Command} to peer {this}.");
+
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
         byte[] command = Encoding.ASCII.GetBytes(
@@ -505,6 +506,9 @@ namespace BTokenLib
             }
             else if (Command == "getdata")
             {
+              $"Received getData request from peer {this}."
+                    .Log(this, LogFile);
+
               await ReadBytes(Payload, LengthDataPayload);
 
               GetDataMessage getDataMessage = new(Payload);
@@ -681,7 +685,7 @@ namespace BTokenLib
         await SendMessage(new HeadersMessage(headers));
       }
 
-      public async Task RelayBlock(Block block)
+      public async Task AdvertizeBlock(Block block)
       {
         $"Relay block {block} to peer.".Log(this, LogFile);
 

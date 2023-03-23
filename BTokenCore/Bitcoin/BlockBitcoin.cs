@@ -84,8 +84,6 @@ namespace BTokenCore
     {
       TXBitcoin tX = new();
 
-      Debug.WriteLine(buffer.ToHexString());
-
       try
       {
         int tXStartIndex = indexBuffer;

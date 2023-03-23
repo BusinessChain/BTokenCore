@@ -716,12 +716,12 @@ namespace BTokenLib
         FlagThrottle = false;
     }
 
-    public void RelayBlockToNetwork(Block block)
+    public void AdvertizeBlockToNetwork(Block block)
     {
-      RelayBlockToNetwork(block, null);
+      AdvertizeBlockToNetwork(block, null);
     }
 
-    void RelayBlockToNetwork(Block block, Peer peerSource)
+    void AdvertizeBlockToNetwork(Block block, Peer peerSource)
     {
       Peers.ForEach(p =>
       {
@@ -729,7 +729,7 @@ namespace BTokenLib
         (p.HeaderUnsolicited == null ||
         !p.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash)))
         {
-          p.RelayBlock(block);
+          p.AdvertizeBlock(block);
         }
       });
     }

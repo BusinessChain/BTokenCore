@@ -92,7 +92,7 @@ namespace BTokenCore
         }
 
         BlocksMined.Add(block);
-        Network.RelayBlockToNetwork(block);
+        Network.AdvertizeBlockToNetwork(block);
       }
     }
 
