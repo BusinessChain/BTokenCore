@@ -180,18 +180,17 @@ namespace BTokenLib
         StartMessageListener();
       }
 
-      public async Task SendMessage(MessageNetwork message)
+      async Task SendMessage(MessageNetwork message)
       {
-        Debug.WriteLine($"Send message {message.Command} to peer {this}.");
-
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
         byte[] command = Encoding.ASCII.GetBytes(
           message.Command.PadRight(CommandSize, '\0'));
-
+        $"Send message {message.Command} to peer {this}.".Log(LogFile);
         NetworkStream.Write(command, 0, command.Length);
 
         byte[] payloadLength = BitConverter.GetBytes(message.LengthDataPayload);
+        $"Payload length is {payloadLength} bytes.".Log(LogFile);
         NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
         byte[] checksum = SHA256.ComputeHash(
@@ -200,8 +199,10 @@ namespace BTokenLib
             message.OffsetPayload,
             message.LengthDataPayload));
 
+        $"Checksum is {checksum.ToHexString()}.".Log(LogFile);
         NetworkStream.Write(checksum, 0, ChecksumSize);
 
+        $"Payload is {message.Payload.Skip(message.OffsetPayload).Take(message.LengthDataPayload).ToArray().ToHexString()}.".Log(LogFile);
         await NetworkStream.WriteAsync(
           message.Payload,
           message.OffsetPayload,
@@ -279,7 +280,11 @@ namespace BTokenLib
               if (!IsStateBlockSynchronization())
                 throw new ProtocolException($"Received unrequested block message.");
 
+              $"Receive block with payload data size {LengthDataPayload} bytes.".Log(LogFile);
+
               await ReadBytes(Block.Buffer, LengthDataPayload);
+
+              $"Payload is:\n {Block.Buffer.Take(LengthDataPayload).ToArray().ToHexString()}.".Log(LogFile);
 
               Block.Parse();
 
