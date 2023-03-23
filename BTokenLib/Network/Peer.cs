@@ -190,7 +190,7 @@ namespace BTokenLib
         NetworkStream.Write(command, 0, command.Length);
 
         byte[] payloadLength = BitConverter.GetBytes(message.LengthDataPayload);
-        $"Payload length is {payloadLength} bytes.".Log(LogFile);
+        $"Payload length is {message.LengthDataPayload} bytes.".Log(LogFile);
         NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
         byte[] checksum = SHA256.ComputeHash(
