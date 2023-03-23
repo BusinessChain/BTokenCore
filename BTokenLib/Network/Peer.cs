@@ -199,7 +199,7 @@ namespace BTokenLib
             message.OffsetPayload,
             message.LengthDataPayload));
 
-        $"Checksum is {checksum.ToHexString()}.".Log(LogFile);
+        $"Checksum is {checksum.Take(ChecksumSize).ToArray().ToHexString()}.".Log(LogFile);
         NetworkStream.Write(checksum, 0, ChecksumSize);
 
         $"Payload is {message.Payload.Skip(message.OffsetPayload).Take(message.LengthDataPayload).ToArray().ToHexString()}.".Log(LogFile);

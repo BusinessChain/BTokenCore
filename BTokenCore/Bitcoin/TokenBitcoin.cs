@@ -62,7 +62,7 @@ namespace BTokenCore
 
         block.Buffer = block.Header.Buffer.Concat(
           VarInt.GetBytes(block.TXs.Count)).ToArray();
-        block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
+        block.TXs.ForEach(t => { block.Buffer = block.Buffer.Concat(t.TXRaw).ToArray(); });
 
         block.Header.CountBytesBlock = block.Buffer.Length;
 
