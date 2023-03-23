@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
+using System.Diagnostics;
 using System.Security.Cryptography;
 
 using BTokenLib;
@@ -83,6 +83,8 @@ namespace BTokenCore
       ref int indexBuffer)
     {
       TXBitcoin tX = new();
+
+      Debug.WriteLine(buffer.ToHexString());
 
       try
       {

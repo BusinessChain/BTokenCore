@@ -393,9 +393,6 @@ namespace BTokenLib
                   continue; // Do not disconnect on parser exception but on timeout instead.
                 }
 
-                ($"Send getheaders to peer {this},\n" +
-                  $"locator: {header}").Log(LogFile);
-
                 await TryStartSynchronization(
                   new List<Header> { header });
               }
@@ -570,7 +567,7 @@ namespace BTokenLib
       public async Task<bool> TryStartSynchronization(
         List<Header> locator)
       {
-        ($"Send getheaders to peer {this}, starting synchronization... ,\n" +
+        ($"starting synchronization... \n Send getheaders to peer {this}\n" +
           $"locator: {locator.First()} ... {locator.Last()}").Log(this, LogFile);
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
