@@ -65,20 +65,11 @@ namespace BTokenLib
         throw new ProtocolException($"Block {this} lacks coinbase transaction.");
       
       if (tXCount == 1)
-      {
-        TX tX = ParseTX(
-          isCoinbase: true,
-          Buffer,
-          ref bufferIndex);
-
-        TXs.Add(tX);
-
-        Debug.WriteLine($"Parsed TX {tX}. Merkleroot is {hashMerkleRoot.ToHexString()}.");
-
-        if (!tX.Hash.IsEqual(hashMerkleRoot))
-          throw new ProtocolException(
-            "Payload merkle root corrupted");
-      }
+        TXs.Add(
+          ParseTX(
+            isCoinbase: true,
+            Buffer,
+            ref bufferIndex));
       else
       {
         int tXsLengthMod2 = tXCount & 1;
@@ -109,11 +100,11 @@ namespace BTokenLib
 
         if (tXsLengthMod2 != 0)
           merkleList[tXCount] = merkleList[tXCount - 1];
-
-        if (!hashMerkleRoot.IsEqual(ComputeMerkleRoot()))
-          throw new ProtocolException(
-            "Payload hash not equal to merkle root.");
       }
+
+      if (!hashMerkleRoot.IsEqual(ComputeMerkleRoot()))
+        throw new ProtocolException(
+          "Payload hash not equal to merkle root.");
     }
 
     public abstract TX ParseTX(
@@ -124,6 +115,9 @@ namespace BTokenLib
 
     public byte[] ComputeMerkleRoot()
     {
+      if (TXs.Count == 1)
+        return TXs[0].Hash;
+
       int tXsLengthMod2 = TXs.Count & 1;
       var merkleList = new byte[TXs.Count + tXsLengthMod2][];
       int merkleIndex = merkleList.Length;
@@ -138,13 +132,10 @@ namespace BTokenLib
       {
         merkleIndex >>= 1;
 
-        if (merkleIndex == 1)
-        {
-          ComputeNextMerkleList(merkleList, merkleIndex);
-          return merkleList[0];
-        }
-
         ComputeNextMerkleList(merkleList, merkleIndex);
+
+        if (merkleIndex == 1)
+          return merkleList[0];
 
         if ((merkleIndex & 1) != 0)
         {

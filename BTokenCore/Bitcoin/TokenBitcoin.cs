@@ -121,9 +121,6 @@ namespace BTokenCore
 
       block.Header.MerkleRoot = block.ComputeMerkleRoot();
 
-      ($"Created block {block} with {block.TXs.Count} tx.\n" +
-        $"tX hash: {block.TXs[0]}, merkle root {block.Header.MerkleRoot.ToHexString()}").Log(LogFile);
-
       HeaderBitcoin header = (HeaderBitcoin)block.Header;
 
       header.AppendToHeader(Blockchain.HeaderTip, sHA256);
