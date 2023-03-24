@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.IO;
+using System.Diagnostics;
 using System.Security.Cryptography;
 
 namespace BTokenLib
@@ -70,6 +70,8 @@ namespace BTokenLib
           ref bufferIndex);
 
         TXs.Add(tX);
+
+        Debug.WriteLine($"Parsed TX {tX}. Merkleroot is {hashMerkleRoot.ToHexString()}.");
 
         if (!tX.Hash.IsEqual(hashMerkleRoot))
           throw new ProtocolException(
