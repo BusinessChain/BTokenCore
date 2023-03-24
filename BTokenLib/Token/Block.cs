@@ -59,6 +59,8 @@ namespace BTokenLib
         Buffer,
         ref bufferIndex);
 
+      Debug.WriteLine($"Parse {tXCount} tXs.");
+
       if (tXCount == 0)
         throw new ProtocolException($"Block {this} lacks coinbase transaction.");
       
