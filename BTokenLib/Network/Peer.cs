@@ -276,11 +276,7 @@ namespace BTokenLib
               if (!IsStateBlockSynchronization())
                 throw new ProtocolException($"Received unrequested block message.");
 
-              $"Receive block with payload data size {LengthDataPayload} bytes.".Log(LogFile);
-
               await ReadBytes(Block.Buffer, LengthDataPayload);
-
-              $"Payload is:\n {Block.Buffer.Take(LengthDataPayload).ToArray().ToHexString()}.".Log(LogFile);
 
               Block.Parse();
 
