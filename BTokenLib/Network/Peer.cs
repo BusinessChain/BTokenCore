@@ -535,7 +535,11 @@ namespace BTokenLib
                     await SendMessage(new NotFoundMessage(
                       new List<Inventory>() { inventory }));
                   else
+                  {
+                    ($"Send block {block} with {block.TXs.Count} tx.\n" +
+                      $"tX hash: {block.TXs[0]}, merkle root {block.Header.MerkleRoot}").Log(LogFile);
                     await SendMessage(new MessageBlock(block));
+                  }
                 }
                 else if (inventory.Type == InventoryType.MSG_DB)
                 {
