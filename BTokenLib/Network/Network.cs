@@ -446,7 +446,6 @@ namespace BTokenLib
           peerSync.SendHeaders(
             new List<Header>() { Blockchain.HeaderTip });
 
-
       $"Synchronization with {peerSync} of {Token.GetName()} completed."
         .Log(LogFile);
 

@@ -163,6 +163,8 @@ namespace BTokenLib
 
     public void LoadImage(int heightMax)
     {
+      $"Load image {heightMax}.".Log(LogFile);
+
       string pathImageLoad = PathImage;
 
       while (true)
