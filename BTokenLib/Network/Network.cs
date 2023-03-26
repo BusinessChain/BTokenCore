@@ -292,6 +292,7 @@ namespace BTokenLib
 
     void InsertHeader(Header header)
     {
+      $"HeaderDownload.InsertHaader {header}. HeaderDownload ancestor {HeaderDownload.HeaderAncestor}".Log(LogFile);
       HeaderDownload.InsertHeader(header);
     }
 
@@ -453,6 +454,8 @@ namespace BTokenLib
 
       peerSync.Release();
       Token.ReleaseLock();
+
+      ExitSynchronization();
     }
 
     bool InsertBlock_FlagContinue(Peer peer)
