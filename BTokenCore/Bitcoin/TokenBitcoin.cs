@@ -131,8 +131,8 @@ namespace BTokenCore
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00};
 
-      while (header.Hash.IsGreaterThan(target))
-      { //while (header.Hash.IsGreaterThan(header.NBits))
+      while (header.Hash.IsGreaterThan(header.NBits))
+      { //while (header.Hash.IsGreaterThan(target))
         if (Blockchain.HeaderTip.Height >= block.Header.Height
           || TXPool.GetCountTXs() != countTXsPool)
           goto LABEL_StartPoW;

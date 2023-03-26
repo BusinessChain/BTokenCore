@@ -292,7 +292,6 @@ namespace BTokenLib
 
     void InsertHeader(Header header)
     {
-      $"HeaderDownload.InsertHaader {header}. HeaderDownload ancestor {HeaderDownload.HeaderAncestor}".Log(LogFile);
       HeaderDownload.InsertHeader(header);
     }
 

@@ -270,9 +270,6 @@ namespace BTokenLib
 
       TokenChilds.ForEach(
         t => t.SignalCompletionBlockInsertion(block.Header));
-
-
-      $"After insertion of block {block}, blockchain tip is now {Blockchain.HeaderTip}".Log(LogFile);
     }
 
     public virtual Block GetBlock(byte[] hash)
