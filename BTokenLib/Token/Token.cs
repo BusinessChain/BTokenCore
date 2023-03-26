@@ -44,6 +44,9 @@ namespace BTokenLib
 
     protected int CountBytesDataTokenBasis = 120;
 
+    bool IsLocked;
+    static object LOCK_Token = new();
+
 
     public Token(
       UInt16 port, 
@@ -117,8 +120,6 @@ namespace BTokenLib
 
     public abstract List<string> GetSeedAddresses();
 
-    bool IsLocked;
-    static object LOCK_Token = new();
 
     public bool TryLock()
     {
@@ -245,7 +246,11 @@ namespace BTokenLib
 
     public void InsertBlock(Block block)
     {
-      $"Append block {block} to blockchain tip {Blockchain.HeaderTip}".Log(LogFile);
+      string stringIsLocked = IsLocked ? "token is locked" : "token is not IsLocked";
+
+      ($"Append block {block} to blockchain tip {Blockchain.HeaderTip}. " +
+        $"{stringIsLocked}").Log(LogFile);
+
       block.Header.AppendToHeader(Blockchain.HeaderTip);
 
       InsertInDatabase(block);
@@ -265,6 +270,9 @@ namespace BTokenLib
 
       TokenChilds.ForEach(
         t => t.SignalCompletionBlockInsertion(block.Header));
+
+
+      $"After insertion of block {block}, blockchain tip is now {Blockchain.HeaderTip}".Log(LogFile);
     }
 
     public virtual Block GetBlock(byte[] hash)
