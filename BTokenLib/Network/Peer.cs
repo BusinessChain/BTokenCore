@@ -386,6 +386,8 @@ namespace BTokenLib
                       $"Too many exceptions when receiving headers.\n" +
                       $"Inner exception {ex.Message}.");
 
+                  Network.ExitSynchronization();
+
                   FlagSyncScheduled = true;
 
                   continue; // Do not disconnect on parser exception but on timeout instead.

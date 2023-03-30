@@ -131,8 +131,6 @@ namespace BTokenCore
         0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
         0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00};
 
-      // Halli hallo Melina
-
       while (header.Hash.IsGreaterThan(header.NBits))
       { //while (header.Hash.IsGreaterThan(target))
         if (Blockchain.HeaderTip.Height >= block.Header.Height
