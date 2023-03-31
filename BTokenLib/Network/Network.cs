@@ -152,8 +152,7 @@ namespace BTokenLib
               ;// $"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
 
-          await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS)
-            .ConfigureAwait(false);
+          await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS);
         }
       }
       catch (Exception ex)
@@ -332,7 +331,7 @@ namespace BTokenLib
 
       while (true)
       {
-        await Task.Delay(5000).ConfigureAwait(false);
+        await Task.Delay(5000);
 
         lock(LOCK_IsStateSynchronizing)
         {
@@ -419,7 +418,7 @@ namespace BTokenLib
                   "Waiting for all peers to exit state 'synchronization busy'."
                     .Log(LogFile);
 
-                  await Task.Delay(1000).ConfigureAwait(false);
+                  await Task.Delay(1000);
                 }
 
                 break;
@@ -447,7 +446,7 @@ namespace BTokenLib
 
               TryGetPeer(out peer);
 
-              await Task.Delay(1000).ConfigureAwait(false);
+              await Task.Delay(1000);
             }
           }
           else
@@ -648,7 +647,7 @@ namespace BTokenLib
             "Waiting for all peers to exit state 'synchronization busy'."
               .Log(LogFile);
 
-            await Task.Delay(1000).ConfigureAwait(false);
+            await Task.Delay(1000);
           }
 
           break;
@@ -667,7 +666,7 @@ namespace BTokenLib
 
         TryGetPeer(out peer);
 
-        await Task.Delay(1000).ConfigureAwait(false);
+        await Task.Delay(1000);
       }
     }
 
@@ -725,17 +724,6 @@ namespace BTokenLib
       QueueHashesDBDownloadIncomplete.Add(hashDBSync);
     }
 
-    object LOCK_FlagThrottle = new();
-    bool FlagThrottle;
-
-    async Task StartTimerLatchFlagThrottle()
-    {
-      await Task.Delay(1000).ConfigureAwait(false);
-
-      lock (LOCK_FlagThrottle)
-        FlagThrottle = false;
-    }
-
     public void AdvertizeBlockToNetwork(Block block)
     {
       AdvertizeBlockToNetwork(block, null);
@@ -790,8 +778,7 @@ namespace BTokenLib
 
       while (true)
       {
-        TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync()
-          .ConfigureAwait(false);
+        TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync();
 
         IPAddress remoteIP =
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;

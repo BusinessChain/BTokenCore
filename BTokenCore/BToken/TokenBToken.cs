@@ -165,7 +165,7 @@ namespace BTokenCore
           ReleaseLock();
         }
 
-        await Task.Delay(timeMSLoop).ConfigureAwait(false);
+        await Task.Delay(timeMSLoop);
       }
     }
 
