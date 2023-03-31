@@ -356,11 +356,11 @@ namespace BTokenLib
 
               $"{this}: Receiving {countHeaders} headers.".Log(LogFile);
 
+              if (!Network.TryEnterStateSynchronization(this))
+                continue;
+              
               if (countHeaders > 0)
               {
-                if (!Network.TryEnterStateSynchronization(this))
-                  continue;
-
                 Header header = null;
 
                 try

@@ -285,10 +285,12 @@ namespace BTokenLib
     }
 
 
+
     readonly object LOCK_IsStateSynchronizing = new();
-    HeaderDownload HeaderDownload;
+    bool FlagIsSyncingBlocks;
     bool IsStateSynchronizing;
     Peer PeerSynchronizing;
+    HeaderDownload HeaderDownload;
 
     void InsertHeader(Header header)
     {
@@ -299,6 +301,9 @@ namespace BTokenLib
     {
       lock (LOCK_IsStateSynchronizing)
       {
+        if (FlagIsSyncingBlocks)
+          return false;
+
         if (IsStateSynchronizing)
           return PeerSynchronizing == peer;
 
@@ -367,12 +372,9 @@ namespace BTokenLib
     bool FlagSyncDBAbort;
     List<byte[]> HashesDB;
 
-    readonly object LOCK_FlagIsSyncingBlocks = new();
-    bool FlagIsSyncingBlocks;
-
     async Task SyncBlocks(Peer peer)
     {
-      lock (LOCK_FlagIsSyncingBlocks)
+      lock (LOCK_IsStateSynchronizing)
         FlagIsSyncingBlocks = true;
 
       Peer peerSync = peer;
