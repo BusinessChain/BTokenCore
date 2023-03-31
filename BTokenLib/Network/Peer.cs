@@ -156,7 +156,8 @@ namespace BTokenLib
 
         TcpClient = new();
 
-        await TcpClient.ConnectAsync(IPAddress, Network.Port);
+        await TcpClient.ConnectAsync(IPAddress, Network.Port)
+          .ConfigureAwait(false);
 
         NetworkStream = TcpClient.GetStream();
 
@@ -201,7 +202,8 @@ namespace BTokenLib
         await NetworkStream.WriteAsync(
           message.Payload,
           message.OffsetPayload,
-          message.LengthDataPayload);
+          message.LengthDataPayload)
+          .ConfigureAwait(false);
       }
 
       async Task ReadBytes(
@@ -216,7 +218,8 @@ namespace BTokenLib
             buffer,
             offset,
             bytesToRead,
-            Cancellation.Token);
+            Cancellation.Token)
+            .ConfigureAwait(false);
 
           if (chunkSize == 0)
             throw new IOException(
