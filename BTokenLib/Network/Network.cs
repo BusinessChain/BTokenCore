@@ -294,6 +294,8 @@ namespace BTokenLib
 
     void InsertHeader(Header header)
     {
+      $"Insert {header} in headerDownload.".Log(LogFile);
+
       HeaderDownload.InsertHeader(header);
     }
 
@@ -389,6 +391,8 @@ namespace BTokenLib
           {
             if (HeaderDownload.HeaderAncestor != Blockchain.HeaderTip)
             {
+              $"HeaderDownload.HeaderAncestor {HeaderDownload.HeaderAncestor} not equal to {Blockchain.HeaderTip}".Log(LogFile);
+
               difficultyOld = Blockchain.HeaderTip.Difficulty;
               Token.LoadImage(HeaderDownload.HeaderAncestor.Height);
             }

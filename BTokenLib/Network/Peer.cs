@@ -566,7 +566,7 @@ namespace BTokenLib
       public async Task<bool> TryStartSynchronization(
         List<Header> locator)
       {
-        ($"starting synchronization... \n Send getheaders to peer {this}\n" +
+        ($"Send getheaders to peer {this}\n" +
           $"locator: {locator.First()} ... {locator.Last()}").Log(this, LogFile);
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
