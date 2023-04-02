@@ -285,7 +285,6 @@ namespace BTokenLib
     }
 
 
-
     readonly object LOCK_IsStateSynchronizing = new();
     bool FlagIsSyncingBlocks;
     bool IsStateSynchronizing;
@@ -299,7 +298,7 @@ namespace BTokenLib
       HeaderDownload.InsertHeader(header);
     }
 
-    bool TryEnterStateSynchronization(Peer peer)
+    bool TryEnterStateSynchronization(Peer peer = null)
     {
       lock (LOCK_IsStateSynchronizing)
       {
@@ -347,16 +346,14 @@ namespace BTokenLib
 
     async Task StartSync()
     {
-      Peer peer = null;
-
       while (true)
       {
         await Task.Delay(2000).ConfigureAwait(false);
 
-        if (!TryEnterStateSynchronization(peer))
+        if (!TryEnterStateSynchronization())
           continue;
         
-        peer.StartSynchronization(HeaderDownload.Locator);
+        PeerSynchronizing.StartSynchronization(HeaderDownload.Locator);
       }
     }
 
