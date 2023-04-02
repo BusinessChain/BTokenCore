@@ -397,7 +397,7 @@ namespace BTokenLib
               }
               else
               {
-                if (Network.HeaderDownload.HeaderAncestor == null)
+                if (!IsStateHeaderSynchronization())
                   throw new ProtocolException($"Peer sent unsolicited empty header message.");
 
                 Cancellation = new();
