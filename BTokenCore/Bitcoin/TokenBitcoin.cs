@@ -67,7 +67,7 @@ namespace BTokenCore
         block.Header.CountBytesBlock = block.Buffer.Length;
 
         while (!TryLock())
-          Thread.Sleep(100);
+          Thread.Sleep(500);
 
         try
         {

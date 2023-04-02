@@ -307,30 +307,42 @@ namespace BTokenLib
           return false;
 
         if (IsStateSynchronizing)
-          return PeerSynchronizing == peer;
+          return peer != null && PeerSynchronizing == peer;
 
-        EnterStateSynchronization(peer);
+        if (!Token.TryLock())
+          return false;
+
+        if(peer == null)
+          lock (LOCK_Peers)
+          {
+            peer = Peers.Find(p => p.TrySync());
+
+            if (peer == null)
+            {
+              Token.ReleaseLock();
+              return false;
+            }
+          }
+
+        PeerSynchronizing = peer;
+        PeerSynchronizing.SetStateHeaderSynchronization();
+        IsStateSynchronizing = true;
+
+        HeaderDownload = Token.CreateHeaderDownload();
+
+        ($"Enter state synchronization of {Token.GetName()} with peer " +
+          $"{peer + peer.Connection.ToString()}.")
+          .Log(this, LogFile);
+
         return true;
       }
-    }
-
-    void EnterStateSynchronization(Peer peer)
-    {
-      PeerSynchronizing = peer;
-      PeerSynchronizing.SetStateHeaderSynchronization();
-      IsStateSynchronizing = true;
-
-      HeaderDownload = Token.CreateHeaderDownload();
-
-      ($"Enter state synchronization of {Token.GetName()} with peer " +
-        $"{peer + peer.Connection.ToString()}.")
-        .Log(this, LogFile);
     }
 
     void ExitSynchronization()
     {
       IsStateSynchronizing = false;
       FlagIsSyncingBlocks = false;
+      Token.ReleaseLock();
     }
 
     async Task StartSync()
@@ -339,26 +351,12 @@ namespace BTokenLib
 
       while (true)
       {
-        await Task.Delay(5000).ConfigureAwait(false);
+        await Task.Delay(2000).ConfigureAwait(false);
 
-        lock(LOCK_IsStateSynchronizing)
-        {
-          if (IsStateSynchronizing)
-            continue;
-
-          lock (LOCK_Peers)
-          {
-            peer = Peers.Find(p => p.TrySync());
-
-            if (peer == null)
-              continue;
-          }
-
-          EnterStateSynchronization(peer);
-        }
-
-        IsStateSynchronizing = await peer.TryStartSynchronization(
-          HeaderDownload.Locator);
+        if (!TryEnterStateSynchronization(peer))
+          continue;
+        
+        peer.StartSynchronization(HeaderDownload.Locator);
       }
     }
 
@@ -475,7 +473,6 @@ namespace BTokenLib
         Blockchain.GetStatus().Log(LogFile);
 
         peerSync.Release();
-        Token.ReleaseLock();
 
         ExitSynchronization();
       }

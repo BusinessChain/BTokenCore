@@ -138,10 +138,10 @@ namespace BTokenLib
 
     public void ReleaseLock()
     {
-      if (TokenParent != null)
-        TokenParent.ReleaseLock();
-      else
+      if (TokenParent == null)
         IsLocked = false;
+      else
+        TokenParent.ReleaseLock();
     }
 
     public abstract Header CreateHeaderGenesis();

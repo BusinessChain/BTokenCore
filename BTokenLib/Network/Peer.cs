@@ -393,11 +393,13 @@ namespace BTokenLib
                   continue; // Do not disconnect on parser exception but on timeout instead.
                 }
 
-                await TryStartSynchronization(
-                  new List<Header> { header });
+                await StartSynchronization(new List<Header> { header });
               }
               else
               {
+                if (Network.HeaderDownload.HeaderAncestor == null)
+                  throw new ProtocolException($"Peer sent unsolicited empty header message.");
+
                 Cancellation = new();
 
                 if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
@@ -563,7 +565,7 @@ namespace BTokenLib
         }
       }                           
       
-      public async Task<bool> TryStartSynchronization(
+      public async Task StartSynchronization(
         List<Header> locator)
       {
         ($"Send getheaders to peer {this}\n" +
@@ -571,20 +573,9 @@ namespace BTokenLib
 
         Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
 
-        try
-        {
-          await SendMessage(new GetHeadersMessage(
-            locator,
-            ProtocolVersion));
-        }
-        catch (Exception ex)
-        {
-          SetFlagDisposed(
-            $"{ex.GetType().Name} in getheaders: \n{ex.Message}");
-        }
-
-        lock (this)
-          return !FlagDispose;
+        await SendMessage(new GetHeadersMessage(
+          locator,
+          ProtocolVersion));
       }
 
       public async Task AdvertizeTX(TX tX)
