@@ -397,8 +397,8 @@ namespace BTokenLib
               }
               else
               {
-                if (!IsStateHeaderSynchronization())
-                  throw new ProtocolException($"Peer sent unsolicited empty header message.");
+                //if (/*unsolicited zero header message*/)
+                //  throw new ProtocolException($"Peer sent unsolicited empty header message.");
 
                 Cancellation = new();
 
