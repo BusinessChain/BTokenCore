@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using static BTokenLib.Network;
 
 
 namespace BTokenLib
@@ -298,7 +299,7 @@ namespace BTokenLib
       HeaderDownload.InsertHeader(header);
     }
 
-    bool TryEnterStateSynchronization(Peer peer = null)
+    bool TryEnterStateSynchronization(Peer peer)
     {
       lock (LOCK_IsStateSynchronizing)
       {
@@ -306,35 +307,28 @@ namespace BTokenLib
           return false;
 
         if (IsStateSynchronizing)
-          return peer != null && PeerSynchronizing == peer;
+          return PeerSynchronizing == peer;
 
         if (!Token.TryLock())
           return false;
 
-        if(peer == null)
-          lock (LOCK_Peers)
-          {
-            peer = Peers.Find(p => p.TrySync());
-
-            if (peer == null)
-            {
-              Token.ReleaseLock();
-              return false;
-            }
-          }
-
-        PeerSynchronizing = peer;
-        PeerSynchronizing.SetStateHeaderSynchronization();
-        IsStateSynchronizing = true;
-
-        HeaderDownload = Token.CreateHeaderDownload();
-
-        ($"Enter state synchronization of {Token.GetName()} with peer " +
-          $"{peer + peer.Connection.ToString()}.")
-          .Log(this, LogFile);
+        EnterStateSynchronization(peer);
 
         return true;
       }
+    }
+
+    void EnterStateSynchronization(Peer peer)
+    {
+      PeerSynchronizing = peer;
+      PeerSynchronizing.SetStateHeaderSynchronization();
+      IsStateSynchronizing = true;
+
+      HeaderDownload = Token.CreateHeaderDownload();
+
+      ($"Enter state synchronization of {Token.GetName()} with peer " +
+        $"{peer + peer.Connection.ToString()}.")
+        .Log(this, LogFile);
     }
 
     void ExitSynchronization()
@@ -346,13 +340,34 @@ namespace BTokenLib
 
     async Task StartSync()
     {
+      Peer peer = null;
+
       while (true)
       {
         await Task.Delay(2000).ConfigureAwait(false);
 
-        if (!TryEnterStateSynchronization())
-          continue;
-        
+        lock (LOCK_IsStateSynchronizing)
+        {
+          if (IsStateSynchronizing)
+            continue;
+
+          if (!Token.TryLock())
+            continue;
+
+          lock (LOCK_Peers)
+          {
+            peer = Peers.Find(p => p.TrySync());
+
+            if (peer == null)
+            {
+              Token.ReleaseLock();
+              continue;
+            }
+          }
+
+          EnterStateSynchronization(peer);
+        }
+
         PeerSynchronizing.StartSynchronization(HeaderDownload.Locator);
       }
     }
