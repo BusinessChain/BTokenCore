@@ -80,7 +80,7 @@ namespace BTokenCore
         }
         catch (Exception ex)
         {
-          ($"{ex.GetType().Name} when inserting mined bitcoin " +
+          ($"{ex.GetType().Name} when when miner tries to insert mined bitcoin " +
             $"block height {block.Header.Height} {block}.\n" +
             $"Exception message: {ex.Message}").Log(LogFile);
 
