@@ -19,6 +19,9 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
+      int CountExceptionsOccured;
+      const int MAX_COUNT_EXCEPTIONS_OCCURED_BEFORE_DISSCONNECT = 5;
+
       public bool IsBusy = true;
       public bool FlagDispose;
       public bool FlagSyncScheduled;
@@ -413,6 +416,9 @@ namespace BTokenLib
             }
             else if (Command == "getheaders")
             {
+              if (!Token.TryLock())
+                continue;
+
               await ReadBytes(Payload, LengthDataPayload);
 
               byte[] hashHeaderAncestor = new byte[32];
@@ -466,6 +472,8 @@ namespace BTokenLib
                   FlagSyncScheduled = true;
                 }
               }
+
+              Token.ReleaseLock();
             }
             else if (Command == "hashesDB")
             {
@@ -559,8 +567,8 @@ namespace BTokenLib
             else if (IsStateDBDownload())
               Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
 
-            SetFlagDisposed(
-              $"{ex.GetType().Name} in listener: \n{ex.Message}");
+            if (CountExceptionsOccured > MAX_COUNT_EXCEPTIONS_OCCURED_BEFORE_DISSCONNECT)
+              SetFlagDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
           }
         }
       }                           
@@ -722,6 +730,12 @@ namespace BTokenLib
       {
         lock (this)
           return State == StateProtocol.IDLE;
+      }
+
+      public void SetStateIdle()
+      {
+        lock (this)
+          State = StateProtocol.IDLE;
       }
 
       public void SetStateHeaderSynchronization()

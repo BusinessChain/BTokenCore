@@ -321,8 +321,8 @@ namespace BTokenLib
     void EnterStateSynchronization(Peer peer)
     {
       PeerSynchronizing = peer;
-      PeerSynchronizing.SetStateHeaderSynchronization();
       IsStateSynchronizing = true;
+      PeerSynchronizing.SetStateHeaderSynchronization();
 
       HeaderDownload = Token.CreateHeaderDownload();
 
@@ -335,6 +335,8 @@ namespace BTokenLib
     {
       IsStateSynchronizing = false;
       FlagIsSyncingBlocks = false;
+      PeerSynchronizing.SetStateIdle();
+      PeerSynchronizing = null;
       Token.ReleaseLock();
     }
 
