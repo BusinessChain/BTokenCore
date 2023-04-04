@@ -246,11 +246,6 @@ namespace BTokenLib
 
     public void InsertBlock(Block block)
     {
-      string stringIsLocked = IsLocked ? "token is locked" : "token is not IsLocked";
-
-      ($"Append block {block} to blockchain tip {Blockchain.HeaderTip}. " +
-        $"{stringIsLocked}").Log(LogFile);
-
       block.Header.AppendToHeader(Blockchain.HeaderTip);
 
       InsertInDatabase(block);

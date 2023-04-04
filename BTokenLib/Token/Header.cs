@@ -59,8 +59,7 @@ namespace BTokenLib
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
         throw new ProtocolException(
           $"Header {this} references header previous " +
-          $"{HashPrevious.ToHexString()} but attempts to append {headerPrevious}.\n" +
-          $"This is not a bug but may happen if blocks are mined simultaniously.");
+          $"{HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
 
       HeaderPrevious = headerPrevious;
 
