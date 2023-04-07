@@ -240,9 +240,9 @@ namespace BTokenLib
 
       public async Task StartMessageListener()
       {
-        try
+        while (true)
         {
-          while (true)
+          try
           {
             if (FlagDispose)
               return;
@@ -371,7 +371,7 @@ namespace BTokenLib
 
               if (!Network.TryEnterStateSynchronization(this))
                 continue;
-              
+
               if (countHeaders > 0)
               {
                 Console.Beep(1500, 200);
@@ -565,30 +565,32 @@ namespace BTokenLib
                 .Log(this, LogFile);
             }
           }
-        }
-        catch (Exception ex)
-        {
-          lock(this)
+          catch (Exception ex)
           {
-            if (IsStateHeaderSynchronization())
-              Network.ExitSynchronization();
-            else if (IsStateBlockSynchronization())
-              Network.ReturnPeerBlockDownloadIncomplete(this);
-            else if (IsStateDBDownload())
-              Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
-            else if (FlagSendPingWhenNextTimeout)
+            lock (this)
             {
-              FlagSendPingWhenNextTimeout = false;
-              FlagAwaitingPong = true;
-              ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
+              if (IsStateHeaderSynchronization())
+                Network.ExitSynchronization();
+              else if (IsStateBlockSynchronization())
+                Network.ReturnPeerBlockDownloadIncomplete(this);
+              else if (IsStateDBDownload())
+                Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
+              else if (FlagSendPingWhenNextTimeout)
+              {
+                FlagSendPingWhenNextTimeout = false;
+                FlagAwaitingPong = true;
+                ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
-              SendMessage(new PingMessage());
+                SendMessage(new PingMessage());
+                continue;
+              }
+
+              SetFlagDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+              break;
             }
-
-            SetFlagDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
           }
         }
-      }                           
+      }
       
       public async Task StartSynchronization(
         List<Header> locator)
