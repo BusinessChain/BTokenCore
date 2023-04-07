@@ -76,6 +76,8 @@ namespace BTokenCore
 
           InsertBlock(block);
 
+          BlocksMined.Add(block);
+
           Console.Beep();
         }
         catch (Exception ex)
@@ -91,7 +93,6 @@ namespace BTokenCore
           ReleaseLock();
         }
 
-        BlocksMined.Add(block);
         Network.AdvertizeBlockToNetwork(block);
       }
     }

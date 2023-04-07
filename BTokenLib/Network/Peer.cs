@@ -8,7 +8,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Diagnostics;
+using System.Reflection.Metadata.Ecma335;
 
 namespace BTokenLib
 {
@@ -18,9 +18,6 @@ namespace BTokenLib
     {
       Network Network;
       public Token Token;
-
-      int CountExceptionsOccured;
-      const int MAX_COUNT_EXCEPTIONS_OCCURED_BEFORE_DISSCONNECT = 5;
 
       public bool IsBusy = true;
       public bool FlagDispose;
@@ -56,6 +53,7 @@ namespace BTokenLib
       TcpClient TcpClient;
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
+      const int MILLISECONDS_TIME_PING = 30000;
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -114,6 +112,8 @@ namespace BTokenLib
         CreateLogFile(ip.ToString());
 
         State = StateProtocol.IDLE;
+
+        ResetTimer();
       }
 
       void CreateLogFile(string name)
@@ -290,7 +290,7 @@ namespace BTokenLib
                   $"Received unexpected block {Block} at height {Block.Header.Height} from peer {this}.\n" +
                   $"Requested was {HeaderSync}.");
 
-              Cancellation = new();
+              ResetTimer();
 
               if (Network.InsertBlock_FlagContinue(this))
                 await RequestBlock();
@@ -313,7 +313,7 @@ namespace BTokenLib
                     $"Unexpected dataDB with hash {hashDataDB.ToHexString()}.\n" +
                     $"Excpected hash {HashDBDownload.ToHexString()}.");
 
-                Cancellation = new();
+                ResetTimer();
 
                 if (Network.InsertDB_FlagContinue(this))
                   await RequestDB();
@@ -327,6 +327,16 @@ namespace BTokenLib
 
               await SendMessage(new PongMessage(
                 BitConverter.ToUInt64(Payload, 0)));
+            }
+            else if (Command == "pong")
+            {
+              await ReadBytes(Payload, LengthDataPayload);
+
+              if (FlagAwaitingPong)
+              {
+                FlagAwaitingPong = false;
+                ResetTimer();
+              }
             }
             else if (Command == "addr")
             {
@@ -364,6 +374,8 @@ namespace BTokenLib
               
               if (countHeaders > 0)
               {
+                Console.Beep(1500, 200);
+
                 Header header = null;
 
                 try
@@ -391,8 +403,6 @@ namespace BTokenLib
 
                   Network.ExitSynchronization();
 
-                  FlagSyncScheduled = true;
-
                   continue; // Do not disconnect on parser exception but on timeout instead.
                 }
 
@@ -403,12 +413,12 @@ namespace BTokenLib
                 //if (/*unsolicited zero header message*/)
                 //  throw new ProtocolException($"Peer sent unsolicited empty header message.");
 
-                Cancellation = new();
+                ResetTimer();
 
                 if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
                 {
                   await SendMessage(new GetHashesDBMessage());
-                  Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+                  ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
                 }
                 else
                   Network.SyncBlocks(this);
@@ -486,7 +496,7 @@ namespace BTokenLib
                 LengthDataPayload,
                 Network.HeaderDownload.HeaderTip);
 
-              Cancellation = new();
+              ResetTimer();
 
               Network.SyncDB(this);
             }
@@ -566,9 +576,16 @@ namespace BTokenLib
               Network.ReturnPeerBlockDownloadIncomplete(this);
             else if (IsStateDBDownload())
               Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
+            else if (FlagSendPingWhenNextTimeout)
+            {
+              FlagSendPingWhenNextTimeout = false;
+              FlagAwaitingPong = true;
+              ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
-            if (CountExceptionsOccured > MAX_COUNT_EXCEPTIONS_OCCURED_BEFORE_DISSCONNECT)
-              SetFlagDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+              SendMessage(new PingMessage());
+            }
+
+            SetFlagDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
           }
         }
       }                           
@@ -579,11 +596,21 @@ namespace BTokenLib
         ($"Send getheaders to peer {this}\n" +
           $"locator: {locator.First()} ... {locator.Last()}").Log(this, LogFile);
 
-        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+        ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
+
+        throw new Exception("test exception in StartSynchronization");
 
         await SendMessage(new GetHeadersMessage(
           locator,
           ProtocolVersion));
+      }
+
+      bool FlagSendPingWhenNextTimeout; 
+      bool FlagAwaitingPong;
+      void ResetTimer(int millisecondsTimer = MILLISECONDS_TIME_PING)
+      {
+        FlagSendPingWhenNextTimeout = millisecondsTimer == MILLISECONDS_TIME_PING;
+        Cancellation = new(millisecondsTimer);
       }
 
       public async Task AdvertizeTX(TX tX)
@@ -618,7 +645,7 @@ namespace BTokenLib
           State = StateProtocol.DBDownload;
         }
 
-        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+        ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
         try
         {
@@ -652,7 +679,7 @@ namespace BTokenLib
             Network.ReturnPeerBlockDownloadIncomplete(this);
         }
 
-        Cancellation.CancelAfter(TIMEOUT_RESPONSE_MILLISECONDS);
+        ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
         try
         {
@@ -682,6 +709,8 @@ namespace BTokenLib
       public async Task AdvertizeBlock(Block block)
       {
         $"Relay block {block} to peer.".Log(this, LogFile);
+
+        throw new Exception("test exception in AdvertizeBlock");
 
         await SendHeaders(new List<Header>() { block.Header });
         Release();

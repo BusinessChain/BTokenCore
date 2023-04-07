@@ -21,11 +21,10 @@ namespace BTokenLib
         Nonce = BitConverter.ToUInt64(Payload, 0);
       }
 
-      public PingMessage(UInt64 nonce) 
+      public PingMessage() 
         : base("ping")
       {
-        Nonce = nonce;
-        Payload = BitConverter.GetBytes(nonce);
+        Payload = new byte[8];
         LengthDataPayload = Payload.Length;
       }
     }
