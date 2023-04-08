@@ -8,7 +8,6 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Reflection.Metadata.Ecma335;
 
 namespace BTokenLib
 {
@@ -323,6 +322,8 @@ namespace BTokenLib
             }
             else if (Command == "ping")
             {
+              $"Received ping message.".Log(LogFile);
+
               await ReadBytes(Payload, LengthDataPayload);
 
               await SendMessage(new PongMessage(
@@ -330,6 +331,8 @@ namespace BTokenLib
             }
             else if (Command == "pong")
             {
+              $"Received pong message.".Log(LogFile);
+
               await ReadBytes(Payload, LengthDataPayload);
 
               if (FlagAwaitingPong)
@@ -581,6 +584,8 @@ namespace BTokenLib
                 FlagAwaitingPong = true;
                 ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
+                $"Send ping message".Log(this, LogFile);
+
                 SendMessage(new PingMessage());
                 continue;
               }
@@ -599,8 +604,6 @@ namespace BTokenLib
           $"locator: {locator.First()} ... {locator.Last()}").Log(this, LogFile);
 
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
-
-        throw new Exception("test exception in StartSynchronization");
 
         await SendMessage(new GetHeadersMessage(
           locator,
@@ -711,8 +714,6 @@ namespace BTokenLib
       public async Task AdvertizeBlock(Block block)
       {
         $"Relay block {block} to peer.".Log(this, LogFile);
-
-        throw new Exception("test exception in AdvertizeBlock");
 
         await SendHeaders(new List<Header>() { block.Header });
         Release();
