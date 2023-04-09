@@ -307,7 +307,13 @@ namespace BTokenLib
           return false;
 
         if (IsStateSynchronizing)
+        {
+          if (PeerSynchronizing == peer)
+            $"Remain in state synchronization of with peer {peer}."
+              .Log(this, LogFile);
+
           return PeerSynchronizing == peer;
+        }
 
         if (!Token.TryLock())
           return false;

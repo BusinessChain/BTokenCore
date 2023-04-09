@@ -377,7 +377,7 @@ namespace BTokenLib
 
               if (countHeaders > 0)
               {
-                Console.Beep(1500, 200);
+                Console.Beep(1200, 100);
 
                 Header header = null;
 
@@ -402,7 +402,7 @@ namespace BTokenLib
                   if (CountExceptionsOnReceivingHeader++ > 3)
                     throw new ProtocolException(
                       $"Too many exceptions when receiving headers.\n" +
-                      $"Inner exception {ex.Message}.");
+                      $"Inner exception: {ex.Message}.");
 
                   Network.ExitSynchronization();
 
@@ -415,6 +415,8 @@ namespace BTokenLib
               {
                 //if (/*unsolicited zero header message*/)
                 //  throw new ProtocolException($"Peer sent unsolicited empty header message.");
+                
+                CountExceptionsOnReceivingHeader = 0;
 
                 ResetTimer();
 
