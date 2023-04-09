@@ -564,6 +564,7 @@ namespace BTokenLib
               {
                 FlagScheduleSyncWhenNextTimeout = false;
                 FlagSyncScheduled = true;
+                Cancellation = new();
                 ResetTimer();
                 continue;
               }
@@ -591,10 +592,8 @@ namespace BTokenLib
       bool FlagScheduleSyncWhenNextTimeout;
       void ResetTimer(int millisecondsTimer = TIMEOUT_NEXT_SYNC_MILLISECONDS)
       {
-        FlagScheduleSyncWhenNextTimeout = 
-          millisecondsTimer == TIMEOUT_NEXT_SYNC_MILLISECONDS;
-
-        Cancellation = new(millisecondsTimer);
+        FlagScheduleSyncWhenNextTimeout = millisecondsTimer == TIMEOUT_NEXT_SYNC_MILLISECONDS;
+        Cancellation.CancelAfter(millisecondsTimer);
       }
 
       public async Task AdvertizeTX(TX tX)
