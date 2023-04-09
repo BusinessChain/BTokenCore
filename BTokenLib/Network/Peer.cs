@@ -564,6 +564,7 @@ namespace BTokenLib
               {
                 FlagScheduleSyncWhenNextTimeout = false;
                 FlagSyncScheduled = true;
+                ResetTimer();
                 continue;
               }
 
