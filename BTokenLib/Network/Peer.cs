@@ -562,10 +562,9 @@ namespace BTokenLib
                 Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
               else if (FlagScheduleSyncWhenNextTimeout)
               {
-                FlagScheduleSyncWhenNextTimeout = false;
                 FlagSyncScheduled = true;
-                Cancellation = new();
-                ResetTimer();
+
+                Cancellation = new(TIMEOUT_NEXT_SYNC_MILLISECONDS);
                 continue;
               }
 
