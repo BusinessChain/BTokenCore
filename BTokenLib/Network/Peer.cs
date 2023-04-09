@@ -52,7 +52,7 @@ namespace BTokenLib
       TcpClient TcpClient;
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
-      const int MILLISECONDS_TIME_PING = 30000;
+      const int TIMEOUT_NEXT_SYNC_MILLISECONDS = 30000;
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -234,8 +234,6 @@ namespace BTokenLib
 
 
       internal Header HeaderDuplicateReceivedLast;
-      internal int CountOrphanReceived;
-      internal int CountExceptionsOnReceivingHeader;
 
       public async Task StartMessageListener()
       {
@@ -326,20 +324,7 @@ namespace BTokenLib
 
               await ReadBytes(Payload, LengthDataPayload);
 
-              await SendMessage(new PongMessage(
-                BitConverter.ToUInt64(Payload, 0)));
-            }
-            else if (Command == "pong")
-            {
-              $"Received pong message.".Log(LogFile);
-
-              await ReadBytes(Payload, LengthDataPayload);
-
-              if (FlagAwaitingPong)
-              {
-                FlagAwaitingPong = false;
-                ResetTimer();
-              }
+              await SendMessage(new PongMessage(Payload));
             }
             else if (Command == "addr")
             {
@@ -399,14 +384,11 @@ namespace BTokenLib
                   ($"{ex.GetType().Name} when receiving headers:\n" +
                     $"{ex.Message}").Log(LogFile);
 
-                  if (CountExceptionsOnReceivingHeader++ > 3)
-                    throw new ProtocolException(
-                      $"Too many exceptions when receiving headers.\n" +
-                      $"Inner exception: {ex.Message}.");
-
                   Network.ExitSynchronization();
 
-                  continue; // Do not disconnect on parser exception but on timeout instead.
+                  FlagSyncScheduled = true;
+
+                  continue;
                 }
 
                 await StartSynchronization(new List<Header> { header });
@@ -416,8 +398,6 @@ namespace BTokenLib
                 //if (/*unsolicited zero header message*/)
                 //  throw new ProtocolException($"Peer sent unsolicited empty header message.");
                 
-                CountExceptionsOnReceivingHeader = 0;
-
                 ResetTimer();
 
                 if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
@@ -580,15 +560,10 @@ namespace BTokenLib
                 Network.ReturnPeerBlockDownloadIncomplete(this);
               else if (IsStateDBDownload())
                 Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
-              else if (FlagSendPingWhenNextTimeout)
+              else if (FlagScheduleSyncWhenNextTimeout)
               {
-                FlagSendPingWhenNextTimeout = false;
-                FlagAwaitingPong = true;
-                ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
-
-                $"Send ping message".Log(this, LogFile);
-
-                SendMessage(new PingMessage());
+                FlagScheduleSyncWhenNextTimeout = false;
+                FlagSyncScheduled = true;
                 continue;
               }
 
@@ -612,11 +587,12 @@ namespace BTokenLib
           ProtocolVersion));
       }
 
-      bool FlagSendPingWhenNextTimeout; 
-      bool FlagAwaitingPong;
-      void ResetTimer(int millisecondsTimer = MILLISECONDS_TIME_PING)
+      bool FlagScheduleSyncWhenNextTimeout;
+      void ResetTimer(int millisecondsTimer = TIMEOUT_NEXT_SYNC_MILLISECONDS)
       {
-        FlagSendPingWhenNextTimeout = millisecondsTimer == MILLISECONDS_TIME_PING;
+        FlagScheduleSyncWhenNextTimeout = 
+          millisecondsTimer == TIMEOUT_NEXT_SYNC_MILLISECONDS;
+
         Cancellation = new(millisecondsTimer);
       }
 
