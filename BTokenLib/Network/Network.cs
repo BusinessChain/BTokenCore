@@ -25,7 +25,7 @@ namespace BTokenLib
 
     UInt16 Port;
 
-    int CountPeersMax = 0; // Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = Math.Max(Environment.ProcessorCount - 1, 4);
 
     const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
     public bool EnableInboundConnections;
