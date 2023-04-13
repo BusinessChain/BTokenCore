@@ -18,7 +18,7 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 10;//7 * 24 * 3600;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
     StreamWriter LogFile;
@@ -74,6 +74,9 @@ namespace BTokenLib
 
       LoadNetworkConfiguration(pathRoot);
 
+      foreach (FileInfo file in DirectoryPeersActive.GetFiles())
+        file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
+
       LoadIPAddressPool();
     }
 
@@ -119,7 +122,7 @@ namespace BTokenLib
             Random randomGenerator = new();
 
             if (PoolIPAddress.Count == 0)
-              LoadArchiveToPoolIPAddress();
+              LoadIPAddressPool();
 
             while (
               iPAddresses.Count < countPeersCreate &&
@@ -164,35 +167,25 @@ namespace BTokenLib
       }
     }
 
-    void LoadArchiveToPoolIPAddress()
+    void LoadIPAddressPool()
     {
-      foreach (FileInfo fileDisposed in DirectoryPeersDisposed.EnumerateFiles())
+      PoolIPAddress = Token.GetSeedAddresses();
+
+      foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
       {
-        TimeSpan timeSpanSinceLastDisposal = DateTime.Now - fileDisposed.LastAccessTime;
+        TimeSpan timeSpanSinceLastDisposal = DateTime.Now - iPDisposed.LastAccessTime;
 
         if (0 < TIMESPAN_PEER_BANNED_SECONDS - (int)timeSpanSinceLastDisposal.TotalSeconds)
           continue;
 
-        fileDisposed.MoveTo(Path.Combine(
+        iPDisposed.MoveTo(Path.Combine(
           DirectoryPeersArchive.FullName,
-          fileDisposed.Name));
+          iPDisposed.Name));
       }
 
       foreach (FileInfo fileIPAddress in DirectoryPeersArchive.EnumerateFiles())
         if (!PoolIPAddress.Contains(fileIPAddress.Name))
           PoolIPAddress.Add(fileIPAddress.Name);
-    }
-
-    void LoadIPAddressPool()
-    {
-      PoolIPAddress = Token.GetSeedAddresses();
-
-      foreach (FileInfo file in DirectoryPeersActive.GetFiles())
-        file.MoveTo(Path.Combine(
-          DirectoryPeersArchive.FullName,
-          file.Name));
-
-      LoadArchiveToPoolIPAddress();
     }
 
     void AddNetworkAddressesAdvertized(
