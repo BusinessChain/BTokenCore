@@ -39,6 +39,7 @@ namespace BTokenLib
       public List<byte[]> HashesDB;
 
       public Header HeaderUnsolicited;
+      Dictionary<byte[], Header> HeadersReceived = new(new EqualityComparerByteArray());
 
       TX TXAdvertized;
 
@@ -366,29 +367,20 @@ namespace BTokenLib
 
                 Header header = null;
 
-                try
+                for (int i = 0; i < countHeaders; i += 1)
                 {
-                  for (int i = 0; i < countHeaders; i += 1)
-                  {
-                    header = Token.ParseHeader(
-                      Payload,
-                      ref byteIndex);
+                  header = Token.ParseHeader(
+                    Payload,
+                    ref byteIndex);
 
-                    byteIndex += 1;
+                  byteIndex += 1;
 
-                    Network.InsertHeader(header);
-                  }
-                }
-                catch (ProtocolException ex)
-                {
-                  ($"{ex.GetType().Name} when receiving headers:\n" +
-                    $"{ex.Message}").Log(LogFile);
+                  if (!HeadersReceived.ContainsKey(header.Hash))
+                    HeadersReceived.Add(header.Hash, header);
+                  else
+                    throw new ProtocolException($"Received header {header} more than one time.");
 
-                  Network.ExitSynchronization();
-
-                  FlagSyncScheduled = true;
-
-                  continue;
+                  Network.InsertHeader(header);
                 }
 
                 await StartSynchronization(new List<Header> { header });
