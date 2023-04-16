@@ -18,19 +18,20 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
-      public bool IsBusy = true;
-      public bool FlagDispose;
       public bool FlagSyncScheduled;
 
-      public enum StateProtocol
+      enum StateProtocol
       {
-        IDLE = 0,
+        Idle = 0,
         HeaderSynchronization,
         BlockSynchronization,
         DBDownload,
-        GetData
+        GetData,
+        GetHeaders,
+        Disposed
       }
-      public StateProtocol State;
+      StateProtocol State;
+      DateTime TimeLastStateTransition;
 
       public Header HeaderSync;
       public Block Block;
@@ -111,7 +112,7 @@ namespace BTokenLib
 
         CreateLogFile(ip.ToString());
 
-        State = StateProtocol.IDLE;
+        SetStateIdle();
 
         ResetTimer();
       }
@@ -242,7 +243,7 @@ namespace BTokenLib
         {
           try
           {
-            if (FlagDispose)
+            if (IsStateDiposed())
               return;
 
             byte[] magicByte = new byte[1];
@@ -293,7 +294,7 @@ namespace BTokenLib
               if (Network.InsertBlock_FlagContinue(this))
                 await RequestBlock();
               else
-                Release();
+                SetStateIdle();
             }
             else if (Command == "dataDB")
             {
@@ -316,7 +317,7 @@ namespace BTokenLib
                 if (Network.InsertDB_FlagContinue(this))
                   await RequestDB();
                 else
-                  Release();
+                  SetStateIdle();
               }
             }
             else if (Command == "ping")
@@ -406,6 +407,8 @@ namespace BTokenLib
               if (!Token.TryLock())
                 continue;
 
+              SetStateGetHeaders();
+
               await ReadBytes(Payload, LengthDataPayload);
 
               byte[] hashHeaderAncestor = new byte[32];
@@ -420,12 +423,10 @@ namespace BTokenLib
               int i = 0;
               List<Header> headers = new();
 
-              while (i < headersCount)
+              while (true)
               {
                 Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
                 startIndex += 32;
-
-                i += 1;
 
                 if (Token.Blockchain.TryGetHeader(
                   hashHeaderAncestor,
@@ -443,21 +444,15 @@ namespace BTokenLib
                   if (headers.Any())
                     $"Send headers {headers.First()}...{headers.Last()}.".Log(this, LogFile);
                   else
-                    $"Send empty headers".Log(this, LogFile);
+                    $"Send empty headers.".Log(this, LogFile);
 
                   await SendHeaders(headers);
 
                   break;
                 }
-                else if (i == headersCount)
-                {
-                  ($"Found no common ancestor in getheaders locator... " +
-                    $"Schedule synchronization ").Log(LogFile);
-
-                  await SendHeaders(headers);
-
-                  FlagSyncScheduled = true;
-                }
+                
+                if (i++ == headersCount)
+                  throw new ProtocolException($"Found no common ancestor in getheaders locator.");
               }
 
               Token.ReleaseLock();
@@ -544,25 +539,15 @@ namespace BTokenLib
           }
           catch (Exception ex)
           {
-            lock (this)
-            {
-              if (IsStateHeaderSynchronization())
-                Network.ExitSynchronization();
-              else if (IsStateBlockSynchronization())
-                Network.ReturnPeerBlockDownloadIncomplete(this);
-              else if (IsStateDBDownload())
-                Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
-              else if (FlagScheduleSyncWhenNextTimeout)
-              {
-                FlagSyncScheduled = true;
+            if (IsStateHeaderSynchronization())
+              Network.ExitSynchronization();
+            else if (IsStateBlockSynchronization())
+              Network.ReturnPeerBlockDownloadIncomplete(this);
+            else if (IsStateDBDownload())
+              Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
 
-                Cancellation = new(TIMEOUT_NEXT_SYNC_MILLISECONDS);
-                continue;
-              }
-
-              SetFlagDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
-              break;
-            }
+            SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+            break;
           }
         }
       }
@@ -580,10 +565,8 @@ namespace BTokenLib
           ProtocolVersion));
       }
 
-      bool FlagScheduleSyncWhenNextTimeout;
       void ResetTimer(int millisecondsTimer = TIMEOUT_NEXT_SYNC_MILLISECONDS)
       {
-        FlagScheduleSyncWhenNextTimeout = millisecondsTimer == TIMEOUT_NEXT_SYNC_MILLISECONDS;
         Cancellation.CancelAfter(millisecondsTimer);
       }
 
@@ -603,7 +586,7 @@ namespace BTokenLib
 
         TXAdvertized = tX;
 
-        Release();
+        SetStateIdle();
       }
 
       public async Task RequestDB()
@@ -611,13 +594,7 @@ namespace BTokenLib
         $"Peer starts downloading DB {HashDBDownload.ToHexString()}."
           .Log(this, LogFile);
 
-        lock (this)
-        {
-          if (FlagDispose)
-            Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
-
-          State = StateProtocol.DBDownload;
-        }
+        State = StateProtocol.DBDownload;
 
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
@@ -633,7 +610,7 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          SetFlagDisposed(
+          SetStateDisposed(
             $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
 
           Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
@@ -645,13 +622,7 @@ namespace BTokenLib
       {
         $"Peer starts downloading block {HeaderSync}.".Log(this, LogFile);
 
-        lock (this)
-        {
-          State = StateProtocol.BlockSynchronization;
-
-          if (FlagDispose)
-            Network.ReturnPeerBlockDownloadIncomplete(this);
-        }
+        State = StateProtocol.BlockSynchronization;
 
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
@@ -667,7 +638,7 @@ namespace BTokenLib
         }
         catch(Exception ex)
         {
-          SetFlagDisposed(
+          SetStateDisposed(
             $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
 
           Network.ReturnPeerBlockDownloadIncomplete(this);
@@ -685,19 +656,7 @@ namespace BTokenLib
         $"Relay block {block} to peer.".Log(this, LogFile);
 
         await SendHeaders(new List<Header>() { block.Header });
-        Release();
-      }
-
-      public bool TryGetBusy()
-      {
-        lock (this)
-        {
-          if (FlagDispose || IsBusy)
-            return false;
-
-          IsBusy = true;
-          return true;
-        }
+        SetStateIdle();
       }
 
       public bool TrySync()
@@ -706,43 +665,62 @@ namespace BTokenLib
         {
           if (
             !FlagSyncScheduled ||
-            FlagDispose ||
-            IsBusy)
+            !IsStateIdle())
           {
             return false;
           }
 
-          FlagSyncScheduled = false;
-          IsBusy = true;
+          State = StateProtocol.HeaderSynchronization;
           return true;
-        }
-      }
-
-      public void Release()
-      {
-        lock (this)
-        {
-          IsBusy = false;
-          State = StateProtocol.IDLE;
         }
       }
 
       public bool IsStateIdle()
       {
         lock (this)
-          return State == StateProtocol.IDLE;
+        {
+          if (State == StateProtocol.Idle)
+            return true;
+
+          if ((DateTime.Now - TimeLastStateTransition).TotalMilliseconds > TIMEOUT_RESPONSE_MILLISECONDS)
+          {
+            TimeLastStateTransition = DateTime.Now;
+            State = StateProtocol.Idle;
+            return true;
+          }
+
+          return false;
+        }
       }
 
       public void SetStateIdle()
       {
         lock (this)
-          State = StateProtocol.IDLE;
+        {
+          TimeLastStateTransition = DateTime.Now;
+          State = StateProtocol.Idle;
+        }
+      }
+
+      void SetStateGetHeaders()
+      {
+        lock (this)
+        {
+          State = StateProtocol.GetHeaders;
+          TimeLastStateTransition = DateTime.Now;
+        }
       }
 
       public void SetStateHeaderSynchronization()
       {
         lock (this)
           State = StateProtocol.HeaderSynchronization;
+      }
+
+      public bool IsStateDiposed()
+      {
+        lock (this)
+          return State == StateProtocol.Disposed;
       }
 
       bool IsStateHeaderSynchronization()
@@ -769,12 +747,12 @@ namespace BTokenLib
           return State == StateProtocol.DBDownload;
       }
 
-      public void SetFlagDisposed(string message)
+      public void SetStateDisposed(string message)
       {
         $"Set flag dispose on peer {Connection}: {message}".Log(this, LogFile);
 
         lock (this)
-          FlagDispose = true;
+          State = StateProtocol.Disposed;
       }
 
       public void Dispose()
@@ -805,9 +783,7 @@ namespace BTokenLib
           return
             $"\n Status peer {this}:\n" +
             $"lifeTime minutes: {lifeTime}\n" +
-            $"IsBusy: {IsBusy}\n" +
             $"State: {State}\n" +
-            $"FlagDispose: {FlagDispose}\n" +
             $"Connection: {Connection}\n" +
             $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
       }

@@ -7,7 +7,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using static BTokenLib.Network;
 
 
 namespace BTokenLib
@@ -17,7 +16,7 @@ namespace BTokenLib
     Token Token;
     Blockchain Blockchain;
 
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 10000;
+    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
 
@@ -107,7 +106,7 @@ namespace BTokenLib
         {
           lock (LOCK_Peers)
           {
-            Peers.FindAll(p => p.FlagDispose).ForEach(p =>
+            Peers.FindAll(p => p.IsStateDiposed()).ForEach(p =>
             {
               Peers.Remove(p);
               p.Dispose();
@@ -219,9 +218,6 @@ namespace BTokenLib
         return;
       }
 
-      lock (LOCK_Peers)
-        Peers.Add(peer);
-
       try
       {
         await peer.Connect();
@@ -235,12 +231,10 @@ namespace BTokenLib
           .Log(this, LogFile);
 
         peer.Dispose();
-
-        lock (LOCK_Peers)
-          Peers.Remove(peer);
       }
 
-      peer.IsBusy = false;
+      lock (LOCK_Peers)
+        Peers.Add(peer);
     }
 
     public void AddPeer()
@@ -267,7 +261,7 @@ namespace BTokenLib
         if (peerRemove != null)
         {
           CountPeersMax--;
-          peerRemove.SetFlagDisposed("Manually removed peer.");
+          peerRemove.SetStateDisposed("Manually removed peer.");
         }
       }
     }
@@ -321,7 +315,6 @@ namespace BTokenLib
     {
       PeerSynchronizing = peer;
       IsStateSynchronizing = true;
-      PeerSynchronizing.SetStateHeaderSynchronization();
 
       HeaderDownload = Token.CreateHeaderDownload();
 
@@ -422,24 +415,23 @@ namespace BTokenLib
                 $"Synchronization with {peerSync} is aborted.".Log(LogFile);
                 Token.LoadImage();
 
-                lock (LOCK_Peers)
-                  Peers
-                    .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
-                    .ForEach(p => p.Release());
+                Peers
+                  .Where(p => p.IsStateBlockSynchronization()).ToList()
+                  .ForEach(p => p.SetStateIdle());
 
                 while (true)
                 {
                   lock (LOCK_Peers)
-                    if (!Peers.Any(p => p.IsBusy))
+                    if (!Peers.Any(p => p.IsStateBlockSynchronization()))
                       break;
 
-                  "Waiting for all peers to exit state 'synchronization busy'."
+                  "Waiting for all peers to exit state 'block synchronization'."
                     .Log(LogFile);
 
                   await Task.Delay(1000).ConfigureAwait(false);
                 }
 
-                break;
+                return;
               }
 
               if (peer != null)
@@ -447,7 +439,7 @@ namespace BTokenLib
                   await peer.RequestBlock();
                 else
                 {
-                  peer.Release();
+                  peer.SetStateIdle();
 
                   if (Peers.All(p => !p.IsStateBlockSynchronization()))
                   {
@@ -484,8 +476,6 @@ namespace BTokenLib
       finally
       {
         Blockchain.GetStatus().Log(LogFile);
-
-        peerSync.Release();
 
         ExitSynchronization();
       }
@@ -652,13 +642,13 @@ namespace BTokenLib
 
           lock (LOCK_Peers)
             Peers
-              .Where(p => p.IsStateIdle() && p.IsBusy).ToList()
-              .ForEach(p => p.Release());
+              .Where(p => p.IsStateDBDownload()).ToList()
+              .ForEach(p => p.SetStateIdle());
 
           while (true)
           {
             lock (LOCK_Peers)
-              if (!Peers.Any(p => p.IsBusy))
+              if (!Peers.Any(p => p.IsStateDBDownload()))
                 break;
 
             "Waiting for all peers to exit state 'synchronization busy'."
@@ -675,7 +665,7 @@ namespace BTokenLib
             await peer.RequestDB();
           else
           {
-            peer.Release();
+            peer.SetStateIdle();
 
             if (Peers.All(p => !p.IsStateBlockSynchronization()))
               break;
@@ -750,7 +740,7 @@ namespace BTokenLib
     {
       Peers.ForEach(p =>
       {
-        if (p != peerSource && p.TryGetBusy() &&
+        if (p != peerSource && p.IsStateIdle() &&
         (p.HeaderUnsolicited == null ||
         !p.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash)))
         {
@@ -762,7 +752,7 @@ namespace BTokenLib
     bool TryGetPeer(out Peer peer)
     {
       lock (LOCK_Peers)
-        peer = Peers.Find(p => p.TryGetBusy());
+        peer = Peers.Find(p => p.IsStateIdle());
 
       return peer != null;
     }
@@ -840,8 +830,6 @@ namespace BTokenLib
           }
 
           Peers.Add(peer);
-
-          peer.IsBusy = false;
 
           $"Accept inbound request from {remoteIP}."
             .Log(this, LogFile);
