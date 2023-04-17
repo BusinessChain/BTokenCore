@@ -62,7 +62,7 @@ namespace BTokenCore
             break;
 
           case "addPeer":
-            BToken.Network.AddPeer();
+            BToken.Network.IncrementCountPeersMax();
             break;
 
           case "sync":

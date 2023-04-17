@@ -199,79 +199,45 @@ namespace BTokenLib
       }
     }
 
-    async Task CreatePeer(string iP)
-    {
-      Peer peer;
-
-      try
-      {
-        peer = new Peer(
-          this,
-          Token,
-          IPAddress.Parse(iP));
-      }
-      catch (Exception ex)
-      {
-        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
-        .Log(this, LogFile);
-
-        return;
-      }
-
-      try
-      {
-        await peer.Connect();
-
-        $"Successfully connected with peer {peer + peer.Connection.ToString()}."
-          .Log(this, LogFile);
-      }
-      catch (Exception ex)
-      {
-        $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
-          .Log(this, LogFile);
-
-        peer.Dispose();
-      }
-
-      lock (LOCK_Peers)
-        Peers.Add(peer);
-    }
-
-    public void AddPeer()
-    {
-      CountPeersMax++;
-    }
-
-    public void AddPeer(string iP)
-    {
-      lock (LOCK_Peers)
-        if (Peers.Any(p => p.IPAddress.ToString() == iP))
-          return;
-
-      CreatePeer(iP);
-    }
-
-    public void RemovePeer(string iPAddress)
-    {
-      lock (LOCK_Peers)
-      {
-        Peer peerRemove = Peers.
-          Find(p => p.ToString() == iPAddress);
-
-        if (peerRemove != null)
-        {
-          CountPeersMax--;
-          peerRemove.SetStateDisposed("Manually removed peer.");
-        }
-      }
-    }
-
     public void ScheduleSynchronization()
     {
       lock (LOCK_Peers)
         Peers.ForEach(p => p.FlagSyncScheduled = true);
     }
 
+    async Task StartSync()
+    {
+      Peer peer = null;
+
+      while (true)
+      {
+        await Task.Delay(2000).ConfigureAwait(false);
+
+        lock (LOCK_IsStateSynchronizing)
+        {
+          if (IsStateSynchronizing)
+            continue;
+
+          if (!Token.TryLock())
+            continue;
+
+          lock (LOCK_Peers)
+          {
+            peer = Peers.Find(p => p.TrySync());
+
+            if (peer == null)
+            {
+              Token.ReleaseLock();
+              continue;
+            }
+          }
+
+          EnterStateSynchronization(peer);
+        }
+
+        PeerSynchronizing.StartSynchronization(HeaderDownload.Locator);
+      }
+    }
 
     readonly object LOCK_IsStateSynchronizing = new();
     bool FlagIsSyncingBlocks;
@@ -332,40 +298,6 @@ namespace BTokenLib
       Token.ReleaseLock();
     }
 
-    async Task StartSync()
-    {
-      Peer peer = null;
-
-      while (true)
-      {
-        await Task.Delay(2000).ConfigureAwait(false);
-
-        lock (LOCK_IsStateSynchronizing)
-        {
-          if (IsStateSynchronizing)
-            continue;
-
-          if (!Token.TryLock())
-            continue;
-
-          lock (LOCK_Peers)
-          {
-            peer = Peers.Find(p => p.TrySync());
-
-            if (peer == null)
-            {
-              Token.ReleaseLock();
-              continue;
-            }
-          }
-
-          EnterStateSynchronization(peer);
-        }
-
-        PeerSynchronizing.StartSynchronization(HeaderDownload.Locator);
-      }
-    }
-
     bool FlagSyncAbort;
     int HeightInsertion;
     object LOCK_HeightInsertion = new();
@@ -378,26 +310,22 @@ namespace BTokenLib
     bool FlagSyncDBAbort;
     List<byte[]> HashesDB;
 
-    async Task SyncBlocks(Peer peer)
+    async Task SyncBlocks()
     {
       lock (LOCK_IsStateSynchronizing)
         FlagIsSyncingBlocks = true;
 
-      Peer peerSync = peer;
-      double difficultyOld = 0.0;
+      double difficultyOld = Blockchain.HeaderTip.Difficulty; ;
 
       try
       {
         if (HeaderDownload.HeaderTip != null)
-          if (
-              HeaderDownload.HeaderTip.DifficultyAccumulated >
+          if (HeaderDownload.HeaderTip.DifficultyAccumulated >
               Blockchain.HeaderTip.DifficultyAccumulated)
           {
             if (HeaderDownload.HeaderAncestor != Blockchain.HeaderTip)
             {
               $"HeaderDownload.HeaderAncestor {HeaderDownload.HeaderAncestor} not equal to {Blockchain.HeaderTip}".Log(LogFile);
-
-              difficultyOld = Blockchain.HeaderTip.Difficulty;
               Token.LoadImage(HeaderDownload.HeaderAncestor.Height);
             }
 
@@ -408,11 +336,13 @@ namespace BTokenLib
             HeaderRoot = HeaderDownload.HeaderRoot;
             HeightInsertion = HeaderRoot.Height;
 
+            Peer peer = PeerSynchronizing;
+
             while (true)
             {
               if (FlagSyncAbort)
               {
-                $"Synchronization with {peerSync} is aborted.".Log(LogFile);
+                $"Synchronization with {PeerSynchronizing} is aborted.".Log(LogFile);
                 Token.LoadImage();
 
                 Peers
@@ -460,10 +390,10 @@ namespace BTokenLib
             }
           }
           else
-            peerSync.SendHeaders(
+            PeerSynchronizing.SendHeaders(
               new List<Header>() { Blockchain.HeaderTip });
 
-        $"Synchronization with {peerSync} of {Token.GetName()} completed."
+        $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed."
           .Log(LogFile);
       }
       catch (Exception ex)
@@ -471,7 +401,7 @@ namespace BTokenLib
         ($"Unexpected exception {ex.GetType().Name} occured during SyncBlocks.\n" +
           $"{ex.Message}").Log(LogFile);
 
-        peerSync.FlagSyncScheduled = true;
+        PeerSynchronizing.FlagSyncScheduled = true;
       }
       finally
       {
@@ -479,7 +409,6 @@ namespace BTokenLib
 
         ExitSynchronization();
       }
-
     }
 
     bool InsertBlock_FlagContinue(Peer peer)
@@ -773,6 +702,72 @@ namespace BTokenLib
         .ToArray();
     }
 
+    async Task CreatePeer(string iP)
+    {
+      Peer peer;
+
+      try
+      {
+        peer = new Peer(
+          this,
+          Token,
+          IPAddress.Parse(iP));
+      }
+      catch (Exception ex)
+      {
+        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
+        .Log(this, LogFile);
+
+        return;
+      }
+
+      try
+      {
+        await peer.Connect();
+
+        $"Successfully connected with peer {peer + peer.Connection.ToString()}."
+          .Log(this, LogFile);
+      }
+      catch (Exception ex)
+      {
+        $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
+          .Log(this, LogFile);
+
+        peer.Dispose();
+      }
+
+      lock (LOCK_Peers)
+        Peers.Add(peer);
+    }
+
+    public void IncrementCountPeersMax()
+    {
+      CountPeersMax++;
+    }
+
+    public void AddPeer(string iP)
+    {
+      lock (LOCK_Peers)
+        if (Peers.Any(p => p.IPAddress.ToString() == iP))
+          return;
+
+      CreatePeer(iP);
+    }
+
+    public void RemovePeer(string iPAddress)
+    {
+      lock (LOCK_Peers)
+      {
+        Peer peerRemove = Peers.
+          Find(p => p.ToString() == iPAddress);
+
+        if (peerRemove != null)
+        {
+          CountPeersMax--;
+          peerRemove.SetStateDisposed("Manually removed peer.");
+        }
+      }
+    }
 
     TcpListener TcpListener;
 

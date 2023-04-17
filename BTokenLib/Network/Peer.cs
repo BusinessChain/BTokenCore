@@ -18,8 +18,6 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
-      public bool FlagSyncScheduled;
-
       enum StateProtocol
       {
         Idle = 0,
@@ -27,7 +25,7 @@ namespace BTokenLib
         BlockSynchronization,
         DBDownload,
         GetData,
-        GetHeaders,
+        InboundRequest,
         Disposed
       }
       StateProtocol State;
@@ -183,57 +181,6 @@ namespace BTokenLib
 
         StartMessageListener();
       }
-
-      async Task SendMessage(MessageNetwork message)
-      {
-        NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
-
-        byte[] command = Encoding.ASCII.GetBytes(
-        message.Command.PadRight(CommandSize, '\0'));
-        NetworkStream.Write(command, 0, command.Length);
-
-        byte[] payloadLength = BitConverter.GetBytes(message.LengthDataPayload);
-        NetworkStream.Write(payloadLength, 0, payloadLength.Length);
-
-        byte[] checksum = SHA256.ComputeHash(
-          SHA256.ComputeHash(
-            message.Payload,
-            message.OffsetPayload,
-            message.LengthDataPayload));
-
-        NetworkStream.Write(checksum, 0, ChecksumSize);
-
-        await NetworkStream.WriteAsync(
-          message.Payload,
-          message.OffsetPayload,
-          message.LengthDataPayload)
-          .ConfigureAwait(false);
-      }
-
-      async Task ReadBytes(
-        byte[] buffer,
-        int bytesToRead)
-      {
-        int offset = 0;
-
-        while (bytesToRead > 0)
-        {
-          int chunkSize = await NetworkStream.ReadAsync(
-            buffer,
-            offset,
-            bytesToRead,
-            Cancellation.Token)
-            .ConfigureAwait(false);
-
-          if (chunkSize == 0)
-            throw new IOException(
-              "Stream returns 0 bytes signifying end of stream.");
-
-          offset += chunkSize;
-          bytesToRead -= chunkSize;
-        }
-      }
-
 
       internal Header HeaderDuplicateReceivedLast;
 
@@ -399,7 +346,7 @@ namespace BTokenLib
                   ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
                 }
                 else
-                  Network.SyncBlocks(this);
+                  Network.SyncBlocks();
               }
             }
             else if (Command == "getheaders")
@@ -407,7 +354,7 @@ namespace BTokenLib
               if (!Token.TryLock())
                 continue;
 
-              SetStateGetHeaders();
+              SetStateInboundRequest();
 
               await ReadBytes(Payload, LengthDataPayload);
 
@@ -493,8 +440,9 @@ namespace BTokenLib
             }
             else if (Command == "getdata")
             {
-              $"Received getData request from peer {this}."
-                    .Log(this, LogFile);
+              $"Received getData request from peer {this}.".Log(this, LogFile);
+
+              SetStateInboundRequest();
 
               await ReadBytes(Payload, LengthDataPayload);
 
@@ -551,7 +499,57 @@ namespace BTokenLib
           }
         }
       }
-      
+
+      async Task SendMessage(MessageNetwork message)
+      {
+        NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
+
+        byte[] command = Encoding.ASCII.GetBytes(
+        message.Command.PadRight(CommandSize, '\0'));
+        NetworkStream.Write(command, 0, command.Length);
+
+        byte[] payloadLength = BitConverter.GetBytes(message.LengthDataPayload);
+        NetworkStream.Write(payloadLength, 0, payloadLength.Length);
+
+        byte[] checksum = SHA256.ComputeHash(
+          SHA256.ComputeHash(
+            message.Payload,
+            message.OffsetPayload,
+            message.LengthDataPayload));
+
+        NetworkStream.Write(checksum, 0, ChecksumSize);
+
+        await NetworkStream.WriteAsync(
+          message.Payload,
+          message.OffsetPayload,
+          message.LengthDataPayload)
+          .ConfigureAwait(false);
+      }
+
+      async Task ReadBytes(
+        byte[] buffer,
+        int bytesToRead)
+      {
+        int offset = 0;
+
+        while (bytesToRead > 0)
+        {
+          int chunkSize = await NetworkStream.ReadAsync(
+            buffer,
+            offset,
+            bytesToRead,
+            Cancellation.Token)
+            .ConfigureAwait(false);
+
+          if (chunkSize == 0)
+            throw new IOException(
+              "Stream returns 0 bytes signifying end of stream.");
+
+          offset += chunkSize;
+          bytesToRead -= chunkSize;
+        }
+      }
+
       public async Task StartSynchronization(
         List<Header> locator)
       {
@@ -661,15 +659,14 @@ namespace BTokenLib
 
       public bool TrySync()
       {
-        lock(this)
-        {
-          if (
-            !FlagSyncScheduled ||
-            !IsStateIdle())
-          {
-            return false;
-          }
+        if (!IsStateIdle())
+          return false;
 
+        // Das lock muss über die Abfrage wie auch das setzen des States
+        // gelockt sein.
+
+        lock (this)
+        {
           State = StateProtocol.HeaderSynchronization;
           return true;
         }
@@ -681,13 +678,13 @@ namespace BTokenLib
         {
           if (State == StateProtocol.Idle)
             return true;
-
-          if ((DateTime.Now - TimeLastStateTransition).TotalMilliseconds > TIMEOUT_RESPONSE_MILLISECONDS)
-          {
-            TimeLastStateTransition = DateTime.Now;
-            State = StateProtocol.Idle;
-            return true;
-          }
+          else if (State == StateProtocol.InboundRequest)
+            if ((DateTime.Now - TimeLastStateTransition).TotalMilliseconds > TIMEOUT_RESPONSE_MILLISECONDS)
+            {
+              TimeLastStateTransition = DateTime.Now;
+              State = StateProtocol.Idle;
+              return true;
+            }
 
           return false;
         }
@@ -702,11 +699,11 @@ namespace BTokenLib
         }
       }
 
-      void SetStateGetHeaders()
+      void SetStateInboundRequest()
       {
         lock (this)
         {
-          State = StateProtocol.GetHeaders;
+          State = StateProtocol.InboundRequest;
           TimeLastStateTransition = DateTime.Now;
         }
       }
