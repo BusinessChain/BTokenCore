@@ -39,6 +39,12 @@ namespace BTokenLib
     DirectoryInfo DirectoryPeersDisposed;
     DirectoryInfo DirectoryPeersArchive;
 
+    readonly object LOCK_IsStateSynchronizing = new();
+    bool FlagIsSyncingBlocks;
+    bool IsStateSynchronizing;
+    Peer PeerSynchronizing;
+    HeaderDownload HeaderDownload;
+
     public Network(
       Token token,
       bool flagEnableInboundConnections)
@@ -215,55 +221,36 @@ namespace BTokenLib
 
         lock (LOCK_IsStateSynchronizing)
         {
-          if (IsStateSynchronizing)
-            continue;
-
-          if (!Token.TryLock())
-            continue;
-
           lock (LOCK_Peers)
           {
-            peer = Peers.Find(p => p.TrySync());
+            peer = Peers.Find(p => p.TryStageSync());
 
             if (peer == null)
-            {
-              Token.ReleaseLock();
               continue;
-            }
           }
 
-          EnterStateSynchronization(peer);
+          if(!TryEnterStateSynchronization(peer))
+          {
+            peer.SetStateIdle();
+            continue;
+          }
         }
+
+        $"Start synchronization of {Token.GetName()} with peer {peer}."
+          .Log(this, LogFile);
 
         PeerSynchronizing.StartSynchronization(HeaderDownload.Locator);
       }
-    }
-
-    readonly object LOCK_IsStateSynchronizing = new();
-    bool FlagIsSyncingBlocks;
-    bool IsStateSynchronizing;
-    Peer PeerSynchronizing;
-    HeaderDownload HeaderDownload;
-
-    void InsertHeader(Header header)
-    {
-      $"Insert {header} in headerDownload.".Log(LogFile);
-
-      HeaderDownload.InsertHeader(header);
     }
 
     bool TryEnterStateSynchronization(Peer peer)
     {
       lock (LOCK_IsStateSynchronizing)
       {
-        if (FlagIsSyncingBlocks)
-          return false;
-
         if (IsStateSynchronizing)
         {
           if (PeerSynchronizing == peer)
-            $"Remain in state synchronization of with peer {peer}."
-              .Log(this, LogFile);
+            $"Remain in state synchronization of with peer {peer}.".Log(this, LogFile);
 
           return PeerSynchronizing == peer;
         }
@@ -271,22 +258,18 @@ namespace BTokenLib
         if (!Token.TryLock())
           return false;
 
-        EnterStateSynchronization(peer);
+        peer.SetStateHeaderSynchronization();
+        PeerSynchronizing = peer;
+        IsStateSynchronizing = true;
+
+        HeaderDownload = Token.CreateHeaderDownload();
+
+        ($"Peer {peer + peer.Connection.ToString()} initiated state synchronization." +
+          $"of {Token.GetName()}.")
+          .Log(this, LogFile);
 
         return true;
       }
-    }
-
-    void EnterStateSynchronization(Peer peer)
-    {
-      PeerSynchronizing = peer;
-      IsStateSynchronizing = true;
-
-      HeaderDownload = Token.CreateHeaderDownload();
-
-      ($"Enter state synchronization of {Token.GetName()} with peer " +
-        $"{peer + peer.Connection.ToString()}.")
-        .Log(this, LogFile);
     }
 
     void ExitSynchronization()
@@ -296,6 +279,19 @@ namespace BTokenLib
       PeerSynchronizing.SetStateIdle();
       PeerSynchronizing = null;
       Token.ReleaseLock();
+    }
+
+    bool IsStateSynchronization()
+    {
+      lock (LOCK_IsStateSynchronizing)
+        return IsStateSynchronizing;
+    }
+
+    void InsertHeader(Header header)
+    {
+      $"Insert {header} in headerDownload.".Log(LogFile);
+
+      HeaderDownload.InsertHeader(header);
     }
 
     bool FlagSyncAbort;

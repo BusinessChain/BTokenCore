@@ -21,6 +21,7 @@ namespace BTokenLib
       enum StateProtocol
       {
         Idle = 0,
+        StageSynchronization,
         HeaderSynchronization,
         BlockSynchronization,
         DBDownload,
@@ -307,7 +308,7 @@ namespace BTokenLib
               $"{this}: Receiving {countHeaders} headers.".Log(LogFile);
 
               if (!Network.TryEnterStateSynchronization(this))
-                continue;
+                continue; 
 
               if (countHeaders > 0)
               {
@@ -354,7 +355,11 @@ namespace BTokenLib
               if (!Token.TryLock())
                 continue;
 
-              SetStateInboundRequest();
+              if (!TrySetStateInboundRequest())
+              {
+                Token.ReleaseLock();
+                continue;
+              }
 
               await ReadBytes(Payload, LengthDataPayload);
 
@@ -440,9 +445,10 @@ namespace BTokenLib
             }
             else if (Command == "getdata")
             {
-              $"Received getData request from peer {this}.".Log(this, LogFile);
+              if (!TrySetStateInboundRequest())
+                continue;
 
-              SetStateInboundRequest();
+              $"Received getData request from peer {this}.".Log(this, LogFile);
 
               await ReadBytes(Payload, LengthDataPayload);
 
@@ -657,37 +663,39 @@ namespace BTokenLib
         SetStateIdle();
       }
 
-      public bool TrySync()
+      public bool TryStageSync()
       {
-        if (!IsStateIdle())
-          return false;
-
-        // Das lock muss über die Abfrage wie auch das setzen des States
-        // gelockt sein.
-
         lock (this)
         {
-          State = StateProtocol.HeaderSynchronization;
-          return true;
+          if (IsStateIdleNOTLocked())
+          {
+            State = StateProtocol.StageSynchronization;
+            return true;
+          }
+
+          return false;
         }
+      }
+
+      bool IsStateIdleNOTLocked()
+      {
+        if (State == StateProtocol.Idle)
+          return true;
+        else if (State == StateProtocol.InboundRequest)
+          if ((DateTime.Now - TimeLastStateTransition).TotalMilliseconds > TIMEOUT_RESPONSE_MILLISECONDS)
+          {
+            TimeLastStateTransition = DateTime.Now;
+            State = StateProtocol.Idle;
+            return true;
+          }
+
+        return false;
       }
 
       public bool IsStateIdle()
       {
-        lock (this)
-        {
-          if (State == StateProtocol.Idle)
-            return true;
-          else if (State == StateProtocol.InboundRequest)
-            if ((DateTime.Now - TimeLastStateTransition).TotalMilliseconds > TIMEOUT_RESPONSE_MILLISECONDS)
-            {
-              TimeLastStateTransition = DateTime.Now;
-              State = StateProtocol.Idle;
-              return true;
-            }
-
-          return false;
-        }
+        lock (this) 
+          return IsStateIdleNOTLocked();
       }
 
       public void SetStateIdle()
@@ -699,12 +707,17 @@ namespace BTokenLib
         }
       }
 
-      void SetStateInboundRequest()
+      bool TrySetStateInboundRequest()
       {
         lock (this)
         {
+          if (State != StateProtocol.InboundRequest &&
+            State != StateProtocol.Idle)
+            return false;
+
           State = StateProtocol.InboundRequest;
           TimeLastStateTransition = DateTime.Now;
+          return true;
         }
       }
 
@@ -718,12 +731,6 @@ namespace BTokenLib
       {
         lock (this)
           return State == StateProtocol.Disposed;
-      }
-
-      bool IsStateHeaderSynchronization()
-      {
-        lock (this)
-          return State == StateProtocol.HeaderSynchronization;
       }
 
       bool IsStateAwaitingGetDataTX()
