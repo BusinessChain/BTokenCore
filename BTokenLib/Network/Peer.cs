@@ -754,8 +754,6 @@ namespace BTokenLib
 
         string pathLogFile = ((FileStream)LogFile.BaseStream).Name;
 
-        string textLogFile = File.ReadAllText(pathLogFile);
-
         File.Move(
           pathLogFile,
           Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));

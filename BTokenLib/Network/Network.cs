@@ -17,7 +17,7 @@ namespace BTokenLib
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
-    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
+    const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 10;
     const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
 
     StreamWriter LogFile;
@@ -105,6 +105,7 @@ namespace BTokenLib
     async Task StartPeerConnector()
     {
       int countPeersCreate;
+      Random randomGenerator = new();
 
       try
       {
@@ -124,7 +125,6 @@ namespace BTokenLib
           if (countPeersCreate > 0)
           {
             List<string> iPAddresses = new();
-            Random randomGenerator = new();
 
             if (PoolIPAddress.Count == 0)
               LoadIPAddressPool();
@@ -158,11 +158,13 @@ namespace BTokenLib
               await Task.WhenAll(createPeerTasks);
             }
             else
-              ;// $"No ip address found to connect in protocol {Token}.".Log(LogFile);
+              $"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
+          int timespanRandomSeconds =
+            TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS / 2 +
+            randomGenerator.Next(TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS);
 
-          await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS)
-            .ConfigureAwait(false);
+          await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
         }
       }
       catch (Exception ex)
@@ -775,6 +777,7 @@ namespace BTokenLib
     }
 
     TcpListener TcpListener;
+    private object randomGenerator;
 
     async Task StartPeerInboundListener()
     {

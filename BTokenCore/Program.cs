@@ -17,7 +17,7 @@ namespace BTokenCore
       BToken = new(
         new TokenBitcoin());
 
-      BToken.Start();
+      BToken.TokenParent.Start();
 
       RunConsole();
     }
