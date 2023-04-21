@@ -74,8 +74,6 @@ namespace BTokenLib
 
       DateTime TimePeerCreation = DateTime.Now;
 
-      const string LITERAL_CONNECT_PEER = "Connect peer";
-      const int MAX_COUNT_DISPOSALS = 3;
 
 
 
@@ -152,7 +150,7 @@ namespace BTokenLib
 
       public async Task Connect()
       {
-        $"{LITERAL_CONNECT_PEER} {Connection}.".Log(this, LogFile);
+        $"Connect peer {Connection}.".Log(this, LogFile);
 
         TcpClient = new();
 
@@ -758,12 +756,9 @@ namespace BTokenLib
 
         string textLogFile = File.ReadAllText(pathLogFile);
 
-        if(textLogFile.CountSubstring(LITERAL_CONNECT_PEER) >= MAX_COUNT_DISPOSALS)
-          File.Delete(pathLogFile);
-        else
-          File.Move(
-            pathLogFile,
-            Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));
+        File.Move(
+          pathLogFile,
+          Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));
       }
 
       public string GetStatus()

@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -19,6 +18,7 @@ namespace BTokenLib
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
+    const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
 
     StreamWriter LogFile;
 
@@ -91,7 +91,7 @@ namespace BTokenLib
 
       StartPeerConnector();
 
-      StartSync();
+      StartSynchronizerLoop();
 
       if (EnableInboundConnections)
         StartPeerInboundListener();
@@ -205,13 +205,13 @@ namespace BTokenLib
       }
     }
 
-    async Task StartSync()
+    async Task StartSynchronizerLoop()
     {
       Peer peer = null;
 
       while (true)
       {
-        await Task.Delay(2000).ConfigureAwait(false);
+        await Task.Delay(TIME_LOOP_SYNCHRONIZER_SECONDS * 1000).ConfigureAwait(false);
 
         lock (LOCK_IsStateSynchronizing)
         {
