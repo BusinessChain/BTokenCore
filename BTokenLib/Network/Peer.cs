@@ -21,7 +21,6 @@ namespace BTokenLib
       enum StateProtocol
       {
         Idle = 0,
-        StageSynchronization,
         HeaderSynchronization,
         BlockSynchronization,
         DBDownload,
@@ -30,7 +29,8 @@ namespace BTokenLib
         Disposed
       }
       StateProtocol State;
-      DateTime TimeLastStateTransition;
+      public DateTime TimeLastStateTransition;
+      public DateTime TimeLastSynchronization;
 
       public Header HeaderSync;
       public Block Block;
@@ -39,8 +39,7 @@ namespace BTokenLib
       public List<byte[]> HashesDB;
 
       public Header HeaderUnsolicited;
-      Dictionary<byte[], Header> HeadersReceived = new(new EqualityComparerByteArray());
-
+     
       TX TXAdvertized;
 
       ulong FeeFilterValue;
@@ -92,7 +91,6 @@ namespace BTokenLib
         TcpClient = tcpClient;
         NetworkStream = tcpClient.GetStream();
         Connection = ConnectionType.INBOUND;
-        FlagSyncScheduled = false; // remove this when bugfix is resolved
       }
 
       public Peer(
@@ -107,7 +105,6 @@ namespace BTokenLib
 
         IPAddress = ip;
         Connection = ConnectionType.OUTBOUND;
-        FlagSyncScheduled = true;
 
         CreateLogFile(ip.ToString());
 
@@ -324,15 +321,10 @@ namespace BTokenLib
 
                   byteIndex += 1;
 
-                  if (!HeadersReceived.ContainsKey(header.Hash))
-                    HeadersReceived.Add(header.Hash, header);
-                  else
-                    throw new ProtocolException($"Received header {header} more than one time.");
-
                   Network.InsertHeader(header);
                 }
 
-                await StartSynchronization(new List<Header> { header });
+                await SendGetHeaders(new List<Header> { header });
               }
               else
               {
@@ -493,12 +485,7 @@ namespace BTokenLib
           }
           catch (Exception ex)
           {
-            if (IsStateHeaderSynchronization())
-              Network.ExitSynchronization();
-            else if (IsStateBlockSynchronization())
-              Network.ReturnPeerBlockDownloadIncomplete(this);
-            else if (IsStateDBDownload())
-              Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
+            Network.HandleExceptionPeerListener(this);
 
             SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
             break;
@@ -556,7 +543,7 @@ namespace BTokenLib
         }
       }
 
-      public async Task StartSynchronization(
+      public async Task SendGetHeaders(
         List<Header> locator)
       {
         ($"Send getheaders to peer {this}\n" +
@@ -663,13 +650,13 @@ namespace BTokenLib
         SetStateIdle();
       }
 
-      public bool TryStageSync()
+      public bool TrySync()
       {
         lock (this)
         {
           if (IsStateIdleNOTLocked())
           {
-            State = StateProtocol.StageSynchronization;
+            State = StateProtocol.HeaderSynchronization;
             return true;
           }
 
@@ -753,7 +740,7 @@ namespace BTokenLib
 
       public void SetStateDisposed(string message)
       {
-        $"Set flag dispose on peer {Connection}: {message}".Log(this, LogFile);
+        $"Set state dispose on peer {Connection}: {message}".Log(this, LogFile);
 
         lock (this)
           State = StateProtocol.Disposed;
@@ -782,14 +769,13 @@ namespace BTokenLib
       public string GetStatus()
       {
         int lifeTime = (int)(DateTime.Now - TimePeerCreation).TotalMinutes;
-        
+
         lock (this)
           return
-            $"\n Status peer {this}:\n" +
+            $"\nStatus peer {this}:\n" +
             $"lifeTime minutes: {lifeTime}\n" +
             $"State: {State}\n" +
-            $"Connection: {Connection}\n" +
-            $"FlagSynchronizationScheduled: {FlagSyncScheduled}\n";
+            $"Connection: {Connection}\n";
       }
 
       public override string ToString()

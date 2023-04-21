@@ -332,8 +332,6 @@ namespace BTokenCore
               FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
             }
           }
-
-          Network.ScheduleSynchronization();
         }
 
         TokensAnchorDetectedInBlock.Clear();

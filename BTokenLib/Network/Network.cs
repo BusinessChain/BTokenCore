@@ -205,12 +205,6 @@ namespace BTokenLib
       }
     }
 
-    public void ScheduleSynchronization()
-    {
-      lock (LOCK_Peers)
-        Peers.ForEach(p => p.FlagSyncScheduled = true);
-    }
-
     async Task StartSync()
     {
       Peer peer = null;
@@ -221,25 +215,35 @@ namespace BTokenLib
 
         lock (LOCK_IsStateSynchronizing)
         {
+          if (IsStateSynchronizing)
+            continue;
+
           lock (LOCK_Peers)
           {
-            peer = Peers.Find(p => p.TryStageSync());
+            foreach (Peer p in Peers)
+              if (p.TrySync() &&
+                (peer == null || p.TimeLastSynchronization < peer.TimeLastSynchronization))
+              {
+                if (peer != null)
+                  peer.SetStateIdle();
+
+                peer = p;
+              }
 
             if (peer == null)
               continue;
           }
 
-          if(!TryEnterStateSynchronization(peer))
+          if(!Token.TryLock())
           {
             peer.SetStateIdle();
             continue;
           }
+
+          EnterStateSynchronization(peer);
         }
 
-        $"Start synchronization of {Token.GetName()} with peer {peer}."
-          .Log(this, LogFile);
-
-        PeerSynchronizing.StartSynchronization(HeaderDownload.Locator);
+        PeerSynchronizing.SendGetHeaders(HeaderDownload.Locator);
       }
     }
 
@@ -258,18 +262,20 @@ namespace BTokenLib
         if (!Token.TryLock())
           return false;
 
-        peer.SetStateHeaderSynchronization();
-        PeerSynchronizing = peer;
-        IsStateSynchronizing = true;
+        EnterStateSynchronization(peer);
 
-        HeaderDownload = Token.CreateHeaderDownload();
-
-        ($"Peer {peer + peer.Connection.ToString()} initiated state synchronization." +
-          $"of {Token.GetName()}.")
-          .Log(this, LogFile);
+        ($"Peer {peer + peer.Connection.ToString()} of {Token.GetName()} " +
+          $"initiated synchronization.").Log(this, LogFile);
 
         return true;
       }
+    }
+
+    void EnterStateSynchronization(Peer peer)
+    {
+      PeerSynchronizing = peer;
+      IsStateSynchronizing = true;
+      HeaderDownload = Token.CreateHeaderDownload();
     }
 
     void ExitSynchronization()
@@ -277,14 +283,20 @@ namespace BTokenLib
       IsStateSynchronizing = false;
       FlagIsSyncingBlocks = false;
       PeerSynchronizing.SetStateIdle();
+      PeerSynchronizing.TimeLastSynchronization = DateTime.Now;
       PeerSynchronizing = null;
       Token.ReleaseLock();
     }
 
-    bool IsStateSynchronization()
+    void HandleExceptionPeerListener(Peer peer)
     {
-      lock (LOCK_IsStateSynchronizing)
-        return IsStateSynchronizing;
+      lock(LOCK_IsStateSynchronizing)
+        if (IsStateSynchronizing && PeerSynchronizing == peer)
+          ExitSynchronization();
+        else if (peer.IsStateBlockSynchronization())
+          ReturnPeerBlockDownloadIncomplete(peer);
+        else if (peer.IsStateDBDownload())
+          ReturnPeerDBDownloadIncomplete(peer.HashDBDownload);
     }
 
     void InsertHeader(Header header)
@@ -396,13 +408,10 @@ namespace BTokenLib
       {
         ($"Unexpected exception {ex.GetType().Name} occured during SyncBlocks.\n" +
           $"{ex.Message}").Log(LogFile);
-
-        PeerSynchronizing.FlagSyncScheduled = true;
       }
       finally
       {
         Blockchain.GetStatus().Log(LogFile);
-
         ExitSynchronization();
       }
     }

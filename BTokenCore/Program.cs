@@ -65,10 +65,6 @@ namespace BTokenCore
             BToken.Network.IncrementCountPeersMax();
             break;
 
-          case "sync":
-            BToken.Network.ScheduleSynchronization();
-            break;
-
           case "removePeer":
             string iPRemove = Console.ReadLine();
             BToken.Network.RemovePeer(iPRemove);
