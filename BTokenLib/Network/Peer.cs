@@ -175,6 +175,9 @@ namespace BTokenLib
 
         await SendMessage(new VerAckMessage());
 
+        if(Network.TryEnterStateSynchronization(this))
+          SendGetHeaders(Network.HeaderDownload.Locator);
+
         StartMessageListener();
       }
 

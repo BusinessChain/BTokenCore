@@ -17,7 +17,7 @@ namespace BTokenLib
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
-    const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 10;
+    const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 30;
     const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
 
     StreamWriter LogFile;
@@ -158,7 +158,7 @@ namespace BTokenLib
               await Task.WhenAll(createPeerTasks);
             }
             else
-              $"No ip address found to connect in protocol {Token}.".Log(LogFile);
+              ; //$"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
           int timespanRandomSeconds =
             TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS / 2 +
