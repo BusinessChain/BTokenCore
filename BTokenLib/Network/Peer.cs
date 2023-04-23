@@ -174,8 +174,6 @@ namespace BTokenLib
           blockchainHeight: 0,
           relayOption: 0x01));
 
-        await SendMessage(new VerAckMessage());
-
         StartMessageListener();
 
         if (Network.TryEnterStateSynchronization(this))
@@ -186,9 +184,13 @@ namespace BTokenLib
 
       public async Task StartMessageListener()
       {
+        await SendMessage(new VerAckMessage());
+
         do
           await ListenForNextMessage();
         while (Command != "verack");
+
+        $"Received verack.".Log(this, LogFile);
 
         while (true)
           try

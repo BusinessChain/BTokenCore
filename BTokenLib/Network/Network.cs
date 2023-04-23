@@ -777,7 +777,6 @@ namespace BTokenLib
     }
 
     TcpListener TcpListener;
-    private object randomGenerator;
 
     async Task StartPeerInboundListener()
     {
