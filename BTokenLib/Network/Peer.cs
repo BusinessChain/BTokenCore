@@ -324,11 +324,17 @@ namespace BTokenLib
             }
             else if (Command == "getheaders")
             {
+              $"Receive getheaders...".Log(this, LogFile);
+
               if (!Token.TryLock())
+              {
+                $"... but Token is locked.".Log(LogFile);
                 continue;
+              }
 
               if (!TrySetStateInboundRequest())
               {
+                $"... but cannot change state {State} to state InboundRequest.".Log(LogFile);
                 Token.ReleaseLock();
                 continue;
               }
