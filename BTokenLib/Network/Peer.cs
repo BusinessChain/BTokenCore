@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Runtime.CompilerServices;
 
 namespace BTokenLib
 {
@@ -175,49 +176,27 @@ namespace BTokenLib
 
         await SendMessage(new VerAckMessage());
 
-        if(Network.TryEnterStateSynchronization(this))
-          SendGetHeaders(Network.HeaderDownload.Locator);
-
         StartMessageListener();
+
+        if (Network.TryEnterStateSynchronization(this))
+          SendGetHeaders(Network.HeaderDownload.Locator);
       }
 
       internal Header HeaderDuplicateReceivedLast;
 
       public async Task StartMessageListener()
       {
+        do
+          await ListenForNextMessage();
+        while (Command != "verack");
+
         while (true)
-        {
           try
           {
             if (IsStateDiposed())
               return;
 
-            byte[] magicByte = new byte[1];
-
-            for (int i = 0; i < MagicBytes.Length; i++)
-            {
-              await ReadBytes(magicByte, 1);
-
-              if (MagicBytes[i] != magicByte[0])
-                i = magicByte[0] == MagicBytes[0] ? 0 : -1;
-            }
-
-            await ReadBytes(
-              MessageHeader,
-              MessageHeader.Length);
-
-            LengthDataPayload = BitConverter.ToInt32(
-              MessageHeader,
-              CommandSize);
-
-            if (LengthDataPayload > SIZE_MESSAGE_PAYLOAD_BUFFER)
-              throw new ProtocolException(
-                $"Message payload too big exceeding " +
-                $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
-
-            Command = Encoding.ASCII.GetString(
-              MessageHeader.Take(CommandSize)
-              .ToArray()).TrimEnd('\0');
+            await ListenForNextMessage();
 
             if (Command == "block")
             {
@@ -306,7 +285,7 @@ namespace BTokenLib
               $"{this}: Receiving {countHeaders} headers.".Log(LogFile);
 
               if (!Network.TryEnterStateSynchronization(this))
-                continue; 
+                continue;
 
               if (countHeaders > 0)
               {
@@ -331,7 +310,7 @@ namespace BTokenLib
               {
                 //if (/*unsolicited zero header message*/)
                 //  throw new ProtocolException($"Peer sent unsolicited empty header message.");
-                
+
                 ResetTimer();
 
                 if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
@@ -395,7 +374,7 @@ namespace BTokenLib
 
                   break;
                 }
-                
+
                 if (i++ == headersCount)
                   throw new ProtocolException($"Found no common ancestor in getheaders locator.");
               }
@@ -491,7 +470,36 @@ namespace BTokenLib
             SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
             break;
           }
+      }
+
+      async Task ListenForNextMessage()
+      {
+        byte[] magicByte = new byte[1];
+
+        for (int i = 0; i < MagicBytes.Length; i++)
+        {
+          await ReadBytes(magicByte, 1);
+
+          if (MagicBytes[i] != magicByte[0])
+            i = magicByte[0] == MagicBytes[0] ? 0 : -1;
         }
+
+        await ReadBytes(
+          MessageHeader,
+          MessageHeader.Length);
+
+        LengthDataPayload = BitConverter.ToInt32(
+          MessageHeader,
+          CommandSize);
+
+        if (LengthDataPayload > SIZE_MESSAGE_PAYLOAD_BUFFER)
+          throw new ProtocolException(
+            $"Message payload too big exceeding " +
+            $"{SIZE_MESSAGE_PAYLOAD_BUFFER} bytes.");
+
+        Command = Encoding.ASCII.GetString(
+          MessageHeader.Take(CommandSize)
+          .ToArray()).TrimEnd('\0');
       }
 
       async Task SendMessage(MessageNetwork message)
