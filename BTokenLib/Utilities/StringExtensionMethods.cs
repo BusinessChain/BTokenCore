@@ -326,14 +326,13 @@ namespace BTokenLib
       this string message,
       StreamWriter logFile)
     {
-      string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");
-
-      string logString = dateTime + " --- " + message;
-
       lock (logFile)
+      {
+        string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");
+        string logString = dateTime + " --- " + message;
         logFile.WriteLine(logString);
-
-      Debug.WriteLine(logString);
+        Debug.WriteLine(logString);
+      }
     }
 
     public static int CountSubstring(this string text, string value)

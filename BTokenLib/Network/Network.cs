@@ -715,10 +715,19 @@ namespace BTokenLib
 
       try
       {
-        peer = new Peer(
-          this,
-          Token,
-          IPAddress.Parse(iP));
+        lock (LOCK_Peers)
+        {
+          peer = Peers.Find(p => p.IPAddress.Equals(iP));
+
+          if (peer != null)
+          {
+            $"Connection with peer {peer} already established.".Log(LogFile);
+            return;
+          }
+
+          peer = new Peer(this, Token, IPAddress.Parse(iP));
+          Peers.Add(peer);
+        }
       }
       catch (Exception ex)
       {
@@ -742,9 +751,6 @@ namespace BTokenLib
 
         peer.Dispose();
       }
-
-      lock (LOCK_Peers)
-        Peers.Add(peer);
     }
 
     public void IncrementCountPeersMax()
@@ -799,14 +805,11 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
         {
-          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
+          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS ||
+            Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+          {
             ($"Reject inbound request from {remoteIP}.\n" +
               $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.")
-              .Log(this, LogFile);
-
-          if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
-          {
-            $"There is already a connection to {remoteIP}."
               .Log(this, LogFile);
 
             tcpClient.Dispose();
