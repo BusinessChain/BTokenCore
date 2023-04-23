@@ -805,11 +805,17 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
         {
-          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS ||
-            Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+          string rejectionString = "";
+
+          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
+            rejectionString = $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.";
+
+          if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+            rejectionString = $"Connection already established.";
+
+          if (rejectionString != "")
           {
-            ($"Reject inbound request from {remoteIP}.\n" +
-              $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.")
+            ($"Reject inbound request from {remoteIP}.\n {rejectionString}")
               .Log(this, LogFile);
 
             tcpClient.Dispose();
