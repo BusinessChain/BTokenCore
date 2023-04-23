@@ -32,6 +32,8 @@ namespace BTokenLib
     object LOCK_Peers = new();
     List<Peer> Peers = new();
 
+    public enum ConnectionType { OUTBOUND, INBOUND };
+
     List<string> PoolIPAddress = new();
 
     DirectoryInfo DirectoryPeers;
@@ -725,7 +727,12 @@ namespace BTokenLib
             return;
           }
 
-          peer = new Peer(this, Token, IPAddress.Parse(iP));
+          peer = new Peer(
+            this, 
+            Token, 
+            IPAddress.Parse(iP), 
+            ConnectionType.OUTBOUND);
+
           Peers.Add(peer);
         }
       }
@@ -739,15 +746,23 @@ namespace BTokenLib
 
       try
       {
-        await peer.Connect();
+        $"Connect with peer {peer + peer.Connection.ToString()}."
+          .Log(LogFile);
 
-        $"Successfully connected with peer {peer + peer.Connection.ToString()}."
-          .Log(this, LogFile);
+        TcpClient tcpClient = new();
+
+        await tcpClient.ConnectAsync(IPAddress.Parse(iP), Port)
+          .ConfigureAwait(false);
+
+        await peer.Connect(tcpClient);
+
+        if (TryEnterStateSynchronization(peer))
+          await peer.SendGetHeaders(HeaderDownload.Locator);
       }
       catch (Exception ex)
       {
         $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
-          .Log(this, LogFile);
+          .Log(LogFile);
 
         peer.Dispose();
       }
@@ -756,15 +771,6 @@ namespace BTokenLib
     public void IncrementCountPeersMax()
     {
       CountPeersMax++;
-    }
-
-    public void AddPeer(string iP)
-    {
-      lock (LOCK_Peers)
-        if (Peers.Any(p => p.IPAddress.ToString() == iP))
-          return;
-
-      CreatePeer(iP);
     }
 
     public void RemovePeer(string iPAddress)
@@ -782,24 +788,21 @@ namespace BTokenLib
       }
     }
 
-    TcpListener TcpListener;
-
     async Task StartPeerInboundListener()
     {
-      TcpListener = new(IPAddress.Any, Port);
-      TcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
+      TcpListener tcpListener = new(IPAddress.Any, Port);
+      tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
 
       $"Start TCP listener on port {Port}.".Log(this, LogFile);
 
       while (true)
       {
-        TcpClient tcpClient = await TcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
+        TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
 
         IPAddress remoteIP =
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
-        $"Received inbound request on port {Port} from {remoteIP}."
-          .Log(this, LogFile);
+        $"Received inbound request on port {Port} from {remoteIP}.".Log(this, LogFile);
 
         Peer peer = null;
 
@@ -807,7 +810,7 @@ namespace BTokenLib
         {
           string rejectionString = "";
 
-          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
+          if (Peers.Count(p => p.Connection == ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
             rejectionString = $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.";
 
           if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
@@ -815,7 +818,7 @@ namespace BTokenLib
 
           if (rejectionString != "")
           {
-            ($"Reject inbound request from {remoteIP}.\n {rejectionString}")
+            $"Reject inbound request from {remoteIP}.\n {rejectionString}"
               .Log(this, LogFile);
 
             tcpClient.Dispose();
@@ -827,16 +830,18 @@ namespace BTokenLib
             peer = new(
               this,
               Token,
-              tcpClient);
+              remoteIP,
+              ConnectionType.INBOUND);
 
-            peer.StartMessageListener();
+            peer.Connect(tcpClient);
           }
           catch (Exception ex)
           {
-            ($"Failed to start listening to inbound peer {remoteIP}: " +
+            ($"Failed to connect to inbound peer {remoteIP}: " +
               $"\n{ex.GetType().Name}: {ex.Message}")
               .Log(this, LogFile);
 
+            peer.Dispose();
             continue;
           }
 

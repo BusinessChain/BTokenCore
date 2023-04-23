@@ -8,7 +8,6 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Runtime.CompilerServices;
 
 namespace BTokenLib
 {
@@ -46,7 +45,6 @@ namespace BTokenLib
       ulong FeeFilterValue;
 
       const string UserAgent = "/BTokenCore:0.0.0/";
-      public enum ConnectionType { OUTBOUND, INBOUND };
       public ConnectionType Connection;
       const UInt32 ProtocolVersion = 70015;
       public IPAddress IPAddress;
@@ -76,26 +74,11 @@ namespace BTokenLib
       DateTime TimePeerCreation = DateTime.Now;
 
 
-
-
       public Peer(
         Network network,
         Token token,
-        TcpClient tcpClient)
-        : this(
-           network,
-           token,
-           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address)
-      {
-        TcpClient = tcpClient;
-        NetworkStream = tcpClient.GetStream();
-        Connection = ConnectionType.INBOUND;
-      }
-
-      public Peer(
-        Network network,
-        Token token,
-        IPAddress ip)
+        IPAddress ip,
+        ConnectionType connection)
       {
         Network = network;
         Token = token;
@@ -103,7 +86,7 @@ namespace BTokenLib
         Block = Token.CreateBlock();
 
         IPAddress = ip;
-        Connection = ConnectionType.OUTBOUND;
+        Connection = connection;
 
         CreateLogFile(ip.ToString());
 
@@ -149,16 +132,10 @@ namespace BTokenLib
           append: true);
       }
 
-      public async Task Connect()
+      public async Task Connect(TcpClient tcpClient)
       {
-        $"Connect peer {Connection}.".Log(this, LogFile);
-
-        TcpClient = new();
-
-        await TcpClient.ConnectAsync(IPAddress, Network.Port)
-          .ConfigureAwait(false);
-
-        NetworkStream = TcpClient.GetStream();
+        TcpClient = tcpClient;
+        NetworkStream = tcpClient.GetStream();
 
         await SendMessage(new VersionMessage(
           protocolVersion: ProtocolVersion,
@@ -174,16 +151,6 @@ namespace BTokenLib
           blockchainHeight: 0,
           relayOption: 0x01));
 
-        StartMessageListener();
-
-        if (Network.TryEnterStateSynchronization(this))
-          SendGetHeaders(Network.HeaderDownload.Locator);
-      }
-
-      internal Header HeaderDuplicateReceivedLast;
-
-      public async Task StartMessageListener()
-      {
         await SendMessage(new VerAckMessage());
 
         do
@@ -192,8 +159,16 @@ namespace BTokenLib
 
         $"Received verack.".Log(this, LogFile);
 
-        while (true)
-          try
+        StartMessageListener();
+      }
+
+      internal Header HeaderDuplicateReceivedLast;
+
+      public async Task StartMessageListener()
+      {
+        try
+        {
+          while (true)
           {
             if (IsStateDiposed())
               return;
@@ -471,13 +446,13 @@ namespace BTokenLib
                 .Log(this, LogFile);
             }
           }
-          catch (Exception ex)
-          {
-            Network.HandleExceptionPeerListener(this);
+        }
+        catch (Exception ex)
+        {
+          Network.HandleExceptionPeerListener(this);
 
-            SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
-            break;
-          }
+          SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+        }
       }
 
       async Task ListenForNextMessage()
