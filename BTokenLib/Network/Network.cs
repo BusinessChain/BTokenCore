@@ -16,8 +16,8 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
-    const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 30;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 60;//7 * 24 * 3600;
+    const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 10;
     const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
 
     StreamWriter LogFile;
@@ -115,11 +115,12 @@ namespace BTokenLib
         {
           lock (LOCK_Peers)
           {
-            Peers.FindAll(p => p.IsStateDiposed()).ForEach(p =>
+            List<Peer> peersStateDisposed = Peers.FindAll(p => p.IsStateDiposed());
+            foreach(Peer peer in Peers)
             {
-              Peers.Remove(p);
-              p.Dispose();
-            });
+              Peers.RemoveAll(p => peer.IPAddress.ToString() == p.IPAddress.ToString());
+              peer.Dispose();
+            }
 
             countPeersCreate = CountPeersMax - Peers.Count;
           }
@@ -182,7 +183,7 @@ namespace BTokenLib
 
       foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
       {
-        TimeSpan timeSpanSinceLastDisposal = DateTime.Now - iPDisposed.LastAccessTime;
+        TimeSpan timeSpanSinceLastDisposal = DateTime.Now - iPDisposed.CreationTime;
 
         if (0 < TIMESPAN_PEER_BANNED_SECONDS - (int)timeSpanSinceLastDisposal.TotalSeconds)
           continue;
