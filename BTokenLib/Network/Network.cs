@@ -16,9 +16,18 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 60;//7 * 24 * 3600;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
     const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 10;
     const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
+
+
+    enum StateNetwork
+    {
+      Idle,
+      ConnectingPeerOutbound,
+      ConnectingPeerInbound
+    }
+    StateNetwork State = StateNetwork.Idle;
 
     StreamWriter LogFile;
 
@@ -42,7 +51,6 @@ namespace BTokenLib
     DirectoryInfo DirectoryPeersArchive;
 
     readonly object LOCK_IsStateSynchronizing = new();
-    bool FlagIsSyncingBlocks;
     bool IsStateSynchronizing;
     Peer PeerSynchronizing;
     HeaderDownload HeaderDownload;
@@ -113,10 +121,31 @@ namespace BTokenLib
       {
         while (true)
         {
+          lock (this)
+            State = StateNetwork.Idle;
+
+          int timespanRandomSeconds =
+            TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS
+            / 2 + randomGenerator.Next(TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS);
+
+          await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
+
+          while (true)
+          {
+            lock (this)
+              if (State != StateNetwork.ConnectingPeerInbound)
+              {
+                State = StateNetwork.ConnectingPeerOutbound;
+                break;
+              }
+
+            Task.Delay(2000).ConfigureAwait(false);
+          }
+
           lock (LOCK_Peers)
           {
             List<Peer> peersStateDisposed = Peers.FindAll(p => p.IsStateDiposed());
-            foreach(Peer peer in Peers)
+            foreach(Peer peer in peersStateDisposed)
             {
               Peers.RemoveAll(p => peer.IPAddress.ToString() == p.IPAddress.ToString());
               peer.Dispose();
@@ -142,8 +171,8 @@ namespace BTokenLib
               PoolIPAddress.RemoveAt(randomIndex);
             }
 
-            iPAddresses = iPAddresses.Except(DirectoryPeersActive.EnumerateFiles()
-              .Select(f => f.Name)).Except(DirectoryPeersDisposed.EnumerateFiles()
+            iPAddresses = iPAddresses
+              .Except(DirectoryPeersActive.EnumerateFiles()
               .Select(f => f.Name)).ToList();
 
             if (iPAddresses.Count > 0)
@@ -161,18 +190,13 @@ namespace BTokenLib
               await Task.WhenAll(createPeerTasks);
             }
             else
-              ; //$"No ip address found to connect in protocol {Token}.".Log(LogFile);
+              $"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
-          int timespanRandomSeconds =
-            TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS / 2 +
-            randomGenerator.Next(TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS);
-
-          await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
         }
       }
       catch (Exception ex)
       {
-        $"{ex.GetType().Name} in StartPeerConnector of protocol {Token}."
+        $"{ex.GetType().Name} in StartPeerConnector of protocol {Token}. This is a bug."
           .Log(this, LogFile);
       }
     }
@@ -183,10 +207,15 @@ namespace BTokenLib
 
       foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
       {
-        TimeSpan timeSpanSinceLastDisposal = DateTime.Now - iPDisposed.CreationTime;
+        int secondsBanned = TIMESPAN_PEER_BANNED_SECONDS - 
+          (int)(DateTime.Now - iPDisposed.CreationTime).TotalSeconds;
 
-        if (0 < TIMESPAN_PEER_BANNED_SECONDS - (int)timeSpanSinceLastDisposal.TotalSeconds)
+        if (0 < secondsBanned)
+        {
+          $"{iPDisposed.Name} is banned for {secondsBanned} seconds.".Log(LogFile);
+          PoolIPAddress.RemoveAll(iP => iP.ToString() == iPDisposed.Name);
           continue;
+        }
 
         iPDisposed.MoveTo(Path.Combine(
           DirectoryPeersArchive.FullName,
@@ -269,8 +298,8 @@ namespace BTokenLib
 
         EnterStateSynchronization(peer);
 
-        ($"Peer {peer + peer.Connection.ToString()} of {Token.GetName()} " +
-          $"initiated synchronization.").Log(this, LogFile);
+        $"Peer {peer} of {Token.GetName()} initiated synchronization."
+          .Log(this, LogFile);
 
         return true;
       }
@@ -322,6 +351,7 @@ namespace BTokenLib
 
     bool FlagSyncDBAbort;
     List<byte[]> HashesDB;
+    bool FlagIsSyncingBlocks;
 
     async Task SyncBlocks()
     {
@@ -714,7 +744,7 @@ namespace BTokenLib
 
     async Task CreatePeer(string iP)
     {
-      Peer peer;
+      Peer peer = null;
 
       try
       {
@@ -728,10 +758,10 @@ namespace BTokenLib
             return;
           }
 
-          peer = new Peer(
-            this, 
-            Token, 
-            IPAddress.Parse(iP), 
+          peer = new(
+            this,
+            Token,
+            IPAddress.Parse(iP),
             ConnectionType.OUTBOUND);
 
           Peers.Add(peer);
@@ -739,16 +769,13 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}."
-        .Log(this, LogFile);
-
+        peer.SetStateDisposed($"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}.");
         return;
       }
 
       try
       {
-        $"Connect with peer {peer + peer.Connection.ToString()}."
-          .Log(LogFile);
+        $"Connect with peer {peer}.".Log(LogFile);
 
         TcpClient tcpClient = new();
 
@@ -762,10 +789,8 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        $"Could not connect to {peer + peer.Connection.ToString()}: {ex.Message}"
-          .Log(LogFile);
-
-        peer.Dispose();
+        peer.SetStateDisposed($"Could not connect to {peer}: {ex.Message}");
+        return;
       }
     }
 
@@ -798,14 +823,27 @@ namespace BTokenLib
 
       while (true)
       {
+        lock (this)
+          State = StateNetwork.Idle;
+
         TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
+
+        while(true)
+        {
+          lock (this)
+            if (State != StateNetwork.Idle)
+            {
+              State = StateNetwork.ConnectingPeerInbound;
+              break;
+            }
+
+          Task.Delay(2000).ConfigureAwait(false);
+        }
 
         IPAddress remoteIP =
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
         $"Received inbound request on port {Port} from {remoteIP}.".Log(this, LogFile);
-
-        Peer peer = null;
 
         lock (LOCK_Peers)
         {
@@ -823,11 +861,16 @@ namespace BTokenLib
               .Log(this, LogFile);
 
             tcpClient.Dispose();
+
             continue;
           }
 
+          Peer peer = null;
+
           try
           {
+            Peers.Add(peer);
+
             peer = new(
               this,
               Token,
@@ -842,11 +885,11 @@ namespace BTokenLib
               $"\n{ex.GetType().Name}: {ex.Message}")
               .Log(this, LogFile);
 
+
             peer.Dispose();
+            Peers.Remove(peer);
             continue;
           }
-
-          Peers.Add(peer);
 
           $"Accept inbound request from {remoteIP}."
             .Log(this, LogFile);

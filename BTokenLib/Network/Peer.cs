@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 
 namespace BTokenLib
 {
@@ -20,7 +21,8 @@ namespace BTokenLib
 
       enum StateProtocol
       {
-        Idle = 0,
+        NotConnected,
+        Idle,
         HeaderSynchronization,
         BlockSynchronization,
         DBDownload,
@@ -28,7 +30,7 @@ namespace BTokenLib
         InboundRequest,
         Disposed
       }
-      StateProtocol State;
+      StateProtocol State = StateProtocol.NotConnected;
       public DateTime TimeLastStateTransition;
       public DateTime TimeLastSynchronization;
 
@@ -89,8 +91,6 @@ namespace BTokenLib
         Connection = connection;
 
         CreateLogFile(ip.ToString());
-
-        SetStateIdle();
 
         ResetTimer();
       }
@@ -160,6 +160,8 @@ namespace BTokenLib
         $"Received verack.".Log(this, LogFile);
 
         StartMessageListener();
+
+        SetStateIdle();
       }
 
       internal Header HeaderDuplicateReceivedLast;
@@ -747,11 +749,11 @@ namespace BTokenLib
         LogFile.Dispose();
 
         string pathLogFile = ((FileStream)LogFile.BaseStream).Name;
+        string pathLogFileDisposed = Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString());
+        
+        File.Move(pathLogFile,pathLogFileDisposed);
+        File.SetCreationTime(pathLogFileDisposed, DateTime.Now);
 
-        File.SetCreationTime(pathLogFile, DateTime.Now);
-        File.Move(
-          pathLogFile,
-          Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString()));
       }
 
       public string GetStatus()
@@ -768,7 +770,7 @@ namespace BTokenLib
 
       public override string ToString()
       {
-        return Network + "{" + IPAddress.ToString() + "}";
+        return $"{Network} [{IPAddress}|{Connection}]";
       }
     }
   }
