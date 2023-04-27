@@ -8,7 +8,6 @@ using System.Net.Sockets;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Diagnostics;
 
 namespace BTokenLib
 {
@@ -54,6 +53,7 @@ namespace BTokenLib
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
       const int TIMEOUT_NEXT_SYNC_MILLISECONDS = 30000;
+      const int TIMEOUT_VERACK_MILLISECONDS = 5000;
 
       const int CommandSize = 12;
       const int LengthSize = 4;
@@ -76,10 +76,24 @@ namespace BTokenLib
       DateTime TimePeerCreation = DateTime.Now;
 
 
+
       public Peer(
         Network network,
         Token token,
         IPAddress ip,
+        ConnectionType connection) : this(
+          network, 
+          token, 
+          ip,
+          new TcpClient(),
+          connection)
+      { }
+
+      public Peer(
+        Network network,
+        Token token,
+        IPAddress ip,
+        TcpClient tcpClient,
         ConnectionType connection)
       {
         Network = network;
@@ -87,12 +101,11 @@ namespace BTokenLib
 
         Block = Token.CreateBlock();
 
+        TcpClient = tcpClient;
         IPAddress = ip;
         Connection = connection;
 
         CreateLogFile(ip.ToString());
-
-        ResetTimer();
       }
 
       void CreateLogFile(string name)
@@ -132,10 +145,15 @@ namespace BTokenLib
           append: true);
       }
 
-      public async Task Connect(TcpClient tcpClient)
+      public async Task Connect()
       {
-        TcpClient = tcpClient;
-        NetworkStream = tcpClient.GetStream();
+        $"Connect with peer {this}.".Log(LogFile);
+
+        if (!TcpClient.Connected)
+          await TcpClient.ConnectAsync(IPAddress, Network.Port)
+            .ConfigureAwait(false);
+
+        NetworkStream = TcpClient.GetStream();
 
         await SendMessage(new VersionMessage(
           protocolVersion: ProtocolVersion,
@@ -153,11 +171,15 @@ namespace BTokenLib
 
         await SendMessage(new VerAckMessage());
 
+        $"Await verack.".Log(this, LogFile);
+        ResetTimer(TIMEOUT_VERACK_MILLISECONDS);
+
         do
           await ListenForNextMessage();
         while (Command != "verack");
 
         $"Received verack.".Log(this, LogFile);
+        ResetTimer();
 
         StartMessageListener();
 

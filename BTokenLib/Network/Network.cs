@@ -33,9 +33,9 @@ namespace BTokenLib
 
     UInt16 Port;
 
-    int CountPeersMax = Math.Max(Environment.ProcessorCount - 1, 4);
+    int CountPeersMax = 3;
 
-    const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
+    const int COUNT_MAX_INBOUND_CONNECTIONS = 3;
     public bool EnableInboundConnections;
 
     object LOCK_Peers = new();
@@ -92,7 +92,6 @@ namespace BTokenLib
       foreach (FileInfo file in DirectoryPeersActive.GetFiles())
         file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
 
-      LoadIPAddressPool();
     }
 
     public void Start()
@@ -121,15 +120,6 @@ namespace BTokenLib
       {
         while (true)
         {
-          lock (this)
-            State = StateNetwork.Idle;
-
-          int timespanRandomSeconds =
-            TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS
-            / 2 + randomGenerator.Next(TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS);
-
-          await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
-
           while (true)
           {
             lock (this)
@@ -192,6 +182,15 @@ namespace BTokenLib
             else
               $"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
+
+          lock (this)
+            State = StateNetwork.Idle;
+
+          int timespanRandomSeconds =
+            TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS
+            / 2 + randomGenerator.Next(TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS);
+
+          await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
         }
       }
       catch (Exception ex)
@@ -775,14 +774,7 @@ namespace BTokenLib
 
       try
       {
-        $"Connect with peer {peer}.".Log(LogFile);
-
-        TcpClient tcpClient = new();
-
-        await tcpClient.ConnectAsync(IPAddress.Parse(iP), Port)
-          .ConfigureAwait(false);
-
-        await peer.Connect(tcpClient);
+        await peer.Connect();
 
         if (TryEnterStateSynchronization(peer))
           await peer.SendGetHeaders(HeaderDownload.Locator);
@@ -823,15 +815,17 @@ namespace BTokenLib
 
       while (true)
       {
-        lock (this)
-          State = StateNetwork.Idle;
-
         TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
 
-        while(true)
+        IPAddress remoteIP =
+          ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
+
+        $"Received inbound request on port {Port} from {remoteIP}.".Log(this, LogFile);
+
+        while (true)
         {
           lock (this)
-            if (State != StateNetwork.Idle)
+            if (State == StateNetwork.Idle)
             {
               State = StateNetwork.ConnectingPeerInbound;
               break;
@@ -840,10 +834,7 @@ namespace BTokenLib
           Task.Delay(2000).ConfigureAwait(false);
         }
 
-        IPAddress remoteIP =
-          ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
-
-        $"Received inbound request on port {Port} from {remoteIP}.".Log(this, LogFile);
+        Peer peer = null;
 
         lock (LOCK_Peers)
         {
@@ -862,38 +853,56 @@ namespace BTokenLib
 
             tcpClient.Dispose();
 
+            lock (this)
+              State = StateNetwork.Idle;
+
             continue;
           }
 
-          Peer peer = null;
-
           try
           {
-            Peers.Add(peer);
-
             peer = new(
               this,
               Token,
               remoteIP,
+              tcpClient,
               ConnectionType.INBOUND);
-
-            peer.Connect(tcpClient);
           }
           catch (Exception ex)
           {
-            ($"Failed to connect to inbound peer {remoteIP}: " +
+            ($"Failed to create inbound peer {remoteIP}: " +
               $"\n{ex.GetType().Name}: {ex.Message}")
               .Log(this, LogFile);
 
+            lock (this)
+              State = StateNetwork.Idle;
 
-            peer.Dispose();
-            Peers.Remove(peer);
             continue;
           }
 
-          $"Accept inbound request from {remoteIP}."
-            .Log(this, LogFile);
+          Peers.Add(peer);
+
+          $"Crated inbound connection {peer}.".Log(this, LogFile);
         }
+
+        try
+        {
+          await peer.Connect();
+          $"Connected to inbound peer {peer}.".Log(this, LogFile);
+        }
+        catch (Exception ex)
+        {
+          peer.SetStateDisposed($"Failed to connect to inbound peer {remoteIP}: " +
+            $"\n{ex.GetType().Name}: {ex.Message}");
+
+          continue;
+        }
+
+        $"Accept inbound request from {remoteIP}."
+          .Log(this, LogFile);
+
+        lock (this)
+          State = StateNetwork.Idle;
       }
     }
 
