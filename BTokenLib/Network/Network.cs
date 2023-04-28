@@ -838,29 +838,19 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
         {
-          string rejectionString = "";
-
-          if (Peers.Count(p => p.Connection == ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
-            rejectionString = $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.";
-
-          if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
-            rejectionString = $"Connection already established.";
-
-          if (rejectionString != "")
-          {
-            $"Reject inbound request from {remoteIP}.\n {rejectionString}"
-              .Log(this, LogFile);
-
-            tcpClient.Dispose();
-
-            lock (this)
-              State = StateNetwork.Idle;
-
-            continue;
-          }
-
           try
           {
+            string rejectionString = "";
+
+            if (Peers.Count(p => p.Connection == ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
+              rejectionString = $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.";
+
+            if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+              rejectionString = $"Connection already established.";
+
+            if (rejectionString != "")
+              throw new ProtocolException(rejectionString);
+
             peer = new(
               this,
               Token,
@@ -873,6 +863,8 @@ namespace BTokenLib
             ($"Failed to create inbound peer {remoteIP}: " +
               $"\n{ex.GetType().Name}: {ex.Message}")
               .Log(this, LogFile);
+
+            tcpClient.Dispose();
 
             lock (this)
               State = StateNetwork.Idle;
@@ -894,6 +886,9 @@ namespace BTokenLib
         {
           peer.SetStateDisposed($"Failed to connect to inbound peer {remoteIP}: " +
             $"\n{ex.GetType().Name}: {ex.Message}");
+
+          lock (this)
+            State = StateNetwork.Idle;
 
           continue;
         }
