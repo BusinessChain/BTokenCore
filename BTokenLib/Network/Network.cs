@@ -297,8 +297,7 @@ namespace BTokenLib
 
         EnterStateSynchronization(peer);
 
-        $"Peer {peer} of {Token.GetName()} initiated synchronization."
-          .Log(this, LogFile);
+        $"Enter state synchrinzation with peer {peer}.".Log(this, LogFile);
 
         return true;
       }
@@ -775,9 +774,6 @@ namespace BTokenLib
       try
       {
         await peer.Connect();
-
-        if (TryEnterStateSynchronization(peer))
-          await peer.SendGetHeaders(HeaderDownload.Locator);
       }
       catch (Exception ex)
       {

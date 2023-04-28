@@ -559,8 +559,7 @@ namespace BTokenLib
         }
       }
 
-      public async Task SendGetHeaders(
-        List<Header> locator)
+      public async Task SendGetHeaders(List<Header> locator)
       {
         ($"Send getheaders to peer {this}\n" +
           $"locator: {locator.First()} ... {locator.Last()}").Log(this, LogFile);
@@ -572,7 +571,7 @@ namespace BTokenLib
           ProtocolVersion));
       }
 
-      void ResetTimer(int millisecondsTimer = TIMEOUT_NEXT_SYNC_MILLISECONDS)
+      void ResetTimer(int millisecondsTimer = int.MaxValue)
       {
         Cancellation.CancelAfter(millisecondsTimer);
       }
@@ -705,6 +704,7 @@ namespace BTokenLib
       {
         lock (this)
         {
+          $"Set state IDLE".Log(this, LogFile);
           TimeLastStateTransition = DateTime.Now;
           State = StateProtocol.Idle;
         }
