@@ -288,7 +288,7 @@ namespace BTokenLib
           EnterStateSynchronization(peer);
         }
 
-        PeerSynchronizing.SendGetHeaders(HeaderDownload.Locator);
+        peer.SendGetHeaders(HeaderDownload.Locator);
       }
     }
 
@@ -786,6 +786,9 @@ namespace BTokenLib
       try
       {
         await peer.Connect();
+
+        if (TryEnterStateSynchronization(peer))
+          peer.SendGetHeaders(HeaderDownload.Locator);
       }
       catch (Exception ex)
       {
@@ -917,9 +920,6 @@ namespace BTokenLib
 
           continue;
         }
-
-        $"Accept inbound request from {remoteIP}."
-          .Log(this, LogFile);
 
         lock (this)
           State = StateNetwork.Idle;
