@@ -16,7 +16,7 @@ namespace BTokenLib
     Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 30;//7 * 24 * 3600;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 10;//7 * 24 * 3600;
     const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 10;
     const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
 
@@ -146,24 +146,7 @@ namespace BTokenLib
 
           if (countPeersCreate > 0)
           {
-            List<string> iPAddresses = new();
-
-            if (PoolIPAddress.Count == 0)
-              LoadIPAddressPool();
-
-            while (
-              iPAddresses.Count < countPeersCreate &&
-              PoolIPAddress.Count > 0)
-            {
-              int randomIndex = randomGenerator.Next(PoolIPAddress.Count);
-
-              iPAddresses.Add(PoolIPAddress[randomIndex]);
-              PoolIPAddress.RemoveAt(randomIndex);
-            }
-
-            iPAddresses = iPAddresses
-              .Except(DirectoryPeersActive.EnumerateFiles()
-              .Select(f => f.Name)).ToList();
+            List<string> iPAddresses = LoadIPAddresses(countPeersCreate, randomGenerator);
 
             if (iPAddresses.Count > 0)
             {
@@ -200,31 +183,60 @@ namespace BTokenLib
       }
     }
 
-    void LoadIPAddressPool()
+    List<string> LoadIPAddresses(int maxCount, Random randomGenerator)
     {
-      PoolIPAddress = Token.GetSeedAddresses();
+      List<string> iPAddresses = new();
 
-      foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
+      if (PoolIPAddress.Count == 0)
       {
-        int secondsBanned = TIMESPAN_PEER_BANNED_SECONDS - 
-          (int)(DateTime.Now - iPDisposed.CreationTime).TotalSeconds;
+        PoolIPAddress = Token.GetSeedAddresses();
 
-        if (0 < secondsBanned)
+        foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
         {
-          $"{iPDisposed.Name} is banned for {secondsBanned} seconds.".Log(LogFile);
-          PoolIPAddress.RemoveAll(iP => iP.ToString() == iPDisposed.Name);
-          continue;
+          if (iPDisposed.Name.Contains(ConnectionType.OUTBOUND.ToString()))
+          {
+            int secondsBanned = TIMESPAN_PEER_BANNED_SECONDS -
+              (int)(DateTime.Now - iPDisposed.CreationTime).TotalSeconds;
+
+            if (0 < secondsBanned)
+            {
+              $"{iPDisposed.Name} is banned for {secondsBanned} seconds.".Log(LogFile);
+              PoolIPAddress.RemoveAll(iP => iPDisposed.Name.Contains(iP));
+              continue;
+            }
+
+            iPDisposed.MoveTo(Path.Combine(
+              DirectoryPeersArchive.FullName,
+              iPDisposed.Name));
+          }
         }
 
-        iPDisposed.MoveTo(Path.Combine(
-          DirectoryPeersArchive.FullName,
-          iPDisposed.Name));
+        foreach (FileInfo fileIPAddressArchive in DirectoryPeersArchive.EnumerateFiles())
+        {
+          string iPFromFile = fileIPAddressArchive.Name.GetIPFromFileName();
+
+          if (!PoolIPAddress.Any(ip => ip == iPFromFile))
+            PoolIPAddress.Add(iPFromFile);
+        }
+
+        foreach (FileInfo fileIPAddressActive in DirectoryPeersActive.EnumerateFiles())
+          PoolIPAddress.RemoveAll(iP =>
+          fileIPAddressActive.Name.GetIPFromFileName() == iP);
       }
 
-      foreach (FileInfo fileIPAddress in DirectoryPeersArchive.EnumerateFiles())
-        if (!PoolIPAddress.Contains(fileIPAddress.Name))
-          PoolIPAddress.Add(fileIPAddress.Name);
+      while (
+        iPAddresses.Count < maxCount &&
+        PoolIPAddress.Count > 0)
+      {
+        int randomIndex = randomGenerator.Next(PoolIPAddress.Count);
+
+        iPAddresses.Add(PoolIPAddress[randomIndex]);
+        PoolIPAddress.RemoveAt(randomIndex);
+      }
+
+      return iPAddresses;
     }
+
 
     void AddNetworkAddressesAdvertized(
       List<NetworkAddress> addresses)
@@ -748,7 +760,7 @@ namespace BTokenLib
       {
         lock (LOCK_Peers)
         {
-          peer = Peers.Find(p => p.IPAddress.Equals(iP));
+          peer = Peers.Find(p => p.IPAddress.ToString() == iP);
 
           if (peer != null)
           {
@@ -843,6 +855,23 @@ namespace BTokenLib
 
             if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
               rejectionString = $"Connection already established.";
+
+            foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
+            {
+              if (
+                iPDisposed.Name.Contains(remoteIP.ToString()) &&
+                iPDisposed.Name.Contains(ConnectionType.INBOUND.ToString()))
+              {
+                int secondsBanned = TIMESPAN_PEER_BANNED_SECONDS -
+                  (int)(DateTime.Now - iPDisposed.CreationTime).TotalSeconds;
+
+                if (0 < secondsBanned)
+                {
+                  rejectionString = $"{iPDisposed.Name} is banned for {secondsBanned} seconds.";
+                  break;
+                }
+              }
+            }
 
             if (rejectionString != "")
               throw new ProtocolException(rejectionString);

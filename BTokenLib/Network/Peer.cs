@@ -105,7 +105,7 @@ namespace BTokenLib
         IPAddress = ip;
         Connection = connection;
 
-        CreateLogFile(ip.ToString());
+        CreateLogFile($"{ip}-{Connection}");
       }
 
       void CreateLogFile(string name)
@@ -771,11 +771,13 @@ namespace BTokenLib
         LogFile.Dispose();
 
         string pathLogFile = ((FileStream)LogFile.BaseStream).Name;
-        string pathLogFileDisposed = Path.Combine(Network.DirectoryPeersDisposed.FullName, IPAddress.ToString());
-        
-        File.Move(pathLogFile,pathLogFileDisposed);
-        File.SetCreationTime(pathLogFileDisposed, DateTime.Now);
+        string nameLogFile = Path.GetFileName(pathLogFile);
+        string pathLogFileDisposed = Path.Combine(
+          Network.DirectoryPeersDisposed.FullName,
+          nameLogFile);
 
+        File.Move(pathLogFile, pathLogFileDisposed);
+        File.SetCreationTime(pathLogFileDisposed, DateTime.Now);
       }
 
       public string GetStatus()

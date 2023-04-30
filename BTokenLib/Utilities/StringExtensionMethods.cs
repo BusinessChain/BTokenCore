@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
 using System.Threading;
+using System.Linq;
 
 namespace BTokenLib
 {
@@ -333,6 +334,11 @@ namespace BTokenLib
         logFile.WriteLine(logString);
         Debug.WriteLine(logString);
       }
+    }
+
+    public static string GetIPFromFileName(this string fileName)
+    {
+      return new string(fileName.TakeWhile(c => c != '-').ToArray());
     }
 
     public static int CountSubstring(this string text, string value)
