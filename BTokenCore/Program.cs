@@ -60,7 +60,7 @@ namespace BTokenCore
             break;
 
           case "addPeer":
-            BToken.Network.IncrementCountPeersMax();
+            BToken.Network.IncrementCountMaxPeers();
             break;
 
           case "removePeer":
