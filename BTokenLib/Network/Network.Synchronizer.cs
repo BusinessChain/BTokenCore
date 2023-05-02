@@ -101,8 +101,8 @@ namespace BTokenLib
 
     void HandleExceptionPeerListener(Peer peer)
     {
-      lock (LOCK_IsStateSynchronizing)
-        if (IsStateSynchronizing && PeerSynchronizing == peer)
+      lock (LOCK_IsStateSynchronizing) lock (LOCK_Peers)
+          if (IsStateSynchronizing && PeerSynchronizing == peer)
           ExitSynchronization();
         else if (peer.IsStateBlockSynchronization())
           ReturnPeerBlockDownloadIncomplete(peer);

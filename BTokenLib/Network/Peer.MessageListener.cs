@@ -19,10 +19,25 @@ namespace BTokenLib
         {
           while (true)
           {
-            if (IsStateDiposed())
-              return;
+            try
+            {
+              await ListenForNextMessage();
+            }
+            catch(Exception ex)
+            {
+              $"Exception {ex.GetType().Name} when listening for message.".Log(LogFile);
+            }
+            finally
+            {
+              lock (this)
+              {
+                if (FlagIsProcessingOutboundRequest)
+                  throw new ProtocolException(
+                    $"Receiving inbound request while processing outbound process.");
 
-            await ListenForNextMessage();
+                FlagIsProcessingInboundRequest = true;
+              }
+            }
 
             if (Command == "block")
             {
@@ -298,9 +313,8 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          Network.HandleExceptionPeerListener(this);
-
           SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+          Network.HandleExceptionPeerListener(this);
         }
       }
 

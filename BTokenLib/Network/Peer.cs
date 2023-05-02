@@ -18,6 +18,9 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
+      bool FlagIsProcessingInboundRequest;
+      bool FlagIsProcessingOutboundRequest;
+
       enum StateProtocol
       {
         NotConnected,
