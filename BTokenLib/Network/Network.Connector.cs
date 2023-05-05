@@ -188,7 +188,7 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        peer.SetStateDisposed($"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}.");
+        $"{ex.GetType().Name} when creating peer {iP}:\n{ex.Message}.".Log(LogFile);
         return;
       }
 

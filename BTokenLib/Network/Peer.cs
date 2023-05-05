@@ -226,6 +226,9 @@ namespace BTokenLib
         await SendMessage(new GetHeadersMessage(
           locator,
           ProtocolVersion));
+
+        lock (this)
+          FlagIsProcessingOutboundRequest = false;
       }
 
       void ResetTimer(int millisecondsTimer = int.MaxValue)
@@ -328,6 +331,7 @@ namespace BTokenLib
         {
           if (IsStateIdleWithoutLock())
           {
+            FlagIsProcessingOutboundRequest = true;
             State = StateProtocol.HeaderSynchronization;
             return true;
           }
