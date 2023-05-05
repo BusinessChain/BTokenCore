@@ -198,7 +198,7 @@ namespace BTokenLib
       }
       catch (Exception ex)
       {
-        peer.SetStateDisposed($"Could not connect to {peer}: {ex.Message}");
+        $"Could not connect to {peer}: {ex.Message}".Log(LogFile);
         peer.Dispose();
 
         lock (LOCK_Peers)
@@ -306,8 +306,8 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          peer.SetStateDisposed($"Failed to connect to inbound peer {remoteIP}: " +
-            $"\n{ex.GetType().Name}: {ex.Message}");
+          ($"Failed to connect to inbound peer {remoteIP}: " +
+            $"\n{ex.GetType().Name}: {ex.Message}").Log(LogFile);
 
           peer.Dispose();
 

@@ -127,19 +127,6 @@ namespace BTokenLib
       peersAdvertized.Select(p => p.AdvertizeTX(tX)).ToArray();
     }
 
-    public void RemovePeer(string iPAddress)
-    {
-      lock (LOCK_Peers)
-      {
-        Peer peerRemove = Peers.
-          Find(p => p.ToString() == iPAddress);
-
-        if (peerRemove != null)
-        {
-          peerRemove.SetStateDisposed("Manually removed peer.");
-        }
-      }
-    }
 
     public string GetStatus()
     {

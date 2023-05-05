@@ -58,7 +58,7 @@ namespace BTokenLib
               ResetTimer();
 
               if (Network.InsertBlock_FlagContinue(this))
-                await RequestBlock();
+                RequestBlock();
               else
                 SetStateIdle();
             }
@@ -314,7 +314,7 @@ namespace BTokenLib
         catch (Exception ex)
         {
           Network.HandleExceptionPeerListener(this);
-          SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+          $"{ex.GetType().Name} in listener: \n{ex.Message}".Log(LogFile);
           Dispose();
         }
       }

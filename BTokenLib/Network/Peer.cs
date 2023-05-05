@@ -29,8 +29,7 @@ namespace BTokenLib
         BlockSynchronization,
         DBDownload,
         GetData,
-        InboundRequest,
-        Disposed
+        InboundRequest
       }
       StateProtocol State = StateProtocol.NotConnected;
       public DateTime TimeLastStateTransition;
@@ -264,24 +263,13 @@ namespace BTokenLib
 
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
-        try
-        {
-          await SendMessage(new GetDataMessage(
-            new List<Inventory>()
-            {
+        await SendMessage(new GetDataMessage(
+          new List<Inventory>()
+          {
               new Inventory(
                 InventoryType.MSG_DB,
                 HashDBDownload)
-            }));
-        }
-        catch (Exception ex)
-        {
-          SetStateDisposed(
-            $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
-
-          Network.ReturnPeerDBDownloadIncomplete(HashDBDownload);
-          return;
-        }
+          }));
       }
 
       public async Task RequestBlock()
@@ -292,24 +280,13 @@ namespace BTokenLib
 
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
-        try
-        {
-          await SendMessage(new GetDataMessage(
-            new List<Inventory>()
-            {
+        await SendMessage(new GetDataMessage(
+          new List<Inventory>()
+          {
               new Inventory(
                 InventoryType.MSG_BLOCK,
                 HeaderSync.Hash)
-            }));
-        }
-        catch(Exception ex)
-        {
-          SetStateDisposed(
-            $"{ex.GetType().Name} when sending getBlock message: {ex.Message}");
-
-          Network.ReturnPeerBlockDownloadIncomplete(this);
-          return;
-        }
+          }));
       }
 
       public async Task SendHeaders(List<Header> headers)
@@ -391,11 +368,6 @@ namespace BTokenLib
           State = StateProtocol.HeaderSynchronization;
       }
 
-      public bool IsStateDiposed()
-      {
-        lock (this)
-          return State == StateProtocol.Disposed;
-      }
 
       bool IsStateAwaitingGetDataTX()
       {
@@ -413,14 +385,6 @@ namespace BTokenLib
       {
         lock (this)
           return State == StateProtocol.DBDownload;
-      }
-
-      public void SetStateDisposed(string message)
-      {
-        $"Set state dispose on peer {Connection}: {message}".Log(this, LogFile);
-
-        lock (this)
-          State = StateProtocol.Disposed;
       }
 
       public void Dispose()

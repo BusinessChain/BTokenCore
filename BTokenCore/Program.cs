@@ -63,11 +63,6 @@ namespace BTokenCore
             BToken.Network.IncrementCountMaxPeers();
             break;
 
-          case "removePeer":
-            string iPRemove = Console.ReadLine();
-            BToken.Network.RemovePeer(iPRemove);
-            break;
-
           default:
             Console.WriteLine($"Unknown command {inputCommand}.");
             break;

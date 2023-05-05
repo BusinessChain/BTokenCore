@@ -197,7 +197,7 @@ namespace BTokenLib
 
               if (peer != null)
                 if (TryChargeHeader(peer))
-                  await peer.RequestBlock();
+                  peer.RequestBlock();
                 else
                 {
                   peer.SetStateIdle();
