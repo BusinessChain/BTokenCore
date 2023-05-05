@@ -42,7 +42,7 @@ namespace BTokenLib
               if (Network.InsertBlock_FlagContinue(this))
                 RequestBlock();
               else
-                SetStateIdle();
+                SetStateIdle("k");
             }
             else if (Command == "dataDB")
             {
@@ -65,7 +65,7 @@ namespace BTokenLib
                 if (Network.InsertDB_FlagContinue(this))
                   await RequestDB();
                 else
-                  SetStateIdle();
+                  SetStateIdle("l");
               }
             }
             else if (Command == "ping")
