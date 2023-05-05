@@ -16,6 +16,26 @@ namespace BTokenLib
     Peer PeerSynchronizing;
     HeaderDownload HeaderDownload;
 
+    bool FlagSyncAbort;
+    int HeightInsertion;
+    object LOCK_HeightInsertion = new();
+    const int CAPACITY_MAX_QueueBlocksInsertion = 20;
+    Dictionary<int, Block> QueueBlockInsertion = new();
+    Dictionary<int, (Header, int)> HeadersBeingDownloadedByCountPeers = new();
+    Dictionary<int, Header> QueueDownloadsIncomplete = new();
+    Header HeaderRoot;
+
+    bool FlagSyncDBAbort;
+    List<byte[]> HashesDB;
+    bool FlagIsSyncingBlocks;
+
+    object LOCK_ChargeHeader = new();
+    ConcurrentBag<Block> PoolBlocks = new();
+
+    object LOCK_ChargeHashDB = new();
+    List<byte[]> QueueHashesDBDownloadIncomplete = new();
+
+
 
     async Task StartSynchronizerLoop()
     {
@@ -102,12 +122,16 @@ namespace BTokenLib
     void HandleExceptionPeerListener(Peer peer)
     {
       lock (LOCK_IsStateSynchronizing) lock (LOCK_Peers)
+        {
           if (IsStateSynchronizing && PeerSynchronizing == peer)
-          ExitSynchronization();
-        else if (peer.IsStateBlockSynchronization())
-          ReturnPeerBlockDownloadIncomplete(peer);
-        else if (peer.IsStateDBDownload())
-          ReturnPeerDBDownloadIncomplete(peer.HashDBDownload);
+            ExitSynchronization();
+          else if (peer.IsStateBlockSynchronization())
+            ReturnPeerBlockDownloadIncomplete(peer);
+          else if (peer.IsStateDBDownload())
+            ReturnPeerDBDownloadIncomplete(peer.HashDBDownload);
+
+          Peers.Remove(peer);
+        }
     }
 
     void InsertHeader(Header header)
@@ -116,19 +140,6 @@ namespace BTokenLib
 
       HeaderDownload.InsertHeader(header);
     }
-
-    bool FlagSyncAbort;
-    int HeightInsertion;
-    object LOCK_HeightInsertion = new();
-    const int CAPACITY_MAX_QueueBlocksInsertion = 20;
-    Dictionary<int, Block> QueueBlockInsertion = new();
-    Dictionary<int, (Header, int)> HeadersBeingDownloadedByCountPeers = new();
-    Dictionary<int, Header> QueueDownloadsIncomplete = new();
-    Header HeaderRoot;
-
-    bool FlagSyncDBAbort;
-    List<byte[]> HashesDB;
-    bool FlagIsSyncingBlocks;
 
     async Task SyncBlocks()
     {
@@ -283,9 +294,6 @@ namespace BTokenLib
 
       return TryChargeHeader(peer);
     }
-
-    object LOCK_ChargeHeader = new();
-    ConcurrentBag<Block> PoolBlocks = new();
 
     bool TryChargeHeader(Peer peer)
     {
@@ -444,9 +452,6 @@ namespace BTokenLib
 
       return TryChargeHashDB(peer);
     }
-
-    object LOCK_ChargeHashDB = new();
-    List<byte[]> QueueHashesDBDownloadIncomplete = new();
 
     bool TryChargeHashDB(Peer peer)
     {

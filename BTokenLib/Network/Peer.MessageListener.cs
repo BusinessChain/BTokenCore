@@ -31,11 +31,11 @@ namespace BTokenLib
             {
               lock (this)
               {
+                FlagIsProcessingInboundRequest = true;
+
                 if (FlagIsProcessingOutboundRequest)
                   throw new ProtocolException(
                     $"Receiving inbound request while processing outbound process.");
-
-                FlagIsProcessingInboundRequest = true;
               }
             }
 
@@ -313,8 +313,9 @@ namespace BTokenLib
         }
         catch (Exception ex)
         {
-          SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
           Network.HandleExceptionPeerListener(this);
+          SetStateDisposed($"{ex.GetType().Name} in listener: \n{ex.Message}");
+          Dispose();
         }
       }
 

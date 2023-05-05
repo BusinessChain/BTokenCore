@@ -326,7 +326,7 @@ namespace BTokenLib
       {
         lock (this)
         {
-          if (IsStateIdleNOTLocked())
+          if (IsStateIdleWithoutLock())
           {
             State = StateProtocol.HeaderSynchronization;
             return true;
@@ -336,7 +336,7 @@ namespace BTokenLib
         }
       }
 
-      bool IsStateIdleNOTLocked()
+      bool IsStateIdleWithoutLock()
       {
         if (State == StateProtocol.Idle)
           return true;
@@ -354,7 +354,7 @@ namespace BTokenLib
       public bool IsStateIdle()
       {
         lock (this) 
-          return IsStateIdleNOTLocked();
+          return IsStateIdleWithoutLock();
       }
 
       public void SetStateIdle()

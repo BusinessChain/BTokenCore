@@ -36,7 +36,6 @@ namespace BTokenLib
 
     async Task StartPeerConnector()
     {
-      int countPeersCreate;
       Random randomGenerator = new();
 
       try
@@ -55,17 +54,7 @@ namespace BTokenLib
             Task.Delay(2000).ConfigureAwait(false);
           }
 
-          lock (LOCK_Peers)
-          {
-            List<Peer> peersStateDisposed = Peers.FindAll(p => p.IsStateDiposed());
-            foreach (Peer peer in peersStateDisposed)
-            {
-              Peers.RemoveAll(p => peer.IPAddress.ToString() == p.IPAddress.ToString());
-              peer.Dispose();
-            }
-
-            countPeersCreate = CountMaxPeers - Peers.Count;
-          }
+          int countPeersCreate = CountMaxPeers - Peers.Count;
 
           if (countPeersCreate > 0)
           {
