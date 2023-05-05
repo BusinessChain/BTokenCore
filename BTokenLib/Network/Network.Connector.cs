@@ -195,15 +195,20 @@ namespace BTokenLib
       try
       {
         await peer.Connect();
-
-        if (TryEnterStateSynchronization(peer))
-          peer.SendGetHeaders(HeaderDownload.Locator);
       }
       catch (Exception ex)
       {
         peer.SetStateDisposed($"Could not connect to {peer}: {ex.Message}");
+        peer.Dispose();
+
+        lock (LOCK_Peers)
+          Peers.Remove(peer);
+
         return;
       }
+
+      if (TryEnterStateSynchronization(peer))
+        peer.SendGetHeaders(HeaderDownload.Locator);
     }
 
     async Task StartPeerInboundListener()
