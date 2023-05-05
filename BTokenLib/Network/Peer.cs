@@ -18,9 +18,6 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
-      bool FlagIsProcessingInboundRequest;
-      bool FlagIsProcessingOutboundRequest;
-
       enum StateProtocol
       {
         NotConnected,
@@ -225,9 +222,6 @@ namespace BTokenLib
         await SendMessage(new GetHeadersMessage(
           locator,
           ProtocolVersion));
-
-        lock (this)
-          FlagIsProcessingOutboundRequest = false;
       }
 
       void ResetTimer(int millisecondsTimer = int.MaxValue)
@@ -308,7 +302,6 @@ namespace BTokenLib
         {
           if (IsStateIdleWithoutLock())
           {
-            FlagIsProcessingOutboundRequest = true;
             State = StateProtocol.HeaderSynchronization;
             return true;
           }

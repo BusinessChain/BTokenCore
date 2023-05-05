@@ -19,25 +19,7 @@ namespace BTokenLib
         {
           while (true)
           {
-            try
-            {
-              await ListenForNextMessage();
-            }
-            catch(Exception ex)
-            {
-              $"Exception {ex.GetType().Name} when listening for message.".Log(LogFile);
-            }
-            finally
-            {
-              lock (this)
-              {
-                FlagIsProcessingInboundRequest = true;
-
-                if (FlagIsProcessingOutboundRequest)
-                  throw new ProtocolException(
-                    $"Receiving inbound request while processing outbound process.");
-              }
-            }
+            await ListenForNextMessage();
 
             if (Command == "block")
             {
