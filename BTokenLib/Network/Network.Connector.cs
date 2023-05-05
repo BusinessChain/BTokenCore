@@ -211,7 +211,7 @@ namespace BTokenLib
         peer.SendGetHeaders(HeaderDownload.Locator);
     }
 
-    async Task StartPeerInboundListener()
+    private async Task StartPeerInboundConnector()
     {
       TcpListener tcpListener = new(IPAddress.Any, Port);
       tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
@@ -308,6 +308,11 @@ namespace BTokenLib
         {
           peer.SetStateDisposed($"Failed to connect to inbound peer {remoteIP}: " +
             $"\n{ex.GetType().Name}: {ex.Message}");
+
+          peer.Dispose();
+
+          lock (LOCK_Peers)
+            Peers.Remove(peer);
 
           lock (this)
             State = StateNetwork.Idle;

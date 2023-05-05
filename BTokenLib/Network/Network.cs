@@ -77,7 +77,7 @@ namespace BTokenLib
       StartSynchronizerLoop();
 
       if (EnableInboundConnections)
-        StartPeerInboundListener();
+        StartPeerInboundConnector();
     }
 
     void LoadNetworkConfiguration(string pathConfigFile)
