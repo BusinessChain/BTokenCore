@@ -39,10 +39,10 @@ namespace BTokenLib
 
     async Task StartSynchronizerLoop()
     {
-      Peer peer = null;
-
       while (true)
       {
+        Peer peerSync = null;
+
         await Task.Delay(TIME_LOOP_SYNCHRONIZER_SECONDS * 1000).ConfigureAwait(false);
 
         lock (LOCK_IsStateSynchronizing)
@@ -52,34 +52,41 @@ namespace BTokenLib
 
           lock (LOCK_Peers)
           {
+            $"List of peers in Peers:".Log(LogFile);
+            Peers.ForEach(p => $"{p}".Log(LogFile));
+
             foreach (Peer p in Peers)
-              if (p.TrySync() &&
-                (peer == null || p.TimeLastSynchronization < peer.TimeLastSynchronization))
+            {
+              if (peerSync == null)
               {
-                if (peer != null)
-                  peer.SetStateIdle();
-
-                peer = p;
+                if (p.TrySync())
+                  peerSync = p;
               }
+              else if (p.TrySync(peerSync))
+              {
+                peerSync.SetStateIdle();
+                peerSync = p;
+              }
+            }
 
-            if (peer == null)
+            if (peerSync == null)
               continue;
           }
 
           if (!Token.TryLock())
           {
-            peer.SetStateIdle();
+            peerSync.SetStateIdle();
             continue;
           }
 
-          EnterStateSynchronization(peer);
+          EnterStateSynchronization(peerSync);
         }
 
-        ($"Send getheaders to peer {peer}\n" +
+        ($"Send getheaders to peer {peerSync}\n" +
           $"locator: {HeaderDownload.Locator.First()} ... {HeaderDownload.Locator.Last()}")
           .Log(this, LogFile);
 
-        peer.SendGetHeaders(HeaderDownload.Locator);
+        peerSync.SendGetHeaders(HeaderDownload.Locator);
       }
     }
 
@@ -106,7 +113,7 @@ namespace BTokenLib
 
     void EnterStateSynchronization(Peer peer)
     {
-      $"Enter state synchrinzation with peer {peer}.".Log(this, LogFile);
+      $"Enter state synchronzation with peer {peer}.".Log(this, LogFile);
 
       peer.SetStateHeaderSynchronization();
       PeerSynchronizing = peer;
@@ -137,6 +144,9 @@ namespace BTokenLib
 
           $"Remove {peer} from Peers.".Log(LogFile);
           Peers.Remove(peer);
+
+          $"List of peers in Peers:".Log(LogFile);
+          Peers.ForEach(p => $"{p}".Log(LogFile));
         }
     }
 

@@ -293,11 +293,12 @@ namespace BTokenLib
         SetStateIdle();
       }
 
-      public bool TrySync()
+      public bool TrySync(Peer peerSyncCurrent = null)
       {
         lock (this)
         {
-          if (IsStateIdleWithoutLock())
+          if ((peerSyncCurrent == null || TimeLastSynchronization < peerSyncCurrent.TimeLastSynchronization)
+            && IsStateIdleWithoutLock())
           {
             State = StateProtocol.HeaderSynchronization;
             return true;
