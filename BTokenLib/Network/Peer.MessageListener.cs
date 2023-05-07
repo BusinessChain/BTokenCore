@@ -127,6 +127,8 @@ namespace BTokenLib
                   Network.InsertHeader(header);
                 }
 
+                $"Send getheaders to peer {this} locator: {header}.".Log(this, LogFile);
+
                 await SendGetHeaders(new List<Header> { header });
               }
               else

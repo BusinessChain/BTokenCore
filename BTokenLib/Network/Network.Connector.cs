@@ -206,9 +206,6 @@ namespace BTokenLib
 
         return;
       }
-
-      if (TryEnterStateSynchronization(peer))
-        peer.SendGetHeaders(HeaderDownload.Locator);
     }
 
     private async Task StartPeerInboundConnector()

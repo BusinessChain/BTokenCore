@@ -75,6 +75,10 @@ namespace BTokenLib
           EnterStateSynchronization(peer);
         }
 
+        ($"Send getheaders to peer {peer}\n" +
+          $"locator: {HeaderDownload.Locator.First()} ... {HeaderDownload.Locator.Last()}")
+          .Log(this, LogFile);
+
         peer.SendGetHeaders(HeaderDownload.Locator);
       }
     }
@@ -104,6 +108,7 @@ namespace BTokenLib
 
     void EnterStateSynchronization(Peer peer)
     {
+      peer.SetStateHeaderSynchronization();
       PeerSynchronizing = peer;
       IsStateSynchronizing = true;
       HeaderDownload = Token.CreateHeaderDownload();
