@@ -100,14 +100,14 @@ namespace BTokenLib
 
         EnterStateSynchronization(peer);
 
-        $"Enter state synchrinzation with peer {peer}.".Log(this, LogFile);
-
         return true;
       }
     }
 
     void EnterStateSynchronization(Peer peer)
     {
+      $"Enter state synchrinzation with peer {peer}.".Log(this, LogFile);
+
       peer.SetStateHeaderSynchronization();
       PeerSynchronizing = peer;
       IsStateSynchronizing = true;
@@ -135,6 +135,7 @@ namespace BTokenLib
           else if (peer.IsStateDBDownload())
             ReturnPeerDBDownloadIncomplete(peer.HashDBDownload);
 
+          $"Remove {peer} from Peers.".Log(LogFile);
           Peers.Remove(peer);
         }
     }
