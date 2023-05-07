@@ -179,9 +179,9 @@ namespace BTokenLib
         $"Received verack.".Log(this, LogFile);
         ResetTimer();
 
-        StartMessageListener();
+        SetStateIdle();
 
-        SetStateIdle("h");
+        StartMessageListener();
       }
 
       internal Header HeaderDuplicateReceivedLast;
@@ -245,7 +245,7 @@ namespace BTokenLib
 
         TXAdvertized = tX;
 
-        SetStateIdle("i");
+        SetStateIdle();
       }
 
       public async Task RequestDB()
@@ -293,7 +293,7 @@ namespace BTokenLib
         $"Relay block {block} to peer.".Log(this, LogFile);
 
         await SendHeaders(new List<Header>() { block.Header });
-        SetStateIdle("j");
+        SetStateIdle();
       }
 
       public bool TrySync()
@@ -331,11 +331,10 @@ namespace BTokenLib
           return IsStateIdleWithoutLock();
       }
 
-      public void SetStateIdle(string message)
+      public void SetStateIdle()
       {
         lock (this)
         {
-          $"Set state IDLE {message}".Log(this, LogFile);
           TimeLastStateTransition = DateTime.Now;
           State = StateProtocol.Idle;
         }

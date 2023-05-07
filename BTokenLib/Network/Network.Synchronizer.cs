@@ -57,7 +57,7 @@ namespace BTokenLib
                 (peer == null || p.TimeLastSynchronization < peer.TimeLastSynchronization))
               {
                 if (peer != null)
-                  peer.SetStateIdle("a");
+                  peer.SetStateIdle();
 
                 peer = p;
               }
@@ -68,7 +68,7 @@ namespace BTokenLib
 
           if (!Token.TryLock())
           {
-            peer.SetStateIdle("b");
+            peer.SetStateIdle();
             continue;
           }
 
@@ -113,7 +113,7 @@ namespace BTokenLib
     {
       IsStateSynchronizing = false;
       FlagIsSyncingBlocks = false;
-      PeerSynchronizing.SetStateIdle("c");
+      PeerSynchronizing.SetStateIdle();
       PeerSynchronizing.TimeLastSynchronization = DateTime.Now;
       PeerSynchronizing = null;
       Token.ReleaseLock();
@@ -178,7 +178,7 @@ namespace BTokenLib
 
                 Peers
                   .Where(p => p.IsStateBlockSynchronization()).ToList()
-                  .ForEach(p => p.SetStateIdle("d"));
+                  .ForEach(p => p.SetStateIdle());
 
                 while (true)
                 {
@@ -200,7 +200,7 @@ namespace BTokenLib
                   peer.RequestBlock();
                 else
                 {
-                  peer.SetStateIdle("e");
+                  peer.SetStateIdle();
 
                   if (Peers.All(p => !p.IsStateBlockSynchronization()))
                   {
@@ -397,7 +397,7 @@ namespace BTokenLib
           lock (LOCK_Peers)
             Peers
               .Where(p => p.IsStateDBDownload()).ToList()
-              .ForEach(p => p.SetStateIdle("f"));
+              .ForEach(p => p.SetStateIdle());
 
           while (true)
           {
@@ -419,7 +419,7 @@ namespace BTokenLib
             await peer.RequestDB();
           else
           {
-            peer.SetStateIdle("g");
+            peer.SetStateIdle();
 
             if (Peers.All(p => !p.IsStateBlockSynchronization()))
               break;
