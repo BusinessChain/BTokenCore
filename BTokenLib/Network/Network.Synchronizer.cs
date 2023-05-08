@@ -52,9 +52,6 @@ namespace BTokenLib
 
           lock (LOCK_Peers)
           {
-            $"List of peers in Peers:".Log(LogFile);
-            Peers.ForEach(p => $"{p}".Log(LogFile));
-
             foreach (Peer p in Peers)
             {
               if (peerSync == null)
@@ -142,11 +139,7 @@ namespace BTokenLib
           else if (peer.IsStateDBDownload())
             ReturnPeerDBDownloadIncomplete(peer.HashDBDownload);
 
-          $"Remove {peer} from Peers.".Log(LogFile);
           Peers.Remove(peer);
-
-          $"List of peers in Peers:".Log(LogFile);
-          Peers.ForEach(p => $"{p}".Log(LogFile));
         }
     }
 

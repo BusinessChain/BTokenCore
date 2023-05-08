@@ -337,6 +337,7 @@ namespace BTokenLib
           State = StateProtocol.Idle;
         }
       }
+      
       public void SetStateHeaderSynchronization()
       {
         lock (this)
