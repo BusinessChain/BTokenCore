@@ -206,6 +206,26 @@ namespace BTokenLib
 
         return;
       }
+
+      lock (LOCK_IsStateSynchronizing)
+      {
+        if (IsStateSynchronizing || !peer.TrySync())
+          return;
+
+        if (!Token.TryLock())
+        {
+          peer.SetStateIdle();
+          return;
+        }
+
+        EnterStateSynchronization(peer);
+      }
+        
+      ($"Send getheaders upon connecting to peer {peer}\n" +
+        $"locator: {HeaderDownload.Locator.First()} ... {HeaderDownload.Locator.Last()}")
+        .Log(this, LogFile);
+
+      peer.SendGetHeaders(HeaderDownload.Locator);
     }
 
     private async Task StartPeerInboundConnector()
