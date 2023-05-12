@@ -20,10 +20,9 @@ namespace BTokenLib
     public int IndexBlockArchiveInsert;
 
 
-    public BlockArchiver(
-      Token token)
+    public BlockArchiver(string nameToken)
     {
-      PathBlockArchive = Path.Combine(token.GetName(), "blocks");
+      PathBlockArchive = Path.Combine(nameToken, "blocks");
       Directory.CreateDirectory(PathBlockArchive);
     }
 

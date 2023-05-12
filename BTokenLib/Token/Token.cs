@@ -54,7 +54,7 @@ namespace BTokenLib
 
       Blockchain = new Blockchain(this);
 
-      Archiver = new(this);
+      Archiver = new(GetName());
 
       TXPool = new();
 
@@ -154,14 +154,9 @@ namespace BTokenLib
       PathImageForkOld.TryMoveDirectoryTo(PathImageOld);
     }
 
-    public void LoadImage()
+    public void LoadImage(int heightMax = int.MaxValue)
     {
-      LoadImage(int.MaxValue);
-    }
-
-    public void LoadImage(int heightMax)
-    {
-      $"Load image with maximal height {heightMax}.".Log(LogFile);
+      $"Load image{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.".Log(LogFile);
 
       string pathImageLoad = PathImage;
 
@@ -188,6 +183,8 @@ namespace BTokenLib
             continue;
           }
         }
+
+        LoadBlocksArchived(Blockchain.HeaderTip.Height);
 
         return;
       }
