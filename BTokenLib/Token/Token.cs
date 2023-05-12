@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
 using System.IO;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -40,7 +37,7 @@ namespace BTokenLib
 
     string PathRootToken;
 
-    const int INTERVAL_BLOCKHEIGHT_IMAGE = 100;
+    const int INTERVAL_BLOCKHEIGHT_IMAGE = 5;
 
     protected int CountBytesDataTokenBasis = 120;
 
@@ -57,7 +54,7 @@ namespace BTokenLib
 
       Blockchain = new Blockchain(this);
 
-      Archiver = new(this, GetName());
+      Archiver = new(this);
 
       TXPool = new();
 
@@ -95,7 +92,7 @@ namespace BTokenLib
         TokenParent.Start();
 
       LoadImage();
-      Network.Start();
+      //Network.Start();
     }
 
     public virtual HeaderDownload CreateHeaderDownload()
@@ -164,7 +161,7 @@ namespace BTokenLib
 
     public void LoadImage(int heightMax)
     {
-      $"Load image {heightMax}.".Log(LogFile);
+      $"Load image with maximal height {heightMax}.".Log(LogFile);
 
       string pathImageLoad = PathImage;
 
@@ -258,10 +255,10 @@ namespace BTokenLib
         ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
         ORDER_AVERAGEING_FEEPERBYTE;
 
-      // Archiver.ArchiveBlock(block);
+      Archiver.ArchiveBlock(block);
 
-      //if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
-      //  CreateImage();
+      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+        CreateImage();
 
       TokenChilds.ForEach(
         t => t.SignalCompletionBlockInsertion(block.Header));
