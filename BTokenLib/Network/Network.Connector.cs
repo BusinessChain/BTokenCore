@@ -242,6 +242,9 @@ namespace BTokenLib
         IPAddress remoteIP =
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
 
+        if (remoteIP.ToString() != "84.74.69.100")
+          continue;
+
         $"Received inbound request on port {Port} from {remoteIP}.".Log(this, LogFile);
 
         while (true)
