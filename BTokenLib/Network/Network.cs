@@ -140,9 +140,9 @@ namespace BTokenLib
       }
 
       return
-        "\n\n Status Network: \n" +
+        "\n Status Network: \n" +
         statusPeers +
-        $"\n\n Count peers: {countPeers} \n";
+        $"Count peers: {countPeers} \n";
     }
 
     public override string ToString()

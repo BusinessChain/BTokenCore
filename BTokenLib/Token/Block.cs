@@ -16,7 +16,6 @@ namespace BTokenLib
     protected SHA256 SHA256 = SHA256.Create();
 
     public List<TX> TXs = new();
-    protected List<ushort> IDsBToken = new();
 
     public byte[] Buffer;
 
@@ -55,11 +54,11 @@ namespace BTokenLib
       byte[] hashMerkleRoot,
       ref int bufferIndex)
     {
+      TXs.Clear();
+
       int tXCount = VarInt.GetInt32(
         Buffer,
         ref bufferIndex);
-
-      Debug.WriteLine($"Parse {tXCount} tXs.");
 
       if (tXCount == 0)
         throw new ProtocolException($"Block {this} lacks coinbase transaction.");
@@ -103,15 +102,13 @@ namespace BTokenLib
       }
 
       if (!hashMerkleRoot.IsEqual(ComputeMerkleRoot()))
-        throw new ProtocolException(
-          "Payload hash not equal to merkle root.");
+        throw new ProtocolException("Payload hash not equal to merkle root.");
     }
 
     public abstract TX ParseTX(
       bool isCoinbase,
       byte[] buffer,
       ref int indexBuffer);
-
 
     public byte[] ComputeMerkleRoot()
     {

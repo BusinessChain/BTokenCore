@@ -184,7 +184,25 @@ namespace BTokenLib
           }
         }
 
-        LoadBlocksArchived(Blockchain.HeaderTip.Height);
+        Block block = CreateBlock();
+        int heightBlock = Blockchain.HeaderTip.Height + 1;
+
+        while (Archiver.TryLoadBlockArchive(heightBlock++, out byte[] buffer))
+        {
+          block.Buffer = buffer;
+          block.Parse();
+
+          try
+          {
+            block.Header.AppendToHeader(Blockchain.HeaderTip);
+            InsertInDatabase(block);
+            Blockchain.AppendHeader(block.Header);
+          }
+          catch
+          {
+            break;
+          }
+        }
 
         return;
       }

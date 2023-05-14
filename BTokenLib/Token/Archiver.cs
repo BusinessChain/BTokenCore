@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Linq;
 using System.IO;
 using System.Threading;
-using System.Threading.Tasks;
-using System.Diagnostics;
 
 
 namespace BTokenLib
@@ -14,8 +9,6 @@ namespace BTokenLib
   {
     string PathBlockArchive;
     const int COUNT_MAX_BLOCKS_ARCHIVED = 2016;
-
-    FileStream FileBlockArchive;
 
     public int IndexBlockArchiveInsert;
 
@@ -26,36 +19,29 @@ namespace BTokenLib
       Directory.CreateDirectory(PathBlockArchive);
     }
 
-    public byte[] LoadBlockArchive(int index)
+    public bool TryLoadBlockArchive(int blockHeight, out byte[] buffer)
     {
+      buffer = null;
+
       string pathBlockArchive = Path.Combine(
         PathBlockArchive,
-        index.ToString());
+        blockHeight.ToString());
 
       while (true)
       {
         try
         {
-          return File.ReadAllBytes(pathBlockArchive);
+          buffer = File.ReadAllBytes(pathBlockArchive);
+          return true;
         }
         catch (FileNotFoundException ex)
         {
-          throw ex;
+          return false;
         }
         catch (Exception ex)
         {
-          if (
-            FileBlockArchive != null &&
-            FileBlockArchive.Name == pathBlockArchive)
-          {
-            byte[] buffer = new byte[FileBlockArchive.Length];
-            FileBlockArchive.Position = 0;
-            FileBlockArchive.Read(buffer, 0, buffer.Length);
-            return buffer;
-          }
-
-          Console.WriteLine($"{ex.GetType().Name}: {ex.Message}.\n" +
-            $"Retry to load block archive {pathBlockArchive} in 10 seconds.");
+          Console.WriteLine($"{ex.GetType().Name} when attempting to load file {pathBlockArchive}: {ex.Message}.\n" +
+            $"Retry in 10 seconds.");
 
           Thread.Sleep(10000);
         }
@@ -80,7 +66,7 @@ namespace BTokenLib
         catch (Exception ex)
         {
           Console.WriteLine(
-            $"{ex.GetType().Name} when writing to file {FileBlockArchive.Name}:\n" +
+            $"{ex.GetType().Name} when writing block height {block.Header.Height} to file:\n" +
             $"{ex.Message}\n " +
             $"Try again in 10 seconds ...");
 
