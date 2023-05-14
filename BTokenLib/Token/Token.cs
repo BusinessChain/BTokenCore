@@ -92,7 +92,7 @@ namespace BTokenLib
         TokenParent.Start();
 
       LoadImage();
-      //Network.Start();
+      Network.Start();
     }
 
     public virtual HeaderDownload CreateHeaderDownload()
@@ -280,7 +280,20 @@ namespace BTokenLib
     }
 
     public virtual Block GetBlock(byte[] hash)
-    { throw new NotImplementedException(); }
+    {
+      if(Blockchain.TryGetHeader(hash, out Header header))
+        if (Archiver.TryLoadBlockArchive(header.Height, out byte[] buffer))
+        {
+          Block block = CreateBlock();
+
+          block.Buffer = buffer;
+          block.Parse();
+
+          return block;
+        }
+
+      return null;
+    }
 
     public virtual void InsertDB(
       byte[] bufferDB,
@@ -300,7 +313,6 @@ namespace BTokenLib
 
     public virtual void SignalCompletionBlockInsertion(Header header)
     { throw new NotImplementedException(); }
-
 
     public virtual void RevokeBlockInsertion()
     { throw new NotImplementedException(); }

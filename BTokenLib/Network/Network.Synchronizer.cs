@@ -79,7 +79,7 @@ namespace BTokenLib
           EnterStateSynchronization(peerSync);
         }
 
-        ($"Send getheaders initiated by snychronizer loop to peer {peerSync}\n" +
+        ($"Send getheaders initiated by synchronizer loop to peer {peerSync}\n" +
           $"locator: {HeaderDownload.Locator.First()} ... {HeaderDownload.Locator.Last()}")
           .Log(this, LogFile);
 

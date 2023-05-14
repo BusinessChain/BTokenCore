@@ -191,7 +191,7 @@ namespace BTokenLib
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
         byte[] command = Encoding.ASCII.GetBytes(
-        message.Command.PadRight(CommandSize, '\0'));
+          message.Command.PadRight(CommandSize, '\0'));
         NetworkStream.Write(command, 0, command.Length);
 
         byte[] payloadLength = BitConverter.GetBytes(message.LengthDataPayload);

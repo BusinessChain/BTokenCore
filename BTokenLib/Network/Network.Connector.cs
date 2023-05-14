@@ -313,7 +313,7 @@ namespace BTokenLib
 
           Peers.Add(peer);
 
-          $"Crated inbound connection {peer}.".Log(this, LogFile);
+          $"Created inbound connection {peer}.".Log(this, LogFile);
         }
 
         try

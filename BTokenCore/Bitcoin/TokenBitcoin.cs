@@ -247,11 +247,6 @@ namespace BTokenCore
       }
     }
 
-    public override Block GetBlock(byte[] hash)
-    {
-      return BlocksMined.Find(b => b.Header.Hash.IsEqual(hash));
-    }
-
     public override Header ParseHeader(
         byte[] buffer,
         ref int index)
