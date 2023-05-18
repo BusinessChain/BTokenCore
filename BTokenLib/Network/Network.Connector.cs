@@ -207,6 +207,8 @@ namespace BTokenLib
         return;
       }
 
+      return;
+
       lock (LOCK_IsStateSynchronizing)
       {
         if (IsStateSynchronizing || !peer.TrySync())
@@ -221,10 +223,6 @@ namespace BTokenLib
         EnterStateSynchronization(peer);
       }
         
-      ($"Send getheaders upon connecting to peer {peer}\n" +
-        $"locator: {HeaderDownload.Locator.First()} ... {HeaderDownload.Locator.Last()}")
-        .Log(this, LogFile);
-
       peer.SendGetHeaders(HeaderDownload.Locator);
     }
 

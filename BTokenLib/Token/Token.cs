@@ -187,7 +187,9 @@ namespace BTokenLib
         Block block = CreateBlock();
         int heightBlock = Blockchain.HeaderTip.Height + 1;
 
-        while (Archiver.TryLoadBlockArchive(heightBlock++, out byte[] buffer))
+        while (
+          heightBlock <= heightMax &&
+          Archiver.TryLoadBlockArchive(heightBlock, out byte[] buffer))
         {
           block.Buffer = buffer;
           block.Parse();
@@ -202,6 +204,8 @@ namespace BTokenLib
           {
             break;
           }
+
+          heightBlock += 1;
         }
 
         return;

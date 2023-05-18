@@ -107,16 +107,28 @@ namespace BTokenLib
 
               $"{this}: Receiving {countHeaders} headers.".Log(LogFile);
 
-              if (!Network.TryEnterStateSynchronization(this))
-                continue;
+              bool flagOrphanAllowed = false;
+
+              if (!IsStateHeaderSynchronization())
+              {
+                if (countHeaders == 0)
+                  throw new ProtocolException($"Peer sent unsolicited empty header message.");
+
+                if (!Network.TryEnterStateSynchronization(this))
+                  continue;
+
+                flagOrphanAllowed = true;
+              }
 
               if (countHeaders > 0)
               {
                 Console.Beep(1200, 100);
 
                 Header header = null;
+                List<Header> locator = null;
 
-                for (int i = 0; i < countHeaders; i += 1)
+                int i = 0;
+                while (i < countHeaders)
                 {
                   header = Token.ParseHeader(
                     Payload,
@@ -124,18 +136,30 @@ namespace BTokenLib
 
                   byteIndex += 1;
 
-                  Network.InsertHeader(header);
+                  try
+                  {
+                    Network.HeaderDownload.InsertHeader(header);
+                  }
+                  catch(ProtocolException ex)
+                  {
+                    if(Network.HeaderDownload.FlagHeaderOrphan && flagOrphanAllowed)
+                      locator = Network.HeaderDownload.Locator;
+                    else
+                      throw ex;
+
+                    break;
+                  }
+
+                  i += 1;
+
+                  if (i == countHeaders)
+                    locator = new List<Header> { header };
                 }
 
-                $"Send getheaders to peer {this} locator: {header}.".Log(this, LogFile);
-
-                await SendGetHeaders(new List<Header> { header });
+                await SendGetHeaders(locator);
               }
               else
               {
-                if (State != StateProtocol.HeaderSynchronization)
-                  throw new ProtocolException($"Peer sent unsolicited empty header message.");
-
                 ResetTimer();
 
                 if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))

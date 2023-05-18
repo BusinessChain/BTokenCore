@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Diagnostics;
 
 namespace BTokenLib
 {
@@ -14,6 +11,8 @@ namespace BTokenLib
     public Header HeaderTip;
     public Header HeaderRoot;
     public Header HeaderAncestor;
+
+    public bool FlagHeaderOrphan;
 
 
     public HeaderDownload(List<Header> locator)
@@ -31,8 +30,10 @@ namespace BTokenLib
             h => h.Hash.IsEqual(header.HashPrevious));
 
           if (HeaderAncestor == null)
-            throw new ProtocolException(
-              "Header does not connect to locator.");
+          {
+            FlagHeaderOrphan = true;
+            throw new ProtocolException("Received orphan header.");
+          }
         }
 
         if (HeaderAncestor.HeaderNext != null &&

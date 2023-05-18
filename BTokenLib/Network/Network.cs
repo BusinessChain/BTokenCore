@@ -74,7 +74,7 @@ namespace BTokenLib
 
       StartPeerConnector();
 
-      StartSynchronizerLoop();
+      // StartSynchronizerLoop();
 
       if (EnableInboundConnections)
         StartPeerInboundConnector();

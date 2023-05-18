@@ -9,7 +9,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    const int TIME_LOOP_SYNCHRONIZER_SECONDS = 60;
+    const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
 
     readonly object LOCK_IsStateSynchronizing = new();
     bool IsStateSynchronizing;
@@ -79,10 +79,6 @@ namespace BTokenLib
           EnterStateSynchronization(peerSync);
         }
 
-        ($"Send getheaders initiated by synchronizer loop to peer {peerSync}\n" +
-          $"locator: {HeaderDownload.Locator.First()} ... {HeaderDownload.Locator.Last()}")
-          .Log(this, LogFile);
-
         peerSync.SendGetHeaders(HeaderDownload.Locator);
       }
     }
@@ -92,12 +88,7 @@ namespace BTokenLib
       lock (LOCK_IsStateSynchronizing)
       {
         if (IsStateSynchronizing)
-        {
-          if (PeerSynchronizing == peer)
-            $"Remain in state synchronization of with peer {peer}.".Log(this, LogFile);
-
-          return PeerSynchronizing == peer;
-        }
+          return false;
 
         if (!Token.TryLock())
           return false;
@@ -141,13 +132,6 @@ namespace BTokenLib
 
           Peers.Remove(peer);
         }
-    }
-
-    void InsertHeader(Header header)
-    {
-      $"Insert {header} in headerDownload.".Log(LogFile);
-
-      HeaderDownload.InsertHeader(header);
     }
 
     async Task SyncBlocks()

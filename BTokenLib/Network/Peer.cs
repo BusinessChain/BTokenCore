@@ -216,6 +216,10 @@ namespace BTokenLib
       {
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
+        ($"Send getheaders to peer {this}\n" +
+          $"locator: {locator.First()} ... {locator.Last()}")
+          .Log(this, LogFile);
+
         await SendMessage(new GetHeadersMessage(
           locator,
           ProtocolVersion));
@@ -345,6 +349,12 @@ namespace BTokenLib
           TimeLastStateTransition = DateTime.Now;
           State = StateProtocol.HeaderSynchronization;
         }
+      }
+
+      public bool IsStateHeaderSynchronization()
+      {
+        lock (this)
+          return State == StateProtocol.HeaderSynchronization;
       }
 
       bool TrySetStateInboundRequest()
