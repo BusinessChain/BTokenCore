@@ -144,8 +144,7 @@ namespace BTokenLib
       try
       {
         if (HeaderDownload.HeaderTip != null)
-          if (HeaderDownload.HeaderTip.DifficultyAccumulated >
-              Blockchain.HeaderTip.DifficultyAccumulated)
+          if (HeaderDownload.HeaderTip.DifficultyAccumulated > Blockchain.HeaderTip.DifficultyAccumulated)
           {
             if (HeaderDownload.HeaderAncestor != Blockchain.HeaderTip)
             {
@@ -213,9 +212,8 @@ namespace BTokenLib
               await Task.Delay(1000).ConfigureAwait(false);
             }
           }
-          else
-            PeerSynchronizing.SendHeaders(
-              new List<Header>() { Blockchain.HeaderTip });
+          else if(HeaderDownload.HeaderTip.DifficultyAccumulated < Blockchain.HeaderTip.DifficultyAccumulated)
+            PeerSynchronizing.SendHeaders(new List<Header>() { Blockchain.HeaderTip });
 
         $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed."
           .Log(LogFile);

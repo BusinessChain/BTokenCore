@@ -207,8 +207,6 @@ namespace BTokenLib
         return;
       }
 
-      return;
-
       lock (LOCK_IsStateSynchronizing)
       {
         if (IsStateSynchronizing || !peer.TrySync())

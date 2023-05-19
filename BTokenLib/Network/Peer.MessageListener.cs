@@ -143,7 +143,10 @@ namespace BTokenLib
                   catch(ProtocolException ex)
                   {
                     if(Network.HeaderDownload.FlagHeaderOrphan && flagOrphanAllowed)
+                    {
+                      $"Received orphan header {header}".Log(LogFile);
                       locator = Network.HeaderDownload.Locator;
+                    }
                     else
                       throw ex;
 
@@ -173,7 +176,16 @@ namespace BTokenLib
             }
             else if (Command == "getheaders")
             {
-              $"Receive getheaders...".Log(this, LogFile);
+              await ReadBytes(Payload, LengthDataPayload);
+
+              byte[] hashHeaderAncestor = new byte[32];
+
+              int startIndex = 4;
+
+              int headersCount = VarInt.GetInt32(Payload, ref startIndex);
+
+              $"Received getHeaders with {headersCount} locator hashes..."
+                .Log(this, LogFile);
 
               if (!Token.TryLock())
               {
@@ -187,17 +199,6 @@ namespace BTokenLib
                 Token.ReleaseLock();
                 continue;
               }
-
-              await ReadBytes(Payload, LengthDataPayload);
-
-              byte[] hashHeaderAncestor = new byte[32];
-
-              int startIndex = 4;
-
-              int headersCount = VarInt.GetInt32(Payload, ref startIndex);
-
-              $"Received getHeaders with {headersCount} locator hashes."
-                .Log(this, LogFile);
 
               int i = 0;
               List<Header> headers = new();
