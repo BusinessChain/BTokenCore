@@ -39,7 +39,7 @@ namespace BTokenCore
         switch (inputCommand)
         {
           case "status":
-            Console.WriteLine(BToken.GetStatus());
+            Console.WriteLine(BToken.TokenParent.GetStatus());
             break;
 
           case "startBTokenMiner":

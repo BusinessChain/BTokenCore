@@ -108,9 +108,9 @@ namespace BTokenLib
         messageStatus += TokenParent.GetStatus();
 
       messageStatus +=
-        $"\n\nStatus {GetName()}:\n" +
+        $"\n{GetName()}:\n" +
         $"{Blockchain.GetStatus()}" +
-        $"{Network.GetStatus()}";
+        $"\n{Wallet.GetStatus()}";
 
       return messageStatus;
     }
