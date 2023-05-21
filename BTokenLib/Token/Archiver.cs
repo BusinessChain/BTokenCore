@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 
@@ -55,7 +56,7 @@ namespace BTokenLib
         {
           File.WriteAllBytes(
             Path.Combine(PathBlockArchive, block.Header.Height.ToString()),
-            block.Buffer);
+            block.Buffer.Take(block.Header.CountBytesBlock).ToArray());
 
           File.Delete(Path.Combine(
             PathBlockArchive,

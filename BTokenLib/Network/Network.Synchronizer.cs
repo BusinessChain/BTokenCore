@@ -27,7 +27,6 @@ namespace BTokenLib
 
     bool FlagSyncDBAbort;
     List<byte[]> HashesDB;
-    bool FlagIsSyncingBlocks;
 
     object LOCK_ChargeHeader = new();
     ConcurrentBag<Block> PoolBlocks = new();
@@ -43,7 +42,8 @@ namespace BTokenLib
       {
         Peer peerSync = null;
 
-        await Task.Delay(TIME_LOOP_SYNCHRONIZER_SECONDS * 1000).ConfigureAwait(false);
+        await Task.Delay(TIME_LOOP_SYNCHRONIZER_SECONDS * 1000)
+          .ConfigureAwait(false);
 
         lock (LOCK_IsStateSynchronizing)
         {
@@ -53,7 +53,6 @@ namespace BTokenLib
           lock (LOCK_Peers)
           {
             foreach (Peer p in Peers)
-            {
               if (peerSync == null)
               {
                 if (p.TrySync())
@@ -64,7 +63,6 @@ namespace BTokenLib
                 peerSync.SetStateIdle();
                 peerSync = p;
               }
-            }
 
             if (peerSync == null)
               continue;
@@ -112,7 +110,6 @@ namespace BTokenLib
     void ExitSynchronization()
     {
       IsStateSynchronizing = false;
-      FlagIsSyncingBlocks = false;
       PeerSynchronizing.SetStateIdle();
       PeerSynchronizing.TimeLastSynchronization = DateTime.Now;
       PeerSynchronizing = null;
@@ -136,9 +133,6 @@ namespace BTokenLib
 
     async Task SyncBlocks()
     {
-      lock (LOCK_IsStateSynchronizing)
-        FlagIsSyncingBlocks = true;
-
       double difficultyOld = Blockchain.HeaderTip.Difficulty;
 
       try
@@ -215,8 +209,7 @@ namespace BTokenLib
           else if(HeaderDownload.HeaderTip.DifficultyAccumulated < Blockchain.HeaderTip.DifficultyAccumulated)
             PeerSynchronizing.SendHeaders(new List<Header>() { Blockchain.HeaderTip });
 
-        $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed."
-          .Log(LogFile);
+        $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.".Log(LogFile);
       }
       catch (Exception ex)
       {
