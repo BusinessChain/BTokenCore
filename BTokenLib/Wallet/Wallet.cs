@@ -38,9 +38,9 @@ namespace BTokenLib
 
       PublicKeyHash160 = ComputeHash160Pubkey(PublicKey);
 
-      PublicScript = 
-        PREFIX_P2PKH.Concat(PublicKeyHash160).Concat(POSTFIX_P2PKH)
-        .ToArray();
+      PublicScript = PREFIX_P2PKH
+        .Concat(PublicKeyHash160)
+        .Concat(POSTFIX_P2PKH).ToArray();
     }
 
     public byte[] ComputeHash160Pubkey(byte[] publicKey)
@@ -53,7 +53,6 @@ namespace BTokenLib
 
       return publicKeyHash160;
     }
-
 
     public void DetectTXOutputSpendable(TX tX, TXOutput tXOutput)
     {
@@ -194,6 +193,11 @@ namespace BTokenLib
       }
 
       return outputsSpendable;
+    }
+
+    public void Clear()
+    {
+      OutputsValueDesc.Clear();
     }
 
     public void LoadImage(string pathImage)

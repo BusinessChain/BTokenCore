@@ -244,6 +244,7 @@ namespace BTokenLib
     public virtual void Reset()
     {
       Blockchain.InitializeHeaderchain();
+      Wallet.Clear();
     }
 
     public abstract Block CreateBlock();
