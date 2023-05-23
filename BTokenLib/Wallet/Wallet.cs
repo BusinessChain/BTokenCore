@@ -29,7 +29,7 @@ namespace BTokenLib
     List<TXOutputWallet> OutputsValueDesc = new();
 
 
-
+    //34028158965394806167608680607240385428045384897727389686353149816093835242965
     public Wallet()
     {
       PrivKeyDec = File.ReadAllText("Wallet/wallet");
