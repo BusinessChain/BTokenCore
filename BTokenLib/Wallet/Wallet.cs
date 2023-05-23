@@ -29,10 +29,14 @@ namespace BTokenLib
     List<TXOutputWallet> OutputsValueDesc = new();
 
 
-    //34028158965394806167608680607240385428045384897727389686353149816093835242965
-    public Wallet()
+    // Bitcoin Remote: 34028158965394806167608680607240385428045384897727389686353149816093835242965
+    // Bitcoin Local: 102987336249554097029535212322581322789799900648198034993379397001115665086549
+    // BToken Remote: 96776395506679815102655158894022185541899331171646085194829941027009356470640
+    // BToken Local: 88359675621603939173265797657441078721738107517771649508403671881714167221003
+
+    public Wallet(string privKeyDec)
     {
-      PrivKeyDec = File.ReadAllText("Wallet/wallet");
+      PrivKeyDec = privKeyDec;
 
       PublicKey = Crypto.GetPubKeyFromPrivKey(PrivKeyDec);
 
@@ -41,7 +45,6 @@ namespace BTokenLib
       PublicScript = PREFIX_P2PKH
         .Concat(PublicKeyHash160)
         .Concat(POSTFIX_P2PKH).ToArray();
-
     }
 
     public byte[] ComputeHash160Pubkey(byte[] publicKey)

@@ -61,7 +61,8 @@ namespace BTokenLib
       Port = port;
       Network = new(this, flagEnableInboundConnections);
 
-      Wallet = new();
+      Wallet = new(File.ReadAllText(
+        Path.Combine(GetName(), "Wallet/wallet")));
 
       PathImage = Path.Combine(
         PathRootToken,
