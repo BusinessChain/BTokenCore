@@ -41,6 +41,7 @@ namespace BTokenLib
       PublicScript = PREFIX_P2PKH
         .Concat(PublicKeyHash160)
         .Concat(POSTFIX_P2PKH).ToArray();
+
     }
 
     public byte[] ComputeHash160Pubkey(byte[] publicKey)
