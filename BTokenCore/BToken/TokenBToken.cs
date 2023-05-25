@@ -167,6 +167,8 @@ namespace BTokenCore
 
         await Task.Delay(timeMSLoop).ConfigureAwait(false);
       }
+
+      $"Exit BToken miner.".Log(LogFile);
     }
 
     int NumberSequence;
