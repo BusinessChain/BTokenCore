@@ -66,9 +66,13 @@ namespace BTokenCore
 
     public void CreateImage(string path)
     {
+      string pathDirectoryCache = Path.Combine(path, "cache");
+
+      Directory.CreateDirectory(pathDirectoryCache);
+
       for (int i = 0; i < COUNT_CACHES; i += 1)
         Caches[i].CreateImage(
-          Path.Combine(path, "cache", i.ToString()));
+          Path.Combine(pathDirectoryCache, i.ToString()));
     }
 
     public void ClearCache()

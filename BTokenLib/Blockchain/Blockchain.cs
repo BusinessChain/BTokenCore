@@ -42,7 +42,7 @@ namespace BTokenLib
         DateTimeOffset.UtcNow.ToUnixTimeSeconds() - HeaderTip.UnixTimeSeconds);
 
       return 
-        "\n Status Blockchain:\n" +
+        "Status Blockchain:\n" +
         $"Height: {HeaderTip.Height}\n" +
         $"Block tip: {HeaderTip}\n" +
         $"Difficulty Tip: {HeaderTip.Difficulty}\n" +

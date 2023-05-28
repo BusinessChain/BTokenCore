@@ -37,7 +37,7 @@ namespace BTokenLib
 
     string PathRootToken;
 
-    const int INTERVAL_BLOCKHEIGHT_IMAGE = 5;
+    const int INTERVAL_BLOCKHEIGHT_IMAGE = 2;
 
     protected int CountBytesDataTokenBasis = 120;
 
@@ -92,6 +92,8 @@ namespace BTokenLib
         TokenParent.Start();
 
       LoadImage();
+
+      $"Start Network {GetName()}".Log(this, LogFile);
       Network.Start();
     }
 
@@ -108,7 +110,7 @@ namespace BTokenLib
         messageStatus += TokenParent.GetStatus();
 
       messageStatus +=
-        $"\n{GetName()}:\n" +
+        $"\n\t\t\t\t{GetName()}:\n" +
         $"{Blockchain.GetStatus()}" +
         $"\n{Wallet.GetStatus()}";
 
@@ -248,6 +250,45 @@ namespace BTokenLib
     }
 
     public abstract Block CreateBlock();
+
+
+    protected TX CreateCoinbaseTX(Block block, long blockReward)
+    {
+      List<byte> tXRaw = new();
+
+      tXRaw.AddRange(new byte[4] { 0x01, 0x00, 0x00, 0x00 }); // version
+
+      tXRaw.Add(0x01); // #TxIn
+
+      tXRaw.AddRange(new byte[32]); // TxOutHash
+
+      tXRaw.AddRange("FFFFFFFF".ToBinary()); // TxOutIndex
+
+      List<byte> blockHeight = VarInt.GetBytes(block.Header.Height); // Script coinbase
+      tXRaw.Add((byte)blockHeight.Count);
+      tXRaw.AddRange(blockHeight);
+
+      tXRaw.AddRange("FFFFFFFF".ToBinary()); // sequence
+
+      tXRaw.Add(0x01); // #TxOut
+
+      tXRaw.AddRange(BitConverter.GetBytes(blockReward));
+
+      tXRaw.AddRange(Wallet.GetReceptionScript());
+
+      tXRaw.AddRange(new byte[4]);
+
+      int indexTXRaw = 0;
+
+      TX tX = block.ParseTX(
+        true,
+        tXRaw.ToArray(),
+        ref indexTXRaw);
+
+      tX.TXRaw = tXRaw;
+
+      return tX;
+    }
 
     protected bool IsMining;
 

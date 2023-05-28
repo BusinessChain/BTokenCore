@@ -11,8 +11,6 @@ namespace BTokenCore
 {
   class BlockBitcoin : Block
   {
-    public const int COUNT_HEADER_BYTES = 80;
-
     const long VALUE_REWARD_INITIAL_SATOSHI = 5000000000;
     const int NUMBER_OF_BLOCKS_HALFING_CYCLE = 210000;
 
@@ -33,7 +31,7 @@ namespace BTokenCore
           SHA256.ComputeHash(
             buffer,
             index,
-            COUNT_HEADER_BYTES));
+            HeaderBitcoin.COUNT_HEADER_BYTES));
 
       uint version = BitConverter.ToUInt32(buffer, index);
       index += 4;
@@ -75,65 +73,6 @@ namespace BTokenCore
         unixTimeSeconds,
         nBits,
         nonce);
-    }
-
-    public override TX ParseTX(
-      bool isCoinbase,
-      byte[] buffer,
-      ref int indexBuffer)
-    {
-      TXBitcoin tX = new();
-
-      try
-      {
-        int tXStartIndex = indexBuffer;
-
-        indexBuffer += 4; // Version
-
-        if (buffer[indexBuffer] == 0x00)
-          throw new NotImplementedException(
-            "Parsing of segwit txs not implemented");
-
-        int countInputs = VarInt.GetInt32(
-          buffer, 
-          ref indexBuffer);
-
-        if (isCoinbase)
-          new TXInput(buffer, ref indexBuffer);
-        else
-          for (int i = 0; i < countInputs; i += 1)
-            tX.TXInputs.Add(
-              new TXInput(
-                buffer,
-                ref indexBuffer));
-
-        int countTXOutputs = VarInt.GetInt32(
-          buffer,
-          ref indexBuffer);
-
-        for (int i = 0; i < countTXOutputs; i += 1)
-          tX.TXOutputs.Add(
-            new TXOutput(
-              buffer,
-              ref indexBuffer));
-
-        indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
-
-        tX.Hash = SHA256.ComputeHash(
-         SHA256.ComputeHash(
-           buffer,
-           tXStartIndex,
-           indexBuffer - tXStartIndex));
-
-        tX.TXIDShort = BitConverter.ToInt32(tX.Hash, 0);
-
-        return tX;
-      }
-      catch (ArgumentOutOfRangeException)
-      {
-        throw new ProtocolException(
-          "ArgumentOutOfRangeException thrown in ParseTX.");
-      }
     }
   }
 }

@@ -65,14 +65,11 @@ namespace BTokenLib
 
       foreach (FileInfo file in DirectoryPeersActive.GetFiles())
         file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
-
     }
 
     public void Start()
     {
-      $"Start Network {Token.GetName()}".Log(this, LogFile);
-
-      StartPeerConnector();
+      //StartPeerConnector();
 
       StartSynchronizerLoop();
 

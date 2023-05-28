@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
@@ -18,6 +17,7 @@ namespace BTokenCore
 
     const int SIZE_BUFFER_BLOCK = 0x400000;
 
+    // work with config files instead.
     const UInt16 COMPORT_BITCOIN = 8333;
 
     const int COUNT_TXS_PER_BLOCK_MAX = 10;
@@ -55,13 +55,14 @@ namespace BTokenCore
 
       while (true)
       {
-        ComputePoW(out BlockBitcoin block, sHA256, indexThread);
+        BlockBitcoin block = ComputePoW(sHA256, indexThread);
 
         if (!IsMining)
           return;
 
         block.Buffer = block.Header.Buffer.Concat(
           VarInt.GetBytes(block.TXs.Count)).ToArray();
+
         block.TXs.ForEach(t => { block.Buffer = block.Buffer.Concat(t.TXRaw).ToArray(); });
 
         block.Header.CountBytesBlock = block.Buffer.Length;
@@ -97,8 +98,7 @@ namespace BTokenCore
       }
     }
 
-    void ComputePoW(
-      out BlockBitcoin block,
+    BlockBitcoin ComputePoW(
       SHA256 sHA256,
       int indexThread)
     {
@@ -106,7 +106,7 @@ namespace BTokenCore
 
       long seed = indexThread * uint.MaxValue / NumberOfProcesses;
 
-      block = new();
+      BlockBitcoin block = new();
       block.Header = new HeaderBitcoin()
       {
         Version = 0x01,
@@ -116,7 +116,12 @@ namespace BTokenCore
         Nonce = (uint)seed
       };
 
-      block.TXs.Add(CreateCoinbaseTX(block));
+      long blockReward = BLOCK_REWARD_INITIAL >>
+        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
+
+      TX tXCoinbase = CreateCoinbaseTX(block, blockReward);
+
+      block.TXs.Add(tXCoinbase);
       block.TXs.AddRange(
         TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
@@ -126,64 +131,19 @@ namespace BTokenCore
 
       header.AppendToHeader(Blockchain.HeaderTip, sHA256);
 
-      byte[] target = new byte[32] {
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00};
-
       while (header.Hash.IsGreaterThan(header.NBits))
-      { //while (header.Hash.IsGreaterThan(target))
+      {
         if (Blockchain.HeaderTip.Height >= block.Header.Height
           || TXPool.GetCountTXs() != countTXsPool)
           goto LABEL_StartPoW;
 
         if (!IsMining)
-          return;
+          break;
 
         header.IncrementNonce(seed, sHA256);
       }
-    }
 
-    TX CreateCoinbaseTX(Block block)
-    {
-      List<byte> tXRaw = new();
-
-      tXRaw.AddRange(new byte[4] { 0x01, 0x00, 0x00, 0x00 }); // version
-
-      tXRaw.Add(0x01); // #TxIn
-
-      tXRaw.AddRange(new byte[32]); // TxOutHash
-
-      tXRaw.AddRange("FFFFFFFF".ToBinary()); // TxOutIndex
-
-      List<byte> blockHeight = VarInt.GetBytes(block.Header.Height); // Script coinbase
-      tXRaw.Add((byte)blockHeight.Count);
-      tXRaw.AddRange(blockHeight);
-
-      tXRaw.AddRange("FFFFFFFF".ToBinary()); // sequence
-
-      tXRaw.Add(0x01); // #TxOut
-
-      long blockReward = BLOCK_REWARD_INITIAL >>
-        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
-
-      tXRaw.AddRange(BitConverter.GetBytes(blockReward));
-
-      tXRaw.AddRange(Wallet.GetReceptionScript());
-
-      tXRaw.AddRange(new byte[4]);
-
-      int indexTXRaw = 0;
-
-      TX tX = block.ParseTX(
-        true,
-        tXRaw.ToArray(),
-        ref indexTXRaw);
-
-      tX.TXRaw = tXRaw;
-
-      return tX;
+      return block;
     }
 
     public override Block CreateBlock()

@@ -159,8 +159,6 @@ namespace BTokenCore
             // timeMSCreateNextAnchorToken / 2,
             // timeMSCreateNextAnchorToken * 3 / 2);
           }
-          else
-            IsMining = false;
 
           ReleaseLock();
         }
@@ -210,15 +208,24 @@ namespace BTokenCore
 
       BlockBToken block = new();
 
+      long blockReward = BLOCK_REWARD_INITIAL >>
+        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
+
+      TX tXCoinbase = CreateCoinbaseTX(block, blockReward);
+
+      block.TXs.Add(tXCoinbase);
+
+      block.Header.MerkleRoot = block.ComputeMerkleRoot();
+
       block.Header.AppendToHeader(
         Blockchain.HeaderTip,
         SHA256Miner);
 
-      // LoadTXs(block);
+      block.Buffer = block.Header.Buffer.Concat(
+        VarInt.GetBytes(block.TXs.Count)).ToArray();
 
-      block.Buffer = block.Header.Buffer
-        .Concat(VarInt.GetBytes(block.TXs.Count)).ToArray();
-      block.TXs.ForEach(t => block.Buffer.Concat(t.TXRaw));
+      block.TXs.ForEach(t => { block.Buffer = block.Buffer.Concat(t.TXRaw).ToArray(); });
+
       block.Header.CountBytesBlock = block.Buffer.Length;
 
       tokenAnchor.HashBlockReferenced = block.Header.Hash;
@@ -414,8 +421,6 @@ namespace BTokenCore
     {
       $"Insert BToken block {block} in database.".Log(LogFile);
 
-      return;
-
       DatabaseAccounts.InsertBlock((BlockBToken)block);
 
       long outputValueTXCoinbase = 0;
@@ -445,51 +450,6 @@ namespace BTokenCore
     public override void RevokeBlockInsertion()
     {
       TokensAnchorDetectedInBlock.Clear();
-    }
-
-    void LoadTXs(Block block)
-    {
-      List<byte> tXRaw = new();
-
-      tXRaw.Add(0x01); // #TxIn
-
-      tXRaw.AddRange(new byte[32]); // TxOutHash
-
-      tXRaw.AddRange("FFFFFFFF".ToBinary()); // TxOutIndex
-
-      List<byte> blockHeight = VarInt.GetBytes(block.Header.Height); // Script coinbase
-      tXRaw.Add((byte)blockHeight.Count);
-      tXRaw.AddRange(blockHeight);
-
-      tXRaw.AddRange("FFFFFFFF".ToBinary()); // sequence
-
-      tXRaw.Add(0x01); // #TxOut
-
-      long blockReward = BLOCK_REWARD_INITIAL >>
-        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
-
-      tXRaw.AddRange(BitConverter.GetBytes(blockReward));
-
-      tXRaw.AddRange(Wallet.GetReceptionScript());
-
-      tXRaw.AddRange(new byte[4]);
-
-      int indexTXRaw = 0;
-
-      TX tX = block.ParseTX(
-        true,
-        tXRaw.ToArray(),
-        ref indexTXRaw);
-
-      tX.TXRaw = tXRaw;
-
-      block.TXs.Add(tX);
-      block.TXs.AddRange(TXPool.GetTXs(out int countTXs, COUNT_TXS_PER_BLOCK_MAX));
-
-      if (block.TXs.Any(t => t == null))
-        $"TXsGet contains TXs that are null.".Log(LogFile);
-
-      block.Header.MerkleRoot = block.ComputeMerkleRoot();
     }
 
     public override List<byte[]> ParseHashesDB(
