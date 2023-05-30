@@ -41,6 +41,7 @@ namespace BTokenCore
         unixTimeSeconds,
         nonce)
     {
+      Buffer = new byte[COUNT_HEADER_BYTES];
       Difficulty = 1;
     }
 
