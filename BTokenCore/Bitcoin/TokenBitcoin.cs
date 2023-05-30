@@ -104,43 +104,53 @@ namespace BTokenCore
     {
     LABEL_StartPoW:
 
-      long seed = indexThread * uint.MaxValue / NumberOfProcesses;
+      uint seed = (uint)(indexThread * uint.MaxValue / NumberOfProcesses);
 
       BlockBitcoin block = new();
-      block.Header = new HeaderBitcoin()
-      {
-        Version = 0x01,
-        HashPrevious = Blockchain.HeaderTip.Hash,
-        Height = Blockchain.HeaderTip.Height + 1,
-        UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
-        Nonce = (uint)seed
-      };
+
+      int height = Blockchain.HeaderTip.Height + 1;
 
       long blockReward = BLOCK_REWARD_INITIAL >>
-        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
+        height / PERIOD_HALVENING_BLOCK_REWARD;
 
-      TX tXCoinbase = CreateCoinbaseTX(block, blockReward);
+      TX tXCoinbase = CreateCoinbaseTX(block, height, blockReward);
 
       block.TXs.Add(tXCoinbase);
       block.TXs.AddRange(
         TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
-      block.Header.MerkleRoot = block.ComputeMerkleRoot();
+      uint nBits = HeaderBitcoin.GetNextTarget((HeaderBitcoin)Blockchain.HeaderTip);
+      double difficulty = HeaderBitcoin.ComputeDifficultyFromNBits(nBits);
 
-      HeaderBitcoin header = (HeaderBitcoin)block.Header;
+      HeaderBitcoin header = new()
+      {
+        Version = 0x01,
+        HashPrevious = Blockchain.HeaderTip.Hash,
+        HeaderPrevious = Blockchain.HeaderTip,
+        Height = height,
+        UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
+        Nonce = seed,
+        NBits = nBits,
+        Difficulty = difficulty,
+        DifficultyAccumulated = Blockchain.HeaderTip.DifficultyAccumulated + difficulty,
+        MerkleRoot = block.ComputeMerkleRoot()
+      };
 
-      header.AppendToHeader(Blockchain.HeaderTip, sHA256);
+      block.Header = header;
+
+      header.ComputeHash(sHA256);
 
       while (header.Hash.IsGreaterThan(header.NBits))
       {
-        if (Blockchain.HeaderTip.Height >= block.Header.Height
+        if (Blockchain.HeaderTip.Height >= height
           || TXPool.GetCountTXs() != countTXsPool)
           goto LABEL_StartPoW;
 
         if (!IsMining)
           break;
 
-        header.IncrementNonce(seed, sHA256);
+        header.IncrementNonce(seed);
+        header.ComputeHash(sHA256);
       }
 
       return block;

@@ -48,37 +48,18 @@ namespace BTokenCore
       Version = version;
       NBits = nBits;
 
-      ComputeDifficultyFromNBits();
+      Difficulty = ComputeDifficultyFromNBits(nBits);
     }
 
-    void ComputeDifficultyFromNBits()
+    public static double ComputeDifficultyFromNBits(uint nBits)
     {
-      Difficulty = MAX_TARGET /
-        (double)UInt256.ParseFromCompact(NBits);
-    }
-
-    public override void AppendToHeader(
-      Header headerTip,
-      SHA256 sHA256)
-    {
-      var headerBitcoinTip = (HeaderBitcoin)headerTip;
-
-      Version = headerBitcoinTip.Version;
-
-      NBits = GetNextTarget(headerBitcoinTip);
-      ComputeDifficultyFromNBits();
-
-      base.AppendToHeader(
-        headerTip,
-        sHA256);
+      return MAX_TARGET /
+        (double)UInt256.ParseFromCompact(nBits);
     }
 
     public override void AppendToHeader(Header headerPrevious)
     {
       base.AppendToHeader(headerPrevious);
-
-      if (headerPrevious.ToString() == "000000000000000000050c04aa3e3ca62420b6366e20ebea29ed3042320d2e4b".ToUpper())
-      { }
 
       uint medianTimePastSeconds = GetMedianTimePastSeconds(HeaderPrevious);
 
@@ -120,7 +101,7 @@ namespace BTokenCore
       return timestampsPast[timestampsPast.Count / 2];
     }
 
-    static uint GetNextTarget(HeaderBitcoin header)
+    public static uint GetNextTarget(HeaderBitcoin header)
     {
       if (((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
         return header.NBits;
@@ -128,12 +109,8 @@ namespace BTokenCore
       Header headerIntervalStart = header;
       int depth = RETARGETING_BLOCK_INTERVAL;
 
-      while (
-        --depth > 0 &&
-        headerIntervalStart.HeaderPrevious != null)
-      {
+      while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
         headerIntervalStart = headerIntervalStart.HeaderPrevious;
-      }
 
       ulong actualTimespan = Limit(
         header.UnixTimeSeconds -
@@ -145,8 +122,7 @@ namespace BTokenCore
         .MultiplyBy(actualTimespan)
         .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
 
-      return UInt256.Min(DIFFICULTY_1_TARGET, targetNew)
-        .GetCompact();
+      return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
     }
 
     static ulong Limit(ulong actualTimespan)
@@ -185,20 +161,16 @@ namespace BTokenCore
       return Buffer;
     }
 
-    public void IncrementNonce(
-      long nonceSeed,
-      SHA256 sHA256)
+    public void IncrementNonce(uint nonceSeed)
     {
       Nonce += 1;
 
       if (Nonce == 0)
-        Nonce = (uint)nonceSeed;
+        Nonce = nonceSeed;
 
       byte[] nonceArray = BitConverter.GetBytes(Nonce);
 
       Array.Copy(nonceArray, 0, Buffer, 76, 4);
-
-      ComputeHash(sHA256);
     }
   }
 }

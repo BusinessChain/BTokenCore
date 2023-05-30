@@ -69,22 +69,9 @@ namespace BTokenLib
       CountBytesBlocksAccumulated = headerPrevious.CountBytesBlocksAccumulated + CountBytesBlock;
     }
 
-    public virtual void AppendToHeader(
-      Header headerPrevious,
-      SHA256 sHA256)
-    {
-      HeaderPrevious = headerPrevious;
-      Height = headerPrevious.Height + 1;
-      headerPrevious.Hash.CopyTo(HashPrevious, 0);
-      UnixTimeSeconds = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-      GetBytes();
-
-      ComputeHash(sHA256);
-    }
-
     public void ComputeHash(SHA256 sHA256)
     {
-      Hash = sHA256.ComputeHash(sHA256.ComputeHash(Buffer));
+      Hash = sHA256.ComputeHash(sHA256.ComputeHash(GetBytes()));
     }
 
     public override string ToString()

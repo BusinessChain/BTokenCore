@@ -191,7 +191,7 @@ namespace BTokenLib
 
         while (
           heightBlock <= heightMax &&
-          Archiver.TryLoadBlockArchive(heightBlock, out byte[] buffer))
+          Archiver.TryLoadBlockArchive(out byte[] buffer, heightBlock))
         {
           block.Buffer = buffer;
           block.Parse();
@@ -252,7 +252,7 @@ namespace BTokenLib
     public abstract Block CreateBlock();
 
 
-    protected TX CreateCoinbaseTX(Block block, long blockReward)
+    protected TX CreateCoinbaseTX(Block block, int height, long blockReward)
     {
       List<byte> tXRaw = new();
 
@@ -264,7 +264,7 @@ namespace BTokenLib
 
       tXRaw.AddRange("FFFFFFFF".ToBinary()); // TxOutIndex
 
-      List<byte> blockHeight = VarInt.GetBytes(block.Header.Height); // Script coinbase
+      List<byte> blockHeight = VarInt.GetBytes(height); // Script coinbase
       tXRaw.Add((byte)blockHeight.Count);
       tXRaw.AddRange(blockHeight);
 
@@ -328,7 +328,7 @@ namespace BTokenLib
     public virtual Block GetBlock(byte[] hash)
     {
       if(Blockchain.TryGetHeader(hash, out Header header))
-        if (Archiver.TryLoadBlockArchive(header.Height, out byte[] buffer))
+        if (Archiver.TryLoadBlockArchive(out byte[] buffer, header.Height))
         {
           Block block = CreateBlock();
 

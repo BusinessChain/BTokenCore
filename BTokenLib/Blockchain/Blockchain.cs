@@ -91,7 +91,6 @@ namespace BTokenLib
       }
     }
 
-
     public void LoadImageHeaderchain(
       string pathImage, 
       int heightMax)
@@ -106,6 +105,8 @@ namespace BTokenLib
         Header header = Token.ParseHeader(
          bytesHeaderImage,
          ref index);
+
+        // IndexBlockArchive und StartIndexBlockArchive braucht es eigentlich nicht.
 
         header.IndexBlockArchive = BitConverter.ToInt32(
           bytesHeaderImage, index);

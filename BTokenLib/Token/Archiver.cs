@@ -20,7 +20,9 @@ namespace BTokenLib
       Directory.CreateDirectory(PathBlockArchive);
     }
 
-    public bool TryLoadBlockArchive(int blockHeight, out byte[] buffer)
+    public bool TryLoadBlockArchive(
+      out byte[] buffer,
+      int blockHeight)
     {
       buffer = null;
 

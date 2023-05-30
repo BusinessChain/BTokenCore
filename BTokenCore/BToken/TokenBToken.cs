@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
+using System.Runtime.Intrinsics.Arm;
 
 namespace BTokenCore
 {
@@ -208,18 +209,29 @@ namespace BTokenCore
 
       BlockBToken block = new();
 
-      long blockReward = BLOCK_REWARD_INITIAL >>
-        block.Header.Height / PERIOD_HALVENING_BLOCK_REWARD;
+      int height = Blockchain.HeaderTip.Height + 1;
 
-      TX tXCoinbase = CreateCoinbaseTX(block, blockReward);
+      long blockReward = BLOCK_REWARD_INITIAL >>
+        height / PERIOD_HALVENING_BLOCK_REWARD;
+
+      TX tXCoinbase = CreateCoinbaseTX(block, height, blockReward);
 
       block.TXs.Add(tXCoinbase);
+      block.TXs.AddRange(
+        TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
-      block.Header.MerkleRoot = block.ComputeMerkleRoot();
+      HeaderBToken header = new()
+      {
+        HashPrevious = Blockchain.HeaderTip.Hash,
+        HeaderPrevious = Blockchain.HeaderTip,
+        Height = height,
+        UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
+        MerkleRoot = block.ComputeMerkleRoot()
+      };
 
-      block.Header.AppendToHeader(
-        Blockchain.HeaderTip,
-        SHA256Miner);
+      block.Header = header;
+
+      header.ComputeHash(SHA256Miner);
 
       block.Buffer = block.Header.Buffer.Concat(
         VarInt.GetBytes(block.TXs.Count)).ToArray();

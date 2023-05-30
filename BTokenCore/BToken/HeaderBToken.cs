@@ -24,8 +24,7 @@ namespace BTokenCore
     {
       Buffer = new byte[COUNT_HEADER_BYTES];
 
-      lock (this)
-        Nonce = InitializerNonce++;
+      Nonce = InitializerNonce++;
 
       Difficulty = 1;
     }
