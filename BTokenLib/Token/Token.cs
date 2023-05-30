@@ -191,7 +191,7 @@ namespace BTokenLib
 
         while (
           heightBlock <= heightMax &&
-          Archiver.TryLoadBlockArchive(out byte[] buffer, heightBlock))
+          Archiver.TryLoadBlockArchive(heightBlock, out byte[] buffer))
         {
           block.Buffer = buffer;
           block.Parse();
@@ -328,7 +328,7 @@ namespace BTokenLib
     public virtual Block GetBlock(byte[] hash)
     {
       if(Blockchain.TryGetHeader(hash, out Header header))
-        if (Archiver.TryLoadBlockArchive(out byte[] buffer, header.Height))
+        if (Archiver.TryLoadBlockArchive(header.Height, out byte[] buffer))
         {
           Block block = CreateBlock();
 

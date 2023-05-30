@@ -21,8 +21,8 @@ namespace BTokenLib
     }
 
     public bool TryLoadBlockArchive(
-      out byte[] buffer,
-      int blockHeight)
+      int blockHeight,
+      out byte[] buffer)
     {
       buffer = null;
 
