@@ -14,7 +14,7 @@ namespace BTokenCore
 
     public byte[] HashDatabase = new byte[32];
 
-    public int IndexTrailAnchor;
+    public int HeightBlockParentAnchor;
 
     static uint InitializerNonce;
 

@@ -69,7 +69,7 @@ namespace BTokenLib
 
     public void Start()
     {
-      //StartPeerConnector();
+      StartPeerConnector();
 
       StartSynchronizerLoop();
 

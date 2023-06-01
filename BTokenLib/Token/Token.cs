@@ -88,8 +88,8 @@ namespace BTokenLib
 
     public void Start()
     {
-      if (TokenParent != null)
-        TokenParent.Start();
+      //if (TokenParent != null)
+      //  TokenParent.Start();
 
       LoadImage();
 
@@ -118,7 +118,6 @@ namespace BTokenLib
     }
 
     public abstract List<string> GetSeedAddresses();
-
 
     public bool TryLock()
     {
@@ -201,6 +200,9 @@ namespace BTokenLib
             block.Header.AppendToHeader(Blockchain.HeaderTip);
             InsertInDatabase(block);
             Blockchain.AppendHeader(block.Header);
+
+            TokenChilds.ForEach(
+              t => t.SignalCompletionBlockInsertion(block.Header));
           }
           catch
           {
@@ -250,7 +252,6 @@ namespace BTokenLib
     }
 
     public abstract Block CreateBlock();
-
 
     protected TX CreateCoinbaseTX(Block block, int height, long blockReward)
     {

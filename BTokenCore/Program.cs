@@ -15,7 +15,7 @@ namespace BTokenCore
       BToken = new(
         new TokenBitcoin());
 
-      BToken.Start();
+      //BToken.Start();
 
       RunConsole();
     }
@@ -40,6 +40,14 @@ namespace BTokenCore
         {
           case "status":
             Console.WriteLine(BToken.GetStatus());
+            break;
+
+          case "startBitcoin":
+            BToken.TokenParent.Start();
+            break;
+
+          case "startBToken":
+            BToken.Start();
             break;
 
           case "startBTokenMiner":

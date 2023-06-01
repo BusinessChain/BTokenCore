@@ -2,12 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
-using System.Runtime.Intrinsics.Arm;
 
 namespace BTokenCore
 {
@@ -38,10 +36,9 @@ namespace BTokenCore
     string PathBlocksMinedUnconfirmed;
 
     DatabaseAccounts DatabaseAccounts;
-
-    // Brauch ich nur, wenn auf ein BToken block getriggert wird. 
-    List<byte[]> TrailHashesAnchor = new();
-    int IndexTrail;
+ 
+    Dictionary<byte[], int> WinningBlockInHeightParentBlock = 
+      new(new EqualityComparerByteArray());
 
     List<BlockBToken> BlocksMined = new();
 
@@ -91,7 +88,7 @@ namespace BTokenCore
         nonce: 0);
 
       header.DifficultyAccumulated = header.Difficulty;
-      header.IndexTrailAnchor = -1;
+      header.HeightBlockParentAnchor = -1;
 
       return header;
     }
@@ -336,8 +333,9 @@ namespace BTokenCore
           ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
             $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
-          //TrailHashesAnchor.Add(tokenAnchorWinner.HashBlockReferenced);
-          //IndexTrail += 1;
+          WinningBlockInHeightParentBlock.Add(
+            tokenAnchorWinner.HashBlockReferenced,
+            headerParent.Height);
 
           if (BlocksMined.Count > 0)
           {
@@ -555,15 +553,14 @@ namespace BTokenCore
     {
       return new HeaderDownloadBToken(
         Blockchain.GetLocator(),
-        TrailHashesAnchor,
-        IndexTrail);
+        WinningBlockInHeightParentBlock);
     }
 
     public override List<string> GetSeedAddresses()
     {
       return new List<string>()
       {
-        //"84.75.2.239", "83.229.86.158"
+        "83.229.86.158"
       };
     }
 
