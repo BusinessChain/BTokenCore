@@ -10,23 +10,22 @@ namespace BTokenCore
 {
   public class HeaderDownloadBToken : HeaderDownload
   {
-    Dictionary<byte[], int> WinningBlockInHeightParentBlock;
-
+    Dictionary<byte[], int> WinningBlockInHeightAnchorBlock;
 
     public HeaderDownloadBToken(
       List<Header> locator,
-      Dictionary<byte[], int> winningBlockInHeightParentBlock) 
+      Dictionary<byte[], int> winningBlockInHeightAnchorBlock) 
       : base(locator)
     {
-      WinningBlockInHeightParentBlock = winningBlockInHeightParentBlock;
+      WinningBlockInHeightAnchorBlock = winningBlockInHeightAnchorBlock;
     }
 
     public override void InsertHeader(Header header)
     {
-      if (!WinningBlockInHeightParentBlock.TryGetValue(header.Hash, out int height))
+      if (!WinningBlockInHeightAnchorBlock.TryGetValue(header.Hash, out int heightBlockAnchor))
         throw new ProtocolException(
           $"Header {header} not anchored in parent chain.");
-      else if (height < WinningBlockInHeightParentBlock[header.HashPrevious])
+      else if (header.Height > 1 && heightBlockAnchor < WinningBlockInHeightAnchorBlock[header.HashPrevious])
         throw new ProtocolException(
           $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
 

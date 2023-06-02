@@ -32,7 +32,7 @@ namespace BTokenLib
           if (HeaderAncestor == null)
           {
             FlagHeaderOrphan = true;
-            throw new ProtocolException("Received orphan header.");
+            throw new ProtocolException();
           }
         }
 

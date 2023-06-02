@@ -88,13 +88,16 @@ namespace BTokenLib
 
     public void Start()
     {
-      //if (TokenParent != null)
-      //  TokenParent.Start();
+      if (TokenParent != null)
+        TokenParent.Start();
 
       LoadImage();
 
-      $"Start Network {GetName()}".Log(this, LogFile);
-      Network.Start();
+      if(TokenParent != null)
+      {
+        $"Start Network {GetName()}".Log(this, LogFile);
+        Network.Start();
+      }
     }
 
     public virtual HeaderDownload CreateHeaderDownload()

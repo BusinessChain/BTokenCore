@@ -144,13 +144,12 @@ namespace BTokenLib
                   {
                     if(Network.HeaderDownload.FlagHeaderOrphan && flagOrphanAllowed)
                     {
-                      $"Received orphan header {header}".Log(LogFile);
+                      $"Received unsolicited orphan header {header}".Log(LogFile);
                       locator = Network.HeaderDownload.Locator;
+                      break;
                     }
-                    else
-                      throw ex;
 
-                    break;
+                    throw ex;
                   }
 
                   i += 1;
