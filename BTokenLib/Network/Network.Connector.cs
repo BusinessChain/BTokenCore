@@ -202,25 +202,7 @@ namespace BTokenLib
 
         lock (LOCK_Peers)
           Peers.Remove(peer);
-
-        return;
       }
-
-      lock (LOCK_IsStateSynchronizing)
-      {
-        if (IsStateSynchronizing || !peer.TrySync())
-          return;
-
-        if (!Token.TryLock())
-        {
-          peer.SetStateIdle();
-          return;
-        }
-
-        EnterStateSynchronization(peer);
-      }
-        
-      peer.SendGetHeaders(HeaderDownload.Locator);
     }
 
     private async Task StartPeerInboundConnector()
