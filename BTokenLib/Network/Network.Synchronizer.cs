@@ -35,14 +35,18 @@ namespace BTokenLib
     List<byte[]> QueueHashesDBDownloadIncomplete = new();
 
 
-
     async Task StartSynchronizerLoop()
     {
+      Random randomGenerator = new();
+
       while (true)
       {
         Peer peerSync = null;
 
-        await Task.Delay(TIME_LOOP_SYNCHRONIZER_SECONDS * 1000)
+        int timespanRandomSeconds = TIME_LOOP_SYNCHRONIZER_SECONDS / 2 + 
+          randomGenerator.Next(TIME_LOOP_SYNCHRONIZER_SECONDS);
+
+        await Task.Delay(timespanRandomSeconds * 1000)
           .ConfigureAwait(false);
 
         lock (LOCK_IsStateSynchronizing)

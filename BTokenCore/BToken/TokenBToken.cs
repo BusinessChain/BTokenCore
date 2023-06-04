@@ -265,7 +265,7 @@ namespace BTokenCore
       // fragt man den Peer ob er die Ancestor TX schon hat.
       // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
 
-      TokenParent.BroadcastTX(tokenAnchor.TX);
+      //TokenParent.BroadcastTX(tokenAnchor.TX);
 
       ($"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
         $"{TokensAnchorUnconfirmed.Count} mined unconfirmed anchor tokens.")

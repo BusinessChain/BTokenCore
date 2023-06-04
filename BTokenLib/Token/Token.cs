@@ -86,18 +86,14 @@ namespace BTokenLib
         false);
     }
 
-    public void Start()
+    public void Start(bool recursive = false)
     {
-      if (TokenParent != null)
-        TokenParent.Start();
+      if (recursive && TokenParent != null)
+        TokenParent.Start(recursive: true);
 
       LoadImage();
 
-      if(TokenParent != null)
-      {
-        $"Start Network {GetName()}".Log(this, LogFile);
-        Network.Start();
-      }
+      Network.Start();
     }
 
     public virtual HeaderDownload CreateHeaderDownload()

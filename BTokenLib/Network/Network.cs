@@ -69,6 +69,8 @@ namespace BTokenLib
 
     public void Start()
     {
+      $"Start Network {Token.GetName()}".Log(this, LogFile);
+
       StartPeerConnector();
 
       StartSynchronizerLoop();

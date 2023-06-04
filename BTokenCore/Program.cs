@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BTokenLib;
+using System;
 using System.Diagnostics;
 using System.Threading;
 
@@ -15,7 +16,7 @@ namespace BTokenCore
       BToken = new(
         new TokenBitcoin());
 
-      BToken.Start();
+      BToken.Start(recursive: true);
 
       RunConsole();
     }
