@@ -51,7 +51,7 @@ namespace BTokenCore
           flagEnableInboundConnections: true)
     {
       TokenParent = tokenParent;
-      tokenParent.AddTokenListening(this);
+      tokenParent.TokenChild = this;
 
       DatabaseAccounts = new();
 

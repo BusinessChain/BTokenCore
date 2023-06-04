@@ -41,48 +41,54 @@ namespace BTokenLib
 
       while (true)
       {
-        Peer peerSync = null;
-
-        int timespanRandomSeconds = TIME_LOOP_SYNCHRONIZER_SECONDS / 2 + 
-          randomGenerator.Next(TIME_LOOP_SYNCHRONIZER_SECONDS);
+        int timespanRandomSeconds = TIME_LOOP_SYNCHRONIZER_SECONDS / 2 
+          + randomGenerator.Next(TIME_LOOP_SYNCHRONIZER_SECONDS);
 
         await Task.Delay(timespanRandomSeconds * 1000)
           .ConfigureAwait(false);
 
-        lock (LOCK_IsStateSynchronizing)
+        TryStartSynchronization();
+      }
+    }
+
+    bool TryStartSynchronization()
+    {
+      Peer peerSync = null;
+
+      lock (LOCK_IsStateSynchronizing)
+      {
+        if (IsStateSynchronizing)
+          return false;
+
+        lock (LOCK_Peers)
         {
-          if (IsStateSynchronizing)
-            continue;
-
-          lock (LOCK_Peers)
-          {
-            foreach (Peer p in Peers)
-              if (peerSync == null)
-              {
-                if (p.TrySync())
-                  peerSync = p;
-              }
-              else if (p.TrySync(peerSync))
-              {
-                peerSync.SetStateIdle();
-                peerSync = p;
-              }
-
+          foreach (Peer p in Peers)
             if (peerSync == null)
-              continue;
-          }
+            {
+              if (p.TrySync())
+                peerSync = p;
+            }
+            else if (p.TrySync(peerSync))
+            {
+              peerSync.SetStateIdle();
+              peerSync = p;
+            }
 
-          if (!Token.TryLock())
-          {
-            peerSync.SetStateIdle();
-            continue;
-          }
-
-          EnterStateSynchronization(peerSync);
+          if (peerSync == null)
+            return false;
         }
 
-        peerSync.SendGetHeaders(HeaderDownload.Locator);
+        if (!Token.TryLock())
+        {
+          peerSync.SetStateIdle();
+          return false;
+        }
+
+        EnterStateSynchronization(peerSync);
       }
+
+      peerSync.SendGetHeaders(HeaderDownload.Locator);
+      return true;
     }
 
     bool TryEnterStateSynchronization(Peer peer)
@@ -220,11 +226,12 @@ namespace BTokenLib
         ($"Unexpected exception {ex.GetType().Name} occured during SyncBlocks.\n" +
           $"{ex.Message}").Log(LogFile);
       }
-      finally
-      {
-        Blockchain.GetStatus().Log(LogFile);
-        ExitSynchronization();
-      }
+
+      Blockchain.GetStatus().Log(LogFile);
+      ExitSynchronization();
+
+      if(Token.TokenChild != null)
+        Token.TokenChild.Network.TryStartSynchronization();
     }
 
     bool InsertBlock_FlagContinue(Peer peer)
@@ -469,6 +476,5 @@ namespace BTokenLib
     {
       QueueHashesDBDownloadIncomplete.Add(hashDBSync);
     }
-
   }
 }

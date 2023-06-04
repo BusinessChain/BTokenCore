@@ -202,7 +202,7 @@ namespace BTokenCore
             if (tXOutput.Value > 0)
               Wallet.DetectTXOutputSpendable(tX, tXOutput);
             else
-              TokenChilds.ForEach(t => t.DetectAnchorTokenInBlock(tX));
+              TokenChild.DetectAnchorTokenInBlock(tX);
 
         foreach (TX tX in tXs)
           foreach (TXInput tXInput in tX.TXInputs)
@@ -212,7 +212,7 @@ namespace BTokenCore
       {
         // Database (wallet) recovery.
 
-        TokenChilds.ForEach(t => t.RevokeBlockInsertion());
+        TokenChild.RevokeBlockInsertion();
         throw ex;
       }
     }

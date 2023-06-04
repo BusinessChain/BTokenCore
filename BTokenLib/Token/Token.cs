@@ -9,7 +9,7 @@ namespace BTokenLib
   public abstract partial class Token
   {
     public Token TokenParent;
-    protected List<Token> TokenChilds = new();
+    public Token TokenChild;
 
     public Blockchain Blockchain;
 
@@ -200,8 +200,8 @@ namespace BTokenLib
             InsertInDatabase(block);
             Blockchain.AppendHeader(block.Header);
 
-            TokenChilds.ForEach(
-              t => t.SignalCompletionBlockInsertion(block.Header));
+            if (TokenChild != null)
+              TokenChild.SignalCompletionBlockInsertion(block.Header);
           }
           catch
           {
@@ -321,8 +321,8 @@ namespace BTokenLib
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();
 
-      TokenChilds.ForEach(
-        t => t.SignalCompletionBlockInsertion(block.Header));
+      if (TokenChild != null)
+        TokenChild.SignalCompletionBlockInsertion(block.Header);
     }
 
     public virtual Block GetBlock(byte[] hash)
@@ -348,11 +348,6 @@ namespace BTokenLib
 
     public virtual void DeleteDB()
     { throw new NotImplementedException(); }
-
-    public void AddTokenListening(Token token)
-    {
-      TokenChilds.Add(token);
-    }
 
     public virtual void DetectAnchorTokenInBlock(TX tX)
     { throw new NotImplementedException(); }

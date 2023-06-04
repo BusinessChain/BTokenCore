@@ -10,7 +10,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    const int TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS = 30;
+    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 30;
     int CountMaxPeers = 3;
 
     const int COUNT_MAX_INBOUND_CONNECTIONS = 3;
@@ -81,9 +81,8 @@ namespace BTokenLib
           lock (this)
             State = StateNetwork.Idle;
 
-          int timespanRandomSeconds =
-            TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS
-            / 2 + randomGenerator.Next(TIMESPAN_AVERAGE_LOOP_PEER_CONNECTOR_SECONDS);
+          int timespanRandomSeconds = TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS / 2 
+            + randomGenerator.Next(TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS);
 
           await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
         }
