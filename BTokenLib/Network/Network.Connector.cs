@@ -205,10 +205,18 @@ namespace BTokenLib
       }
     }
 
-    private async Task StartPeerInboundConnector()
+    async Task StartPeerInboundConnector()
     {
-      TcpListener tcpListener = new(IPAddress.Any, Port);
-      tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
+      try
+      {
+        TcpListener tcpListener = new(IPAddress.Any, Port);
+        tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
+      }
+      catch(Exception ex)
+      {
+        $"Failed to listen on port {Port}.\n {ex.Message}".Log(LogFile);
+        return;
+      }
 
       $"Start TCP listener on port {Port}.".Log(this, LogFile);
 

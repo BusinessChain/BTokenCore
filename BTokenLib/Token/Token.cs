@@ -386,7 +386,7 @@ namespace BTokenLib
     public void BroadcastTX(TX tX)
     {
       TXPool.AddTX(tX);
-      Network.AdvertizeTX(tX);
+      //Network.AdvertizeTX(tX);
     }
   }
 }
