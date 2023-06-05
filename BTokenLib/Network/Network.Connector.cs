@@ -207,9 +207,10 @@ namespace BTokenLib
 
     async Task StartPeerInboundConnector()
     {
+      TcpListener tcpListener = new(IPAddress.Any, Port);
+
       try
       {
-        TcpListener tcpListener = new(IPAddress.Any, Port);
         tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
       }
       catch(Exception ex)
