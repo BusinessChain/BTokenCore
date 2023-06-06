@@ -51,7 +51,11 @@ namespace BTokenLib
       }
     }
 
-    bool TryStartSynchronization(Peer peerSync = null)
+    public bool TryStartSynchronization()
+    {
+      return TryStartSynchronization(null);
+    }
+    bool TryStartSynchronization(Peer peerSync)
     {
       lock (LOCK_IsStateSynchronizing)
       {

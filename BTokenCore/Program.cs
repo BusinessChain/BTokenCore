@@ -43,12 +43,8 @@ namespace BTokenCore
             Console.WriteLine(BToken.GetStatus());
             break;
 
-          case "startBitcoin":
-            BToken.TokenParent.Start();
-            break;
-
-          case "startBToken":
-            BToken.Start();
+          case "syncBitcoin":
+            BToken.TokenParent.Network.TryStartSynchronization();
             break;
 
           case "startBTokenMiner":
