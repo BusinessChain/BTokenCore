@@ -181,9 +181,6 @@ namespace BTokenLib
 
     public abstract Header CreateHeaderGenesis();
 
-    public virtual void CreateImageDatabase(string path) 
-    { }
-
     internal void Reorganize()
     {
       $"Reorganize token {this.GetType().Name}".Log(LogFile);
@@ -281,6 +278,9 @@ namespace BTokenLib
       CreateImageDatabase(pathImage);
       Wallet.CreateImage(pathImage);
     }
+
+    public virtual void CreateImageDatabase(string path)
+    { }
 
     public virtual void Reset()
     {

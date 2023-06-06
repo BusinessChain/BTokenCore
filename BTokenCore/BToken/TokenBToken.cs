@@ -96,21 +96,44 @@ namespace BTokenCore
     {
       DatabaseAccounts.LoadImage(pathImage);
 
-      byte[] bytesBlockTrail = File.ReadAllBytes(
-        Path.Combine(pathImage, "ImageBlockTrail"));
+      byte[] winningBlockInHeightAnchorBlock = File.ReadAllBytes(
+        Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"));
 
-      //for (int i = 0; i * 32 < bytesBlockTrail.Length; i += 1)
-      //{
-      //  TrailHashesAnchor[i] = new byte[32];
-      //  Array.Copy(bytesBlockTrail, i * 32, TrailHashesAnchor[i], 0, 32);
+      WinningBlockInHeightAnchorBlock.Clear();
+      int i = 0;
 
-      //  IndexTrail += 1;
-      //}
+      while(i < winningBlockInHeightAnchorBlock.Length)
+      {
+        byte[] hashblock = new byte[32];
+        Array.Copy(winningBlockInHeightAnchorBlock, i, hashblock, 0, 32);
+        i += 32;
+
+        int height = BitConverter.ToInt32(winningBlockInHeightAnchorBlock, i);
+        i += 4;
+
+        WinningBlockInHeightAnchorBlock.Add(hashblock, height);
+      }
     }
 
     public override void CreateImageDatabase(string pathImage)
     {
       DatabaseAccounts.CreateImage(pathImage);
+
+      using (FileStream fileWinningBlockInHeightAnchorBlock = new(
+          Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"),
+          FileMode.Create,
+          FileAccess.Write,
+          FileShare.None))
+      {
+        foreach (KeyValuePair<byte[], int> keyValuePair in WinningBlockInHeightAnchorBlock)
+        {
+          fileWinningBlockInHeightAnchorBlock.Write(
+            keyValuePair.Key, 0, keyValuePair.Key.Length);
+
+          byte[] heightBytes = BitConverter.GetBytes(keyValuePair.Value);
+          fileWinningBlockInHeightAnchorBlock.Write(heightBytes, 0, heightBytes.Length);
+        }
+      }
     }
 
 
@@ -497,8 +520,6 @@ namespace BTokenCore
         ref int index)
     {
       BlockBToken bTokenBlock = new();
-
-      // Hier muss getestet werden, ob der Header im Bitcoin Block vernankert ist.
 
       Header header = bTokenBlock.ParseHeader(
         buffer,
