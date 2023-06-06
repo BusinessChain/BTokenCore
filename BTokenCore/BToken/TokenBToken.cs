@@ -88,7 +88,6 @@ namespace BTokenCore
         nonce: 0);
 
       header.DifficultyAccumulated = header.Difficulty;
-      header.HeightBlockParentAnchor = -1;
 
       return header;
     }

@@ -1,6 +1,6 @@
 ﻿using BTokenLib;
 using System;
-using System.Diagnostics;
+using System.IO;
 using System.Threading;
 
 namespace BTokenCore
@@ -41,6 +41,12 @@ namespace BTokenCore
         {
           case "status":
             Console.WriteLine(BToken.GetStatus());
+            break;
+
+          case "printChain":
+            string text = "";
+            BToken.PrintChain(ref text);
+            File.WriteAllText("printChain.txt", text);
             break;
 
           case "syncBitcoin":

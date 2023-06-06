@@ -101,6 +101,44 @@ namespace BTokenLib
       return new HeaderDownload(Blockchain.GetLocator());
     }
 
+    public void PrintChain(ref string text)
+    {
+      if (TokenParent != null)
+        TokenParent.PrintChain(ref text);
+
+      text += $"\nPrint chain {GetName()}.\n";
+
+
+      Block block = CreateBlock();
+      int i = 1;
+
+      while (Archiver.TryLoadBlockArchive(i, out byte[] buffer))
+      {
+        block.Buffer = buffer;
+        block.Parse();
+
+        text += $"{i} -> {block.Header}\n";
+
+        if(TokenChild != null)
+        {
+          List<TX> tXs = block.TXs;
+
+          foreach (TX tX in tXs)
+            foreach (TXOutput tXOutput in tX.TXOutputs)
+              if (tXOutput.Value == 0)
+              {
+                text += $"\t{tX}\t";
+
+                int index = tXOutput.StartIndexScript;
+
+                text += $"\t{tXOutput.Buffer.Skip(index).Take(32).ToArray().ToHexString()}\n";
+              }
+        }
+
+        i++;
+      }
+    }
+
     public string GetStatus()
     {
       string messageStatus = "";
