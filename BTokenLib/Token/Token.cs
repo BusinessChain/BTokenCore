@@ -129,7 +129,7 @@ namespace BTokenLib
               {
                 text += $"\t{tX}\t";
 
-                int index = tXOutput.StartIndexScript;
+                int index = tXOutput.StartIndexScript + 4;
 
                 text += $"\t{tXOutput.Buffer.Skip(index).Take(32).ToArray().ToHexString()}\n";
               }

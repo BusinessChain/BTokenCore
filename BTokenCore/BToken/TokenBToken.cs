@@ -37,7 +37,7 @@ namespace BTokenCore
 
     DatabaseAccounts DatabaseAccounts;
  
-    Dictionary<byte[], int> WinningBlockInHeightParentBlock = 
+    Dictionary<byte[], int> WinningBlockInHeightAnchorBlock = 
       new(new EqualityComparerByteArray());
 
     List<BlockBToken> BlocksMined = new();
@@ -332,7 +332,7 @@ namespace BTokenCore
           ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
             $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
-          WinningBlockInHeightParentBlock.Add(
+          WinningBlockInHeightAnchorBlock.Add(
             tokenAnchorWinner.HashBlockReferenced,
             headerParent.Height);
 
@@ -500,9 +500,19 @@ namespace BTokenCore
 
       // Hier muss getestet werden, ob der Header im Bitcoin Block vernankert ist.
 
-      return bTokenBlock.ParseHeader(
+      Header header = bTokenBlock.ParseHeader(
         buffer,
         ref index);
+
+      if (!WinningBlockInHeightAnchorBlock.TryGetValue(header.Hash, out int heightBlockAnchor))
+      {
+        throw new ProtocolException($"Header {header} not anchored in parent chain.");
+      }
+      else if (header.Height > 1 && heightBlockAnchor < WinningBlockInHeightAnchorBlock[header.HashPrevious])
+        throw new ProtocolException(
+          $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
+
+      return header;
     }
 
     public override Block CreateBlock()
@@ -552,7 +562,7 @@ namespace BTokenCore
     {
       return new HeaderDownloadBToken(
         Blockchain.GetLocator(),
-        WinningBlockInHeightParentBlock);
+        WinningBlockInHeightAnchorBlock);
     }
 
     public override List<string> GetSeedAddresses()
