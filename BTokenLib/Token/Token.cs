@@ -277,6 +277,9 @@ namespace BTokenLib
 
       CreateImageDatabase(pathImage);
       Wallet.CreateImage(pathImage);
+
+      if (TokenChild != null)
+        TokenChild.CreateImage();
     }
 
     public virtual void CreateImageDatabase(string path)
@@ -356,7 +359,8 @@ namespace BTokenLib
 
       Archiver.ArchiveBlock(block);
 
-      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0 && 
+        TokenParent == null)
         CreateImage();
 
       if (TokenChild != null)
