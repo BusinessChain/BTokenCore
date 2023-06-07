@@ -108,7 +108,7 @@ namespace BTokenCore
 
       BlockBitcoin block = new();
 
-      int height = Blockchain.HeaderTip.Height + 1;
+      int height = HeaderTip.Height + 1;
 
       long blockReward = BLOCK_REWARD_INITIAL >>
         height / PERIOD_HALVENING_BLOCK_REWARD;
@@ -119,20 +119,20 @@ namespace BTokenCore
       block.TXs.AddRange(
         TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
-      uint nBits = HeaderBitcoin.GetNextTarget((HeaderBitcoin)Blockchain.HeaderTip);
+      uint nBits = HeaderBitcoin.GetNextTarget((HeaderBitcoin)HeaderTip);
       double difficulty = HeaderBitcoin.ComputeDifficultyFromNBits(nBits);
 
       HeaderBitcoin header = new()
       {
         Version = 0x01,
-        HashPrevious = Blockchain.HeaderTip.Hash,
-        HeaderPrevious = Blockchain.HeaderTip,
+        HashPrevious = HeaderTip.Hash,
+        HeaderPrevious = HeaderTip,
         Height = height,
         UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
         Nonce = seed,
         NBits = nBits,
         Difficulty = difficulty,
-        DifficultyAccumulated = Blockchain.HeaderTip.DifficultyAccumulated + difficulty,
+        DifficultyAccumulated = HeaderTip.DifficultyAccumulated + difficulty,
         MerkleRoot = block.ComputeMerkleRoot()
       };
 
@@ -142,7 +142,7 @@ namespace BTokenCore
 
       while (header.Hash.IsGreaterThan(header.NBits))
       {
-        if (Blockchain.HeaderTip.Height >= height
+        if (HeaderTip.Height >= height
           || TXPool.GetCountTXs() != countTXsPool)
           goto LABEL_StartPoW;
 

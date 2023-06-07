@@ -145,16 +145,16 @@ namespace BTokenLib
 
     async Task SyncBlocks()
     {
-      double difficultyOld = Blockchain.HeaderTip.Difficulty;
+      double difficultyOld = Token.HeaderTip.Difficulty;
 
       try
       {
         if (HeaderDownload.HeaderTip != null)
-          if (HeaderDownload.HeaderTip.DifficultyAccumulated > Blockchain.HeaderTip.DifficultyAccumulated)
+          if (HeaderDownload.HeaderTip.DifficultyAccumulated > Token.HeaderTip.DifficultyAccumulated)
           {
-            if (HeaderDownload.HeaderAncestor != Blockchain.HeaderTip)
+            if (HeaderDownload.HeaderAncestor != Token.HeaderTip)
             {
-              $"HeaderDownload.HeaderAncestor {HeaderDownload.HeaderAncestor} not equal to {Blockchain.HeaderTip}".Log(LogFile);
+              $"HeaderDownload.HeaderAncestor {HeaderDownload.HeaderAncestor} not equal to {Token.HeaderTip}".Log(LogFile);
               Token.LoadImage(HeaderDownload.HeaderAncestor.Height);
             }
 
@@ -204,7 +204,7 @@ namespace BTokenLib
                   {
                     if (
                       difficultyOld > 0 &&
-                      Blockchain.HeaderTip.Difficulty > difficultyOld)
+                      Token.HeaderTip.Difficulty > difficultyOld)
                     {
                       Token.Reorganize();
                     }
@@ -218,8 +218,8 @@ namespace BTokenLib
               await Task.Delay(1000).ConfigureAwait(false);
             }
           }
-          else if(HeaderDownload.HeaderTip.DifficultyAccumulated < Blockchain.HeaderTip.DifficultyAccumulated)
-            PeerSynchronizing.SendHeaders(new List<Header>() { Blockchain.HeaderTip });
+          else if(HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
+            PeerSynchronizing.SendHeaders(new List<Header>() { Token.HeaderTip });
 
         $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.".Log(LogFile);
       }
@@ -229,7 +229,7 @@ namespace BTokenLib
           $"{ex.Message}").Log(LogFile);
       }
 
-      Blockchain.GetStatus().Log(LogFile);
+      Token.GetStatus().Log(LogFile);
       ExitSynchronization();
 
       if(Token.TokenChild != null)
@@ -263,7 +263,7 @@ namespace BTokenLib
 
               block.Clear();
 
-              $"Inserted block {Blockchain.HeaderTip.Height}, {block}."
+              $"Inserted block {Token.HeaderTip.Height}, {block}."
               .Log(LogFile);
             }
             catch (Exception ex)

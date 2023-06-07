@@ -11,7 +11,10 @@ namespace BTokenLib
     public Token TokenParent;
     public Token TokenChild;
 
-    public Blockchain Blockchain;
+    Header HeaderGenesis;
+    public Header HeaderTip;
+
+    Dictionary<int, List<Header>> HeaderIndex = new();
 
     BlockArchiver Archiver;
 
@@ -52,7 +55,12 @@ namespace BTokenLib
       PathRootToken = GetName();
       Directory.CreateDirectory(PathRootToken);
 
-      Blockchain = new Blockchain(this);
+      HeaderGenesis = CreateHeaderGenesis();
+
+      HeaderTip = HeaderGenesis;
+
+      HeaderIndex.Clear();
+      IndexingHeaderTip();
 
       Archiver = new(GetName());
 
@@ -98,7 +106,7 @@ namespace BTokenLib
 
     public virtual HeaderDownload CreateHeaderDownload()
     {
-      return new HeaderDownload(Blockchain.GetLocator());
+      return new HeaderDownload(GetLocator());
     }
 
     public void PrintChain(ref string text)
@@ -146,9 +154,18 @@ namespace BTokenLib
       if (TokenParent != null)
         messageStatus += TokenParent.GetStatus();
 
+      var ageBlock = TimeSpan.FromSeconds(
+        DateTimeOffset.UtcNow.ToUnixTimeSeconds() - HeaderTip.UnixTimeSeconds);
+
       messageStatus +=
         $"\n\t\t\t\t{GetName()}:\n" +
-        $"{Blockchain.GetStatus()}" +
+        $"{GetStatus()}" +
+        $"Height: {HeaderTip.Height}\n" +
+        $"Block tip: {HeaderTip}\n" +
+        $"Difficulty Tip: {HeaderTip.Difficulty}\n" +
+        $"Acc. Difficulty: {HeaderTip.DifficultyAccumulated}\n" +
+        $"Timestamp: {DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds)}\n" +
+        $"Age: {ageBlock}\n" +
         $"\n{Wallet.GetStatus()}";
 
       return messageStatus;
@@ -201,7 +218,7 @@ namespace BTokenLib
 
         try
         {
-          Blockchain.LoadImageHeaderchain(
+          LoadImageHeaderchain(
             pathImageLoad, 
             heightMax);
 
@@ -220,7 +237,7 @@ namespace BTokenLib
         }
 
         Block block = CreateBlock();
-        int heightBlock = Blockchain.HeaderTip.Height + 1;
+        int heightBlock = HeaderTip.Height + 1;
 
         while (
           heightBlock <= heightMax &&
@@ -231,9 +248,9 @@ namespace BTokenLib
 
           try
           {
-            block.Header.AppendToHeader(Blockchain.HeaderTip);
+            block.Header.AppendToHeader(HeaderTip);
             InsertInDatabase(block);
-            Blockchain.AppendHeader(block.Header);
+            AppendHeader(block.Header);
 
             if (TokenChild != null)
               TokenChild.SignalCompletionBlockInsertion(block.Header);
@@ -272,7 +289,7 @@ namespace BTokenLib
 
       Directory.CreateDirectory(pathImage);
 
-      Blockchain.CreateImageHeaderchain(
+      CreateImageHeaderchain(
         Path.Combine(pathImage, "ImageHeaderchain"));
 
       CreateImageDatabase(pathImage);
@@ -287,7 +304,12 @@ namespace BTokenLib
 
     public virtual void Reset()
     {
-      Blockchain.InitializeHeaderchain();
+      HeaderGenesis = CreateHeaderGenesis();
+
+      HeaderTip = HeaderGenesis;
+
+      HeaderIndex.Clear();
+      IndexingHeaderTip();
       Wallet.Clear();
     }
 
@@ -345,13 +367,13 @@ namespace BTokenLib
 
     public void InsertBlock(Block block)
     {
-      block.Header.AppendToHeader(Blockchain.HeaderTip);
+      block.Header.AppendToHeader(HeaderTip);
 
       InsertInDatabase(block);
 
       TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
 
-      Blockchain.AppendHeader(block.Header);
+      AppendHeader(block.Header);
 
       FeePerByteAverage =
         ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
@@ -369,7 +391,7 @@ namespace BTokenLib
 
     public virtual Block GetBlock(byte[] hash)
     {
-      if(Blockchain.TryGetHeader(hash, out Header header))
+      if(TryGetHeader(hash, out Header header))
         if (Archiver.TryLoadBlockArchive(header.Height, out byte[] buffer))
         {
           Block block = CreateBlock();
@@ -429,6 +451,193 @@ namespace BTokenLib
     {
       TXPool.AddTX(tX);
       //Network.AdvertizeTX(tX);
+    }
+
+
+    public void CreateImageHeaderchain(string path)
+    {
+      using (FileStream fileImageHeaderchain = new(
+          path,
+          FileMode.Create,
+          FileAccess.Write,
+          FileShare.None))
+      {
+        Header header = HeaderGenesis.HeaderNext;
+
+        while (header != null)
+        {
+          byte[] headerBytes = header.GetBytes();
+
+          fileImageHeaderchain.Write(
+            headerBytes, 0, headerBytes.Length);
+
+          byte[] bytesIndexBlockArchive =
+            BitConverter.GetBytes(header.IndexBlockArchive);
+
+          fileImageHeaderchain.Write(
+            bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
+
+          byte[] bytesStartIndexBlockArchive =
+            BitConverter.GetBytes(header.StartIndexBlockArchive);
+
+          fileImageHeaderchain.Write(
+            bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
+
+          byte[] bytesCountBlockBytes =
+            BitConverter.GetBytes(header.CountBytesBlock);
+
+          fileImageHeaderchain.Write(
+            bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
+
+          header = header.HeaderNext;
+        }
+      }
+    }
+
+    public void LoadImageHeaderchain(
+      string pathImage,
+      int heightMax)
+    {
+      byte[] bytesHeaderImage = File.ReadAllBytes(
+        Path.Combine(pathImage, "ImageHeaderchain"));
+
+      int index = 0;
+
+      while (index < bytesHeaderImage.Length)
+      {
+        Header header = ParseHeader(
+         bytesHeaderImage,
+         ref index);
+
+        // IndexBlockArchive und StartIndexBlockArchive braucht es eigentlich nicht.
+
+        header.IndexBlockArchive = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        header.StartIndexBlockArchive = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        header.CountBytesBlock = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        header.AppendToHeader(HeaderTip);
+
+        HeaderTip.HeaderNext = header;
+        HeaderTip = header;
+
+        IndexingHeaderTip();
+      }
+
+      if (HeaderTip.Height > heightMax)
+        throw new ProtocolException(
+          $"Image higher than desired height {heightMax}.");
+    }
+
+    public List<Header> GetLocator()
+    {
+      Header header = HeaderTip;
+      List<Header> locator = new();
+      int depth = 0;
+      int nextLocationDepth = 0;
+
+      while (header != null)
+      {
+        if (depth == nextLocationDepth || header.HeaderPrevious == null)
+        {
+          locator.Add(header);
+          nextLocationDepth = 2 * nextLocationDepth + 1;
+        }
+
+        depth++;
+
+        header = header.HeaderPrevious;
+      }
+
+      return locator;
+    }
+
+    public List<Header> GetHeaders(
+      IEnumerable<byte[]> locatorHashes,
+      int count,
+      byte[] stopHash)
+    {
+      foreach (byte[] hash in locatorHashes)
+      {
+        if (TryGetHeader(hash, out Header header))
+        {
+          List<Header> headers = new();
+
+          while (
+            header.HeaderNext != null &&
+            headers.Count < count &&
+            !header.Hash.IsEqual(stopHash))
+          {
+            Header nextHeader = header.HeaderNext;
+
+            headers.Add(nextHeader);
+            header = nextHeader;
+          }
+
+          return headers;
+        }
+      }
+
+      throw new ProtocolException(string.Format(
+        "Locator does not root in headerchain."));
+    }
+
+    public void AppendHeader(Header header)
+    {
+      HeaderTip.HeaderNext = header;
+      HeaderTip = header;
+
+      IndexingHeaderTip();
+    }
+
+
+    public bool TryGetHeader(
+      byte[] headerHash,
+      out Header header)
+    {
+      int key = BitConverter.ToInt32(headerHash, 0);
+
+      lock (HeaderIndex)
+        if (HeaderIndex.TryGetValue(
+          key,
+          out List<Header> headers))
+        {
+          foreach (Header h in headers)
+            if (headerHash.IsEqual(h.Hash))
+            {
+              header = h;
+              return true;
+            }
+        }
+
+      header = null;
+      return false;
+    }
+
+    public void IndexingHeaderTip()
+    {
+      int keyHeader = BitConverter.ToInt32(HeaderTip.Hash, 0);
+
+      lock (HeaderIndex)
+      {
+        if (!HeaderIndex.TryGetValue(keyHeader, out List<Header> headers))
+        {
+          headers = new List<Header>();
+          HeaderIndex.Add(keyHeader, headers);
+        }
+
+        headers.Add(HeaderTip);
+      }
     }
   }
 }

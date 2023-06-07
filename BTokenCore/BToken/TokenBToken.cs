@@ -228,7 +228,7 @@ namespace BTokenCore
 
       BlockBToken block = new();
 
-      int height = Blockchain.HeaderTip.Height + 1;
+      int height = HeaderTip.Height + 1;
 
       long blockReward = BLOCK_REWARD_INITIAL >>
         height / PERIOD_HALVENING_BLOCK_REWARD;
@@ -241,8 +241,8 @@ namespace BTokenCore
 
       HeaderBToken header = new()
       {
-        HashPrevious = Blockchain.HeaderTip.Hash,
-        HeaderPrevious = Blockchain.HeaderTip,
+        HashPrevious = HeaderTip.Hash,
+        HeaderPrevious = HeaderTip,
         Height = height,
         UnixTimeSeconds = (uint)DateTimeOffset.Now.ToUnixTimeSeconds(),
         MerkleRoot = block.ComputeMerkleRoot()
@@ -582,7 +582,7 @@ namespace BTokenCore
     public override HeaderDownload CreateHeaderDownload()
     {
       return new HeaderDownloadBToken(
-        Blockchain.GetLocator(),
+        GetLocator(),
         WinningBlockInHeightAnchorBlock);
     }
 

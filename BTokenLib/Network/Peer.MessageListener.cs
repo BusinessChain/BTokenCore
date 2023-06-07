@@ -207,7 +207,7 @@ namespace BTokenLib
                 Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
                 startIndex += 32;
 
-                if (Token.Blockchain.TryGetHeader(
+                if (Token.TryGetHeader(
                   hashHeaderAncestor,
                   out Header header))
                 {

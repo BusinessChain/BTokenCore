@@ -9,7 +9,6 @@ namespace BTokenLib
   public partial class Network
   {
     Token Token;
-    Blockchain Blockchain;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
     const int TIMESPAN_PEER_BANNED_SECONDS = 30;
@@ -34,7 +33,6 @@ namespace BTokenLib
       bool flagEnableInboundConnections)
     {
       Token = token;
-      Blockchain = token.Blockchain;
 
       Port = token.Port;
       EnableInboundConnections = flagEnableInboundConnections;
@@ -73,8 +71,8 @@ namespace BTokenLib
 
       StartPeerConnector();
 
-      if (Token.TokenParent == null)
-        StartSynchronizerLoop();
+      //if (Token.TokenParent == null)
+      //  StartSynchronizerLoop();
 
       if (EnableInboundConnections)
         StartPeerInboundConnector();
