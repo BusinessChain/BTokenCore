@@ -104,11 +104,6 @@ namespace BTokenLib
       Network.Start();
     }
 
-    public virtual HeaderDownload CreateHeaderDownload()
-    {
-      return new HeaderDownload(GetLocator());
-    }
-
     public void PrintChain(ref string text)
     {
       if (TokenParent != null)

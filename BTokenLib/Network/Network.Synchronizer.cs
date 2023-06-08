@@ -116,7 +116,7 @@ namespace BTokenLib
       peer.SetStateHeaderSynchronization();
       PeerSynchronizing = peer;
       IsStateSynchronizing = true;
-      HeaderDownload = Token.CreateHeaderDownload();
+      HeaderDownload = new HeaderDownload(Token.GetLocator());
     }
 
     void ExitSynchronization()

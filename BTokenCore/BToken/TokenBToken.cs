@@ -600,13 +600,6 @@ namespace BTokenCore
       return DatabaseAccounts.TryGetDB(hash, out dataDB);
     }
 
-    public override HeaderDownload CreateHeaderDownload()
-    {
-      return new HeaderDownloadBToken(
-        GetLocator(),
-        WinningBlockInHeightAnchorBlock);
-    }
-
     public override List<string> GetSeedAddresses()
     {
       return new List<string>()
