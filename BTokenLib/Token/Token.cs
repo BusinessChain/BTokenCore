@@ -331,14 +331,53 @@ namespace BTokenLib
 
       Directory.CreateDirectory(pathImage);
 
-      CreateImageHeaderchain(
-        Path.Combine(pathImage, "ImageHeaderchain"));
+      CreateImageHeaderchain(pathImage);
 
       CreateImageDatabase(pathImage);
       Wallet.CreateImage(pathImage);
 
       if (TokenChild != null)
         TokenChild.CreateImage();
+    }
+
+    public virtual void CreateImageHeaderchain(string path)
+    {
+      using (FileStream fileImageHeaderchain = new(
+          Path.Combine(path, "ImageHeaderchain"),
+          FileMode.Create,
+          FileAccess.Write,
+          FileShare.None))
+      {
+        Header header = HeaderGenesis.HeaderNext;
+
+        while (header != null)
+        {
+          byte[] headerBytes = header.GetBytes();
+
+          fileImageHeaderchain.Write(
+            headerBytes, 0, headerBytes.Length);
+
+          byte[] bytesIndexBlockArchive =
+            BitConverter.GetBytes(header.IndexBlockArchive);
+
+          fileImageHeaderchain.Write(
+            bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
+
+          byte[] bytesStartIndexBlockArchive =
+            BitConverter.GetBytes(header.StartIndexBlockArchive);
+
+          fileImageHeaderchain.Write(
+            bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
+
+          byte[] bytesCountBlockBytes =
+            BitConverter.GetBytes(header.CountBytesBlock);
+
+          fileImageHeaderchain.Write(
+            bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
+
+          header = header.HeaderNext;
+        }
+      }
     }
 
     public virtual void CreateImageDatabase(string path)
@@ -493,46 +532,6 @@ namespace BTokenLib
     {
       TXPool.AddTX(tX);
       //Network.AdvertizeTX(tX);
-    }
-
-    public virtual void CreateImageHeaderchain(string path)
-    {
-      using (FileStream fileImageHeaderchain = new(
-          path,
-          FileMode.Create,
-          FileAccess.Write,
-          FileShare.None))
-      {
-        Header header = HeaderGenesis.HeaderNext;
-
-        while (header != null)
-        {
-          byte[] headerBytes = header.GetBytes();
-
-          fileImageHeaderchain.Write(
-            headerBytes, 0, headerBytes.Length);
-
-          byte[] bytesIndexBlockArchive =
-            BitConverter.GetBytes(header.IndexBlockArchive);
-
-          fileImageHeaderchain.Write(
-            bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
-
-          byte[] bytesStartIndexBlockArchive =
-            BitConverter.GetBytes(header.StartIndexBlockArchive);
-
-          fileImageHeaderchain.Write(
-            bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
-
-          byte[] bytesCountBlockBytes =
-            BitConverter.GetBytes(header.CountBytesBlock);
-
-          fileImageHeaderchain.Write(
-            bytesCountBlockBytes, 0, bytesCountBlockBytes.Length);
-
-          header = header.HeaderNext;
-        }
-      }
     }
 
     public List<Header> GetLocator()

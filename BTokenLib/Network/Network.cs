@@ -71,8 +71,8 @@ namespace BTokenLib
 
       StartPeerConnector();
 
-      //if (Token.TokenParent == null)
-      //  StartSynchronizerLoop();
+      if (Token.TokenParent == null)
+        StartSynchronizerLoop();
 
       if (EnableInboundConnections)
         StartPeerInboundConnector();

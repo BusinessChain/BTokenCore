@@ -123,12 +123,12 @@ namespace BTokenCore
     }
 
 
-    public override void CreateImageHeaderchain(string path)
+    public override void CreateImageHeaderchain(string pathImage)
     {
-      base.CreateImageHeaderchain(path);
+      base.CreateImageHeaderchain(pathImage);
 
       using (FileStream fileWinningBlockInHeightAnchorBlock = new(
-          Path.Combine(path, "winningBlockInHeightAnchorBlock"),
+          Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"),
           FileMode.Create,
           FileAccess.Write,
           FileShare.None))
