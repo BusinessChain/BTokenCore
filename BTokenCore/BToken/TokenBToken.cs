@@ -372,6 +372,10 @@ namespace BTokenCore
           ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
             $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
+          if(WinningBlockInHeightAnchorBlock.ContainsValue(headerParent.Height))
+            throw new InvalidOperationException(
+              "Cannot have entries with the same hight in anchor trail.");
+
           WinningBlockInHeightAnchorBlock.Add(
             tokenAnchorWinner.HashBlockReferenced,
             headerParent.Height);
