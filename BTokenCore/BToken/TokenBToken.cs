@@ -101,6 +101,8 @@ namespace BTokenCore
       string pathImage,
       int heightMax)
     {
+      $"Load anchor trail.".Log(LogFile);
+
       byte[] winningBlockInHeightAnchorBlock = File.ReadAllBytes(
         Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"));
 
@@ -115,6 +117,8 @@ namespace BTokenCore
 
         int height = BitConverter.ToInt32(winningBlockInHeightAnchorBlock, i);
         i += 4;
+
+        $"Load trail hash {hashblock.ToHexString()} with height {height}.".Log(LogFile);
 
         WinningBlockInHeightAnchorBlock.Add(hashblock, height);
       }

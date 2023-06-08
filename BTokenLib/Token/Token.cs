@@ -40,7 +40,7 @@ namespace BTokenLib
 
     string PathRootToken;
 
-    const int INTERVAL_BLOCKHEIGHT_IMAGE = 2;
+    const int INTERVAL_BLOCKHEIGHT_IMAGE = 5;
 
     protected int CountBytesDataTokenBasis = 120;
 
@@ -217,6 +217,7 @@ namespace BTokenLib
 
         try
         {
+          $"Load image headerchain of token {GetName()}".Log(LogFile);
           LoadImageHeaderchain(pathImageLoad, heightMax);
 
           LoadImageDatabase(pathImageLoad);
@@ -295,6 +296,8 @@ namespace BTokenLib
           bytesHeaderImage, index);
 
         index += 4;
+
+        $"Append {header} to headerTip {HeaderTip}".Log(LogFile);
 
         header.AppendToHeader(HeaderTip);
 
