@@ -37,7 +37,7 @@ namespace BTokenCore
 
     DatabaseAccounts DatabaseAccounts;
  
-    Dictionary<byte[], int> WinningBlockInHeightAnchorBlock = 
+    Dictionary<byte[], int> TrailAnchorChain = 
       new(new EqualityComparerByteArray());
 
     List<BlockBToken> BlocksMined = new();
@@ -106,7 +106,7 @@ namespace BTokenCore
       byte[] winningBlockInHeightAnchorBlock = File.ReadAllBytes(
         Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"));
 
-      WinningBlockInHeightAnchorBlock.Clear();
+      TrailAnchorChain.Clear();
       int i = 0;
 
       while (i < winningBlockInHeightAnchorBlock.Length)
@@ -120,7 +120,7 @@ namespace BTokenCore
 
         $"Load trail hash {hashblock.ToHexString()} with height {height}.".Log(LogFile);
 
-        WinningBlockInHeightAnchorBlock.Add(hashblock, height);
+        TrailAnchorChain.Add(hashblock, height);
       }
 
       base.LoadImageHeaderchain(pathImage, heightMax);
@@ -137,7 +137,7 @@ namespace BTokenCore
           FileAccess.Write,
           FileShare.None))
       {
-        foreach (KeyValuePair<byte[], int> keyValuePair in WinningBlockInHeightAnchorBlock)
+        foreach (KeyValuePair<byte[], int> keyValuePair in TrailAnchorChain)
         {
           fileWinningBlockInHeightAnchorBlock.Write(
             keyValuePair.Key, 0, keyValuePair.Key.Length);
@@ -372,11 +372,11 @@ namespace BTokenCore
           ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
             $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
-          if(WinningBlockInHeightAnchorBlock.ContainsValue(headerParent.Height))
+          if(TrailAnchorChain.ContainsValue(headerParent.Height))
             throw new InvalidOperationException(
               "Cannot have entries with the same hight in anchor trail.");
 
-          WinningBlockInHeightAnchorBlock.Add(
+          TrailAnchorChain.Add(
             tokenAnchorWinner.HashBlockReferenced,
             headerParent.Height);
 
@@ -546,11 +546,11 @@ namespace BTokenCore
         buffer,
         ref index);
 
-      if (!WinningBlockInHeightAnchorBlock.TryGetValue(header.Hash, out int heightBlockAnchor))
+      if (!TrailAnchorChain.TryGetValue(header.Hash, out int heightBlockAnchor))
       {
         throw new ProtocolException($"Header {header} not anchored in parent chain.");
       }
-      else if (header.Height > 1 && heightBlockAnchor < WinningBlockInHeightAnchorBlock[header.HashPrevious])
+      else if (header.Height > 1 && heightBlockAnchor < TrailAnchorChain[header.HashPrevious])
         throw new ProtocolException(
           $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
 

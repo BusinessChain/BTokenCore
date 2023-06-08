@@ -458,14 +458,14 @@ namespace BTokenLib
         ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
         ORDER_AVERAGEING_FEEPERBYTE;
 
+      if (TokenChild != null)
+        TokenChild.SignalCompletionBlockInsertion(block.Header);
+
       Archiver.ArchiveBlock(block);
 
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0 && 
         TokenParent == null)
         CreateImage();
-
-      if (TokenChild != null)
-        TokenChild.SignalCompletionBlockInsertion(block.Header);
     }
 
     public virtual Block GetBlock(byte[] hash)
