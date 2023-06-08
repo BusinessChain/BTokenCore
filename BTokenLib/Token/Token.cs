@@ -159,7 +159,6 @@ namespace BTokenLib
 
       messageStatus +=
         $"\n\t\t\t\t{GetName()}:\n" +
-        $"{GetStatus()}" +
         $"Height: {HeaderTip.Height}\n" +
         $"Block tip: {HeaderTip}\n" +
         $"Difficulty Tip: {HeaderTip.Difficulty}\n" +
@@ -218,9 +217,7 @@ namespace BTokenLib
 
         try
         {
-          LoadImageHeaderchain(
-            pathImageLoad, 
-            heightMax);
+          LoadImageHeaderchain(pathImageLoad, heightMax);
 
           LoadImageDatabase(pathImageLoad);
           Wallet.LoadImage(pathImageLoad);
@@ -265,6 +262,51 @@ namespace BTokenLib
 
         return;
       }
+    }
+
+    public virtual void LoadImageHeaderchain(
+      string pathImage,
+      int heightMax)
+    {
+      byte[] bytesHeaderImage = File.ReadAllBytes(
+        Path.Combine(pathImage, "ImageHeaderchain"));
+
+      int index = 0;
+
+      while (index < bytesHeaderImage.Length)
+      {
+        Header header = ParseHeader(
+         bytesHeaderImage,
+         ref index);
+
+        // IndexBlockArchive und StartIndexBlockArchive braucht es eigentlich nicht.
+
+        header.IndexBlockArchive = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        header.StartIndexBlockArchive = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        header.CountBytesBlock = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        header.AppendToHeader(HeaderTip);
+
+        HeaderTip.HeaderNext = header;
+        HeaderTip = header;
+
+        IndexingHeaderTip();
+      }
+
+      if (HeaderTip.Height > heightMax)
+        throw new ProtocolException(
+          $"Image higher than desired height {heightMax}.");
     }
 
     public virtual void LoadImageDatabase(string path)
@@ -453,7 +495,6 @@ namespace BTokenLib
       //Network.AdvertizeTX(tX);
     }
 
-
     public void CreateImageHeaderchain(string path)
     {
       using (FileStream fileImageHeaderchain = new(
@@ -492,51 +533,6 @@ namespace BTokenLib
           header = header.HeaderNext;
         }
       }
-    }
-
-    public void LoadImageHeaderchain(
-      string pathImage,
-      int heightMax)
-    {
-      byte[] bytesHeaderImage = File.ReadAllBytes(
-        Path.Combine(pathImage, "ImageHeaderchain"));
-
-      int index = 0;
-
-      while (index < bytesHeaderImage.Length)
-      {
-        Header header = ParseHeader(
-         bytesHeaderImage,
-         ref index);
-
-        // IndexBlockArchive und StartIndexBlockArchive braucht es eigentlich nicht.
-
-        header.IndexBlockArchive = BitConverter.ToInt32(
-          bytesHeaderImage, index);
-
-        index += 4;
-
-        header.StartIndexBlockArchive = BitConverter.ToInt32(
-          bytesHeaderImage, index);
-
-        index += 4;
-
-        header.CountBytesBlock = BitConverter.ToInt32(
-          bytesHeaderImage, index);
-
-        index += 4;
-
-        header.AppendToHeader(HeaderTip);
-
-        HeaderTip.HeaderNext = header;
-        HeaderTip = header;
-
-        IndexingHeaderTip();
-      }
-
-      if (HeaderTip.Height > heightMax)
-        throw new ProtocolException(
-          $"Image higher than desired height {heightMax}.");
     }
 
     public List<Header> GetLocator()

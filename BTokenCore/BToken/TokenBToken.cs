@@ -115,9 +115,10 @@ namespace BTokenCore
       }
     }
 
-    public override void CreateImageDatabase(string pathImage)
+    public override void LoadImageHeaderchain(
+      string pathImage,
+      int heightMax)
     {
-      DatabaseAccounts.CreateImage(pathImage);
 
       using (FileStream fileWinningBlockInHeightAnchorBlock = new(
           Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"),
@@ -134,6 +135,13 @@ namespace BTokenCore
           fileWinningBlockInHeightAnchorBlock.Write(heightBytes, 0, heightBytes.Length);
         }
       }
+
+      base.LoadImageHeaderchain(pathImage, heightMax);
+    }
+
+    public override void CreateImageDatabase(string pathImage)
+    {
+      DatabaseAccounts.CreateImage(pathImage);
     }
 
 
