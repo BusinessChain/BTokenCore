@@ -95,14 +95,19 @@ namespace BTokenCore
     public override void LoadImageDatabase(string pathImage)
     {
       DatabaseAccounts.LoadImage(pathImage);
+    }
 
+    public override void LoadImageHeaderchain(
+      string pathImage,
+      int heightMax)
+    {
       byte[] winningBlockInHeightAnchorBlock = File.ReadAllBytes(
         Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"));
 
       WinningBlockInHeightAnchorBlock.Clear();
       int i = 0;
 
-      while(i < winningBlockInHeightAnchorBlock.Length)
+      while (i < winningBlockInHeightAnchorBlock.Length)
       {
         byte[] hashblock = new byte[32];
         Array.Copy(winningBlockInHeightAnchorBlock, i, hashblock, 0, 32);
@@ -113,15 +118,17 @@ namespace BTokenCore
 
         WinningBlockInHeightAnchorBlock.Add(hashblock, height);
       }
+
+      base.LoadImageHeaderchain(pathImage, heightMax);
     }
 
-    public override void LoadImageHeaderchain(
-      string pathImage,
-      int heightMax)
+
+    public override void CreateImageHeaderchain(string path)
     {
+      base.CreateImageHeaderchain(path);
 
       using (FileStream fileWinningBlockInHeightAnchorBlock = new(
-          Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"),
+          Path.Combine(path, "winningBlockInHeightAnchorBlock"),
           FileMode.Create,
           FileAccess.Write,
           FileShare.None))
@@ -135,8 +142,6 @@ namespace BTokenCore
           fileWinningBlockInHeightAnchorBlock.Write(heightBytes, 0, heightBytes.Length);
         }
       }
-
-      base.LoadImageHeaderchain(pathImage, heightMax);
     }
 
     public override void CreateImageDatabase(string pathImage)

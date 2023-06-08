@@ -495,7 +495,7 @@ namespace BTokenLib
       //Network.AdvertizeTX(tX);
     }
 
-    public void CreateImageHeaderchain(string path)
+    public virtual void CreateImageHeaderchain(string path)
     {
       using (FileStream fileImageHeaderchain = new(
           path,
