@@ -362,7 +362,7 @@ namespace BTokenCore
     {
       try
       {
-        $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block."
+        $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block {headerParent}."
           .Log(LogFile);
 
         if (TokensAnchorDetectedInBlock.Count > 0)
