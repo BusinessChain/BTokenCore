@@ -190,20 +190,20 @@ namespace BTokenLib
 
     public void LoadImage(int heightMax = int.MaxValue)
     {
-      ($"Load image of token {GetName()} " +
+      ($"Load image of token {GetName()}" +
         $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
 
       string pathImageLoad = PathImage;
 
+      Reset();
+
       while (true)
       {
-        Reset();
-
         try
         {
-          $"Load image headerchain of token {GetName()}".Log(LogFile);
-          LoadImageHeaderchain(pathImageLoad, heightMax);
+          $"Load {pathImageLoad} headerchain of token {GetName()}".Log(LogFile);
 
+          LoadImageHeaderchain(pathImageLoad, heightMax);
           LoadImageDatabase(pathImageLoad);
         }
         catch
@@ -217,37 +217,37 @@ namespace BTokenLib
           }
         }
 
-        Block block = CreateBlock();
-        int heightBlock = HeaderTip.Height + 1;
+        break;
+      }
 
-        while (
-          heightBlock <= heightMax &&
-          Archiver.TryLoadBlockArchive(heightBlock, out byte[] buffer))
+      if (TokenChild != null)
+        TokenChild.LoadImage(heightMax);
+
+      Block block = CreateBlock();
+      int heightBlock = HeaderTip.Height + 1;
+
+      while (
+        heightBlock <= heightMax &&
+        Archiver.TryLoadBlockArchive(heightBlock, out byte[] buffer))
+      {
+        block.Buffer = buffer;
+        block.Parse();
+
+        try
         {
-          block.Buffer = buffer;
-          block.Parse();
+          block.Header.AppendToHeader(HeaderTip);
+          InsertInDatabase(block);
+          AppendHeader(block.Header);
 
-          try
-          {
-            block.Header.AppendToHeader(HeaderTip);
-            InsertInDatabase(block);
-            AppendHeader(block.Header);
-
-            if (TokenChild != null)
-              TokenChild.SignalCompletionBlockInsertion(block.Header);
-          }
-          catch
-          {
-            break;
-          }
-
-          heightBlock += 1;
+          if (TokenChild != null)
+            TokenChild.SignalCompletionBlockInsertion(block.Header);
+        }
+        catch
+        {
+          break;
         }
 
-        if (TokenChild != null)
-          TokenChild.LoadImage(heightMax);
-
-        return;
+        heightBlock += 1;
       }
     }
 

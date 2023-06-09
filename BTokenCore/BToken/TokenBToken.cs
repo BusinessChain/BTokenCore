@@ -374,7 +374,7 @@ namespace BTokenCore
             tokenAnchorWinner.HashBlockReferenced,
             headerParent.Height);
 
-          if (BlocksMined.Count > 0)
+          if (BlocksMined.Count > 0) // or in Archive
           {
             BlockBToken blockMined = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
