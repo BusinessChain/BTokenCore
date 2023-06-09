@@ -35,14 +35,12 @@ namespace BTokenCore
 
     string PathBlocksMinedUnconfirmed;
 
-    DatabaseAccounts DatabaseAccounts;
+    DatabaseAccounts DatabaseAccounts = new();
  
     Dictionary<byte[], int> TrailAnchorChain = 
       new(new EqualityComparerByteArray());
 
     List<BlockBToken> BlocksMined = new();
-
-
 
 
     public TokenBToken(Token tokenParent)
@@ -52,8 +50,6 @@ namespace BTokenCore
     {
       TokenParent = tokenParent;
       tokenParent.TokenChild = this;
-
-      DatabaseAccounts = new();
 
       PathBlocksMinedUnconfirmed = Path.Combine(
         GetName(),
@@ -153,7 +149,6 @@ namespace BTokenCore
       DatabaseAccounts.CreateImage(pathImage);
     }
 
-
     public override void StartMining()
     {
       if (IsMining)
@@ -165,7 +160,6 @@ namespace BTokenCore
 
       RunMining();
     }
-
 
     SHA256 SHA256Miner = SHA256.Create();
     Random RandomGeneratorMiner = new();
@@ -585,12 +579,16 @@ namespace BTokenCore
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
     }
 
-    public override void Reset()
+    public override void ResetHeaderchain()
     {
-      base.Reset();
+      base.ResetHeaderchain();
       DatabaseAccounts.ClearCache();
-      //TrailHashesAnchor.Clear();
-      //IndexTrail = 0;
+      TrailAnchorChain.Clear();
+    }
+    public override void ResetDatabase()
+    {
+      base.ResetDatabase();
+      DatabaseAccounts.ClearCache();
     }
 
     public override bool TryGetDB(

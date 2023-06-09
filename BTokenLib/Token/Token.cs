@@ -55,13 +55,6 @@ namespace BTokenLib
       PathRootToken = GetName();
       Directory.CreateDirectory(PathRootToken);
 
-      HeaderGenesis = CreateHeaderGenesis();
-
-      HeaderTip = HeaderGenesis;
-
-      HeaderIndex.Clear();
-      IndexingHeaderTip();
-
       Archiver = new(GetName());
 
       TXPool = new();
@@ -71,37 +64,32 @@ namespace BTokenLib
 
       Wallet = new(File.ReadAllText($"Wallet{GetName()}/wallet"));
 
-      PathImage = Path.Combine(
-        PathRootToken,
-        NameImage);
-
-      PathImageOld = Path.Combine(
-        PathRootToken,
-        NameImageOld);
-
-      PathImageFork = Path.Combine(
-        PathRootToken,
-        NameFork,
-        NameImage);
-
-      PathImageForkOld = Path.Combine(
-        PathRootToken,
-        NameFork,
-        NameImageOld);
+      PathImage = Path.Combine(PathRootToken, NameImage);
+      PathImageOld = Path.Combine(PathRootToken, NameImageOld);
+      PathImageFork = Path.Combine(PathRootToken, NameFork, NameImage);
+      PathImageForkOld = Path.Combine(PathRootToken, NameFork, NameImageOld);
 
       LogFile = new StreamWriter(
         Path.Combine(GetName(), "LogToken"),
         false);
+
+      Reset();
     }
 
-    public void Start(bool recursive = false)
+    public void Start()
     {
-      if (recursive && TokenParent != null)
-        TokenParent.Start(recursive: true);
+      Token token = this;
 
-      LoadImage();
+      while (token.TokenParent != null)
+        token = TokenParent;
 
-      Network.Start();
+      token.LoadImage();
+
+      while (token != null)
+      {
+        token.Network.Start();
+        token = token.TokenChild;
+      }
     }
 
     public void PrintChain(ref string text)
@@ -194,7 +182,7 @@ namespace BTokenLib
 
     internal void Reorganize()
     {
-      $"Reorganize token {this.GetType().Name}".Log(LogFile);
+      $"Reorganize token {GetName()}".Log(LogFile);
 
       PathImageFork.TryMoveDirectoryTo(PathImage);
       PathImageForkOld.TryMoveDirectoryTo(PathImageOld);
@@ -202,7 +190,8 @@ namespace BTokenLib
 
     public void LoadImage(int heightMax = int.MaxValue)
     {
-      $"Load image{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.".Log(LogFile);
+      ($"Load image of token {GetName()} " +
+        $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
 
       string pathImageLoad = PathImage;
 
@@ -216,7 +205,6 @@ namespace BTokenLib
           LoadImageHeaderchain(pathImageLoad, heightMax);
 
           LoadImageDatabase(pathImageLoad);
-          Wallet.LoadImage(pathImageLoad);
         }
         catch
         {
@@ -256,8 +244,35 @@ namespace BTokenLib
           heightBlock += 1;
         }
 
+        if (TokenChild != null)
+          TokenChild.LoadImage(heightMax);
+
         return;
       }
+    }
+
+    public void Reset()
+    {
+      ResetHeaderchain();
+      ResetDatabase();
+
+      if (TokenChild != null)
+        TokenChild.Reset();
+    }
+
+    public virtual void ResetHeaderchain()
+    {
+      HeaderGenesis = CreateHeaderGenesis();
+
+      HeaderTip = HeaderGenesis;
+
+      HeaderIndex.Clear();
+      IndexingHeaderTip();
+    }
+    
+    public virtual void ResetDatabase()
+    {
+      Wallet.Clear();
     }
 
     public virtual void LoadImageHeaderchain(
@@ -308,7 +323,9 @@ namespace BTokenLib
     }
 
     public virtual void LoadImageDatabase(string path)
-    { }
+    {
+      Wallet.LoadImage(path);
+    }
 
     public bool IsFork;
 
@@ -380,17 +397,6 @@ namespace BTokenLib
 
     public virtual void CreateImageDatabase(string path)
     { }
-
-    public virtual void Reset()
-    {
-      HeaderGenesis = CreateHeaderGenesis();
-
-      HeaderTip = HeaderGenesis;
-
-      HeaderIndex.Clear();
-      IndexingHeaderTip();
-      Wallet.Clear();
-    }
 
     public abstract Block CreateBlock();
 

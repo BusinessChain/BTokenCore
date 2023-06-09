@@ -154,7 +154,9 @@ namespace BTokenLib
           {
             if (HeaderDownload.HeaderAncestor != Token.HeaderTip)
             {
-              $"HeaderDownload.HeaderAncestor {HeaderDownload.HeaderAncestor} not equal to {Token.HeaderTip}".Log(LogFile);
+              ($"HeaderDownload.HeaderAncestor {HeaderDownload.HeaderAncestor} " +
+                $"not equal to {Token.HeaderTip}").Log(LogFile);
+
               Token.LoadImage(HeaderDownload.HeaderAncestor.Height);
             }
 
