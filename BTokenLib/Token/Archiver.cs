@@ -53,11 +53,18 @@ namespace BTokenLib
 
     public void ArchiveBlock(Block block)
     {
+      string pathFile = Path.Combine(
+        PathBlockArchive, 
+        block.Header.Height.ToString());
+
+      if (File.Exists(pathFile))
+        return;
+
       while (true)
         try
         {
           File.WriteAllBytes(
-            Path.Combine(PathBlockArchive, block.Header.Height.ToString()),
+            pathFile,
             block.Buffer.Take(block.Header.CountBytesBlock).ToArray());
 
           File.Delete(Path.Combine(
@@ -75,6 +82,15 @@ namespace BTokenLib
 
           Thread.Sleep(10000);
         }
+    }
+
+    public void DeleteBlock(Block block)
+    {
+      string pathFile = Path.Combine(
+        PathBlockArchive,
+        block.Header.Height.ToString());
+
+      File.Delete(pathFile);
     }
   }
 }

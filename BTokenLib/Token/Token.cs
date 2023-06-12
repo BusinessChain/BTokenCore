@@ -226,15 +226,11 @@ namespace BTokenLib
 
         try
         {
-          block.Header.AppendToHeader(HeaderTip);
-          InsertInDatabase(block);
-          AppendHeaderToTip(block.Header);
-
-          if (TokenChild != null)
-            TokenChild.SignalCompletionBlockInsertion(block.Header);
+          InsertBlock(block);
         }
         catch
         {
+          Archiver.DeleteBlock(block);
           break;
         }
 
@@ -459,11 +455,7 @@ namespace BTokenLib
     public void InsertBlock(Block block)
     {
       block.Header.AppendToHeader(HeaderTip);
-
       InsertInDatabase(block);
-
-      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
-
       AppendHeaderToTip(block.Header);
 
       FeePerByteAverage =
@@ -473,9 +465,11 @@ namespace BTokenLib
       if (TokenChild != null)
         TokenChild.SignalCompletionBlockInsertion(block.Header);
 
+      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
+
       Archiver.ArchiveBlock(block);
 
-      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0 && 
+      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0 &&
         TokenParent == null)
         CreateImage();
     }

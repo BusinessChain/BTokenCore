@@ -65,8 +65,6 @@ namespace BTokenCore
 
           InsertBlock(block);
 
-          BlocksMined.Add(block);
-
           Console.Beep();
         }
         catch (Exception ex)
