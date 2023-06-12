@@ -16,7 +16,7 @@ namespace BTokenLib
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
-    BlockArchiver Archiver;
+    protected BlockArchiver Archiver;
 
     public Wallet Wallet;
 
@@ -190,9 +190,6 @@ namespace BTokenLib
 
     public void LoadImage(int heightMax = int.MaxValue)
     {
-      ($"Load image of token {GetName()}" +
-        $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
-
       string pathImageLoad = PathImage;
 
       Reset();
@@ -201,10 +198,7 @@ namespace BTokenLib
       {
         try
         {
-          $"Load {pathImageLoad} headerchain of token {GetName()}".Log(LogFile);
-
-          LoadImageHeaderchain(pathImageLoad, heightMax);
-          LoadImageDatabase(pathImageLoad);
+          LoadImageToken(pathImageLoad, heightMax);
         }
         catch
         {
@@ -220,9 +214,6 @@ namespace BTokenLib
         break;
       }
 
-      if (TokenChild != null)
-        TokenChild.LoadImage(heightMax);
-
       Block block = CreateBlock();
       int heightBlock = HeaderTip.Height + 1;
 
@@ -237,7 +228,7 @@ namespace BTokenLib
         {
           block.Header.AppendToHeader(HeaderTip);
           InsertInDatabase(block);
-          AppendHeader(block.Header);
+          AppendHeaderToTip(block.Header);
 
           if (TokenChild != null)
             TokenChild.SignalCompletionBlockInsertion(block.Header);
@@ -249,6 +240,21 @@ namespace BTokenLib
 
         heightBlock += 1;
       }
+    }
+
+    void LoadImageToken(
+      string pathImageLoad,
+      int heightMax)
+    {
+      ($"Load image of token {GetName()}" +
+        $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
+
+
+      LoadImageHeaderchain(pathImageLoad, heightMax);
+      LoadImageDatabase(pathImageLoad);
+
+      if (TokenChild != null)
+        TokenChild.LoadImageToken(pathImageLoad, heightMax);
     }
 
     public void Reset()
@@ -458,7 +464,7 @@ namespace BTokenLib
 
       TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
 
-      AppendHeader(block.Header);
+      AppendHeaderToTip(block.Header);
 
       FeePerByteAverage =
         ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
@@ -591,7 +597,7 @@ namespace BTokenLib
         "Locator does not root in headerchain."));
     }
 
-    public void AppendHeader(Header header)
+    public void AppendHeaderToTip(Header header)
     {
       HeaderTip.HeaderNext = header;
       HeaderTip = header;

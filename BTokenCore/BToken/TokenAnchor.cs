@@ -10,7 +10,7 @@ namespace BTokenCore
 {
   partial class TokenBToken
   {
-    class TokenAnchor
+    public class TokenAnchor
     {
       public byte[] IDToken;
 
