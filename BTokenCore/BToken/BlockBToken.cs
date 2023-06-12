@@ -20,18 +20,13 @@ namespace BTokenCore
       Buffer = new byte[sizeBuffer];
     }
 
-    public BlockBToken(HeaderBToken header)
-    {
-      Header = header;
-    }
-
 
     public void Parse(byte[] buffer)
     {
-      int index = 0;
+      int indexBuffer = 0;
       // parse Anchor Token
 
-      Parse(index);
+      Parse(indexBuffer);
     }
 
     public override HeaderBToken ParseHeader(

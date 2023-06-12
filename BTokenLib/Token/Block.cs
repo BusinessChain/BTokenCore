@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Diagnostics;
 using System.Security.Cryptography;
 
 namespace BTokenLib
@@ -37,13 +36,13 @@ namespace BTokenLib
       Parse(0);
     }
 
-    public void Parse(int index)
+    public void Parse(int indexBuffer)
     {
-      Header = ParseHeader(Buffer, ref index);
+      Header = ParseHeader(Buffer, ref indexBuffer);
 
-      ParseTXs(Header.MerkleRoot, ref index);
+      ParseTXs(Header.MerkleRoot, ref indexBuffer);
 
-      Header.CountBytesBlock = index;
+      Header.CountBytesBlock = indexBuffer;
     }
 
     public abstract Header ParseHeader(

@@ -227,20 +227,21 @@ namespace BTokenCore
       $"Anchor token references {tokenAnchor.HashBlockReferenced.ToHexString()}".Log(LogFile);
     }
 
-    public override void SignalCompletionBlockInsertion(Header headerParent)
+    public override void SignalCompletionBlockInsertion(Header headerAnchor)
     {
       try
       {
-        $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block {headerParent}."
+        $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block {headerAnchor}."
           .Log(LogFile);
 
         if (TokensAnchorDetectedInBlock.Count > 0)
         {
-          TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(headerParent);
+          TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(headerAnchor);
 
           Block block = null;
 
-          if (Archiver.TryLoadBlockArchive(headerParent.Height, out byte[] buffer))
+          if (Archiver.TryLoadBlockArchive(
+            headerAnchor.Height, out byte[] buffer))
           {
             block = CreateBlock();
 
@@ -282,8 +283,8 @@ namespace BTokenCore
       }
       catch (Exception ex)
       {
-        ($"{ex.GetType().Name} when signaling Bitcoin block {headerParent}" +
-          $" with height {headerParent.Height} to BToken.\n" +
+        ($"{ex.GetType().Name} when signaling Bitcoin block {headerAnchor}" +
+          $" with height {headerAnchor.Height} to BToken.\n" +
           $"Exception message: {ex.Message}").Log(this, LogFile);
       }
     }

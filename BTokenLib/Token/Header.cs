@@ -20,9 +20,6 @@ namespace BTokenLib
 
     public int Height;
 
-    public int IndexBlockArchive;
-    public int StartIndexBlockArchive;
-
     public int CountBytesBlock;
     public long CountBytesBlocksAccumulated;
 
@@ -74,6 +71,7 @@ namespace BTokenLib
       Hash = sHA256.ComputeHash(sHA256.ComputeHash(GetBytes()));
     }
 
+   
     public override string ToString()
     {
       return Hash.ToHexString();

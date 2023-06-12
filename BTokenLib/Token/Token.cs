@@ -292,24 +292,12 @@ namespace BTokenLib
          bytesHeaderImage,
          ref index);
 
-        // IndexBlockArchive und StartIndexBlockArchive braucht es eigentlich nicht.
-
-        header.IndexBlockArchive = BitConverter.ToInt32(
-          bytesHeaderImage, index);
-
-        index += 4;
-
-        header.StartIndexBlockArchive = BitConverter.ToInt32(
-          bytesHeaderImage, index);
-
-        index += 4;
-
         header.CountBytesBlock = BitConverter.ToInt32(
           bytesHeaderImage, index);
 
         index += 4;
 
-        $"Append {header} to headerTip {HeaderTip}".Log(LogFile);
+        $"Append {header} to headerTip {HeaderTip}.".Log(LogFile);
 
         header.AppendToHeader(HeaderTip);
 
@@ -373,18 +361,6 @@ namespace BTokenLib
 
           fileImageHeaderchain.Write(
             headerBytes, 0, headerBytes.Length);
-
-          byte[] bytesIndexBlockArchive =
-            BitConverter.GetBytes(header.IndexBlockArchive);
-
-          fileImageHeaderchain.Write(
-            bytesIndexBlockArchive, 0, bytesIndexBlockArchive.Length);
-
-          byte[] bytesStartIndexBlockArchive =
-            BitConverter.GetBytes(header.StartIndexBlockArchive);
-
-          fileImageHeaderchain.Write(
-            bytesStartIndexBlockArchive, 0, bytesStartIndexBlockArchive.Length);
 
           byte[] bytesCountBlockBytes =
             BitConverter.GetBytes(header.CountBytesBlock);
