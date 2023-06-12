@@ -238,17 +238,19 @@ namespace BTokenCore
         {
           TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(headerParent);
 
-          if(Archiver.TryLoadBlockArchive(headerParent.Height, out byte[] buffer))
-          {
+          Block block = null;
 
+          if (Archiver.TryLoadBlockArchive(headerParent.Height, out byte[] buffer))
+          {
+            block = CreateBlock();
+
+            block.Buffer = buffer;
+            block.Parse();
           }
           else if (BlocksMined.Count > 0)
           {
-            BlockBToken blockMined = BlocksMined.Find(b =>
+            block = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
-
-            if (blockMined != null)
-              InsertBlock(blockMined);
 
             if (TokensAnchorUnconfirmed.Count == 0)
             {
@@ -256,6 +258,9 @@ namespace BTokenCore
               FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
             }
           }
+
+          if (block != null)
+            InsertBlock(block);
         }
 
         TokensAnchorDetectedInBlock.Clear();
