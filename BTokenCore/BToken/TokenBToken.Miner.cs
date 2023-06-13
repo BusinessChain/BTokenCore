@@ -241,12 +241,15 @@ namespace BTokenCore
           Block block = null;
 
           if (Archiver.TryLoadBlockArchive(
-            headerAnchor.Height, out byte[] buffer))
+            HeaderTip.Height  + 1, out byte[] buffer))
           {
             block = CreateBlock();
 
             block.Buffer = buffer;
             block.Parse();
+
+            if (!block.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced))
+              block = null;
           }
           else if (BlocksMined.Count > 0)
           {
