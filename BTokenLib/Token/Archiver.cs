@@ -11,8 +11,6 @@ namespace BTokenLib
     string PathBlockArchive;
     const int COUNT_MAX_BLOCKS_ARCHIVED = 2016;
 
-    public int IndexBlockArchiveInsert;
-
 
     public BlockArchiver(string nameToken)
     {
@@ -84,13 +82,11 @@ namespace BTokenLib
         }
     }
 
-    public void DeleteBlock(Block block)
+    public void CleanAfterBlockHeight(int height)
     {
-      string pathFile = Path.Combine(
-        PathBlockArchive,
-        block.Header.Height.ToString());
-
-      File.Delete(pathFile);
+      foreach (string file in Directory.GetFiles(PathBlockArchive))
+        if (!int.TryParse(Path.GetFileName(file), out int blockHeight) || blockHeight > height)
+          File.Delete(file);
     }
   }
 }

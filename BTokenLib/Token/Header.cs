@@ -53,17 +53,17 @@ namespace BTokenLib
 
     public virtual void AppendToHeader(Header headerPrevious)
     {
+      Height = headerPrevious.Height + 1;
+
+      HeaderPrevious = headerPrevious;
+
+      DifficultyAccumulated = headerPrevious.DifficultyAccumulated + Difficulty;
+      CountBytesBlocksAccumulated = headerPrevious.CountBytesBlocksAccumulated + CountBytesBlock;
+
       if (!HashPrevious.IsEqual(headerPrevious.Hash))
         throw new ProtocolException(
           $"Header {this} references header previous " +
           $"{HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
-
-      HeaderPrevious = headerPrevious;
-
-      Height = headerPrevious.Height + 1;
-
-      DifficultyAccumulated = headerPrevious.DifficultyAccumulated + Difficulty;
-      CountBytesBlocksAccumulated = headerPrevious.CountBytesBlocksAccumulated + CountBytesBlock;
     }
 
     public void ComputeHash(SHA256 sHA256)
