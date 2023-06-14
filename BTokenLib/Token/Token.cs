@@ -199,19 +199,23 @@ namespace BTokenLib
         try
         {
           LoadImageToken(pathImageLoad, heightMax);
+          break;
         }
         catch
         {
           Reset();
 
-          if (pathImageLoad == NameImage)
+          DeleteImage();
+
+          try
           {
-            pathImageLoad = NameImageOld;
-            continue;
+            PromoteImageOld();
+          }
+          catch(DirectoryNotFoundException)
+          {
+            break;
           }
         }
-
-        break;
       }
 
       Block block = CreateBlock();
@@ -239,6 +243,27 @@ namespace BTokenLib
       CleanArchives();
     }
 
+    void PromoteImageOld()
+    {
+      string pathImageOld = Path.Combine(GetName(), NameImageOld);
+      string pathImage = Path.Combine(GetName(), NameImage);
+
+      Directory.Move(pathImageOld, pathImage);
+
+      if (TokenChild != null)
+        TokenChild.PromoteImageOld();
+    }
+
+    void DeleteImage()
+    {
+      string pathImage = Path.Combine(GetName(), NameImage);
+
+      Directory.Delete(pathImage, recursive: true);
+
+      if (TokenChild != null)
+        TokenChild.DeleteImage();
+    }
+
     void CleanArchives()
     {
       Archiver.CleanAfterBlockHeight(HeaderTip.Height);
@@ -248,20 +273,19 @@ namespace BTokenLib
     }
 
     void LoadImageToken(
-      string pathImageRoot,
+      string pathImage,
       int heightMax)
     {
-      string pathImageLoad = Path.Combine(GetName(), pathImageRoot);
+      string pathImageLoad = Path.Combine(GetName(), pathImage);
 
-      ($"Load image of token {GetName()}" +
+      ($"Load image of token {pathImageLoad}" +
         $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
-
 
       LoadImageHeaderchain(pathImageLoad, heightMax);
       LoadImageDatabase(pathImageLoad);
 
       if (TokenChild != null)
-        TokenChild.LoadImageToken(pathImageRoot, heightMax);
+        TokenChild.LoadImageToken(pathImage, heightMax);
     }
 
     public void Reset()
