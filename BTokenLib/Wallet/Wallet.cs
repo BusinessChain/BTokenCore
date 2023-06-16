@@ -128,10 +128,6 @@ namespace BTokenLib
 
       OutputsValueDesc.Remove(output);
 
-      Debug.WriteLine(
-        $"Spent output {output.TXIDShort} / {output.Index} " +
-        $"{output.Value} satoshis.");
-
       return true;
     }
 

@@ -225,6 +225,8 @@ namespace BTokenLib
         heightBlock <= heightMax &&
         Archiver.TryLoadBlockArchive(heightBlock, out byte[] buffer))
       {
+        $"Pull block height {heightBlock} from Archiver of {GetName()}.".Log(LogFile);
+
         block.Buffer = buffer;
         block.Parse();
 
@@ -258,7 +260,8 @@ namespace BTokenLib
     {
       string pathImage = Path.Combine(GetName(), NameImage);
 
-      Directory.Delete(pathImage, recursive: true);
+      if (Directory.Exists(pathImage))
+        Directory.Delete(pathImage, recursive: true);
 
       if (TokenChild != null)
         TokenChild.DeleteImage();
@@ -320,6 +323,8 @@ namespace BTokenLib
         Path.Combine(pathImage, "ImageHeaderchain"));
 
       int index = 0;
+
+      $"Load headerchain of {GetName()}.".Log(LogFile);
 
       while (index < bytesHeaderImage.Length)
       {
@@ -482,7 +487,13 @@ namespace BTokenLib
 
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0 &&
         TokenParent == null)
-        CreateImage();
+        CreateImage(); 
+      // hier drin wird falls Bitcoin bei jedem intervall ein image gemacht (rekursiv über alle Layer)
+      // bei BToken wird immer geschaut, ob das letzte image korrespondierend
+      // zum Bitcoin image gemacht wurde, falls nicht, wird es noch gemacht (rekuriv über alle Layer).
+      // Dabei könnte die Trail verwendet werden, in der immer auch die korrespondierende
+      // Bitcoin height angegeben wird. Oder vielleicht kann im Parent objekt die height des 
+      // letzten images angegeben werden.
     }
 
     public virtual Block GetBlock(byte[] hash)

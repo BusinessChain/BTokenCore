@@ -49,7 +49,7 @@ namespace BTokenCore
             File.WriteAllText("printChain.txt", text);
             break;
 
-          case "syncBitcoin":
+          case "sync":
             BToken.TokenParent.Network.TryStartSynchronization();
             break;
 

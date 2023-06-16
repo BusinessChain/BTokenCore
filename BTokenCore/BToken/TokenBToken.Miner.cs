@@ -214,8 +214,6 @@ namespace BTokenCore
         if (!ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
           return;
 
-        $"Detected foreign - mined anchor token {tX} in Bitcoin block".Log(LogFile);
-
         index += ID_BTOKEN.Length;
 
         tokenAnchor = new(tX, index);
@@ -223,17 +221,12 @@ namespace BTokenCore
 
       tokenAnchor.IsConfirmed = true;
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
-
-      $"Anchor token references {tokenAnchor.HashBlockReferenced.ToHexString()}".Log(LogFile);
     }
 
     public override void SignalCompletionBlockInsertion(Header headerAnchor)
     {
       try
       {
-        $"{TokensAnchorDetectedInBlock.Count} anchor tokens detected in Bitcoin block {headerAnchor}."
-          .Log(LogFile);
-
         if (TokensAnchorDetectedInBlock.Count > 0)
         {
           TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(headerAnchor);
@@ -281,8 +274,6 @@ namespace BTokenCore
 
           RBFAnchorTokens();
         }
-
-        $"New fee per byte is {FeeSatoshiPerByte}.".Log(LogFile);
       }
       catch (Exception ex)
       {
