@@ -190,15 +190,19 @@ namespace BTokenLib
 
     public void LoadImage(int heightMax = int.MaxValue)
     {
-      string pathImageLoad = NameImage;
-
       Reset();
 
       while (true)
       {
         try
         {
-          LoadImageToken(pathImageLoad, heightMax);
+          string pathImageLoad = Path.Combine(GetName(), NameImage);
+
+          ($"Load image of token {pathImageLoad}" +
+            $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
+
+          LoadImageHeaderchain(pathImageLoad, heightMax);
+          LoadImageDatabase(pathImageLoad);
           break;
         }
         catch
@@ -242,7 +246,8 @@ namespace BTokenLib
         heightBlock += 1;
       }
 
-      CleanArchives();
+      if (TokenChild != null)
+        TokenChild.LoadImage(HeaderTip.Height);
     }
 
     void PromoteImageOld()
@@ -273,22 +278,6 @@ namespace BTokenLib
 
       if (TokenChild != null)
         TokenChild.CleanArchives();
-    }
-
-    void LoadImageToken(
-      string pathImage,
-      int heightMax)
-    {
-      string pathImageLoad = Path.Combine(GetName(), pathImage);
-
-      ($"Load image of token {pathImageLoad}" +
-        $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
-
-      LoadImageHeaderchain(pathImageLoad, heightMax);
-      LoadImageDatabase(pathImageLoad);
-
-      if (TokenChild != null)
-        TokenChild.LoadImageToken(pathImage, heightMax);
     }
 
     public void Reset()
@@ -347,20 +336,50 @@ namespace BTokenLib
         IndexingHeaderTip();
       }
 
-      if (HeaderTip.Height > heightMax)
+      if ((TokenParent == null && HeaderTip.Height > heightMax)
+        || TrailAnchorChain[HeaderTip.Hash] > heightMax)
         throw new ProtocolException(
-          $"Image higher than desired height {heightMax}.");
+          $"Image height of {GetName()} higher than desired height {heightMax}.");
     }
+
+    Dictionary<byte[], int> TrailAnchorChain =
+      new(new EqualityComparerByteArray());
 
     public virtual void LoadImageDatabase(string path)
     {
       Wallet.LoadImage(path);
     }
 
+    const int ORDER_AVERAGEING_FEEPERBYTE = 3;
+    public double FeePerByteAverage;
+
+    public void InsertBlock(Block block)
+    {
+      block.Header.AppendToHeader(HeaderTip);
+      InsertInDatabase(block);
+      AppendHeaderToTip(block.Header);
+
+      FeePerByteAverage =
+        ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
+        ORDER_AVERAGEING_FEEPERBYTE;
+
+      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
+
+      Archiver.ArchiveBlock(block);
+
+      CreateImage(block.Header.Height);
+
+      if (TokenChild != null)
+        TokenChild.SignalCompletionBlockInsertion(block.Header);
+    }
+
     public bool IsFork;
 
-    public void CreateImage()
+    public void CreateImage(int height)
     {
+      if (height % INTERVAL_BLOCKHEIGHT_IMAGE != 0)
+        return;
+
       string pathImage;
 
       if (IsFork)
@@ -380,9 +399,6 @@ namespace BTokenLib
 
       CreateImageDatabase(pathImage);
       Wallet.CreateImage(pathImage);
-
-      if (TokenChild != null)
-        TokenChild.CreateImage();
     }
 
     public virtual void CreateImageHeaderchain(string path)
@@ -464,38 +480,7 @@ namespace BTokenLib
     }
 
     public abstract void StartMining();
-
-    const int ORDER_AVERAGEING_FEEPERBYTE = 3;
-    public double FeePerByteAverage;
-
-    public void InsertBlock(Block block)
-    {
-      block.Header.AppendToHeader(HeaderTip);
-      InsertInDatabase(block);
-      AppendHeaderToTip(block.Header);
-
-      FeePerByteAverage =
-        ((ORDER_AVERAGEING_FEEPERBYTE - 1) * FeePerByteAverage + block.FeePerByte) /
-        ORDER_AVERAGEING_FEEPERBYTE;
-
-      if (TokenChild != null)
-        TokenChild.SignalCompletionBlockInsertion(block.Header);
-
-      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
-
-      Archiver.ArchiveBlock(block);
-
-      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0 &&
-        TokenParent == null)
-        CreateImage(); 
-      // hier drin wird falls Bitcoin bei jedem intervall ein image gemacht (rekursiv über alle Layer)
-      // bei BToken wird immer geschaut, ob das letzte image korrespondierend
-      // zum Bitcoin image gemacht wurde, falls nicht, wird es noch gemacht (rekuriv über alle Layer).
-      // Dabei könnte die Trail verwendet werden, in der immer auch die korrespondierende
-      // Bitcoin height angegeben wird. Oder vielleicht kann im Parent objekt die height des 
-      // letzten images angegeben werden.
-    }
-
+    
     public virtual Block GetBlock(byte[] hash)
     {
       if(TryGetHeader(hash, out Header header))
