@@ -222,6 +222,9 @@ namespace BTokenLib
         }
       }
 
+      if (TokenChild != null)
+        TokenChild.LoadImage(HeaderTip.Height);
+
       Block block = CreateBlock();
       int heightBlock = HeaderTip.Height + 1;
 
@@ -234,6 +237,9 @@ namespace BTokenLib
         block.Buffer = buffer;
         block.Parse();
 
+        if (TokenParent != null && TrailAnchorChain[block.Header.Hash] > heightMax)
+          break;
+
         try
         {
           InsertBlock(block);
@@ -245,9 +251,6 @@ namespace BTokenLib
 
         heightBlock += 1;
       }
-
-      if (TokenChild != null)
-        TokenChild.LoadImage(HeaderTip.Height);
     }
 
     void PromoteImageOld()
@@ -284,9 +287,6 @@ namespace BTokenLib
     {
       ResetHeaderchain();
       ResetDatabase();
-
-      if (TokenChild != null)
-        TokenChild.Reset();
     }
 
     public virtual void ResetHeaderchain()

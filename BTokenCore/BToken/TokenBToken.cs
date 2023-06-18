@@ -78,18 +78,17 @@ namespace BTokenCore
 
       $"Load anchor trail.".Log(LogFile);
 
-      byte[] winningBlockInHeightAnchorBlock = 
-        File.ReadAllBytes(pathTrailAnchor);
+      byte[] trailAnchorChain = File.ReadAllBytes(pathTrailAnchor);
 
       int i = 0;
 
-      while (i < winningBlockInHeightAnchorBlock.Length)
+      while (i < trailAnchorChain.Length)
       {
         byte[] hashblock = new byte[32];
-        Array.Copy(winningBlockInHeightAnchorBlock, i, hashblock, 0, 32);
+        Array.Copy(trailAnchorChain, i, hashblock, 0, 32);
         i += 32;
 
-        int height = BitConverter.ToInt32(winningBlockInHeightAnchorBlock, i);
+        int height = BitConverter.ToInt32(trailAnchorChain, i);
         i += 4;
 
         $"Load trail hash {hashblock.ToHexString()} with height {height}.".Log(LogFile);
