@@ -16,6 +16,9 @@ namespace BTokenLib
 
     Dictionary<int, List<Header>> HeaderIndex = new();
 
+    protected Dictionary<byte[], int> TrailAnchorChain =
+      new(new EqualityComparerByteArray());
+
     protected BlockArchiver Archiver;
 
     public Wallet Wallet;
@@ -192,28 +195,31 @@ namespace BTokenLib
     {
       Reset();
 
+      string pathImage = Path.Combine(GetName(), NameImage);
+
       while (true)
       {
         try
         {
-          string pathImageLoad = Path.Combine(GetName(), NameImage);
-
-          ($"Load image of token {pathImageLoad}" +
+          ($"Load image of token {pathImage}" +
             $"{(heightMax < int.MaxValue ? $" with maximal height {heightMax}" : "")}.").Log(LogFile);
 
-          LoadImageHeaderchain(pathImageLoad, heightMax);
-          LoadImageDatabase(pathImageLoad);
+          LoadImageHeaderchain(pathImage, heightMax);
+          LoadImageDatabase(pathImage);
           break;
         }
         catch
         {
           Reset();
 
-          DeleteImage();
+          if (Directory.Exists(pathImage))
+            Directory.Delete(pathImage, recursive: true);
 
           try
           {
-            PromoteImageOld();
+            Directory.Move(
+              Path.Combine(GetName(), NameImageOld), 
+              pathImage);
           }
           catch(DirectoryNotFoundException)
           {
@@ -251,63 +257,53 @@ namespace BTokenLib
 
         heightBlock += 1;
       }
-    }
 
-    void PromoteImageOld()
-    {
-      string pathImageOld = Path.Combine(GetName(), NameImageOld);
-      string pathImage = Path.Combine(GetName(), NameImage);
-
-      Directory.Move(pathImageOld, pathImage);
-
-      if (TokenChild != null)
-        TokenChild.PromoteImageOld();
-    }
-
-    void DeleteImage()
-    {
-      string pathImage = Path.Combine(GetName(), NameImage);
-
-      if (Directory.Exists(pathImage))
-        Directory.Delete(pathImage, recursive: true);
-
-      if (TokenChild != null)
-        TokenChild.DeleteImage();
-    }
-
-    void CleanArchives()
-    {
       Archiver.CleanAfterBlockHeight(HeaderTip.Height);
-
-      if (TokenChild != null)
-        TokenChild.CleanArchives();
     }
 
-    public void Reset()
-    {
-      ResetHeaderchain();
-      ResetDatabase();
-    }
-
-    public virtual void ResetHeaderchain()
+    public virtual void Reset()
     {
       HeaderGenesis = CreateHeaderGenesis();
-
       HeaderTip = HeaderGenesis;
-
       HeaderIndex.Clear();
       IndexingHeaderTip();
-    }
-    
-    public virtual void ResetDatabase()
-    {
+
+      TrailAnchorChain.Clear();
+
       Wallet.Clear();
     }
 
-    public virtual void LoadImageHeaderchain(
+    public void LoadImageHeaderchain(
       string pathImage,
       int heightMax)
     {
+      string pathTrailAnchor = Path.Combine(
+        pathImage,
+        "trailAnchorChain");
+
+      if (File.Exists(pathTrailAnchor))
+      {
+        $"Load anchor trail.".Log(LogFile);
+
+        byte[] trailAnchorChain = File.ReadAllBytes(pathTrailAnchor);
+
+        int i = 0;
+
+        while (i < trailAnchorChain.Length)
+        {
+          byte[] hashblock = new byte[32];
+          Array.Copy(trailAnchorChain, i, hashblock, 0, 32);
+          i += 32;
+
+          int height = BitConverter.ToInt32(trailAnchorChain, i);
+          i += 4;
+
+          $"Load trail hash {hashblock.ToHexString()} with height {height}.".Log(LogFile);
+
+          TrailAnchorChain.Add(hashblock, height);
+        }
+      }
+
       byte[] bytesHeaderImage = File.ReadAllBytes(
         Path.Combine(pathImage, "ImageHeaderchain"));
 
@@ -336,14 +332,11 @@ namespace BTokenLib
         IndexingHeaderTip();
       }
 
-      if ((TokenParent == null && HeaderTip.Height > heightMax)
-        || TrailAnchorChain[HeaderTip.Hash] > heightMax)
+      if (HeaderTip.Height > heightMax
+        || (TokenParent != null && TrailAnchorChain[HeaderTip.Hash] > heightMax))
         throw new ProtocolException(
           $"Image height of {GetName()} higher than desired height {heightMax}.");
     }
-
-    Dictionary<byte[], int> TrailAnchorChain =
-      new(new EqualityComparerByteArray());
 
     public virtual void LoadImageDatabase(string path)
     {
@@ -401,10 +394,10 @@ namespace BTokenLib
       Wallet.CreateImage(pathImage);
     }
 
-    public virtual void CreateImageHeaderchain(string path)
+    public void CreateImageHeaderchain(string pathImage)
     {
       using (FileStream fileImageHeaderchain = new(
-          Path.Combine(path, "ImageHeaderchain"),
+          Path.Combine(pathImage, "ImageHeaderchain"),
           FileMode.Create,
           FileAccess.Write,
           FileShare.None))
@@ -427,6 +420,23 @@ namespace BTokenLib
           header = header.HeaderNext;
         }
       }
+
+      if (TokenParent != null)
+        using (FileStream fileTrailAnchorChain = new(
+            Path.Combine(pathImage, "trailAnchorChain"),
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None))
+        {
+          foreach (KeyValuePair<byte[], int> keyValuePair in TrailAnchorChain)
+          {
+            fileTrailAnchorChain.Write(
+              keyValuePair.Key, 0, keyValuePair.Key.Length);
+
+            byte[] heightBytes = BitConverter.GetBytes(keyValuePair.Value);
+            fileTrailAnchorChain.Write(heightBytes, 0, heightBytes.Length);
+          }
+        }
     }
 
     public virtual void CreateImageDatabase(string path)
@@ -522,9 +532,28 @@ namespace BTokenLib
 
     protected abstract void InsertInDatabase(Block block);
 
-    public abstract Header ParseHeader(
+    public Header ParseHeader(
       byte[] buffer,
-      ref int index);
+      ref int index)
+    {
+      Block block = CreateBlock();
+
+      Header header = block.ParseHeader(
+        buffer,
+        ref index);
+
+      if(TokenParent != null)
+        if (!TrailAnchorChain.TryGetValue(header.Hash, out int heightBlockAnchor))
+        {
+          throw new ProtocolException(
+            $"Header {header} not anchored in parent chain.");
+        }
+        else if (header.Height > 1 && heightBlockAnchor < TrailAnchorChain[header.HashPrevious])
+          throw new ProtocolException(
+            $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
+
+      return header;
+    }
 
     public string GetName()
     {

@@ -24,9 +24,6 @@ namespace BTokenCore
 
     DatabaseAccounts DatabaseAccounts = new();
  
-    Dictionary<byte[], int> TrailAnchorChain = 
-      new(new EqualityComparerByteArray());
-
 
     public TokenBToken(Token tokenParent)
       : base(
@@ -61,64 +58,6 @@ namespace BTokenCore
     public override void LoadImageDatabase(string pathImage)
     {
       DatabaseAccounts.LoadImage(pathImage);
-    }
-
-    public override void LoadImageHeaderchain(
-      string pathImage,
-      int heightMax)
-    {
-      TrailAnchorChain.Clear();
-
-      string pathTrailAnchor = Path.Combine(
-        pathImage, 
-        "winningBlockInHeightAnchorBlock");
-
-      if (!File.Exists(pathTrailAnchor))
-        return;
-
-      $"Load anchor trail.".Log(LogFile);
-
-      byte[] trailAnchorChain = File.ReadAllBytes(pathTrailAnchor);
-
-      int i = 0;
-
-      while (i < trailAnchorChain.Length)
-      {
-        byte[] hashblock = new byte[32];
-        Array.Copy(trailAnchorChain, i, hashblock, 0, 32);
-        i += 32;
-
-        int height = BitConverter.ToInt32(trailAnchorChain, i);
-        i += 4;
-
-        $"Load trail hash {hashblock.ToHexString()} with height {height}.".Log(LogFile);
-
-        TrailAnchorChain.Add(hashblock, height);
-      }
-
-      base.LoadImageHeaderchain(pathImage, heightMax);
-    }
-
-
-    public override void CreateImageHeaderchain(string pathImage)
-    {
-      base.CreateImageHeaderchain(pathImage);
-
-      using (FileStream fileWinningBlockInHeightAnchorBlock = new(
-          Path.Combine(pathImage, "winningBlockInHeightAnchorBlock"),
-          FileMode.Create,
-          FileAccess.Write,
-          FileShare.None))
-      {
-        foreach (KeyValuePair<byte[], int> keyValuePair in TrailAnchorChain)
-        {
-          fileWinningBlockInHeightAnchorBlock.Write(
-            keyValuePair.Key, 0, keyValuePair.Key.Length);
-
-          byte[] heightBytes = BitConverter.GetBytes(keyValuePair.Value);
-          fileWinningBlockInHeightAnchorBlock.Write(heightBytes, 0, heightBytes.Length);
-        }
-      }
     }
 
     public override void CreateImageDatabase(string pathImage)
@@ -192,27 +131,6 @@ namespace BTokenCore
       return hashesDB;
     }
 
-    public override Header ParseHeader(
-        byte[] buffer,
-        ref int index)
-    {
-      BlockBToken bTokenBlock = new();
-
-      Header header = bTokenBlock.ParseHeader(
-        buffer,
-        ref index);
-
-      if (!TrailAnchorChain.TryGetValue(header.Hash, out int heightBlockAnchor))
-      {
-        throw new ProtocolException($"Header {header} not anchored in parent chain.");
-      }
-      else if (header.Height > 1 && heightBlockAnchor < TrailAnchorChain[header.HashPrevious])
-        throw new ProtocolException(
-          $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
-
-      return header;
-    }
-
     public override Block CreateBlock()
     {
       return new BlockBToken(SIZE_BUFFER_BLOCK);
@@ -241,15 +159,9 @@ namespace BTokenCore
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
     }
 
-    public override void ResetHeaderchain()
+    public override void Reset()
     {
-      base.ResetHeaderchain();
-      DatabaseAccounts.ClearCache();
-      TrailAnchorChain.Clear();
-    }
-    public override void ResetDatabase()
-    {
-      base.ResetDatabase();
+      base.Reset();
       DatabaseAccounts.ClearCache();
     }
 

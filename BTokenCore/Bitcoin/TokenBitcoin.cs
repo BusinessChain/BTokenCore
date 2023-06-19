@@ -86,17 +86,6 @@ namespace BTokenCore
       }
     }
 
-    public override Header ParseHeader(
-        byte[] buffer,
-        ref int index)
-    {
-      BlockBitcoin bitcoinBlock = new();
-
-      return bitcoinBlock.ParseHeader(
-        buffer,
-        ref index);
-    }
-
     public override List<string> GetSeedAddresses()
     {
       return new List<string>()
