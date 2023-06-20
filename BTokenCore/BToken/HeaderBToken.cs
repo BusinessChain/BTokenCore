@@ -13,6 +13,7 @@ namespace BTokenCore
     // gemineden Block nicht durchgespielt werden müsste.
 
     public byte[] HashDatabase = new byte[32];
+    public int HeightAnchorPrevious;
 
     static uint InitializerNonce;
 

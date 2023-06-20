@@ -206,6 +206,10 @@ namespace BTokenLib
 
           LoadImageHeaderchain(pathImage, heightMax);
           LoadImageDatabase(pathImage);
+
+          if (TokenChild != null)
+            TokenChild.LoadImage(HeaderTip.Height);
+
           break;
         }
         catch
@@ -221,15 +225,15 @@ namespace BTokenLib
               Path.Combine(GetName(), NameImageOld), 
               pathImage);
           }
-          catch(DirectoryNotFoundException)
+          catch(DirectoryNotFoundException ex)
           {
+            if (TokenParent != null)
+              throw ex;
+
             break;
           }
         }
       }
-
-      if (TokenChild != null)
-        TokenChild.LoadImage(HeaderTip.Height);
 
       Block block = CreateBlock();
       int heightBlock = HeaderTip.Height + 1;
@@ -252,13 +256,12 @@ namespace BTokenLib
         }
         catch
         {
+          Archiver.CleanAfterBlockHeight(HeaderTip.Height);
           break;
         }
 
         heightBlock += 1;
       }
-
-      Archiver.CleanAfterBlockHeight(HeaderTip.Height);
     }
 
     public virtual void Reset()

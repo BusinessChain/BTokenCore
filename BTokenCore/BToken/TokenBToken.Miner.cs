@@ -306,13 +306,22 @@ namespace BTokenCore
       ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
         $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
-      if (TrailAnchorChain.ContainsValue(headerAnchor.Height))
-        throw new InvalidOperationException(
-          "Cannot have entries with the same hight in anchor trail.");
-
-      TrailAnchorChain.Add(
+      if (TrailAnchorChain.TryGetValue(
         tokenAnchorWinner.HashBlockReferenced,
-        headerAnchor.Height);
+        out int height))
+      {
+        if (headerAnchor.Height != height)
+          throw new InvalidOperationException(
+            $"Cannot reference same block {tokenAnchorWinner.HashBlockReferenced} " +
+            $"on different heights {headerAnchor.Height} and {height} in anchor trail.");
+      }
+      else if (TrailAnchorChain.ContainsValue(headerAnchor.Height))
+        throw new InvalidOperationException(
+          $"Cannot reference different blocks on same height {headerAnchor.Height}.");
+      else
+        TrailAnchorChain.Add(
+          tokenAnchorWinner.HashBlockReferenced,
+          headerAnchor.Height);
 
       return tokenAnchorWinner;
     }
