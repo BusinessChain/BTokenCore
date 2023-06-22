@@ -274,6 +274,9 @@ namespace BTokenLib
       TrailAnchorChain.Clear();
 
       Wallet.Clear();
+
+      if (TokenChild != null)
+        TokenChild.Reset();
     }
 
     public void LoadImageHeaderchain(
@@ -284,7 +287,7 @@ namespace BTokenLib
         pathImage,
         "trailAnchorChain");
 
-      if (File.Exists(pathTrailAnchor))
+      if (TokenParent != null)
       {
         $"Load anchor trail.".Log(LogFile);
 
