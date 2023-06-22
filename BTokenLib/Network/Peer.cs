@@ -18,6 +18,8 @@ namespace BTokenLib
       Network Network;
       public Token Token;
 
+      const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
+
       enum StateProtocol
       {
         NotConnected,
@@ -269,7 +271,8 @@ namespace BTokenLib
 
       public async Task RequestBlock()
       {
-        $"Peer starts downloading block {HeaderSync}.".Log(this, LogFile);
+        $"Peer starts downloading block {HeaderSync}."
+          .Log(this, LogFile);
 
         State = StateProtocol.BlockSynchronization;
 

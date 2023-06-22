@@ -55,9 +55,6 @@ namespace BTokenLib
         PathBlockArchive, 
         block.Header.Height.ToString());
 
-      if (File.Exists(pathFile))
-        return;
-
       while (true)
         try
         {

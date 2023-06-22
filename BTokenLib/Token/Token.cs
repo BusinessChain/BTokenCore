@@ -38,8 +38,6 @@ namespace BTokenLib
 
     string PathImage;
     string PathImageOld;
-    string PathImageFork;
-    string PathImageForkOld;
 
     string PathRootToken;
 
@@ -69,8 +67,6 @@ namespace BTokenLib
 
       PathImage = Path.Combine(PathRootToken, NameImage);
       PathImageOld = Path.Combine(PathRootToken, NameImageOld);
-      PathImageFork = Path.Combine(PathRootToken, NameFork, NameImage);
-      PathImageForkOld = Path.Combine(PathRootToken, NameFork, NameImageOld);
 
       LogFile = new StreamWriter(
         Path.Combine(GetName(), "LogToken"),
@@ -183,13 +179,6 @@ namespace BTokenLib
 
     public abstract Header CreateHeaderGenesis();
 
-    internal void Reorganize()
-    {
-      $"Reorganize token {GetName()}".Log(LogFile);
-
-      PathImageFork.TryMoveDirectoryTo(PathImage);
-      PathImageForkOld.TryMoveDirectoryTo(PathImageOld);
-    }
 
     public void LoadImage(int heightMax = int.MaxValue)
     {
@@ -366,38 +355,23 @@ namespace BTokenLib
 
       Archiver.ArchiveBlock(block);
 
-      CreateImage(block.Header.Height);
+      if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
+        CreateImage();
 
       if (TokenChild != null)
         TokenChild.SignalCompletionBlockInsertion(block.Header);
     }
 
-    public bool IsFork;
-
-    public void CreateImage(int height)
+    public void CreateImage()
     {
-      if (height % INTERVAL_BLOCKHEIGHT_IMAGE != 0)
-        return;
+      PathImage.TryMoveDirectoryTo(PathImageOld);
 
-      string pathImage;
+      Directory.CreateDirectory(PathImage);
 
-      if (IsFork)
-      {
-        pathImage = PathImageFork;
-        pathImage.TryMoveDirectoryTo(PathImageForkOld);
-      }
-      else
-      {
-        pathImage = PathImage;
-        pathImage.TryMoveDirectoryTo(PathImageOld);
-      }
+      CreateImageHeaderchain(PathImage);
 
-      Directory.CreateDirectory(pathImage);
-
-      CreateImageHeaderchain(pathImage);
-
-      CreateImageDatabase(pathImage);
-      Wallet.CreateImage(pathImage);
+      CreateImageDatabase(PathImage);
+      Wallet.CreateImage(PathImage);
     }
 
     public void CreateImageHeaderchain(string pathImage)

@@ -10,9 +10,6 @@ namespace BTokenLib
   {
     Token Token;
 
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 20;
-
     StreamWriter LogFile;
 
     UInt16 Port;
