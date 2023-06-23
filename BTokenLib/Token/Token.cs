@@ -180,6 +180,17 @@ namespace BTokenLib
     public abstract Header CreateHeaderGenesis();
 
 
+    public void ForkChain(int heightFork)
+    {
+      LoadImage(heightFork);
+      Archiver.SetBlockPathToFork();
+    }
+
+    public void Reorganize()
+    {
+      Archiver.Reorganize();
+    }
+
     public void LoadImage(int heightMax = int.MaxValue)
     {
       Reset();
@@ -255,6 +266,8 @@ namespace BTokenLib
 
     public virtual void Reset()
     {
+      Archiver.ResetBlockPath();
+
       HeaderGenesis = CreateHeaderGenesis();
       HeaderTip = HeaderGenesis;
       HeaderIndex.Clear();

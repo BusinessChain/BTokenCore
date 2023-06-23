@@ -145,6 +145,8 @@ namespace BTokenLib
 
     async Task SyncBlocks()
     {
+      double difficultyAccumulatedOld = Token.HeaderTip.DifficultyAccumulated;
+
       try
       {
         if (HeaderDownload.HeaderTip != null)
@@ -155,7 +157,7 @@ namespace BTokenLib
               ($"Forking chain at height {HeaderDownload.HeaderAncestor.Height + 1} " +
                 $"after common ancestor {HeaderDownload.HeaderAncestor}.").Log(LogFile);
 
-              Token.LoadImage(HeaderDownload.HeaderAncestor.Height);
+              Token.ForkChain(HeaderDownload.HeaderAncestor.Height);
             }
 
             FlagSyncAbort = false;
@@ -201,7 +203,14 @@ namespace BTokenLib
                   peer.SetStateIdle();
 
                   if (Peers.All(p => !p.IsStateBlockSynchronization()))
+                  {
+                    if (Token.HeaderTip.DifficultyAccumulated > difficultyAccumulatedOld)
+                      Token.Reorganize();
+                    else
+                      Token.LoadImage();
+
                     break;
+                  }
                 }
 
               TryGetPeerIdle(out peer);

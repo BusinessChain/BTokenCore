@@ -8,14 +8,23 @@ namespace BTokenLib
 {
   public class BlockArchiver
   {
+    string NameToken;
     string PathBlockArchive;
+    string PathBlockArchiveMain;
+    string PathBlockArchiveFork;
     const int COUNT_MAX_BLOCKS_ARCHIVED = 2016;
 
 
     public BlockArchiver(string nameToken)
     {
-      PathBlockArchive = Path.Combine(nameToken, "blocks");
-      Directory.CreateDirectory(PathBlockArchive);
+      NameToken = nameToken;
+
+      PathBlockArchiveMain = Path.Combine(NameToken, "blocks");
+      Directory.CreateDirectory(PathBlockArchiveMain);
+
+      PathBlockArchiveFork = Path.Combine(PathBlockArchiveMain, "fork");
+
+      PathBlockArchive = PathBlockArchiveMain;
     }
 
     public bool TryLoadBlockArchive(
@@ -35,7 +44,7 @@ namespace BTokenLib
           buffer = File.ReadAllBytes(pathBlockArchive);
           return true;
         }
-        catch (FileNotFoundException ex)
+        catch (FileNotFoundException)
         {
           return false;
         }
@@ -47,6 +56,35 @@ namespace BTokenLib
           Thread.Sleep(10000);
         }
       }
+    }
+
+    public void SetBlockPathToFork()
+    {
+      Directory.CreateDirectory(PathBlockArchiveFork);
+      PathBlockArchive = PathBlockArchiveFork;
+    }
+
+    public void ResetBlockPath()
+    {
+      if (Directory.Exists(PathBlockArchiveFork))
+        Directory.Delete(PathBlockArchiveFork, recursive: true);
+
+      PathBlockArchive = PathBlockArchiveMain;
+    }
+
+    public void Reorganize()
+    {
+      foreach (string pathFile in Directory.GetFiles(PathBlockArchiveFork))
+      {
+        string newPathFile = Path.Combine(
+          PathBlockArchiveMain, 
+          Path.GetFileName(pathFile));
+
+        File.Delete(newPathFile);
+        File.Move(pathFile, newPathFile);
+      }
+
+      ResetBlockPath();
     }
 
     public void ArchiveBlock(Block block)
