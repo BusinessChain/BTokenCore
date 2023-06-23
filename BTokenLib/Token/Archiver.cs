@@ -74,17 +74,22 @@ namespace BTokenLib
 
     public void Reorganize()
     {
-      foreach (string pathFile in Directory.GetFiles(PathBlockArchiveFork))
+      if (Directory.Exists(PathBlockArchiveFork))
       {
-        string newPathFile = Path.Combine(
-          PathBlockArchiveMain, 
-          Path.GetFileName(pathFile));
+        foreach (string pathFile in Directory.GetFiles(PathBlockArchiveFork))
+        {
+          string newPathFile = Path.Combine(
+            PathBlockArchiveMain,
+            Path.GetFileName(pathFile));
 
-        File.Delete(newPathFile);
-        File.Move(pathFile, newPathFile);
+          File.Delete(newPathFile);
+          File.Move(pathFile, newPathFile);
+        }
+
+        Directory.Delete(PathBlockArchiveFork, recursive: true);
+
+        PathBlockArchive = PathBlockArchiveMain;
       }
-
-      ResetBlockPath();
     }
 
     public void ArchiveBlock(Block block)

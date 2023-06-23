@@ -383,11 +383,14 @@ namespace BTokenLib
 
       CreateImageHeaderchain(PathImage);
 
+      if (TokenParent != null)
+        CreateAnchorTrail(PathImage);
+
       CreateImageDatabase(PathImage);
       Wallet.CreateImage(PathImage);
     }
 
-    public void CreateImageHeaderchain(string pathImage)
+    void CreateImageHeaderchain(string pathImage)
     {
       using (FileStream fileImageHeaderchain = new(
           Path.Combine(pathImage, "ImageHeaderchain"),
@@ -413,23 +416,25 @@ namespace BTokenLib
           header = header.HeaderNext;
         }
       }
+    }
 
-      if (TokenParent != null)
-        using (FileStream fileTrailAnchorChain = new(
-            Path.Combine(pathImage, "trailAnchorChain"),
-            FileMode.Create,
-            FileAccess.Write,
-            FileShare.None))
+    void CreateAnchorTrail(string pathImage)
+    {
+      using (FileStream fileTrailAnchorChain = new(
+          Path.Combine(pathImage, "trailAnchorChain"),
+          FileMode.Create,
+          FileAccess.Write,
+          FileShare.None))
+      {
+        foreach (KeyValuePair<byte[], int> keyValuePair in TrailAnchorChain)
         {
-          foreach (KeyValuePair<byte[], int> keyValuePair in TrailAnchorChain)
-          {
-            fileTrailAnchorChain.Write(
-              keyValuePair.Key, 0, keyValuePair.Key.Length);
+          fileTrailAnchorChain.Write(
+            keyValuePair.Key, 0, keyValuePair.Key.Length);
 
-            byte[] heightBytes = BitConverter.GetBytes(keyValuePair.Value);
-            fileTrailAnchorChain.Write(heightBytes, 0, heightBytes.Length);
-          }
+          byte[] heightBytes = BitConverter.GetBytes(keyValuePair.Value);
+          fileTrailAnchorChain.Write(heightBytes, 0, heightBytes.Length);
         }
+      }
     }
 
     public virtual void CreateImageDatabase(string path)
