@@ -64,6 +64,17 @@ namespace BTokenLib
         throw new ProtocolException(
           $"Header {this} references header previous " +
           $"{HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
+
+
+      if (TokenParent != null)
+        if (!TrailAnchorChain.TryGetValue(header.Hash, out int heightBlockAnchor))
+        {
+          throw new ProtocolException(
+            $"Header {header} not anchored in parent chain.");
+        }
+        else if (header.Height > 1 && heightBlockAnchor < TrailAnchorChain[header.HashPrevious])
+          throw new ProtocolException(
+            $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
     }
 
     public void ComputeHash(SHA256 sHA256)
