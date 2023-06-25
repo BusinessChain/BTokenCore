@@ -91,12 +91,71 @@ namespace BTokenLib
       }
     }
 
-    public void PrintChain(ref string text)
+    public void PrintImage(ref string text)
     {
       if (TokenParent != null)
-        TokenParent.PrintChain(ref text);
+        TokenParent.PrintImage(ref text);
 
-      text += $"\nPrint chain {GetName()}.\n";
+      text += $"\nPrint Image {GetName()}.\n";
+
+      if (TokenParent != null)
+      {
+        string pathTrailAnchor = Path.Combine(
+          GetName(),
+          NameImage,
+          "trailAnchorChain");
+
+        byte[] trailAnchorChain = File.ReadAllBytes(pathTrailAnchor);
+
+        text += $"Load anchor trail {pathTrailAnchor}.\n";
+
+        int i = 0;
+
+        while (i < trailAnchorChain.Length)
+        {
+          byte[] hashblock = new byte[32];
+          Array.Copy(trailAnchorChain, i, hashblock, 0, 32);
+          i += 32;
+
+          int height = BitConverter.ToInt32(trailAnchorChain, i);
+          i += 4;
+
+          text += $"{hashblock.ToHexString()}, height {height}.\n";
+        }
+      }
+
+      string pathHeaderchain = Path.Combine(GetName(), NameImage, "ImageHeaderchain");
+
+      byte[] bytesHeaderImage = File.ReadAllBytes(pathHeaderchain);
+
+      text += $"Loaded image headerchain {pathHeaderchain}.\n";
+
+      int index = 0;
+      int heightHeader = 0;
+
+      while (index < bytesHeaderImage.Length)
+      {
+        Header header = ParseHeader(
+         bytesHeaderImage,
+         ref index);
+
+        heightHeader += 1;
+
+        header.CountBytesBlock = BitConverter.ToInt32(
+          bytesHeaderImage, index);
+
+        index += 4;
+
+        text += $"{heightHeader} -> {header}\n";
+      }
+    }
+
+    public void PrintBlocks(ref string text)
+    {
+      if (TokenParent != null)
+        TokenParent.PrintBlocks(ref text);
+
+      text += $"\nPrint blocks {GetName()}.\n";
 
 
       Block block = CreateBlock();

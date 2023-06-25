@@ -43,10 +43,16 @@ namespace BTokenCore
             Console.WriteLine(BToken.GetStatus());
             break;
 
-          case "printChain":
-            string text = "";
-            BToken.PrintChain(ref text);
-            File.WriteAllText("printChain.txt", text);
+          case "printBlocks":
+            string textBlocks = "";
+            BToken.PrintBlocks(ref textBlocks);
+            File.WriteAllText("printBlocks.txt", textBlocks);
+            break;
+
+          case "printImage":
+            string textImage = "";
+            BToken.PrintImage(ref textImage);
+            File.WriteAllText("printImage.txt", textImage);
             break;
 
           case "sync":

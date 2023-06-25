@@ -10,7 +10,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 30;
+    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
     const int TIMESPAN_PEER_BANNED_SECONDS = 0;
     int CountMaxPeers = 3;
 
@@ -75,8 +75,6 @@ namespace BTokenLib
 
               await Task.WhenAll(createPeerTasks);
             }
-            else
-              $"No ip address found to connect in protocol {Token}.".Log(LogFile);
           }
 
           lock (this)
