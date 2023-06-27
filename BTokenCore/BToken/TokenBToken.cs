@@ -33,6 +33,8 @@ namespace BTokenCore
       TokenParent = tokenParent;
       tokenParent.TokenChild = this;
 
+      HeaderGenesis.HeaderParent = tokenParent.HeaderGenesis;
+
       PathBlocksMinedUnconfirmed = Path.Combine(
         GetName(),
         "BlocksMinedUnconfirmed");

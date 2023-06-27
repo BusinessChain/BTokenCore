@@ -18,6 +18,9 @@ namespace BTokenLib
     public Header HeaderPrevious;
     public Header HeaderNext;
 
+    public Header HeaderParent;
+    public byte[] HashChild;
+
     public int Height;
 
     public int CountBytesBlock;
@@ -25,7 +28,6 @@ namespace BTokenLib
 
     public double Difficulty;
     public double DifficultyAccumulated;
-
 
 
     public Header()
@@ -65,16 +67,18 @@ namespace BTokenLib
           $"Header {this} references header previous " +
           $"{HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
 
+      if (headerPrevious.HeaderParent != null)
+      {
+        Header headerParent = headerPrevious.HeaderParent.HeaderNext;
 
-      if (TokenParent != null)
-        if (!TrailAnchorChain.TryGetValue(header.Hash, out int heightBlockAnchor))
-        {
-          throw new ProtocolException(
-            $"Header {header} not anchored in parent chain.");
-        }
-        else if (header.Height > 1 && heightBlockAnchor < TrailAnchorChain[header.HashPrevious])
-          throw new ProtocolException(
-            $"Header {header} is anchored prior to its previous header {header.HeaderPrevious} in parent chain.");
+        while (headerParent != null && !headerParent.HashChild.IsEqual(Hash))
+          headerParent = headerParent.HeaderNext;
+
+        if (headerParent == null)
+          throw new ProtocolException($"Header {this} not anchored in parent chain.");
+
+        HeaderParent = headerParent;
+      }
     }
 
     public void ComputeHash(SHA256 sHA256)

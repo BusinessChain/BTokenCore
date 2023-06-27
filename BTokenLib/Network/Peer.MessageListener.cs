@@ -130,7 +130,7 @@ namespace BTokenLib
                 int i = 0;
                 while (i < countHeaders)
                 {
-                  header = Token.ParseHeader(
+                  header = Block.ParseHeader(
                     Payload,
                     ref byteIndex);
 

@@ -223,31 +223,31 @@ namespace BTokenCore
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
     }
 
-    public override void SignalCompletionBlockInsertion(Header headerAnchor)
+    public override void SignalParentBlockInsertion(Header headerAnchor)
     {
       try
       {
         if (TokensAnchorDetectedInBlock.Count > 0)
         {
-          TokenAnchor tokenAnchorWinner = GetTXAnchorWinner(headerAnchor);
+          headerAnchor.HashChild = GetHashBlockChild(headerAnchor);
 
           Block block = null;
 
           if (Archiver.TryLoadBlockArchive(
-            HeaderTip.Height  + 1, out byte[] buffer))
+            HeaderTip.Height + 1, out byte[] buffer))
           {
             block = CreateBlock();
 
             block.Buffer = buffer;
             block.Parse();
 
-            if (!block.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced))
+            if (!block.Header.Hash.IsEqual(headerAnchor.HashChild))
               block = null;
           }
           else if (BlocksMined.Count > 0)
           {
             block = BlocksMined.Find(b =>
-            b.Header.Hash.IsEqual(tokenAnchorWinner.HashBlockReferenced));
+            b.Header.Hash.IsEqual(headerAnchor.HashChild));
 
             if (TokensAnchorUnconfirmed.Count == 0)
             {
@@ -283,7 +283,7 @@ namespace BTokenCore
       }
     }
 
-    public TokenAnchor GetTXAnchorWinner(Header headerAnchor)
+    public byte[] GetHashBlockChild(Header headerAnchor)
     {
       SHA256 sHA256 = SHA256.Create();
 
@@ -306,24 +306,7 @@ namespace BTokenCore
       ($"The winning anchor token is {tokenAnchorWinner.TX} referencing block " +
         $"{tokenAnchorWinner.HashBlockReferenced.ToHexString()}.").Log(LogFile);
 
-      if (TrailAnchorChain.TryGetValue(
-        tokenAnchorWinner.HashBlockReferenced,
-        out int height))
-      {
-        if (headerAnchor.Height != height)
-          throw new InvalidOperationException(
-            $"Cannot reference same block {tokenAnchorWinner.HashBlockReferenced} " +
-            $"on different heights {headerAnchor.Height} and {height} in anchor trail.");
-      }
-      else if (TrailAnchorChain.ContainsValue(headerAnchor.Height))
-        throw new InvalidOperationException(
-          $"Cannot reference different blocks on same height {headerAnchor.Height}.");
-      else
-        TrailAnchorChain.Add(
-          tokenAnchorWinner.HashBlockReferenced,
-          headerAnchor.Height);
-
-      return tokenAnchorWinner;
+      return tokenAnchorWinner.HashBlockReferenced;
     }
 
     void RBFAnchorTokens()
