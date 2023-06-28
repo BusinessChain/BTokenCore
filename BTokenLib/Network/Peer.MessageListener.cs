@@ -171,6 +171,10 @@ namespace BTokenLib
                 }
                 else
                   Network.SyncBlocks();
+
+                // Falls HeaderDownload.HeaderTip == null oder 
+                // HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated
+                // macht es doch gar keinen Sinn den syncer aufzurufen
               }
             }
             else if (Command == "getheaders")

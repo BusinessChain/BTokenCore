@@ -146,6 +146,7 @@ namespace BTokenLib
     async Task SyncBlocks()
     {
       double difficultyAccumulatedOld = Token.HeaderTip.DifficultyAccumulated;
+      bool flagSyncSuccess = false;
 
       try
       {
@@ -205,7 +206,10 @@ namespace BTokenLib
                   if (Peers.All(p => !p.IsStateBlockSynchronization()))
                   {
                     if (Token.HeaderTip.DifficultyAccumulated > difficultyAccumulatedOld)
+                    {
                       Token.Reorganize();
+                      flagSyncSuccess = true;
+                    }
                     else
                       Token.LoadImage();
 
@@ -232,7 +236,7 @@ namespace BTokenLib
       Token.GetStatus().Log(LogFile);
       ExitSynchronization();
 
-      if(Token.TokenChild != null)
+      if(Token.TokenChild != null && flagSyncSuccess)
         Token.TokenChild.Network.TryStartSynchronization();
     }
 

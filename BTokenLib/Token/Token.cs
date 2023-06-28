@@ -140,8 +140,7 @@ namespace BTokenLib
       }
       catch(Exception ex)
       {
-        Console.WriteLine($"Exception {ex.GetType().Name} when printing image:\n" +
-          $"{ex.Message}");
+        Console.WriteLine($"Exception {ex.GetType().Name} when printing image.");
       }
     }
 
