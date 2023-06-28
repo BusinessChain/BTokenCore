@@ -71,13 +71,19 @@ namespace BTokenLib
       {
         Header headerParent = headerPrevious.HeaderParent.HeaderNext;
 
-        while (headerParent != null && !headerParent.HashChild.IsEqual(Hash))
+        while (true)
+        {
+          if (headerParent == null)
+            throw new ProtocolException($"Header {this} not anchored in parent chain.");
+
+          if(headerParent.HashChild != null && headerParent.HashChild.IsEqual(Hash))
+          {
+            HeaderParent = headerParent;
+            return;
+          }
+
           headerParent = headerParent.HeaderNext;
-
-        if (headerParent == null)
-          throw new ProtocolException($"Header {this} not anchored in parent chain.");
-
-        HeaderParent = headerParent;
+        }
       }
     }
 

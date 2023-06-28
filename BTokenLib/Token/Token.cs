@@ -53,6 +53,8 @@ namespace BTokenLib
       PathRootToken = GetName();
       Directory.CreateDirectory(PathRootToken);
 
+      HeaderGenesis = CreateHeaderGenesis();
+
       Archiver = new(GetName());
 
       TXPool = new();
@@ -263,9 +265,6 @@ namespace BTokenLib
             throw new ProtocolException(
               $"Image height of {GetName()} higher than desired height {heightMax}.");
 
-          if (TokenChild != null)
-            TokenChild.LoadImage(HeaderTip.Height);
-
           break;
         }
         catch
@@ -281,11 +280,8 @@ namespace BTokenLib
               Path.Combine(GetName(), NameImageOld), 
               pathImage);
           }
-          catch(DirectoryNotFoundException ex)
+          catch(DirectoryNotFoundException)
           {
-            if (TokenParent != null)
-              throw ex;
-
             break;
           }
         }
@@ -315,13 +311,15 @@ namespace BTokenLib
 
         heightBlock += 1;
       }
+
+      if (TokenChild != null)
+        TokenChild.LoadImage(HeaderTip.Height);
     }
 
     public virtual void Reset()
     {
       Archiver.ResetBlockPath();
 
-      HeaderGenesis = CreateHeaderGenesis();
       HeaderTip = HeaderGenesis;
       HeaderIndex.Clear();
       IndexingHeaderTip();
