@@ -146,7 +146,7 @@ namespace BTokenLib
     async Task SyncBlocks()
     {
       double difficultyAccumulatedOld = Token.HeaderTip.DifficultyAccumulated;
-      bool flagSyncSuccess = false;
+      bool flagNoChildSync = false;
 
       try
       {
@@ -206,10 +206,7 @@ namespace BTokenLib
                   if (Peers.All(p => !p.IsStateBlockSynchronization()))
                   {
                     if (Token.HeaderTip.DifficultyAccumulated > difficultyAccumulatedOld)
-                    {
                       Token.Reorganize();
-                      flagSyncSuccess = true;
-                    }
                     else
                       Token.LoadImage();
 
@@ -223,7 +220,10 @@ namespace BTokenLib
             }
           }
           else if(HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
+          {
+            flagNoChildSync = true;
             PeerSynchronizing.SendHeaders(new List<Header>() { Token.HeaderTip });
+          }
 
         $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.".Log(LogFile);
       }
@@ -236,8 +236,8 @@ namespace BTokenLib
       Token.GetStatus().Log(LogFile);
       ExitSynchronization();
 
-      //if(Token.TokenChild != null && flagSyncSuccess)
-      //  Token.TokenChild.Network.TryStartSynchronization();
+      if (Token.TokenChild != null && !flagSyncSuccess)
+        Token.TokenChild.Network.TryStartSynchronization();
     }
 
     bool InsertBlock_FlagContinue(Peer peer)
