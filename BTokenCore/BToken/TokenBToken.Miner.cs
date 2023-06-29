@@ -260,9 +260,6 @@ namespace BTokenCore
             InsertBlock(block);
         }
 
-        TokensAnchorDetectedInBlock.Clear();
-        BlocksMined.Clear();
-
         if (TokensAnchorUnconfirmed.Count > 0)
         {
           FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
@@ -280,6 +277,11 @@ namespace BTokenCore
         ($"{ex.GetType().Name} when signaling Bitcoin block {headerAnchor}" +
           $" with height {headerAnchor.Height} to BToken.\n" +
           $"Exception message: {ex.Message}").Log(this, LogFile);
+      }
+      finally
+      {
+        TokensAnchorDetectedInBlock.Clear();
+        BlocksMined.Clear();
       }
     }
 
