@@ -236,7 +236,7 @@ namespace BTokenLib
       Token.GetStatus().Log(LogFile);
       ExitSynchronization();
 
-      if (Token.TokenChild != null && !flagSyncSuccess)
+      if (Token.TokenChild != null && !flagNoChildSync)
         Token.TokenChild.Network.TryStartSynchronization();
     }
 
