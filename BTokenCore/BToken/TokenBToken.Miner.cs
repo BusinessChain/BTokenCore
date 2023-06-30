@@ -143,7 +143,8 @@ namespace BTokenCore
       block.Buffer = block.Header.Buffer.Concat(
         VarInt.GetBytes(block.TXs.Count)).ToArray();
 
-      block.TXs.ForEach(t => { block.Buffer = block.Buffer.Concat(t.TXRaw).ToArray(); });
+      block.TXs.ForEach(t => 
+      { block.Buffer = block.Buffer.Concat(t.TXRaw).ToArray(); });
 
       block.Header.CountBytesBlock = block.Buffer.Length;
 
@@ -260,12 +261,12 @@ namespace BTokenCore
             InsertBlock(block);
         }
 
+        TokensAnchorDetectedInBlock.Clear();
+        BlocksMined.Clear();
+
         if (TokensAnchorUnconfirmed.Count > 0)
         {
           FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
-
-          $"{TokensAnchorUnconfirmed.Count} anchor tokens unconfirmed, do RBF."
-            .Log(LogFile);
 
           NumberSequence += 1;
 
@@ -277,9 +278,7 @@ namespace BTokenCore
         ($"{ex.GetType().Name} when signaling Bitcoin block {headerAnchor}" +
           $" with height {headerAnchor.Height} to BToken.\n" +
           $"Exception message: {ex.Message}").Log(this, LogFile);
-      }
-      finally
-      {
+
         TokensAnchorDetectedInBlock.Clear();
         BlocksMined.Clear();
       }

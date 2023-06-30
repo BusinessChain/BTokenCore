@@ -15,9 +15,8 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 5000000000; // 50 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int COUNT_TXS_PER_BLOCK_MAX = 10;
+    const int COUNT_TXS_PER_BLOCK_MAX = 5;
     int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
-    List<BlockBitcoin> BlocksMined = new();
 
 
     public override void StartMining()
