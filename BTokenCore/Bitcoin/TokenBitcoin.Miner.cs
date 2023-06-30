@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +15,7 @@ namespace BTokenCore
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
+    int NumberOfProcesses = 1; // Math.Max(Environment.ProcessorCount - 1, 1);
 
 
     public override void StartMining()

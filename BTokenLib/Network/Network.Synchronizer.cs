@@ -231,9 +231,10 @@ namespace BTokenLib
       {
         ($"Unexpected exception {ex.GetType().Name} occured during SyncBlocks.\n" +
           $"{ex.Message}").Log(LogFile);
+
+        flagNoChildSync = true;
       }
 
-      Token.GetStatus().Log(LogFile);
       ExitSynchronization();
 
       if (Token.TokenChild != null && !flagNoChildSync)

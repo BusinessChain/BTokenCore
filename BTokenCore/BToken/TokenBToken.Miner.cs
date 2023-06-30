@@ -12,7 +12,7 @@ namespace BTokenCore
   partial class TokenBToken : Token
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 1 * 5000;
+    const int TIMESPAN_MINING_LOOP_MILLISECONDS = 20 * 1000;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int LENGTH_DATA_ANCHOR_TOKEN = 66;
