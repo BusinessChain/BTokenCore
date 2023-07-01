@@ -63,9 +63,6 @@ namespace BTokenLib
 
             if (iPAddresses.Count > 0)
             {
-              ($"Connect with {iPAddresses.Count} new peers. " +
-                $"{Peers.Count} peers connected currently.").Log(this, LogFile);
-
               var createPeerTasks = new Task[iPAddresses.Count];
 
               Parallel.For(

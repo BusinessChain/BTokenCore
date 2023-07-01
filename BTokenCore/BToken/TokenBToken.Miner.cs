@@ -230,22 +230,11 @@ namespace BTokenCore
       {
         if (TokensAnchorDetectedInBlock.Count > 0)
         {
-          headerAnchor.HashChild = GetHashBlockChild(headerAnchor);
+          headerAnchor.HashChild = GetHashBlockChild(headerAnchor.Hash);
 
           Block block = null;
 
-          if (Archiver.TryLoadBlockArchive(
-            HeaderTip.Height + 1, out byte[] buffer))
-          {
-            block = CreateBlock();
-
-            block.Buffer = buffer;
-            block.Parse();
-
-            if (!block.Header.Hash.IsEqual(headerAnchor.HashChild))
-              block = null;
-          }
-          else if (BlocksMined.Count > 0)
+          if (BlocksMined.Count > 0)
           {
             block = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(headerAnchor.HashChild));
@@ -284,11 +273,11 @@ namespace BTokenCore
       }
     }
 
-    public byte[] GetHashBlockChild(Header headerAnchor)
+    public byte[] GetHashBlockChild(byte[] hashHeaderAnchor)
     {
       SHA256 sHA256 = SHA256.Create();
 
-      byte[] targetValue = sHA256.ComputeHash(headerAnchor.Hash);
+      byte[] targetValue = sHA256.ComputeHash(hashHeaderAnchor);
       byte[] biggestDifferenceTemp = new byte[32];
       TokenAnchor tokenAnchorWinner = null;
 

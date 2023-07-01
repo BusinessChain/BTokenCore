@@ -201,8 +201,8 @@ namespace BTokenLib
         $"Difficulty Tip: {HeaderTip.Difficulty}\n" +
         $"Acc. Difficulty: {HeaderTip.DifficultyAccumulated}\n" +
         $"Timestamp: {DateTimeOffset.FromUnixTimeSeconds(HeaderTip.UnixTimeSeconds)}\n" +
-        $"Age: {ageBlock}\n" +
-        $"\n{Wallet.GetStatus()}";
+        $"Age: {ageBlock}\n";// +
+        //$"\n{Wallet.GetStatus()}";
 
       return messageStatus;
     }

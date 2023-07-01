@@ -49,7 +49,7 @@ namespace BTokenCore
          hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
          merkleRootHash: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
          unixTimeSeconds: 1667333891,
-         nBits: 0x1dffffff,
+         nBits: 0x1d4fffff,
          nonce: 1441757173);
 
       header.Height = 0; // Should be modulo 2016 so it calculates next target bits correctly.
