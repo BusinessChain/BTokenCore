@@ -392,11 +392,11 @@ namespace BTokenLib
 
       Archiver.ArchiveBlock(block);
 
-      if (TokenChild != null)
-        TokenChild.SignalParentBlockInsertion(block.Header);
-
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)
         CreateImage();
+
+      if (TokenChild != null)
+        TokenChild.SignalParentBlockInsertion(block.Header);
     }
 
     public void CreateImage()
@@ -408,6 +408,7 @@ namespace BTokenLib
       CreateImageHeaderchain(PathImage);
 
       CreateImageDatabase(PathImage);
+
       Wallet.CreateImage(PathImage);
     }
 

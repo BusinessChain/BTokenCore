@@ -97,6 +97,7 @@ namespace BTokenLib
             }
             else if (Command == "headers")
             {
+
               await ReadBytes(Payload, LengthDataPayload);
 
               int byteIndex = 0;
@@ -111,8 +112,14 @@ namespace BTokenLib
 
               if (!IsStateHeaderSynchronization())
               {
-                if (countHeaders == 0)
-                  throw new ProtocolException($"Peer sent unsolicited empty header message.");
+                if (countHeaders != 0)
+                  throw new ProtocolException($"Peer sent unsolicited not exactly one header.");
+
+                // Wenn ich von einem Peer einen unsolicited headers erhalte, 
+                // dann ist es immer nur einer und ich sollte nicht über einen Network sync gehen, sondern die
+                // Blöcke (in der Regel wird es ja nur ein Block sein) direkt von diesem 
+                // Peer downloaden.
+                // Network sync nur, wenn ich die Synchronization einleite.
 
                 if (!Network.TryEnterStateSynchronization(this))
                   continue;

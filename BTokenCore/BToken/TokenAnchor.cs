@@ -26,7 +26,6 @@ namespace BTokenCore
       byte OP_RETURN = 0x6A;
 
       public TX TX;
-      public bool IsConfirmed;
 
 
 

@@ -40,7 +40,26 @@ namespace BTokenCore
         "BlocksMinedUnconfirmed");
 
       Directory.CreateDirectory(PathBlocksMinedUnconfirmed);
-      LoadMinedunconfirmed();
+      LoadMinedUnconfirmed();
+    }
+
+    void LoadMinedUnconfirmed()
+    {
+      foreach (string pathFile in Directory.GetFiles(PathBlocksMinedUnconfirmed))
+      {
+        try
+        {
+          BlockBToken block = new();
+          block.Parse(File.ReadAllBytes(pathFile));
+          BlocksMined.Add(block);
+
+          //TokensAnchorMinedUnconfirmed.Add(tokenAnchor);
+        }
+        catch (Exception ex)
+        {
+          $"Failed to parse unconfirmed mined block {pathFile}.\n{ex.Message}".Log(LogFile);
+        }
+      }
     }
 
     public override Header CreateHeaderGenesis()
