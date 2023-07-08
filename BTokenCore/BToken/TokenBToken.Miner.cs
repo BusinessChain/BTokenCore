@@ -57,16 +57,22 @@ namespace BTokenCore
       $"Miners starts with fee per byte = {FeeSatoshiPerByte}".Log(LogFile);
 
       Header headerTipParent = null;
-      Header headerTip = HeaderTip;
+      Header headerTip = null;
 
       while (IsMining)
       {
         int timeMSLoop = TIMESPAN_MINING_ANCHOR_TOKENS_MILLISECONDS;
 
+        // was ist, wenn es gerade zwei blöcke, oder fork gemacht hat?
+        // wo wird auf btk block gewartet?
+
         if (TryLock())
         {
           if (headerTipParent == null)
+          {
             headerTipParent = TokenParent.HeaderTip;
+            headerTip = HeaderTip;
+          }
           
           if(headerTipParent == TokenParent.HeaderTip)
           {
@@ -92,6 +98,21 @@ namespace BTokenCore
           }
           else
           {
+            headerTipParent = TokenParent.HeaderTip;
+
+            for (int i = 0; i < 100; i += 1)
+            {
+              while (headerTip.HeaderNext != null)
+              {
+                headerTip = headerTip.HeaderNext;
+
+                if (headerTip.Hash.IsEqual(headerTipParent.HashChild))
+                  break;
+              }
+
+              await Task.Delay(100);
+            }
+
             if (TokensAnchorUnconfirmed.Count > 0)
             {
               FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
@@ -100,7 +121,6 @@ namespace BTokenCore
               RBFAnchorTokens();
             }
 
-            headerTipParent = TokenParent.HeaderTip;
           }
 
 
