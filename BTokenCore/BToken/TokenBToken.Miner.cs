@@ -12,7 +12,8 @@ namespace BTokenCore
   partial class TokenBToken : Token
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    const int TIMESPAN_MINING_ANCHOR_TOKENS_MILLISECONDS = 20 * 1000;
+    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 20;
+    const int TIME_MINER_PAUSE_AFTER_RECEIVE_PARENT_BLOCK_SECONDS = 10;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
     const int LENGTH_DATA_ANCHOR_TOKEN = 66;
@@ -61,30 +62,48 @@ namespace BTokenCore
 
       while (IsMining)
       {
-        int timeMSLoop = TIMESPAN_MINING_ANCHOR_TOKENS_MILLISECONDS;
-
-        // was ist, wenn es gerade zwei blöcke, oder fork gemacht hat?
-        // wo wird auf btk block gewartet?
+        int timerMinerPause = 0;
+        int timerCreateNextToken = 0;
+        int timeMinerLoopMilliseconds = 100;
 
         if (TryLock())
         {
-          if (headerTipParent == null)
+          if (headerTip == null)
           {
-            headerTipParent = TokenParent.HeaderTip;
             headerTip = HeaderTip;
+            headerTipParent = TokenParent.HeaderTip;
           }
-          
-          if(headerTipParent == TokenParent.HeaderTip)
+
+          if(headerTipParent != TokenParent.HeaderTip)
           {
+            timerMinerPause = TIME_MINER_PAUSE_AFTER_RECEIVE_PARENT_BLOCK_SECONDS * 1000 
+              / timeMinerLoopMilliseconds;
+
+            headerTipParent = TokenParent.HeaderTip;
+          }
+
+          if(headerTip != HeaderTip)
+          {
+            RBFAnchorTokens();
+
+            headerTip = HeaderTip;
+
+            timerMinerPause = 0;
+          }
+
+          if (timerMinerPause > 0)
+            timerMinerPause -= 1;
+
+          if (timerCreateNextToken > 0)
+            timerCreateNextToken -= 1;
+
+          if (timerMinerPause == 0 && timerCreateNextToken == 0)
             if (TryMineAnchorToken(out TokenAnchor tokenAnchor))
             {
+              timerCreateNextToken = TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS * 1000 
+                / timeMinerLoopMilliseconds;
+
               TokensAnchorUnconfirmed.Add(tokenAnchor);
-
-
-
-              // Immer bevor ein Token an einen Peer advertized wird,
-              // fragt man den Peer ob er die Ancestor TX schon hat.
-              // Wenn nicht iterativ weiterfragen und dann alle Tokens schicken.
 
               TokenParent.BroadcastTX(tokenAnchor.TX);
 
@@ -95,39 +114,10 @@ namespace BTokenCore
               // timeMSCreateNextAnchorToken / 2,
               // timeMSCreateNextAnchorToken * 3 / 2);
             }
-          }
-          else
-          {
-            headerTipParent = TokenParent.HeaderTip;
-
-            for (int i = 0; i < 100; i += 1)
-            {
-              while (headerTip.HeaderNext != null)
-              {
-                headerTip = headerTip.HeaderNext;
-
-                if (headerTip.Hash.IsEqual(headerTipParent.HashChild))
-                  break;
-              }
-
-              await Task.Delay(100);
-            }
-
-            if (TokensAnchorUnconfirmed.Count > 0)
-            {
-              FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
-              NumberSequence += 1;
-
-              RBFAnchorTokens();
-            }
-
-          }
-
-
-          ReleaseLock();
         }
 
-        await Task.Delay(timeMSLoop).ConfigureAwait(false);
+        ReleaseLock();
+        await Task.Delay(timeMinerLoopMilliseconds).ConfigureAwait(false);
       }
 
       $"Exit BToken miner.".Log(LogFile);
@@ -135,6 +125,12 @@ namespace BTokenCore
 
     void RBFAnchorTokens()
     {
+      if (TokensAnchorUnconfirmed.Count == 0)
+        return;
+
+      FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+      NumberSequence += 1;
+
       TokensAnchorUnconfirmed.Reverse();
 
       foreach (TokenAnchor t in TokensAnchorUnconfirmed)
