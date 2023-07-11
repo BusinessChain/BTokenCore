@@ -12,7 +12,7 @@ namespace BTokenCore
   partial class TokenBToken : Token
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 5;
+    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 10;
     const int TIME_MINER_PAUSE_AFTER_RECEIVE_PARENT_BLOCK_SECONDS = 10;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
@@ -164,7 +164,7 @@ namespace BTokenCore
         else
           break;
 
-      //TokenParent.BroadcastTX(TokensAnchorUnconfirmed);
+      TokenParent.BroadcastTX(TokensAnchorUnconfirmed.Select(t => t.TX).ToList());
 
       $"{TokensAnchorUnconfirmed.Count} RBF'ed unconfirmed anchor tokens.".Log(LogFile);
     }

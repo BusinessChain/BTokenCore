@@ -557,6 +557,12 @@ namespace BTokenLib
       //Network.AdvertizeTX(tX);
     }
 
+    public void BroadcastTX(List<TX> tXs)
+    {
+      tXs.ForEach(tX => TXPool.AddTX(tX));
+      //Network.AdvertizeTXs(tX);
+    }
+
     public List<Header> GetLocator()
     {
       Header header = HeaderTip;

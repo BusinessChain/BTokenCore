@@ -112,7 +112,7 @@ namespace BTokenLib
 
               if (!IsStateHeaderSynchronization())
               {
-                if (countHeaders != 0)
+                if (countHeaders != 1)
                   throw new ProtocolException($"Peer sent unsolicited not exactly one header.");
 
                 // Wenn ich von einem Peer einen unsolicited headers erhalte, 
@@ -129,7 +129,10 @@ namespace BTokenLib
 
               if (countHeaders > 0)
               {
-                Console.Beep(1200, 100);
+                if (Token.TokenParent == null)
+                  Console.Beep(1200, 100);
+                else
+                  Console.Beep(1500, 100);
 
                 Header header = null;
                 List<Header> locator = null;
