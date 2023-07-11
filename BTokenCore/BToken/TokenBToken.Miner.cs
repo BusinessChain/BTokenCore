@@ -6,13 +6,14 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
+using static BTokenCore.TokenBToken;
 
 namespace BTokenCore
 {
   partial class TokenBToken : Token
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 20;
+    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 5;
     const int TIME_MINER_PAUSE_AFTER_RECEIVE_PARENT_BLOCK_SECONDS = 10;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
@@ -119,6 +120,8 @@ namespace BTokenCore
 
               TokenParent.BroadcastTX(tokenAnchor.TX);
 
+              $"{TokensAnchorUnconfirmed.Count} mined unconfirmed anchor tokens.".Log(LogFile);
+
               // timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
               // COUNT_SATOSHIS_PER_DAY_MINING);
 
@@ -157,8 +160,14 @@ namespace BTokenCore
       $"RBF {countTokensAnchorUnconfirmed} anchorTokens".Log(LogFile);
 
       while (countTokensAnchorUnconfirmed-- > 0)
-        if (!TryMineAnchorToken(out TokenAnchor tokenAnchor))
+        if (TryMineAnchorToken(out TokenAnchor tokenAnchor))
+          TokensAnchorUnconfirmed.Add(tokenAnchor);
+        else
           break;
+
+      //TokenParent.BroadcastTX(TokensAnchorUnconfirmed);
+
+      $"{TokensAnchorUnconfirmed.Count} RBF'ed unconfirmed anchor tokens.".Log(LogFile);
     }
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)
@@ -189,12 +198,7 @@ namespace BTokenCore
       feeAccrued += feeAnchorToken;
 
       if (valueAccrued < feeAccrued)
-      {
-        ($"Miner wallet has not enough value {valueAccrued} to " +
-          $"pay for anchor token fee {feeAccrued}").Log(LogFile);
-
         return false;
-      }
 
       BlockBToken block = new();
 
@@ -253,9 +257,7 @@ namespace BTokenCore
 
       BlocksMined.Add(block);
 
-      ($"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}.\n" +
-        $"{TokensAnchorUnconfirmed.Count} mined unconfirmed anchor tokens.")
-        .Log(LogFile);
+      $"BToken miner successfully mined anchor Token {tokenAnchor.TX} with fee {tokenAnchor.TX.Fee}".Log(LogFile);
 
       return true;
     }
@@ -296,14 +298,18 @@ namespace BTokenCore
       }
 
       Header headerParent = TokenParent.HeaderTip;
+      
       while (
         headerParent.HashChild == null ||
-        !tokenAnchor.HashBlockPreviousReferenced.IsEqual(headerParent.HashChild))
+        !headerParent.HashChild.IsEqual(tokenAnchor.HashBlockPreviousReferenced))
       {
         headerParent = headerParent.HeaderPrevious;
 
         if (headerParent == null)
+        {
+          $"Anchor token {tokenAnchor} references orphan block {tokenAnchor.HashBlockReferenced.ToHexString()}".Log(LogFile);
           return;
+        }
       }
 
       TokensAnchorDetectedInBlock.Add(tokenAnchor);

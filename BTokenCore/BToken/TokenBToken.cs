@@ -34,6 +34,7 @@ namespace BTokenCore
       tokenParent.TokenChild = this;
 
       HeaderGenesis.HeaderParent = tokenParent.HeaderGenesis;
+      tokenParent.HeaderGenesis.HashChild = HeaderGenesis.Hash;
 
       PathBlocksMinedUnconfirmed = Path.Combine(
         GetName(),
