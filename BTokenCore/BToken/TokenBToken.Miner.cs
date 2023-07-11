@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
-using static BTokenCore.TokenBToken;
 
 namespace BTokenCore
 {
