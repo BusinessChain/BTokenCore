@@ -35,8 +35,6 @@ namespace BTokenCore
 
     List<TokenAnchor> TokensAnchorDetectedInBlock = new();
 
-    const int TIME_MINER_PAUSE_SECONDS = 5;
-
 
 
     public override void StartMining()
@@ -60,12 +58,12 @@ namespace BTokenCore
       Header headerTipParent = null;
       Header headerTip = null;
 
+      int timerMinerPause = 0;
+      int timerCreateNextToken = 0;
+      int timeMinerLoopMilliseconds = 100;
+
       while (IsMining)
       {
-        int timerMinerPause = 0;
-        int timerCreateNextToken = 0;
-        int timeMinerLoopMilliseconds = 100;
-
         if (TryLock())
         {
           if (headerTip == null)
@@ -84,10 +82,24 @@ namespace BTokenCore
 
           if(headerTip != HeaderTip)
           {
-            RBFAnchorTokens();
+            if (TokensAnchorUnconfirmed.Count == 0)
+            {
+              if (BlocksMined.Count > 0)
+                FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
+
+              NumberSequence = 0;
+
+              BlocksMined.Clear();
+            }
+            else
+            {
+              FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
+              NumberSequence += 1;
+
+              RBFAnchorTokens();
+            }
 
             headerTip = HeaderTip;
-
             timerMinerPause = 0;
           }
 
@@ -125,12 +137,6 @@ namespace BTokenCore
 
     void RBFAnchorTokens()
     {
-      if (TokensAnchorUnconfirmed.Count == 0)
-        return;
-
-      FeeSatoshiPerByte *= FACTOR_INCREMENT_FEE_PER_BYTE;
-      NumberSequence += 1;
-
       TokensAnchorUnconfirmed.Reverse();
 
       foreach (TokenAnchor t in TokensAnchorUnconfirmed)
@@ -315,16 +321,8 @@ namespace BTokenCore
 
           if (BlocksMined.Count > 0)
           {
-            if (TokensAnchorUnconfirmed.Count == 0)
-            {
-              FeeSatoshiPerByte /= FACTOR_INCREMENT_FEE_PER_BYTE;
-              NumberSequence = 0;
-            }
-
             Block block = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(headerAnchor.HashChild));
-
-            BlocksMined.Clear();
 
             if (block != null)
             {
