@@ -109,19 +109,10 @@ namespace BTokenLib
 
     public void AdvertizeTX(TX tX)
     {
-      //$"Advertize rawTX {tX.GetStringTXRaw()} to {this}."
-      //  .Log(this, LogFile);
-
-      // should Lock Blockchain
-
-      List<Peer> peersAdvertized = new();
-
-      while (TryGetPeerIdle(out Peer peer))
-        peersAdvertized.Add(peer);
-
-      peersAdvertized.Select(p => p.AdvertizeTX(tX)).ToArray();
+      lock (LOCK_Peers)
+        foreach (Peer peer in Peers)
+          peer.TryAdvertizeTX(tX);
     }
-
 
     public string GetStatus()
     {

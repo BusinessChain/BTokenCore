@@ -28,8 +28,10 @@ namespace BTokenLib
         BlockSynchronization,
         DBDownload,
         GetData,
-        InboundRequest
+        InboundRequest,
+        AdvertizingTX
       }
+
       StateProtocol State = StateProtocol.NotConnected;
       public DateTime TimeLastStateTransition;
       public DateTime TimeLastSynchronization;
@@ -232,10 +234,15 @@ namespace BTokenLib
         Cancellation.CancelAfter(millisecondsTimer);
       }
 
-      public async Task AdvertizeTX(TX tX)
+      public async Task<bool> TryAdvertizeTX(TX tX)
       {
-        $"Advertize token {tX} to peer."
-          .Log(this, LogFile);
+        lock (this)
+          if (IsStateIdleWithoutLock())
+            State = StateProtocol.AdvertizingTX;
+          else
+            return false;
+
+        $"Advertize token {tX} to peer.".Log(this, LogFile);
 
         var inventoryTX = new Inventory(
           InventoryType.MSG_TX,
@@ -249,6 +256,8 @@ namespace BTokenLib
         TXAdvertized = tX;
 
         SetStateIdle();
+
+        return true;
       }
 
       public async Task RequestDB()
@@ -315,6 +324,12 @@ namespace BTokenLib
         }
       }
 
+      public bool IsStateIdle()
+      {
+        lock (this)
+          return IsStateIdleWithoutLock();
+      }
+
       bool IsStateIdleWithoutLock()
       {
         if (State == StateProtocol.Idle)
@@ -328,12 +343,6 @@ namespace BTokenLib
           }
 
         return false;
-      }
-
-      public bool IsStateIdle()
-      {
-        lock (this) 
-          return IsStateIdleWithoutLock();
       }
 
       public void SetStateIdle()
