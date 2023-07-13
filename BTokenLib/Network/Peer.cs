@@ -44,7 +44,7 @@ namespace BTokenLib
 
       public Header HeaderUnsolicited;
      
-      List<TX> TXsAdvertized;
+      List<TX> TXsAdvertized = new();
 
       ulong FeeFilterValue;
 
@@ -253,6 +253,7 @@ namespace BTokenLib
 
         await SendMessage(invMessage);
 
+        TXsAdvertized.Clear();
         TXsAdvertized.Add(tX);
 
         SetStateIdle();
