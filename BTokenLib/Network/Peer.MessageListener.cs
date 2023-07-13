@@ -13,6 +13,8 @@ namespace BTokenLib
   {
     partial class Peer
     {
+      List<Inventory> InventoriesRequested = new();
+
       public async Task StartMessageListener()
       {
         try
@@ -43,6 +45,26 @@ namespace BTokenLib
                 RequestBlock();
               else
                 SetStateIdle();
+            }
+            else if (Command == "tx")
+            {
+              await ReadBytes(Payload, LengthDataPayload);
+
+              int index = 0;
+
+              TX tX = Block.ParseTX(
+                isCoinbase: false,
+                Payload,
+                ref index,
+                SHA256.Create());
+
+              if(!InventoriesRequested.Any(i => i.Hash.IsEqual(tX.Hash)))
+                throw new ProtocolException($"Received unrequested tx {tX}.");
+
+              if (!Token.TXPool.Contains(tX.Hash))
+                Token.TXPool.TryAddTX(tX);
+
+              break;
             }
             else if (Command == "dataDB")
             {
@@ -97,7 +119,6 @@ namespace BTokenLib
             }
             else if (Command == "headers")
             {
-
               await ReadBytes(Payload, LengthDataPayload);
 
               int byteIndex = 0;
@@ -282,7 +303,16 @@ namespace BTokenLib
               await ReadBytes(Payload, LengthDataPayload);
 
               InvMessage invMessage = new(Payload);
-              GetDataMessage getDataMessage = new(invMessage.Inventories);
+              InventoriesRequested.Clear();
+
+              foreach (Inventory inv in invMessage.Inventories)
+                if (inv.IsTX() && !Token.TXPool.Contains(inv.Hash))
+                  InventoriesRequested.Add(inv);
+
+              if (InventoriesRequested.Count == 0)
+                break;
+
+              SendMessage(new GetDataMessage(InventoriesRequested));
             }
             else if (Command == "getdata")
             {
@@ -296,13 +326,17 @@ namespace BTokenLib
               GetDataMessage getDataMessage = new(Payload);
 
               foreach (Inventory inventory in getDataMessage.Inventories)
-                if (inventory.Type == InventoryType.MSG_TX &&
-                  inventory.Hash.IsEqual(TXAdvertized.Hash))
+                if (inventory.Type == InventoryType.MSG_TX)
                 {
-                  $"Received getData {inventory} from {this} and send tX {TXAdvertized}."
+                  TX tXAdvertized = TXsAdvertized.Find(t => t.Hash.IsEqual(inventory.Hash));
+
+                  if (tXAdvertized != null)
+                    TXsAdvertized.Remove(tXAdvertized);
+
+                  $"Received getData {inventory} from {this} and send tX {tXAdvertized}."
                     .Log(this, LogFile);
 
-                  await SendMessage(new TXMessage(TXAdvertized.TXRaw.ToArray()));
+                  await SendMessage(new TXMessage(tXAdvertized.TXRaw.ToArray()));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 {

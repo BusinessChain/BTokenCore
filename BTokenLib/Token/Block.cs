@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Intrinsics.Arm;
 using System.Security.Cryptography;
 
 namespace BTokenLib
@@ -12,7 +13,7 @@ namespace BTokenLib
     public Header Header;
     public Block BlockNext;
 
-    protected SHA256 SHA256 = SHA256.Create();
+    public SHA256 SHA256 = SHA256.Create();
 
     public List<TX> TXs = new();
 
@@ -67,7 +68,8 @@ namespace BTokenLib
           ParseTX(
             isCoinbase: true,
             Buffer,
-            ref bufferIndex));
+            ref bufferIndex, 
+            SHA256));
       else
       {
         int tXsLengthMod2 = tXCount & 1;
@@ -76,7 +78,8 @@ namespace BTokenLib
         TX tX = ParseTX(
           isCoinbase: true,
           Buffer,
-          ref bufferIndex);
+          ref bufferIndex, 
+          SHA256);
 
         TXs.Add(tX);
 
@@ -87,7 +90,8 @@ namespace BTokenLib
           tX = ParseTX(
           isCoinbase: false,
           Buffer,
-          ref bufferIndex);
+          ref bufferIndex,
+          SHA256);
 
           TXs.Add(tX);
 
@@ -104,10 +108,11 @@ namespace BTokenLib
         throw new ProtocolException("Payload hash not equal to merkle root.");
     }
 
-    public TX ParseTX(
+    public static TX ParseTX(
       bool isCoinbase,
       byte[] buffer,
-      ref int indexBuffer)
+      ref int indexBuffer,
+      SHA256 sHA256)
     {
       TX tX = new();
 
@@ -146,8 +151,8 @@ namespace BTokenLib
 
         indexBuffer += 4; //BYTE_LENGTH_LOCK_TIME
 
-        tX.Hash = SHA256.ComputeHash(
-         SHA256.ComputeHash(
+        tX.Hash = sHA256.ComputeHash(
+         sHA256.ComputeHash(
            buffer,
            tXStartIndex,
            indexBuffer - tXStartIndex));

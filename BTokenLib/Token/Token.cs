@@ -20,7 +20,7 @@ namespace BTokenLib
 
     public Wallet Wallet;
 
-    protected TXPool TXPool;
+    public TXPool TXPool;
 
     public Network Network;
     public UInt16 Port;
@@ -478,10 +478,11 @@ namespace BTokenLib
 
       int indexTXRaw = 0;
 
-      TX tX = block.ParseTX(
+      TX tX = Block.ParseTX(
         true,
         tXRaw.ToArray(),
-        ref indexTXRaw);
+        ref indexTXRaw,
+        block.SHA256);
 
       tX.TXRaw = tXRaw;
 
@@ -553,13 +554,13 @@ namespace BTokenLib
 
     public void BroadcastTX(TX tX)
     {
-      TXPool.AddTX(tX);
+      TXPool.TryAddTX(tX);
       Network.AdvertizeTX(tX);
     }
 
     public void BroadcastTX(List<TX> tXs)
     {
-      tXs.ForEach(tX => TXPool.AddTX(tX));
+      tXs.ForEach(tX => TXPool.TryAddTX(tX));
       //Network.AdvertizeTXs(tX);
     }
 

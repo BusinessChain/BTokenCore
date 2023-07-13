@@ -53,6 +53,11 @@ namespace BTokenLib
           RemoveTXRecursive(hashTX);
     }
 
+    public bool Contains(byte[] hashTX)
+    {
+      lock (LOCK_TXsPool)
+        return TXPoolDict.ContainsKey(hashTX);
+    }
 
     List<TX> TXsGet = new();
     int CountMaxTXsGet;
@@ -112,49 +117,57 @@ namespace BTokenLib
         }
     }
 
-    public bool AddTX(TX tX)
+    public bool TryAddTX(TX tX)
     {
-      bool flagRemoveTXInPoolbeingRBFed = false;
+      bool flagRemoveTXInPoolBeingRBFed = false;
       TX tXInPoolBeingRBFed = null;
 
-      lock (LOCK_TXsPool)
+      try
       {
-        foreach (TXInput tXInput in tX.TXInputs)
-          if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput, TX)> inputsInPool))
-            foreach ((TXInput input, TX tX) tupelInputsInPool in inputsInPool)
-              if (tupelInputsInPool.input.OutputIndex == tXInput.OutputIndex)
-              {
-                Debug.WriteLine(
-                  $"Output {tXInput.TXIDOutput.ToHexString()} / {tXInput.OutputIndex} referenced by tX {tX} " +
-                  $"already spent by tX {tupelInputsInPool.tX}.");
-
-                if (
-                  FLAG_ENABLE_RBF &&
-                  tXInput.Sequence > tupelInputsInPool.input.Sequence)
+        lock (LOCK_TXsPool)
+        {
+          foreach (TXInput tXInput in tX.TXInputs)
+            if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput, TX)> inputsInPool))
+              foreach ((TXInput input, TX tX) tupelInputsInPool in inputsInPool)
+                if (tupelInputsInPool.input.OutputIndex == tXInput.OutputIndex)
                 {
                   Debug.WriteLine(
-                    $"Replace tX {tupelInputsInPool.tX} (sequence = {tupelInputsInPool.input.Sequence}) " +
-                    $"with tX {tX} (sequence = {tXInput.Sequence}).");
+                    $"Output {tXInput.TXIDOutput.ToHexString()} / {tXInput.OutputIndex} referenced by tX {tX} " +
+                    $"already spent by tX {tupelInputsInPool.tX}.");
 
-                  flagRemoveTXInPoolbeingRBFed = true;
-                  tXInPoolBeingRBFed = tupelInputsInPool.tX;
+                  if (
+                    FLAG_ENABLE_RBF &&
+                    tXInput.Sequence > tupelInputsInPool.input.Sequence)
+                  {
+                    Debug.WriteLine(
+                      $"Replace tX {tupelInputsInPool.tX} (sequence = {tupelInputsInPool.input.Sequence}) " +
+                      $"with tX {tX} (sequence = {tXInput.Sequence}).");
+
+                    flagRemoveTXInPoolBeingRBFed = true;
+                    tXInPoolBeingRBFed = tupelInputsInPool.tX;
+                  }
+                  else
+                    return false;
                 }
-                else
-                  return false;
-              }
 
-        if (flagRemoveTXInPoolbeingRBFed)
-          RemoveTXRecursive(tXInPoolBeingRBFed.Hash);
+          if (flagRemoveTXInPoolBeingRBFed)
+            RemoveTXRecursive(tXInPoolBeingRBFed.Hash);
 
-        TXPoolDict.Add(tX.Hash, tX);
+          TXPoolDict.Add(tX.Hash, tX);
 
-        foreach (TXInput tXInput in tX.TXInputs)
-          if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput input, TX)> inputsInPool))
-            inputsInPool.Add((tXInput,tX));
-          else
-            InputsPool.Add(tXInput.TXIDOutput, new List<(TXInput, TX)>() { (tXInput, tX) });
+          foreach (TXInput tXInput in tX.TXInputs)
+            if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput input, TX)> inputsInPool))
+              inputsInPool.Add((tXInput, tX));
+            else
+              InputsPool.Add(tXInput.TXIDOutput, new List<(TXInput, TX)>() { (tXInput, tX) });
 
-        return true;
+          return true;
+        }
+      }
+      catch(Exception ex)
+      {
+        Debug.WriteLine($"Exception {ex.GetType().Name} when trying to insert tx {tX} in TXPool.");
+        return false;
       }
     }
 

@@ -149,10 +149,11 @@ namespace BTokenCore
         int index = 0;
         Block block = tokenParent.CreateBlock();
 
-        TX = block.ParseTX(
+        TX = Block.ParseTX(
           isCoinbase: false,
           tXRaw.ToArray(),
-          ref index);
+          ref index,
+          sHA256);
 
         TX.TXRaw = tXRaw;
 
