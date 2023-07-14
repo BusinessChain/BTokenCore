@@ -51,12 +51,8 @@ namespace BTokenCore
             File.WriteAllText("printBlocks.txt", textBlocks);
             break;
 
-          case "syncBitcoin":
+          case "sync":
             BToken.TokenParent.Network.TryStartSynchronization();
-            break;
-
-          case "syncBToken":
-            BToken.Network.TryStartSynchronization();
             break;
 
           case "startBTokenMiner":

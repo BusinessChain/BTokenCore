@@ -111,7 +111,7 @@ namespace BTokenLib
 
     void EnterStateSynchronization(Peer peer)
     {
-      $"Enter state synchronzation with peer {peer}.".Log(this, LogFile);
+      $"Enter state synchronzation of token {Token.GetName()} with peer {peer}.".Log(LogFile);
 
       peer.SetStateHeaderSynchronization();
       PeerSynchronizing = peer;
@@ -224,8 +224,6 @@ namespace BTokenLib
             flagNoChildSync = true;
             PeerSynchronizing.SendHeaders(new List<Header>() { Token.HeaderTip });
           }
-
-        $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.\n".Log(LogFile);
       }
       catch (Exception ex)
       {
@@ -236,6 +234,8 @@ namespace BTokenLib
       }
 
       ExitSynchronization();
+
+      $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.\n".Log(LogFile);
 
       if (Token.TokenChild != null && !flagNoChildSync)
         Token.TokenChild.Network.TryStartSynchronization();

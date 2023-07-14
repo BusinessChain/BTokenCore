@@ -389,7 +389,7 @@ namespace BTokenLib
         ORDER_AVERAGEING_FEEPERBYTE;
 
       TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
-
+            
       Archiver.ArchiveBlock(block);
 
       if (block.Header.Height % INTERVAL_BLOCKHEIGHT_IMAGE == 0)

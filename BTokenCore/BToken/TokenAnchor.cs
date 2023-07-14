@@ -147,7 +147,6 @@ namespace BTokenCore
         tXRaw.RemoveRange(tXRaw.Count - 4, 4);
 
         int index = 0;
-        Block block = tokenParent.CreateBlock();
 
         TX = Block.ParseTX(
           isCoinbase: false,

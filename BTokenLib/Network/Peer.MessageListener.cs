@@ -58,6 +58,8 @@ namespace BTokenLib
                 ref index,
                 SHA256.Create());
 
+              tX.TXRaw = Payload.Take(index).ToList();
+
               $"Received TX {tX}.".Log(LogFile);
 
               if(!InventoriesRequested.Any(i => i.Hash.IsEqual(tX.Hash)))
@@ -307,7 +309,7 @@ namespace BTokenLib
 
               foreach (Inventory inv in invMessage.Inventories)
               {
-                $"Received inventory {inv}.".Log(LogFile);
+                $"\nReceived inventory {inv}.".Log(LogFile);
 
                 if (inv.IsTX() && !Token.TXPool.Contains(inv.Hash))
                   InventoriesRequested.Add(inv);
@@ -324,8 +326,6 @@ namespace BTokenLib
               if (!TrySetStateInboundRequest())
                 continue;
 
-              $"Received getData request from peer {this}.".Log(this, LogFile);
-
               await ReadBytes(Payload, LengthDataPayload);
 
               GetDataMessage getDataMessage = new(Payload);
@@ -338,13 +338,16 @@ namespace BTokenLib
                   if (tXAdvertized != null)
                     TXsAdvertized.Remove(tXAdvertized);
 
-                  $"Received getData {inventory} from {this} and send tX {tXAdvertized}."
-                    .Log(this, LogFile);
+                  $"Received getData {inventory} for tX {tXAdvertized}."
+                    .Log(LogFile);
 
                   await SendMessage(new TXMessage(tXAdvertized.TXRaw.ToArray()));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 {
+                  $"Received getData for block {inventory} from {this}."
+                    .Log(LogFile);
+
                   Block block = Token.GetBlock(inventory.Hash);
 
                   if (block == null)
