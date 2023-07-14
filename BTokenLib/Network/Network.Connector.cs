@@ -11,7 +11,7 @@ namespace BTokenLib
   partial class Network
   {
     const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
-    const int TIMESPAN_PEER_BANNED_SECONDS = 0;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 10;
     int CountMaxPeers = 3;
 
     const int COUNT_MAX_INBOUND_CONNECTIONS = 3;
@@ -219,7 +219,8 @@ namespace BTokenLib
 
       while (true)
       {
-        TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
+        TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync()
+          .ConfigureAwait(false);
 
         IPAddress remoteIP =
           ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
@@ -227,7 +228,8 @@ namespace BTokenLib
         if (remoteIP.ToString() != "84.74.69.100")
           continue;
 
-        $"Received inbound request on port {Port} from {remoteIP}.".Log(this, LogFile);
+        $"Received inbound request on port {Port} from {remoteIP}."
+          .Log(this, LogFile);
 
         while (true)
         {
@@ -238,7 +240,7 @@ namespace BTokenLib
               break;
             }
 
-          Task.Delay(2000).ConfigureAwait(false);
+          Task.Delay(1000).ConfigureAwait(false);
         }
 
         Peer peer = null;

@@ -220,13 +220,23 @@ namespace BTokenLib
       {
         ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
 
-        ($"Send getheaders to peer {this}\n" +
-          $"locator: {locator.First()} ... {locator.Last()}")
-          .Log(this, LogFile);
+        try
+        {
+          await SendMessage(new GetHeadersMessage(
+            locator,
+            ProtocolVersion));
 
-        await SendMessage(new GetHeadersMessage(
-          locator,
-          ProtocolVersion));
+          ($"Send getheaders to peer {this}\n" +
+            $"locator: {locator.First()} ... {locator.Last()}")
+            .Log(this, LogFile);
+        }
+        catch (Exception ex)
+        {
+          $"Exception {ex.GetType().Name} when sending getheaders message."
+            .Log(LogFile);
+
+          throw ex;
+        }
       }
 
       void ResetTimer(int millisecondsTimer = int.MaxValue)

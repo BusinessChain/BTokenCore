@@ -58,7 +58,7 @@ namespace BTokenLib
                 ref index,
                 SHA256.Create());
 
-              $"Received tx {tX}.".Log(LogFile);
+              $"Received TX {tX}.".Log(LogFile);
 
               if(!InventoriesRequested.Any(i => i.Hash.IsEqual(tX.Hash)))
                 throw new ProtocolException($"Received unrequested tx {tX}.");
@@ -315,12 +315,11 @@ namespace BTokenLib
                   InventoriesRequested.Add(inv);
               }
 
-              if (InventoriesRequested.Count == 0)
-                break;
-
-              InventoriesRequested.ForEach(i => $"Request TX {i}.\n".Log(LogFile));
-
-              SendMessage(new GetDataMessage(InventoriesRequested));
+              if (InventoriesRequested.Count > 0)
+              {
+                InventoriesRequested.ForEach(i => $"Request TX {i}.".Log(LogFile));
+                SendMessage(new GetDataMessage(InventoriesRequested));
+              }
             }
             else if (Command == "getdata")
             {

@@ -155,6 +155,8 @@ namespace BTokenLib
 
           TXPoolDict.Add(tX.Hash, tX);
 
+          Debug.WriteLine($"Added TX {tX} to TXPool.");
+
           foreach (TXInput tXInput in tX.TXInputs)
             if (InputsPool.TryGetValue(tXInput.TXIDOutput, out List<(TXInput input, TX)> inputsInPool))
               inputsInPool.Add((tXInput, tX));
