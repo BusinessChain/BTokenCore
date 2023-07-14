@@ -65,8 +65,6 @@ namespace BTokenLib
 
               if (!Token.TXPool.Contains(tX.Hash))
                 Token.TXPool.TryAddTX(tX);
-
-              break;
             }
             else if (Command == "dataDB")
             {
@@ -260,7 +258,7 @@ namespace BTokenLib
                   if (headers.Any())
                     $"Send headers {headers.First()}...{headers.Last()}.".Log(this, LogFile);
                   else
-                    $"Send empty headers.".Log(this, LogFile);
+                    $"Send empty headers.\n".Log(this, LogFile);
 
                   await SendHeaders(headers);
 

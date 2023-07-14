@@ -9,7 +9,7 @@ namespace BTokenLib
 {
   partial class Network
   {
-    const int TIME_LOOP_SYNCHRONIZER_SECONDS = 30;
+    const int TIME_LOOP_SYNCHRONIZER_SECONDS = 60;
 
     readonly object LOCK_IsStateSynchronizing = new();
     bool IsStateSynchronizing;
@@ -225,7 +225,7 @@ namespace BTokenLib
             PeerSynchronizing.SendHeaders(new List<Header>() { Token.HeaderTip });
           }
 
-        $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.".Log(LogFile);
+        $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.\n".Log(LogFile);
       }
       catch (Exception ex)
       {
