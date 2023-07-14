@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Security.Cryptography;
 
 using BTokenLib;
+using System.Diagnostics;
 
 namespace BTokenCore
 {
@@ -353,10 +354,15 @@ namespace BTokenCore
       byte[] biggestDifferenceTemp = new byte[32];
       TokenAnchor tokenAnchorWinner = null;
 
+      Debug.WriteLine($"Targetvalue {targetValue.ToHexString()}");
+
       TokensAnchorDetectedInBlock.ForEach(t =>
       {
         byte[] differenceHash = targetValue.SubtractByteWise(
           t.HashBlockReferenced);
+
+        Debug.WriteLine($"differenceHash {differenceHash.ToHexString()} " +
+          $"of HashBlockReferenced {t.HashBlockReferenced} of token {t}");
 
         if (differenceHash.IsGreaterThan(biggestDifferenceTemp))
         {
