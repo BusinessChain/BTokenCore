@@ -14,8 +14,8 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 5000000000; // 50 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    int NumberOfProcesses = Math.Max(Environment.ProcessorCount - 1, 1);
+    const int COUNT_TXS_PER_BLOCK_MAX = 10;
+    int NumberOfProcesses = 1;// Math.Max(Environment.ProcessorCount - 1, 1);
 
 
     public override void StartMining()
@@ -101,6 +101,9 @@ namespace BTokenCore
       block.TXs.Add(tXCoinbase);
       block.TXs.AddRange(
         TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
+
+      $"Bitcoin miner mines block with tXs:\n".Log(LogFile);
+      block.TXs.ForEach(t => $"{t}".Log(LogFile));
 
       uint nBits = HeaderBitcoin.GetNextTarget((HeaderBitcoin)HeaderTip);
       double difficulty = HeaderBitcoin.ComputeDifficultyFromNBits(nBits);

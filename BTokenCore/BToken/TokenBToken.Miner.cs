@@ -120,7 +120,7 @@ namespace BTokenCore
 
               TokenParent.BroadcastTX(tokenAnchor.TX);
 
-              $"{TokensAnchorUnconfirmed.Count} mined unconfirmed anchor tokens.".Log(LogFile);
+              $"{TokensAnchorUnconfirmed.Count} mined unconfirmed anchor tokens referencing block {tokenAnchor.HashBlockReferenced.ToHexString()}.".Log(LogFile);
 
               // timeMSLoop = (int)(tokenAnchor.TX.Fee * TIMESPAN_DAY_SECONDS * 1000 /
               // COUNT_SATOSHIS_PER_DAY_MINING);
@@ -295,7 +295,16 @@ namespace BTokenCore
         index += ID_BTOKEN.Length;
 
         tokenAnchor = new(tX, index);
+
+        $"Detected foreign mined anchor token {tX} in Bitcoin block.".Log(LogFile);
       }
+
+      ($"IDToken: {tokenAnchor.IDToken}.\n" +
+        $"HashBlockReferenced: {tokenAnchor.HashBlockReferenced.ToHexString()}.\n" +
+        $"HashBlockPreviousReferenced: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}.\n" +
+        $"ValueChange: {tokenAnchor.ValueChange}.\n" +
+        $"NumberSequence: {tokenAnchor.NumberSequence}.\n" +
+        $"tx: {tokenAnchor.TX}.\n").Log(LogFile);
 
       Header headerParent = TokenParent.HeaderTip;
       
@@ -362,7 +371,7 @@ namespace BTokenCore
           t.HashBlockReferenced);
 
         Debug.WriteLine($"differenceHash {differenceHash.ToHexString()} " +
-          $"of HashBlockReferenced {t.HashBlockReferenced} of token {t}");
+          $"of HashBlockReferenced {t.HashBlockReferenced.ToHexString()} of token {t}");
 
         if (differenceHash.IsGreaterThan(biggestDifferenceTemp))
         {
