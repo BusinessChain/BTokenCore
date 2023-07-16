@@ -294,12 +294,12 @@ namespace BTokenCore
 
         index += ID_BTOKEN.Length;
 
-        tokenAnchor = new(tX, index);
+        tokenAnchor = new(tX, index, ID_BTOKEN);
 
         $"Detected foreign mined anchor token {tX} in Bitcoin block.".Log(LogFile);
       }
 
-      ($"IDToken: {tokenAnchor.IDToken}.\n" +
+      ($"IDToken: {tokenAnchor.IDToken.ToHexString()}.\n" +
         $"HashBlockReferenced: {tokenAnchor.HashBlockReferenced.ToHexString()}.\n" +
         $"HashBlockPreviousReferenced: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}.\n" +
         $"ValueChange: {tokenAnchor.ValueChange}.\n" +

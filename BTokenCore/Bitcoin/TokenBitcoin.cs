@@ -65,9 +65,15 @@ namespace BTokenCore
         foreach (TX tX in tXs)
           foreach (TXOutput tXOutput in tX.TXOutputs)
             if (tXOutput.Value > 0)
+            {
+              $"DetectTXOutputSpendable: TX {tX}, output start index script {tXOutput.StartIndexScript} has output value {tXOutput.Value}.".Log(LogFile);
               Wallet.DetectTXOutputSpendable(tX, tXOutput);
+            }
             else
+            {
+              $"DetectAnchorTokenInBlock: TX {tX}, output start index script {tXOutput.StartIndexScript}.".Log(LogFile);
               TokenChild.DetectAnchorTokenInBlock(tX);
+            }
 
         foreach (TX tX in tXs)
           foreach (TXInput tXInput in tX.TXInputs)

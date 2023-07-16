@@ -34,9 +34,11 @@ namespace BTokenCore
         TX = new();
       }
 
-      public TokenAnchor(TX tX, int index)
+      public TokenAnchor(TX tX, int index, byte[] idToken)
       {
         TX = tX;
+
+        IDToken = idToken;
 
         Array.Copy(
           TX.TXOutputs[0].Buffer,
