@@ -220,7 +220,7 @@ namespace BTokenLib
 
               int headersCount = VarInt.GetInt32(Payload, ref startIndex);
 
-              $"Received getHeaders with {headersCount} locator hashes..."
+              $"\nReceived getHeaders with {headersCount} locator hashes..."
                 .Log(this, LogFile);
 
               if (!Token.TryLock())
@@ -338,7 +338,7 @@ namespace BTokenLib
                   if (tXAdvertized != null)
                     TXsAdvertized.Remove(tXAdvertized);
 
-                  $"Received getData {inventory} for tX {tXAdvertized}."
+                  $"Received getData for tX {tXAdvertized}."
                     .Log(LogFile);
 
                   await SendMessage(new TXMessage(tXAdvertized.TXRaw.ToArray()));
@@ -354,7 +354,10 @@ namespace BTokenLib
                     await SendMessage(new NotFoundMessage(
                       new List<Inventory>() { inventory }));
                   else
+                  {
+                    $"Send block {block}.".Log(LogFile);
                     await SendMessage(new MessageBlock(block));
+                  }
                 }
                 else if (inventory.Type == InventoryType.MSG_DB)
                 {

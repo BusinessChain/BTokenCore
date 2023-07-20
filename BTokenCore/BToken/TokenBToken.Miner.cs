@@ -340,10 +340,7 @@ namespace BTokenCore
             b.Header.Hash.IsEqual(headerAnchor.HashChild));
 
             if (block != null)
-            {
               InsertBlock(block);
-              Network.AdvertizeBlockToNetwork(block);
-            }
           }
         }
       }

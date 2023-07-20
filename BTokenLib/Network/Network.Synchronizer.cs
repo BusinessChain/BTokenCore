@@ -146,7 +146,7 @@ namespace BTokenLib
     async Task SyncBlocks()
     {
       double difficultyAccumulatedOld = Token.HeaderTip.DifficultyAccumulated;
-      bool flagNoChildSync = false;
+      bool flagChildSync = false;
 
       try
       {
@@ -206,7 +206,10 @@ namespace BTokenLib
                   if (Peers.All(p => !p.IsStateBlockSynchronization()))
                   {
                     if (Token.HeaderTip.DifficultyAccumulated > difficultyAccumulatedOld)
+                    {
                       Token.Reorganize();
+                      flagChildSync = true;
+                    }
                     else
                       Token.LoadImage();
 
@@ -219,25 +222,20 @@ namespace BTokenLib
               await Task.Delay(1000).ConfigureAwait(false);
             }
           }
-          else if(HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
-          {
-            flagNoChildSync = true;
+          else if (HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
             PeerSynchronizing.SendHeaders(new List<Header>() { Token.HeaderTip });
-          }
       }
       catch (Exception ex)
       {
         ($"Unexpected exception {ex.GetType().Name} occured during SyncBlocks.\n" +
           $"{ex.Message}").Log(LogFile);
-
-        flagNoChildSync = true;
       }
 
       ExitSynchronization();
 
       $"Synchronization with {PeerSynchronizing} of {Token.GetName()} completed.\n".Log(LogFile);
 
-      if (Token.TokenChild != null && !flagNoChildSync)
+      if (flagChildSync && Token.TokenChild != null)
         Token.TokenChild.Network.TryStartSynchronization();
     }
 
