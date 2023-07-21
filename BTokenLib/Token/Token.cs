@@ -396,7 +396,13 @@ namespace BTokenLib
         CreateImage();
 
       if (TokenChild != null)
-        TokenChild.SignalParentBlockInsertion(block.Header);
+      {
+        TokenChild.SignalParentBlockInsertion(
+          block.Header,
+          out Block blockChild);
+
+        block.BlockChild = blockChild;
+      }
     }
 
     public void CreateImage()
@@ -525,7 +531,8 @@ namespace BTokenLib
     public virtual void DetectAnchorTokenInBlock(TX tX)
     { throw new NotImplementedException(); }
 
-    public virtual void SignalParentBlockInsertion(Header header)
+    public virtual void SignalParentBlockInsertion(
+      Header header, out Block block)
     { throw new NotImplementedException(); }
 
     public virtual void RevokeBlockInsertion()

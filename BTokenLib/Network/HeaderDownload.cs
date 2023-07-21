@@ -12,8 +12,6 @@ namespace BTokenLib
     public Header HeaderRoot;
     public Header HeaderAncestor;
 
-    public bool FlagHeaderOrphan;
-
 
     public HeaderDownload(List<Header> locator)
     {
@@ -30,10 +28,8 @@ namespace BTokenLib
             h => h.Hash.IsEqual(header.HashPrevious));
 
           if (HeaderAncestor == null)
-          {
-            FlagHeaderOrphan = true;
-            throw new ProtocolException();
-          }
+            throw new ProtocolException(
+              $"Header {header} does not connect to locator.");
         }
 
         if (HeaderAncestor.HeaderNext != null &&

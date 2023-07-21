@@ -324,8 +324,12 @@ namespace BTokenCore
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
     }
 
-    public override void SignalParentBlockInsertion(Header headerAnchor)
+    public override void SignalParentBlockInsertion(
+      Header headerAnchor,
+      out Block block)
     {
+      block = null;
+
       try
       {
         if (TokensAnchorDetectedInBlock.Count > 0)
@@ -336,7 +340,7 @@ namespace BTokenCore
 
           if (BlocksMined.Count > 0)
           {
-            Block block = BlocksMined.Find(b =>
+            block = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(headerAnchor.HashChild));
 
             if (block != null)
@@ -346,6 +350,8 @@ namespace BTokenCore
       }
       catch (Exception ex)
       {
+        block = null;
+
         ($"{ex.GetType().Name} when signaling Bitcoin block {headerAnchor}" +
           $" with height {headerAnchor.Height} to BToken:\n" +
           $"Exception message: {ex.Message}").Log(this, LogFile);

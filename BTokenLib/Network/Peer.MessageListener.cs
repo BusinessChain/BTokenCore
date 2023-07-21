@@ -53,6 +53,9 @@ namespace BTokenLib
                 Network.ExitSynchronization();
 
                 FlagSingleBlockDownload = false;
+
+                if (Block.BlockChild != null)
+                  Token.TokenChild.Network.AdvertizeBlockToNetwork(Block.BlockChild);
               }
               else if (Network.InsertBlock_FlagContinue(this))
                 RequestBlock();
@@ -160,21 +163,7 @@ namespace BTokenLib
 
                     byteIndex += 1;
 
-                    try
-                    {
-                      Network.HeaderDownload.InsertHeader(header);
-                    }
-                    catch (ProtocolException ex)
-                    {
-                      if (Network.HeaderDownload.FlagHeaderOrphan)
-                      {
-                        $"Received unsolicited orphan header {header}".Log(LogFile);
-                        locator = Network.HeaderDownload.Locator;
-                        break;
-                      }
-
-                      throw ex;
-                    }
+                    Network.HeaderDownload.InsertHeader(header);
 
                     i += 1;
 

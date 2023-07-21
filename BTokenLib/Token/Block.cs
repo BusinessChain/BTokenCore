@@ -12,6 +12,7 @@ namespace BTokenLib
 
     public Header Header;
     public Block BlockNext;
+    public Block BlockChild;
 
     public SHA256 SHA256 = SHA256.Create();
 
