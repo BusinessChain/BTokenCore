@@ -194,9 +194,7 @@ namespace BTokenLib
                   else
                   {
                     Network.ExitSynchronization();
-
-                    if (Network.HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
-                      SendHeaders(new List<Header>() { Token.HeaderTip });
+                    SendHeaders(new List<Header>() { Token.HeaderTip });
                   }
                 }
               }

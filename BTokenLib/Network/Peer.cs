@@ -312,6 +312,15 @@ namespace BTokenLib
 
       public async Task SendHeaders(List<Header> headers)
       {
+        string logText = $"Send {headers.Count} headers to peer {this}.";
+
+        if (headers.Count > 0)
+          logText += $" {headers.First()}";
+        if (headers.Count > 1)
+          logText += $" ... {headers.Last()}.";
+
+        logText.Log(LogFile);
+
         await SendMessage(new HeadersMessage(headers));
       }
 
