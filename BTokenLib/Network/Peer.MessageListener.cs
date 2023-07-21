@@ -194,7 +194,10 @@ namespace BTokenLib
                   else
                   {
                     Network.ExitSynchronization();
-                    SendHeaders(new List<Header>() { Token.HeaderTip });
+
+                    if (Network.HeaderDownload.HeaderTip != null &&
+                      Network.HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
+                      SendHeaders(new List<Header>() { Token.HeaderTip });
                   }
                 }
               }
@@ -291,7 +294,7 @@ namespace BTokenLib
                   if (headers.Any())
                     $"Send headers {headers.First()}...{headers.Last()}.".Log(this, LogFile);
                   else
-                    $"Send empty headers.\n".Log(this, LogFile);
+                    $"Send empty headers. (If the locator indicates that the peer has more blocks, we should initiate sync).\n".Log(this, LogFile);
 
                   await SendHeaders(headers);
 

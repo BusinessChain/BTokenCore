@@ -111,7 +111,7 @@ namespace BTokenLib
 
     void EnterStateSynchronization(Peer peer)
     {
-      $"Enter state synchronzation of token {Token.GetName()} with peer {peer}.".Log(LogFile);
+      $"Enter state synchronization of token {Token.GetName()} with peer {peer}.".Log(LogFile);
 
       peer.SetStateHeaderSynchronization();
       PeerSynchronizing = peer;
@@ -121,6 +121,8 @@ namespace BTokenLib
 
     void ExitSynchronization()
     {
+      $"Exiting state synchronization of token {Token.GetName()} with peer {PeerSynchronizing}.".Log(LogFile);
+
       IsStateSynchronizing = false;
       PeerSynchronizing.SetStateIdle();
       PeerSynchronizing.TimeLastSynchronization = DateTime.Now;
