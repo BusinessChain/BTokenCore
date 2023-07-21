@@ -180,25 +180,7 @@ namespace BTokenLib
                 {
                   ResetTimer();
 
-                  if (Network.HeaderDownload.HeaderTip != null &&
-                    Network.HeaderDownload.HeaderTip.DifficultyAccumulated > Token.HeaderTip.DifficultyAccumulated)
-                  {
-                    if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
-                    {
-                      await SendMessage(new GetHashesDBMessage());
-                      ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
-                    }
-                    else
-                      Network.SyncBlocks();
-                  }
-                  else
-                  {
-                    Network.ExitSynchronization();
-
-                    if (Network.HeaderDownload.HeaderTip != null &&
-                      Network.HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
-                      SendHeaders(new List<Header>() { Token.HeaderTip });
-                  }
+                  Network.SyncBlocks();
                 }
               }
               else

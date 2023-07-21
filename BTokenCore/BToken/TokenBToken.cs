@@ -202,7 +202,7 @@ namespace BTokenCore
       };
     }
 
-    public override bool FlagDownloadDBWhenSync(HeaderDownload h)
+    public bool FlagDownloadDBWhenSync(HeaderDownload h)
     {
       return
         h.HeaderTip != null

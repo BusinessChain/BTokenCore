@@ -556,9 +556,6 @@ namespace BTokenLib
       out byte[] dataDB)
     { throw new NotImplementedException(); }
 
-    public virtual bool FlagDownloadDBWhenSync(HeaderDownload header)
-    { return false; }
-
     public void BroadcastTX(TX tX)
     {
       TXPool.TryAddTX(tX);
