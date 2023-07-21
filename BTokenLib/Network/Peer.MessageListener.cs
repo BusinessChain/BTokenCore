@@ -13,6 +13,7 @@ namespace BTokenLib
   {
     partial class Peer
     {
+      bool FlagSingleBlockDownload;
       List<Inventory> InventoriesRequested = new();
 
       public async Task StartMessageListener()
@@ -39,9 +40,21 @@ namespace BTokenLib
                   $"Received unexpected block {Block} at height {Block.Header.Height} from peer {this}.\n" +
                   $"Requested was {HeaderSync}.");
 
+              if (Token.TokenParent == null)
+                Console.Beep(1200, 100);
+              else
+                Console.Beep(1500, 100);
+
               ResetTimer();
 
-              if (Network.InsertBlock_FlagContinue(this))
+              if (FlagSingleBlockDownload)
+              {
+                Token.InsertBlock(Block);
+                Network.ExitSynchronization();
+
+                FlagSingleBlockDownload = false;
+              }
+              else if (Network.InsertBlock_FlagContinue(this))
                 RequestBlock();
               else
                 SetStateIdle();
@@ -131,83 +144,106 @@ namespace BTokenLib
 
               $"{this}: Receiving {countHeaders} headers.".Log(LogFile);
 
-              bool flagOrphanAllowed = false;
+              if (IsStateHeaderSynchronization())
+              {
+                if (countHeaders > 0)
+                {
+                  Header header = null;
+                  List<Header> locator = null;
 
-              if (!IsStateHeaderSynchronization())
+                  int i = 0;
+                  while (i < countHeaders)
+                  {
+                    header = Block.ParseHeader(
+                      Payload,
+                      ref byteIndex);
+
+                    byteIndex += 1;
+
+                    try
+                    {
+                      Network.HeaderDownload.InsertHeader(header);
+                    }
+                    catch (ProtocolException ex)
+                    {
+                      if (Network.HeaderDownload.FlagHeaderOrphan)
+                      {
+                        $"Received unsolicited orphan header {header}".Log(LogFile);
+                        locator = Network.HeaderDownload.Locator;
+                        break;
+                      }
+
+                      throw ex;
+                    }
+
+                    i += 1;
+
+                    if (i == countHeaders)
+                      locator = new List<Header> { header };
+                  }
+
+                  await SendGetHeaders(locator);
+                }
+                else
+                {
+                  ResetTimer();
+
+                  if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
+                  {
+                    await SendMessage(new GetHashesDBMessage());
+                    ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
+                  }
+                  else
+                    Network.SyncBlocks();
+
+                  // Falls HeaderDownload.HeaderTip == null oder 
+                  // HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated
+                  // macht es doch gar keinen Sinn den syncer aufzurufen
+                }
+              }
+              else
               {
                 if (countHeaders != 1)
                   throw new ProtocolException($"Peer sent unsolicited not exactly one header.");
 
-                // Wenn ich von einem Peer einen unsolicited headers erhalte, 
-                // dann ist es immer nur einer und ich sollte nicht über einen Network sync gehen, sondern die
-                // Blöcke (in der Regel wird es ja nur ein Block sein) direkt von diesem 
-                // Peer downloaden.
-                // Network sync nur, wenn ich die Synchronization einleite.
-
                 if (!Network.TryEnterStateSynchronization(this))
                   continue;
 
-                flagOrphanAllowed = true;
-              }
+                Header header = Block.ParseHeader(
+                  Payload,
+                  ref byteIndex);
 
-              if (countHeaders > 0)
-              {
-                if (Token.TokenParent == null)
-                  Console.Beep(1200, 100);
-                else
-                  Console.Beep(1500, 100);
-
-                Header header = null;
-                List<Header> locator = null;
-
-                int i = 0;
-                while (i < countHeaders)
+                if (header.HashPrevious.IsEqual(Token.HeaderTip.Hash))
                 {
-                  header = Block.ParseHeader(
-                    Payload,
-                    ref byteIndex);
+                  header.AppendToHeader(Token.HeaderTip);
 
-                  byteIndex += 1;
+                  FlagSingleBlockDownload = true;
+                  await RequestBlock(header);
+                }
+                else
+                {
+                  Header headerPrevious = Token.HeaderTip.HeaderPrevious;
 
-                  try
+                  while (true)
                   {
-                    Network.HeaderDownload.InsertHeader(header);
-                  }
-                  catch(ProtocolException ex)
-                  {
-                    if(Network.HeaderDownload.FlagHeaderOrphan && flagOrphanAllowed)
+                    if (headerPrevious == null)
                     {
-                      $"Received unsolicited orphan header {header}".Log(LogFile);
-                      locator = Network.HeaderDownload.Locator;
+                      await SendGetHeaders(Token.GetLocator());
                       break;
                     }
 
-                    throw ex;
+                    if (header.HashPrevious.IsEqual(headerPrevious.Hash))
+                    {
+                      if (!header.HashPrevious.IsEqual(Token.HeaderTip.HashPrevious))
+                        await SendHeaders(new List<Header>() { Token.HeaderTip });
+
+                      Network.ExitSynchronization();
+                      break;
+                    }
+
+                    headerPrevious = headerPrevious.HeaderPrevious;
                   }
-
-                  i += 1;
-
-                  if (i == countHeaders)
-                    locator = new List<Header> { header };
                 }
-
-                await SendGetHeaders(locator);
-              }
-              else
-              {
-                ResetTimer();
-
-                if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
-                {
-                  await SendMessage(new GetHashesDBMessage());
-                  ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
-                }
-                else
-                  Network.SyncBlocks();
-
-                // Falls HeaderDownload.HeaderTip == null oder 
-                // HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated
-                // macht es doch gar keinen Sinn den syncer aufzurufen
               }
             }
             else if (Command == "getheaders")

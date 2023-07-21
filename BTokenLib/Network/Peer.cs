@@ -289,8 +289,11 @@ namespace BTokenLib
           }));
       }
 
-      public async Task RequestBlock()
+      public async Task RequestBlock(Header header = null)
       {
+        if (header != null)
+          HeaderSync = header;
+
         $"Peer starts downloading block {HeaderSync}."
           .Log(this, LogFile);
 
