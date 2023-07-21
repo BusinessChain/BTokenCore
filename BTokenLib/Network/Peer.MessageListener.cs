@@ -56,6 +56,9 @@ namespace BTokenLib
 
                 if (Block.BlockChild != null)
                   Token.TokenChild.Network.AdvertizeBlockToNetwork(Block.BlockChild);
+                else if (Token.TokenChild != null)
+                  Token.TokenChild.Network.TryStartSynchronization();
+
               }
               else if (Network.InsertBlock_FlagContinue(this))
                 RequestBlock();
@@ -177,17 +180,24 @@ namespace BTokenLib
                 {
                   ResetTimer();
 
-                  if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
+                  if (Network.HeaderDownload.HeaderTip != null &&
+                    Network.HeaderDownload.HeaderTip.DifficultyAccumulated > Token.HeaderTip.DifficultyAccumulated)
                   {
-                    await SendMessage(new GetHashesDBMessage());
-                    ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
+                    if (Token.FlagDownloadDBWhenSync(Network.HeaderDownload))
+                    {
+                      await SendMessage(new GetHashesDBMessage());
+                      ResetTimer(TIMEOUT_RESPONSE_MILLISECONDS);
+                    }
+                    else
+                      Network.SyncBlocks();
                   }
                   else
-                    Network.SyncBlocks();
+                  {
+                    Network.ExitSynchronization();
 
-                  // Falls HeaderDownload.HeaderTip == null oder 
-                  // HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated
-                  // macht es doch gar keinen Sinn den syncer aufzurufen
+                    if (Network.HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
+                      SendHeaders(new List<Header>() { Token.HeaderTip });
+                  }
                 }
               }
               else
@@ -269,9 +279,7 @@ namespace BTokenLib
                 Array.Copy(Payload, startIndex, hashHeaderAncestor, 0, 32);
                 startIndex += 32;
 
-                if (Token.TryGetHeader(
-                  hashHeaderAncestor,
-                  out Header header))
+                if (Token.TryGetHeader(hashHeaderAncestor, out Header header))
                 {
                   $"In getheaders locator common ancestor is {header}."
                     .Log(this, LogFile);

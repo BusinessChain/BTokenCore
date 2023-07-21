@@ -150,80 +150,74 @@ namespace BTokenLib
 
       try
       {
-        if (HeaderDownload.HeaderTip != null)
-          if (HeaderDownload.HeaderTip.DifficultyAccumulated > Token.HeaderTip.DifficultyAccumulated)
+        if (HeaderDownload.HeaderAncestor != Token.HeaderTip)
+        {
+          ($"Forking chain at height {HeaderDownload.HeaderAncestor.Height + 1} " +
+            $"after common ancestor {HeaderDownload.HeaderAncestor}.").Log(LogFile);
+
+          Token.ForkChain(HeaderDownload.HeaderAncestor.Height);
+        }
+
+        FlagSyncAbort = false;
+        QueueBlockInsertion.Clear();
+        QueueDownloadsIncomplete.Clear();
+
+        HeaderRoot = HeaderDownload.HeaderRoot;
+        HeightInsertion = HeaderRoot.Height;
+
+        Peer peer = PeerSynchronizing;
+
+        while (true)
+        {
+          if (FlagSyncAbort)
           {
-            if (HeaderDownload.HeaderAncestor != Token.HeaderTip)
-            {
-              ($"Forking chain at height {HeaderDownload.HeaderAncestor.Height + 1} " +
-                $"after common ancestor {HeaderDownload.HeaderAncestor}.").Log(LogFile);
+            $"Synchronization with {PeerSynchronizing} is aborted.".Log(LogFile);
+            Token.LoadImage();
 
-              Token.ForkChain(HeaderDownload.HeaderAncestor.Height);
-            }
-
-            FlagSyncAbort = false;
-            QueueBlockInsertion.Clear();
-            QueueDownloadsIncomplete.Clear();
-
-            HeaderRoot = HeaderDownload.HeaderRoot;
-            HeightInsertion = HeaderRoot.Height;
-
-            Peer peer = PeerSynchronizing;
+            Peers
+              .Where(p => p.IsStateBlockSynchronization()).ToList()
+              .ForEach(p => p.SetStateIdle());
 
             while (true)
             {
-              if (FlagSyncAbort)
-              {
-                $"Synchronization with {PeerSynchronizing} is aborted.".Log(LogFile);
-                Token.LoadImage();
+              lock (LOCK_Peers)
+                if (!Peers.Any(p => p.IsStateBlockSynchronization()))
+                  break;
 
-                Peers
-                  .Where(p => p.IsStateBlockSynchronization()).ToList()
-                  .ForEach(p => p.SetStateIdle());
-
-                while (true)
-                {
-                  lock (LOCK_Peers)
-                    if (!Peers.Any(p => p.IsStateBlockSynchronization()))
-                      break;
-
-                  "Waiting for all peers to exit state 'block synchronization'."
-                    .Log(LogFile);
-
-                  await Task.Delay(1000).ConfigureAwait(false);
-                }
-
-                return;
-              }
-
-              if (peer != null)
-                if (TryChargeHeader(peer))
-                  peer.RequestBlock();
-                else
-                {
-                  peer.SetStateIdle();
-
-                  if (Peers.All(p => !p.IsStateBlockSynchronization()))
-                  {
-                    if (Token.HeaderTip.DifficultyAccumulated > difficultyAccumulatedOld)
-                    {
-                      Token.Reorganize();
-                      flagChildSync = true;
-                    }
-                    else
-                      Token.LoadImage();
-
-                    break;
-                  }
-                }
-
-              TryGetPeerIdle(out peer);
+              "Waiting for all peers to exit state 'block synchronization'."
+                .Log(LogFile);
 
               await Task.Delay(1000).ConfigureAwait(false);
             }
+
+            return;
           }
-          else if (HeaderDownload.HeaderTip.DifficultyAccumulated < Token.HeaderTip.DifficultyAccumulated)
-            PeerSynchronizing.SendHeaders(new List<Header>() { Token.HeaderTip });
+
+          if (peer != null)
+            if (TryChargeHeader(peer))
+              peer.RequestBlock();
+            else
+            {
+              peer.SetStateIdle();
+
+              if (Peers.All(p => !p.IsStateBlockSynchronization()))
+              {
+                if (Token.HeaderTip.DifficultyAccumulated > difficultyAccumulatedOld)
+                {
+                  Token.Reorganize();
+                  flagChildSync = true;
+                }
+                else
+                  Token.LoadImage();
+
+                break;
+              }
+            }
+
+          TryGetPeerIdle(out peer);
+
+          await Task.Delay(1000).ConfigureAwait(false);
+        }
       }
       catch (Exception ex)
       {
