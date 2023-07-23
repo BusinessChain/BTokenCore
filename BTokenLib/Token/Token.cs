@@ -504,19 +504,15 @@ namespace BTokenLib
 
     public abstract void StartMining();
     
-    public virtual Block GetBlock(byte[] hash)
+    public bool TryGetBlockBytes(byte[] hash, out byte[] buffer)
     {
-      if(TryGetHeader(hash, out Header header))
-        if (Archiver.TryLoadBlockArchive(header.Height, out byte[] buffer))
-        {
-          Block block = CreateBlock();
+      buffer = null;
 
-          block.Buffer = buffer;
+      if (TryGetHeader(hash, out Header header))
+        if (Archiver.TryLoadBlockArchive(header.Height, out buffer))
+          return true;
 
-          return block;
-        }
-
-      return null;
+      return false;
     }
 
     public virtual void InsertDB(

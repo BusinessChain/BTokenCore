@@ -364,15 +364,15 @@ namespace BTokenLib
                   $"Received getData for block {inventory} from {this}."
                     .Log(LogFile);
 
-                  Block block = Token.GetBlock(inventory.Hash);
-
-                  if (block == null)
-                    await SendMessage(new NotFoundMessage(
-                      new List<Inventory>() { inventory }));
+                  if (Token.TryGetBlockBytes(inventory.Hash, out byte[] buffer))
+                  {
+                    $"Send block {inventory}.".Log(LogFile);
+                    await SendMessage(new MessageBlock(buffer));
+                  }
                   else
                   {
-                    $"Send block {block}.".Log(LogFile);
-                    await SendMessage(new MessageBlock(block));
+                    await SendMessage(new NotFoundMessage(
+                      new List<Inventory>() { inventory }));
                   }
                 }
                 else if (inventory.Type == InventoryType.MSG_DB)

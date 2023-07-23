@@ -18,6 +18,14 @@ namespace BTokenLib
             0,
             block.Header.CountBytesBlock)
       { }
+
+      public MessageBlock(byte[] bufferBlock)
+        : base(
+            "block",
+            bufferBlock,
+            0,
+            bufferBlock.Length)
+      { }
     }
   }
 }
