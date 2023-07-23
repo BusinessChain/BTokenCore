@@ -24,13 +24,6 @@ namespace BTokenCore
 
     static void RunConsole()
     {
-      // Alle Kommandos sollten ein Objekt sein und über
-      // einen Dictionär <string, Command> direkt selektiert werden.
-      // Command command = DictCommands[inputCommand];
-      // command. Excecute();
-      //
-      // Das help kommando listet alle Keys vom Dict auf.
-
       Console.WriteLine("Start console.");
 
       while (true)

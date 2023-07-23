@@ -13,7 +13,7 @@ namespace BTokenCore
   partial class TokenBToken : Token
   {
     const int COUNT_TXS_PER_BLOCK_MAX = 5;
-    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 10;
+    const int TIMESPAN_MINING_ANCHOR_TOKENS_SECONDS = 20;
     const int TIME_MINER_PAUSE_AFTER_RECEIVE_PARENT_BLOCK_SECONDS = 10;
     const double FACTOR_INCREMENT_FEE_PER_BYTE = 1.2;
 
@@ -264,47 +264,37 @@ namespace BTokenCore
 
     public override void DetectAnchorTokenInBlock(TX tX)
     {
-      TokenAnchor tokenAnchor = TokensAnchorUnconfirmed
-        .Find(t => t.TX.Hash.IsEqual(tX.Hash));
+      TXOutput tXOutput = tX.TXOutputs[0];
 
-      if (tokenAnchor != null)
-      {
-        $"Detected self mined anchor token {tX} in Bitcoin block".Log(LogFile);
+      int index = tXOutput.StartIndexScript;
 
-        TokensAnchorUnconfirmed.Remove(tokenAnchor);
-      }
+      if (tXOutput.Buffer[index] != 0x6A)
+        return;
+
+      index += 1;
+
+      if (tXOutput.Buffer[index] != LENGTH_DATA_ANCHOR_TOKEN)
+        return;
+
+      index += 1;
+
+      if (!ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
+        return;
+      index += ID_BTOKEN.Length;
+
+      TokenAnchor tokenAnchor = new(tX, index, ID_BTOKEN);
+
+      if (TokensAnchorUnconfirmed.RemoveAll(t => t.TX.Hash.IsEqual(tX.Hash)) > 0)
+        $"Detected self mined anchor token {tX} in Bitcoin block.".Log(LogFile);
       else
-      {
-        TXOutput tXOutput = tX.TXOutputs[0];
-
-        int index = tXOutput.StartIndexScript;
-
-        if (tXOutput.Buffer[index] != 0x6A)
-          return;
-
-        index += 1;
-
-        if (tXOutput.Buffer[index] != LENGTH_DATA_ANCHOR_TOKEN)
-          return;
-
-        index += 1;
-
-        if (!ID_BTOKEN.IsEqual(tXOutput.Buffer, index))
-          return;
-
-        index += ID_BTOKEN.Length;
-
-        tokenAnchor = new(tX, index, ID_BTOKEN);
-
         $"Detected foreign mined anchor token {tX} in Bitcoin block.".Log(LogFile);
-      }
 
-      ($"IDToken: {tokenAnchor.IDToken.ToHexString()}.\n" +
-        $"HashBlockReferenced: {tokenAnchor.HashBlockReferenced.ToHexString()}.\n" +
-        $"HashBlockPreviousReferenced: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}.\n" +
-        $"ValueChange: {tokenAnchor.ValueChange}.\n" +
-        $"NumberSequence: {tokenAnchor.NumberSequence}.\n" +
-        $"tx: {tokenAnchor.TX}.\n").Log(LogFile);
+      //($"IDToken: {tokenAnchor.IDToken.ToHexString()}.\n" +
+      //  $"HashBlockReferenced: {tokenAnchor.HashBlockReferenced.ToHexString()}.\n" +
+      //  $"HashBlockPreviousReferenced: {tokenAnchor.HashBlockPreviousReferenced.ToHexString()}.\n" +
+      //  $"ValueChange: {tokenAnchor.ValueChange}.\n" +
+      //  $"NumberSequence: {tokenAnchor.NumberSequence}.\n" +
+      //  $"tx: {tokenAnchor.TX}.\n").Log(LogFile);
 
       Header headerParent = TokenParent.HeaderTip;
       
@@ -316,7 +306,9 @@ namespace BTokenCore
 
         if (headerParent == null)
         {
-          $"Anchor token {tokenAnchor} references orphan block {tokenAnchor.HashBlockReferenced.ToHexString()}".Log(LogFile);
+          ($"Anchor token {tokenAnchor} references orphan block " +
+            $"{tokenAnchor.HashBlockReferenced.ToHexString()}").Log(LogFile);
+
           return;
         }
       }
@@ -358,7 +350,7 @@ namespace BTokenCore
       }
     }
 
-    public byte[] GetHashBlockChild(byte[] hashHeaderAnchor)
+    byte[] GetHashBlockChild(byte[] hashHeaderAnchor)
     {
       SHA256 sHA256 = SHA256.Create();
 

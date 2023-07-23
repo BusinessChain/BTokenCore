@@ -135,10 +135,7 @@ namespace BTokenLib
           new TXInput(buffer, ref indexBuffer);
         else
           for (int i = 0; i < countInputs; i += 1)
-            tX.TXInputs.Add(
-              new TXInput(
-                buffer,
-                ref indexBuffer));
+            tX.TXInputs.Add(new TXInput(buffer, ref indexBuffer));
 
         int countTXOutputs = VarInt.GetInt32(
           buffer,

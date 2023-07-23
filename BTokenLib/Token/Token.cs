@@ -512,7 +512,6 @@ namespace BTokenLib
           Block block = CreateBlock();
 
           block.Buffer = buffer;
-          block.Parse();
 
           return block;
         }
