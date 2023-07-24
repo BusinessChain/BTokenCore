@@ -49,16 +49,15 @@ namespace BTokenLib
 
               if (FlagSingleBlockDownload)
               {
+                FlagSingleBlockDownload = false;
+
                 Token.InsertBlock(Block);
                 Network.ExitSynchronization();
-
-                FlagSingleBlockDownload = false;
 
                 if (Block.BlockChild != null)
                   Token.TokenChild.Network.AdvertizeBlockToNetwork(Block.BlockChild);
                 else if (Token.TokenChild != null)
                   Token.TokenChild.Network.TryStartSynchronization();
-
               }
               else if (Network.InsertBlock_FlagContinue(this))
                 RequestBlock();

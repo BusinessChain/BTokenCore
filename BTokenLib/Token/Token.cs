@@ -560,7 +560,7 @@ namespace BTokenLib
     public void BroadcastTX(List<TX> tXs)
     {
       tXs.ForEach(tX => TXPool.TryAddTX(tX));
-      //Network.AdvertizeTXs(tX);
+      Network.AdvertizeTXs(tXs);
     }
 
     public List<Header> GetLocator()

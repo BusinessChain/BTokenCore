@@ -114,6 +114,13 @@ namespace BTokenLib
           peer.TryAdvertizeTX(tX);
     }
 
+    public void AdvertizeTXs(List<TX> tXs)
+    {
+      lock (LOCK_Peers)
+        foreach (Peer peer in Peers)
+          peer.TryAdvertizeTXs(tXs);
+    }
+
     public string GetStatus()
     {
       string statusPeers = "";

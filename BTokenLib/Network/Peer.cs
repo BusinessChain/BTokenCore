@@ -254,17 +254,45 @@ namespace BTokenLib
 
         $"Advertize token {tX} to peer.".Log(this, LogFile);
 
-        var inventoryTX = new Inventory(
+        Inventory inventoryTX = new(
           InventoryType.MSG_TX,
           tX.Hash);
 
-        var invMessage = new InvMessage(
+        InvMessage invMessage = new(
           new List<Inventory> { inventoryTX });
 
         await SendMessage(invMessage);
 
         TXsAdvertized.Clear();
         TXsAdvertized.Add(tX);
+
+        SetStateIdle();
+
+        return true;
+      }
+
+      public async Task<bool> TryAdvertizeTXs(List<TX> tXs)
+      {
+        lock (this)
+          if (IsStateIdleWithoutLock())
+            State = StateProtocol.AdvertizingTX;
+          else
+            return false;
+
+        TXsAdvertized.Clear();
+        List<Inventory> inventories = new();
+
+        tXs.ForEach(t =>
+        {
+          $"Advertize token {t} to peer {this}.".Log(LogFile);
+          TXsAdvertized.Add(t);
+
+          inventories.Add(new(
+            InventoryType.MSG_TX,
+            t.Hash));
+        });
+
+        await SendMessage(new InvMessage(inventories));
 
         SetStateIdle();
 

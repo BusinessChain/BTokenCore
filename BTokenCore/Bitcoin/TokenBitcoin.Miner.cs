@@ -51,7 +51,7 @@ namespace BTokenCore
 
         block.TXs.ForEach(t => { block.Buffer = block.Buffer.Concat(t.TXRaw).ToArray(); });
 
-        block.Header.CountBytesBlock = block.Buffer.Length;
+        block.Parse();
 
         while (!TryLock())
           Thread.Sleep(500);
