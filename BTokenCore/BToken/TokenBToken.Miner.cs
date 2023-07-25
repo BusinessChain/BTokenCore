@@ -166,8 +166,6 @@ namespace BTokenCore
           break;
 
       TokenParent.BroadcastTX(TokensAnchorUnconfirmed.Select(t => t.TX).ToList());
-
-      $"{TokensAnchorUnconfirmed.Count} RBF'ed unconfirmed anchor tokens.".Log(LogFile);
     }
 
     bool TryMineAnchorToken(out TokenAnchor tokenAnchor)

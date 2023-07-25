@@ -79,23 +79,10 @@ namespace BTokenLib
       $"Load Network configuration {pathConfigFile}.".Log(this, LogFile);
     }
 
-
     public void AdvertizeBlockToNetwork(Block block)
     {
-      AdvertizeBlockToNetwork(block, null);
-    }
-
-    void AdvertizeBlockToNetwork(Block block, Peer peerSource)
-    {
-      Peers.ForEach(p =>
-      {
-        if (p != peerSource && p.IsStateIdle() &&
-        (p.HeaderUnsolicited == null ||
-        !p.HeaderUnsolicited.Hash.IsEqual(block.Header.Hash)))
-        {
-          p.AdvertizeBlock(block);
-        }
-      });
+      lock (LOCK_Peers)
+        Peers.ForEach(p => p.AdvertizeBlock(block));
     }
 
     bool TryGetPeerIdle(out Peer peer)

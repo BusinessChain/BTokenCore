@@ -324,7 +324,7 @@ namespace BTokenLib
 
               foreach (Inventory inv in invMessage.Inventories)
               {
-                $"\nReceived inventory {inv}.".Log(LogFile);
+                $"Received inventory {inv}.".Log(LogFile);
 
                 if (inv.IsTX() && !Token.TXPool.Contains(inv.Hash))
                   InventoriesRequested.Add(inv);

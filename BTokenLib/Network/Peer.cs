@@ -354,7 +354,25 @@ namespace BTokenLib
 
       public async Task AdvertizeBlock(Block block)
       {
-        $"Relay block {block} to peer.".Log(this, LogFile);
+        lock(this)
+        {
+          if(!IsStateIdleWithoutLock())
+          {
+            $"Peer {this} is not idle.".Log(LogFile);
+            return;
+          }
+
+          if (HeaderUnsolicited != null &&
+            HeaderUnsolicited.Hash.IsEqual(block.Header.Hash))
+          {
+            $"Advertized block {block} was received by same peer {this}.".Log(LogFile);
+            return;
+          }
+
+          State = StateProtocol.HeaderSynchronization;
+        }
+
+        $"Advertize block {block} to peer {this}.".Log(LogFile);
 
         await SendHeaders(new List<Header>() { block.Header });
         SetStateIdle();

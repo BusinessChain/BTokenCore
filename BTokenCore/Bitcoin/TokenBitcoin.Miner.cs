@@ -14,7 +14,7 @@ namespace BTokenCore
     const long BLOCK_REWARD_INITIAL = 5000000000; // 50 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    const int COUNT_TXS_PER_BLOCK_MAX = 10;
+    const int COUNT_TXS_PER_BLOCK_MAX = 5;
     int NumberOfProcesses = 1;// Math.Max(Environment.ProcessorCount - 1, 1);
 
 
@@ -63,6 +63,7 @@ namespace BTokenCore
 
           InsertBlock(block);
 
+          Network.AdvertizeBlockToNetwork(block);
           Console.Beep();
         }
         catch (Exception ex)
@@ -76,8 +77,6 @@ namespace BTokenCore
         {
           ReleaseLock();
         }
-
-        Network.AdvertizeBlockToNetwork(block);
       }
     }
 
