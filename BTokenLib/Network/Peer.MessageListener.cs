@@ -353,8 +353,7 @@ namespace BTokenLib
                   if (tXAdvertized != null)
                     TXsAdvertized.Remove(tXAdvertized);
 
-                  $"Received getData for tX {tXAdvertized}."
-                    .Log(LogFile);
+                  $"Received getData inventory for tX {tXAdvertized}.".Log(LogFile);
 
                   await SendMessage(new TXMessage(tXAdvertized.TXRaw.ToArray()));
                 }
