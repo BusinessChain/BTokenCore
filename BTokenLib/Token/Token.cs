@@ -399,9 +399,7 @@ namespace BTokenLib
       {
         TokenChild.SignalParentBlockInsertion(
           block.Header,
-          out Block blockChild);
-
-        block.BlockChild = blockChild;
+          out block.BlockChild);
       }
     }
 

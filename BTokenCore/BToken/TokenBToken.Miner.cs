@@ -129,9 +129,10 @@ namespace BTokenCore
               // timeMSCreateNextAnchorToken / 2,
               // timeMSCreateNextAnchorToken * 3 / 2);
             }
+
+          ReleaseLock();
         }
 
-        ReleaseLock();
         await Task.Delay(timeMinerLoopMilliseconds).ConfigureAwait(false);
       }
 
@@ -333,8 +334,16 @@ namespace BTokenCore
             block = BlocksMined.Find(b =>
             b.Header.Hash.IsEqual(headerAnchor.HashChild));
 
-            if (block != null)
+            if (block == null)
+              return;
+
+            if (block.Header.HashPrevious.IsEqual(HeaderTip.Hash))
               InsertBlock(block);
+            else
+              ($"Self mined block {block} is obsoleted.\n" +
+                $"This may happen, if a miner in the anchor chain withholds a mined block,\n" +
+                $"and releases it after mining a subsequent block which now contains anchor " +
+                $"tokens referencing a block prior to the tip.").Log(LogFile);
           }
         }
       }

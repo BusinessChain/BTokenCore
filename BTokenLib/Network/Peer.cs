@@ -358,7 +358,7 @@ namespace BTokenLib
         {
           if(!IsStateIdleWithoutLock())
           {
-            $"Peer {this} is not idle.".Log(LogFile);
+            $"Peer {this} is not idle when attempting to send block {block} but in state {State.ToString()}.".Log(LogFile);
             return;
           }
 

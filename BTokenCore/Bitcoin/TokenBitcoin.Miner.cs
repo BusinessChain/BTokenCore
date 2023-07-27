@@ -58,13 +58,14 @@ namespace BTokenCore
 
         try
         {
+          InsertBlock(block);
+
+          Console.Beep();
+
           ($"Bitcoin Miner {indexThread} mined block height " +
             $"{block.Header.Height} with hash {block}.").Log(LogFile);
 
-          InsertBlock(block);
-
           Network.AdvertizeBlockToNetwork(block);
-          Console.Beep();
         }
         catch (Exception ex)
         {
