@@ -248,6 +248,8 @@ namespace BTokenLib
 
               int i = 0;
               List<Header> headers = new();
+              bool flagNotSameTipAsPeer = false;
+              bool flagInitiateSynchronization = false;
 
               while (true)
               {
@@ -268,18 +270,26 @@ namespace BTokenLib
                   if (headers.Any())
                     $"Send headers {headers.First()}...{headers.Last()}.".Log(this, LogFile);
                   else
-                    $"Send empty headers. (If the locator indicates that the peer has more blocks, we should initiate sync).\n".Log(this, LogFile);
+                  {
+                    $"Send empty headers.".Log(this, LogFile);
+                    flagInitiateSynchronization = flagNotSameTipAsPeer;
+                  }
 
                   await SendHeaders(headers);
 
                   break;
                 }
+                else
+                  flagNotSameTipAsPeer = true;
 
                 if (i++ == headersCount)
                   throw new ProtocolException($"Found no common ancestor in getheaders locator.");
               }
 
               Token.ReleaseLock();
+
+              if (flagInitiateSynchronization && Network.TryEnterStateSynchronization(this))
+                await SendGetHeaders(Token.GetLocator());
             }
             else if (Command == "hashesDB")
             {

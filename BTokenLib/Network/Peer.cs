@@ -52,6 +52,8 @@ namespace BTokenLib
       const UInt32 ProtocolVersion = 70015;
       public IPAddress IPAddress;
       TcpClient TcpClient;
+      readonly object LOCK_FlagNetworkStreamIsLocked = new();
+      bool FlagNetworkStreamIsLocked;
       NetworkStream NetworkStream;
       CancellationTokenSource Cancellation = new();
       const int TIMEOUT_VERACK_MILLISECONDS = 5000;
@@ -187,10 +189,20 @@ namespace BTokenLib
         StartMessageListener();
       }
 
-      internal Header HeaderDuplicateReceivedLast;
-
       async Task SendMessage(MessageNetwork message)
       {
+        while (true)
+        {
+          lock (LOCK_FlagNetworkStreamIsLocked)
+            if (!FlagNetworkStreamIsLocked)
+            {
+              FlagNetworkStreamIsLocked = true;
+              break;
+            }
+
+          await Task.Delay(100).ConfigureAwait(true);
+        }
+
         NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
         byte[] command = Encoding.ASCII.GetBytes(
@@ -213,6 +225,9 @@ namespace BTokenLib
           message.OffsetPayload,
           message.LengthDataPayload)
           .ConfigureAwait(false);
+
+        lock (LOCK_FlagNetworkStreamIsLocked)
+          FlagNetworkStreamIsLocked = false;
       }
 
       public async Task SendGetHeaders(List<Header> locator)
