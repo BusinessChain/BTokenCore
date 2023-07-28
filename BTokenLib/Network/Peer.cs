@@ -43,8 +43,6 @@ namespace BTokenLib
 
       public Header HeaderUnsolicited;
      
-      List<TX> TXsAdvertized = new();
-
       ulong FeeFilterValue;
 
       const string UserAgent = "/BTokenCore:0.0.0/";
@@ -277,9 +275,6 @@ namespace BTokenLib
 
         await SendMessage(invMessage);
 
-        TXsAdvertized.Clear();
-        TXsAdvertized.Add(tX);
-
         SetStateIdle();
 
         return true;
@@ -293,23 +288,18 @@ namespace BTokenLib
           else
             return false;
 
-        TXsAdvertized.Clear();
         List<Inventory> inventories = new();
 
         tXs.ForEach(t =>
         {
           $"Advertize token {t} to peer {this}.".Log(LogFile);
-          TXsAdvertized.Add(t);
 
-          inventories.Add(new(
-            InventoryType.MSG_TX,
-            t.Hash));
+          inventories.Add(new(InventoryType.MSG_TX,t.Hash));
         });
 
         await SendMessage(new InvMessage(inventories));
 
         SetStateIdle();
-
         return true;
       }
 

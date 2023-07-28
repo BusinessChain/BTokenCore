@@ -53,10 +53,10 @@ namespace BTokenLib
           RemoveTXRecursive(hashTX);
     }
 
-    public bool Contains(byte[] hashTX)
+    public bool TryGetTX(byte[] hashTX, out TX tX)
     {
       lock (LOCK_TXsPool)
-        return TXPoolDict.ContainsKey(hashTX);
+        return TXPoolDict.TryGetValue(hashTX, out tX);
     }
 
     List<TX> TXsGet = new();

@@ -83,7 +83,7 @@ namespace BTokenLib
               if(!InventoriesRequested.Any(i => i.Hash.IsEqual(tX.Hash)))
                 throw new ProtocolException($"Received unrequested tx {tX}.");
 
-              if (!Token.TXPool.Contains(tX.Hash))
+              if (!Token.TXPool.TryGetTX(tX.Hash, out TX tXInPool))
                 Token.TXPool.TryAddTX(tX);
             }
             else if (Command == "dataDB")
@@ -326,7 +326,7 @@ namespace BTokenLib
               InventoriesRequested.Clear();
 
               foreach (Inventory inv in invMessage.Inventories)
-                if (inv.IsTX() && !Token.TXPool.Contains(inv.Hash))
+                if (inv.IsTX() && !Token.TXPool.TryGetTX(inv.Hash, out TX tXInPool))
                   InventoriesRequested.Add(inv);
 
               if (InventoriesRequested.Count > 0)
@@ -341,12 +341,11 @@ namespace BTokenLib
               foreach (Inventory inventory in getDataMessage.Inventories)
                 if (inventory.Type == InventoryType.MSG_TX)
                 {
-                  TX tXAdvertized = TXsAdvertized.Find(t => t.Hash.IsEqual(inventory.Hash));
-
-                  if (tXAdvertized != null)
-                    TXsAdvertized.Remove(tXAdvertized);
-
-                  await SendMessage(new TXMessage(tXAdvertized.TXRaw.ToArray()));
+                  if (Token.TXPool.TryGetTX(inventory.Hash, out TX tXInPool))
+                    await SendMessage(new TXMessage(tXInPool.TXRaw.ToArray()));
+                  else
+                    await SendMessage(new NotFoundMessage(
+                      new List<Inventory>() { inventory }));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 {
@@ -356,10 +355,8 @@ namespace BTokenLib
                     await SendMessage(new MessageBlock(buffer));
                   }
                   else
-                  {
                     await SendMessage(new NotFoundMessage(
                       new List<Inventory>() { inventory }));
-                  }
                 }
                 else if (inventory.Type == InventoryType.MSG_DB)
                 {
