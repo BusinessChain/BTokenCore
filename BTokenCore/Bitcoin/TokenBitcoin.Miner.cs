@@ -102,9 +102,6 @@ namespace BTokenCore
       block.TXs.AddRange(
         TXPool.GetTXs(out int countTXsPool, COUNT_TXS_PER_BLOCK_MAX));
 
-      $"Bitcoin miner mines block with tXs:".Log(LogFile);
-      block.TXs.ForEach(t => $"{t}".Log(LogFile));
-
       uint nBits = HeaderBitcoin.GetNextTarget((HeaderBitcoin)HeaderTip);
       double difficulty = HeaderBitcoin.ComputeDifficultyFromNBits(nBits);
 
