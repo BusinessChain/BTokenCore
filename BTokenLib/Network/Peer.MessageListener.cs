@@ -316,18 +316,11 @@ namespace BTokenLib
               InventoriesRequested.Clear();
 
               foreach (Inventory inv in invMessage.Inventories)
-              {
-                $"Received inventory {inv}.".Log(LogFile);
-
                 if (inv.IsTX() && !Token.TXPool.Contains(inv.Hash))
                   InventoriesRequested.Add(inv);
-              }
 
               if (InventoriesRequested.Count > 0)
-              {
-                InventoriesRequested.ForEach(i => $"Request TX {i}.".Log(LogFile));
                 SendMessage(new GetDataMessage(InventoriesRequested));
-              }
             }
             else if (Command == "getdata")
             {
@@ -343,15 +336,10 @@ namespace BTokenLib
                   if (tXAdvertized != null)
                     TXsAdvertized.Remove(tXAdvertized);
 
-                  $"Received getData inventory for tX {tXAdvertized}.".Log(LogFile);
-
                   await SendMessage(new TXMessage(tXAdvertized.TXRaw.ToArray()));
                 }
                 else if (inventory.Type == InventoryType.MSG_BLOCK)
                 {
-                  $"Received getData for block {inventory} from {this}."
-                    .Log(LogFile);
-
                   if (Token.TryGetBlockBytes(inventory.Hash, out byte[] buffer))
                   {
                     $"Send block {inventory}.".Log(LogFile);

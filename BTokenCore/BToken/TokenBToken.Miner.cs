@@ -288,23 +288,6 @@ namespace BTokenCore
       else
         $"Detected foreign mined anchor token {tX} in Bitcoin block.".Log(LogFile);
 
-      Header headerParent = TokenParent.HeaderTip;
-      
-      while (
-        headerParent.HashChild == null ||
-        !headerParent.HashChild.IsEqual(tokenAnchor.HashBlockPreviousReferenced))
-      {
-        headerParent = headerParent.HeaderPrevious;
-
-        if (headerParent == null)
-        {
-          ($"Anchor token {tokenAnchor} references orphan block " +
-            $"{tokenAnchor.HashBlockReferenced.ToHexString()}").Log(LogFile);
-
-          return;
-        }
-      }
-
       TokensAnchorDetectedInBlock.Add(tokenAnchor);
     }
 
