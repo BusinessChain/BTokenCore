@@ -14,7 +14,6 @@ namespace BTokenLib
     partial class Peer
     {
       bool FlagSingleBlockDownload;
-      List<Inventory> InventoriesRequested = new();
 
       public async Task StartMessageListener()
       {
@@ -79,9 +78,6 @@ namespace BTokenLib
               tX.TXRaw = Payload.Take(index).ToList();
 
               $"Received TX {tX}.".Log(LogFile);
-
-              if(!InventoriesRequested.Any(i => i.Hash.IsEqual(tX.Hash)))
-                throw new ProtocolException($"Received unrequested tx {tX}.");
 
               if (!Token.TXPool.TryGetTX(tX.Hash, out TX tXInPool))
                 Token.TXPool.TryAddTX(tX);
@@ -323,14 +319,12 @@ namespace BTokenLib
               await ReadBytes(Payload, LengthDataPayload);
 
               InvMessage invMessage = new(Payload);
-              InventoriesRequested.Clear();
 
-              foreach (Inventory inv in invMessage.Inventories)
-                if (inv.IsTX() && !Token.TXPool.TryGetTX(inv.Hash, out TX tXInPool))
-                  InventoriesRequested.Add(inv);
+              List<Inventory> inventoriesRequest = invMessage.Inventories.Where(
+                i => i.IsTX() && !Token.TXPool.TryGetTX(i.Hash, out TX tXInPool)).ToList();
 
-              if (InventoriesRequested.Count > 0)
-                SendMessage(new GetDataMessage(InventoriesRequested));
+              if (inventoriesRequest.Count > 0)
+                SendMessage(new GetDataMessage(inventoriesRequest));
             }
             else if (Command == "getdata")
             {
