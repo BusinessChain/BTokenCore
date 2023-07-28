@@ -28,7 +28,6 @@ namespace BTokenLib
         BlockSynchronization,
         DBDownload,
         GetData,
-        InboundRequest,
         AdvertizingTX
       }
 
@@ -247,7 +246,7 @@ namespace BTokenLib
       public async Task<bool> TryAdvertizeTX(TX tX)
       {
         lock (this)
-          if (IsStateIdleWithoutLock())
+          if (State == StateProtocol.Idle)
             State = StateProtocol.AdvertizingTX;
           else
             return false;
@@ -274,7 +273,7 @@ namespace BTokenLib
       public async Task<bool> TryAdvertizeTXs(List<TX> tXs)
       {
         lock (this)
-          if (IsStateIdleWithoutLock())
+          if (State == StateProtocol.Idle)
             State = StateProtocol.AdvertizingTX;
           else
             return false;
@@ -356,7 +355,7 @@ namespace BTokenLib
       {
         lock(this)
         {
-          if(!IsStateIdleWithoutLock())
+          if(State != StateProtocol.Idle)
           {
             $"Peer {this} is not idle when attempting to send block {block} but in state {State.ToString()}.".Log(LogFile);
             return;
@@ -383,7 +382,7 @@ namespace BTokenLib
         lock (this)
         {
           if ((peerSyncCurrent == null || TimeLastSynchronization < peerSyncCurrent.TimeLastSynchronization)
-            && IsStateIdleWithoutLock())
+            && State == StateProtocol.Idle)
           {
             State = StateProtocol.HeaderSynchronization;
             return true;
@@ -396,22 +395,7 @@ namespace BTokenLib
       public bool IsStateIdle()
       {
         lock (this)
-          return IsStateIdleWithoutLock();
-      }
-
-      bool IsStateIdleWithoutLock()
-      {
-        if (State == StateProtocol.Idle)
-          return true;
-        else if (State == StateProtocol.InboundRequest)
-          if ((DateTime.Now - TimeLastStateTransition).TotalMilliseconds > TIMEOUT_RESPONSE_MILLISECONDS)
-          {
-            TimeLastStateTransition = DateTime.Now;
-            State = StateProtocol.Idle;
-            return true;
-          }
-
-        return false;
+          return State == StateProtocol.Idle;
       }
 
       public void SetStateIdle()
@@ -436,20 +420,6 @@ namespace BTokenLib
       {
         lock (this)
           return State == StateProtocol.HeaderSynchronization;
-      }
-
-      bool TrySetStateInboundRequest()
-      {
-        lock (this)
-        {
-          if (State != StateProtocol.InboundRequest &&
-            State != StateProtocol.Idle)
-            return false;
-
-          State = StateProtocol.InboundRequest;
-          TimeLastStateTransition = DateTime.Now;
-          return true;
-        }
       }
 
       bool IsStateAwaitingGetDataTX()

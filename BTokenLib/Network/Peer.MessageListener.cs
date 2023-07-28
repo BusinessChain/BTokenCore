@@ -237,19 +237,12 @@ namespace BTokenLib
 
               int headersCount = VarInt.GetInt32(Payload, ref startIndex);
 
-              $"\nReceived getHeaders with {headersCount} locator hashes..."
-                .Log(this, LogFile);
+              $"Peer {this} received getHeaders with {headersCount} locator hashes."
+                .Log(LogFile);
 
               if (!Token.TryLock())
               {
                 $"... but Token is locked.".Log(LogFile);
-                continue;
-              }
-
-              if (!TrySetStateInboundRequest())
-              {
-                $"... but cannot change state {State} to state InboundRequest.".Log(LogFile);
-                Token.ReleaseLock();
                 continue;
               }
 
@@ -338,9 +331,6 @@ namespace BTokenLib
             }
             else if (Command == "getdata")
             {
-              if (!TrySetStateInboundRequest())
-                continue;
-
               await ReadBytes(Payload, LengthDataPayload);
 
               GetDataMessage getDataMessage = new(Payload);
