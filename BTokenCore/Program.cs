@@ -1,7 +1,8 @@
-﻿using BTokenLib;
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
+
+using BTokenLib;
 
 namespace BTokenCore
 {
@@ -13,8 +14,7 @@ namespace BTokenCore
     {
       Console.WriteLine("Start node.");
 
-      BToken = new(
-        new TokenBitcoin());
+      BToken = new();
 
       BToken.Start();
 

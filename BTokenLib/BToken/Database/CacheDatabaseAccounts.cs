@@ -5,9 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
-using BTokenLib;
-
-namespace BTokenCore
+namespace BTokenLib
 {
   partial class DatabaseAccounts
   {

@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Diagnostics;
 
-using BTokenLib;
-
-namespace BTokenCore
+namespace BTokenLib
 {
   class HeaderBitcoin : Header
   {

@@ -4,11 +4,9 @@ using System.Linq;
 using System.IO;
 using System.Security.Cryptography;
 
-using BTokenLib;
-
-namespace BTokenCore
+namespace BTokenLib
 {
-  partial class TokenBToken : Token
+  public partial class TokenBToken : Token
   {
     const int COUNT_BLOCKS_DOWNLOAD_DEPTH_MAX = 1000;
 
@@ -25,16 +23,17 @@ namespace BTokenCore
     DatabaseAccounts DatabaseAccounts = new();
  
 
-    public TokenBToken(Token tokenParent)
+    public TokenBToken()
       : base(
           COMPORT_BTOKEN,
           flagEnableInboundConnections: true)
     {
-      TokenParent = tokenParent;
-      tokenParent.TokenChild = this;
 
-      HeaderGenesis.HeaderParent = tokenParent.HeaderGenesis;
-      tokenParent.HeaderGenesis.HashChild = HeaderGenesis.Hash;
+      TokenParent = new TokenBitcoin();
+      TokenParent.TokenChild = this;
+
+      HeaderGenesis.HeaderParent = TokenParent.HeaderGenesis;
+      TokenParent.HeaderGenesis.HashChild = HeaderGenesis.Hash;
 
       PathBlocksMinedUnconfirmed = Path.Combine(
         GetName(),

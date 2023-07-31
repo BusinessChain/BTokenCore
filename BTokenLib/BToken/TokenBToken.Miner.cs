@@ -4,11 +4,9 @@ using System.Linq;
 using System.IO;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
-
-using BTokenLib;
 using System.Diagnostics;
 
-namespace BTokenCore
+namespace BTokenLib
 {
   partial class TokenBToken : Token
   {

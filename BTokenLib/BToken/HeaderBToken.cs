@@ -1,8 +1,6 @@
 ﻿using System;
 
-using BTokenLib;
-
-namespace BTokenCore
+namespace BTokenLib
 {
   class HeaderBToken : Header
   {

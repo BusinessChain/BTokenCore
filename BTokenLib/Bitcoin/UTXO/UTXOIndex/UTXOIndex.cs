@@ -1,8 +1,7 @@
 ﻿using System;
 
-using BTokenLib;
 
-namespace BTokenCore
+namespace BTokenLib
 {
   partial class UTXOTable
   {

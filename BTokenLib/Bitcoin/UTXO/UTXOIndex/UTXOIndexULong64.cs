@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 
-using BTokenLib;
 
-namespace BTokenCore
+namespace BTokenLib
 {
   partial class UTXOTable
   {

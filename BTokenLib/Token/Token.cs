@@ -504,12 +504,11 @@ namespace BTokenLib
     
     public bool TryGetBlockBytes(byte[] hash, out byte[] buffer)
     {
-      buffer = null;
-
       if (TryGetHeader(hash, out Header header))
         if (Archiver.TryLoadBlockArchive(header.Height, out buffer))
           return true;
 
+      buffer = null;
       return false;
     }
 

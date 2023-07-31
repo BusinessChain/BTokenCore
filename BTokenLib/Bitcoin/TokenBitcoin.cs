@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 
 
-using BTokenLib;
-
-namespace BTokenCore
+namespace BTokenLib
 {
   partial class TokenBitcoin : Token
   {

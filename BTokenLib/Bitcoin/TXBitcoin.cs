@@ -4,9 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using BTokenLib;
 
-namespace BTokenCore
+namespace BTokenLib
 {
   class TXBitcoin : TX
   { }

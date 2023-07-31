@@ -4,10 +4,8 @@ using System.Linq;
 using System.Diagnostics;
 using System.Security.Cryptography;
 
-using BTokenLib;
 
-
-namespace BTokenCore
+namespace BTokenLib
 {
   class BlockBitcoin : Block
   {

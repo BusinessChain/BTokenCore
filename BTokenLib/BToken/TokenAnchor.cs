@@ -4,9 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Security.Cryptography;
 
-using BTokenLib;
 
-namespace BTokenCore
+namespace BTokenLib
 {
   partial class TokenBToken
   {
