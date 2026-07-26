@@ -32,7 +32,7 @@ namespace BTokenLib
         bool flagEnableInboundConnections,
         bool flagEnableRelay)
       {
-        NetworkParent = tokenParent.Network; 
+        NetworkParent = tokenParent?.Network; 
         Token = token;
 
         BlockchainRoot = new(Token, this);
@@ -58,7 +58,8 @@ namespace BTokenLib
         foreach (FileInfo file in DirectoryPeersActive.GetFiles())
           file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
 
-        LiteDatabase = new LiteDatabase($"{token.GetName()}.db;Mode=Exclusive");
+        string connectionString = $"Filename={token.GetName()}.db;Mode=Exclusive";
+        LiteDatabase = new LiteDatabase(connectionString);
         DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
         DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
       }
