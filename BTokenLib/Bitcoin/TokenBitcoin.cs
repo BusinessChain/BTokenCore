@@ -38,8 +38,6 @@ namespace BTokenLib
     public TokenBitcoin(ILogEntryNotifier logEntryNotifier)
       : base(logEntryNotifier)
     {
-      //Wallet = new WalletBitcoin(File.ReadAllText($"Wallet{GetName()}/wallet"), this);
-
       SizeBlockMax = SIZE_BLOCK_MAX;
 
       IDToken = new byte[3] { (byte)'B', (byte)'T', (byte)'C' };

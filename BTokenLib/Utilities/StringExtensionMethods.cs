@@ -363,7 +363,7 @@ namespace BTokenLib
       { "FF", 0xFF }
     };
 
-    public static void Log(this string message, object module, Token.ILogEntryNotifier logEntryNotifier)
+    public static void Log(this string message, object module, ILogEntryNotifier logEntryNotifier)
     {
       Log(
         message,
@@ -376,7 +376,7 @@ namespace BTokenLib
       this string message,
       object module,
       StreamWriter logFile,
-      Token.ILogEntryNotifier logEntryNotifier)
+      ILogEntryNotifier logEntryNotifier)
     {
       Log(
         message, 
@@ -389,7 +389,7 @@ namespace BTokenLib
       this string message,
       object module,
       List<StreamWriter> logFiles,
-      Token.ILogEntryNotifier logEntryNotifier)
+      ILogEntryNotifier logEntryNotifier)
     {
       string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");
       string logString = dateTime + " --- " + module + " >> " + message;

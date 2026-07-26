@@ -30,7 +30,7 @@ namespace BTokenLib
     {
       Directory.CreateDirectory(GetName());
 
-      Wallet = new Wallet(File.ReadAllText($"Wallet/wallet"));
+      Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));
 
       LogFile = new StreamWriter(Path.Combine(GetName(), "LogToken"), append: false);
 
