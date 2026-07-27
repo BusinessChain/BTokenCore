@@ -21,7 +21,6 @@ namespace BTokenLib
     const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
     Dictionary<byte[], Account> Cache = new(new EqualityComparerByteArray());
-
     Dictionary<byte[], Account> AccountsStaged = new(new EqualityComparerByteArray());
 
     LiteDatabase Database;
