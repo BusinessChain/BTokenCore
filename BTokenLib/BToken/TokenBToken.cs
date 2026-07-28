@@ -20,7 +20,6 @@ namespace BTokenLib
     const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
     const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
-    Dictionary<byte[], Account> Cache = new(new EqualityComparerByteArray());
     Dictionary<byte[], Account> AccountsStaged = new(new EqualityComparerByteArray());
 
     LiteDatabase Database;
@@ -176,6 +175,7 @@ namespace BTokenLib
 
     protected void CommitStaged(Block block)
     {
+      // In die DB einfügen
       foreach (var account in AccountsStaged)
       {
         if (account.Value.Balance > 0)
@@ -185,9 +185,6 @@ namespace BTokenLib
       }
 
       TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
-
-      //if (Cache.Count > COUNT_MAX_ACCOUNTS_IN_CACHE)
-      //  EvictBlockFromCache();
     }
 
     protected void DiscardStaged()
@@ -203,8 +200,6 @@ namespace BTokenLib
         {
           TXBToken tX = (TXBToken)block.TXs[i];
 
-          /// !!! /// Im moment wird es falsch gemacht, es wird einfach immer davon ausgegangen, dass es sich um 
-          /// Value transfer handelt, nicht aber um Anker Tonkens.
           foreach (TXOutput tXOutput in tX.TXOutputs)
             StageInsertTXOutput(tXOutput, block.Header.Height);
 
@@ -259,125 +254,36 @@ namespace BTokenLib
       if (tXOutput.Value < 0)
         throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
 
-      if (AccountsStaged.TryGetValue(tXOutput.IDAccount, out Account accountStaged))
-        accountStaged.Balance += tXOutput.Value;
-      else
+      if(tXOutput.Value > 0)
       {
-        //if (Cache.TryGetValue(output.IDAccount, out Account accountCached))
-        //  accountStaged = new()
-        //  {
-        //    ID = accountCached.ID,
-        //    BlockHeightAccountCreated = accountCached.BlockHeightAccountCreated,
-        //    Nonce = accountCached.Nonce,
-        //    Balance = accountCached.Balance + output.Value
-        //  };
-        //else
-        if (DatabaseAccountCollection.FindById(tXOutput.IDAccount) is Account accountStored)
-          accountStaged = new()
-          {
-            ID = accountStored.ID,
-            BlockHeightAccountCreated = accountStored.BlockHeightAccountCreated,
-            Nonce = accountStored.Nonce,
-            Balance = accountStored.Balance + tXOutput.Value
-          };
+        if (AccountsStaged.TryGetValue(tXOutput.IDAccount, out Account accountStaged))
+          accountStaged.Balance += tXOutput.Value;
         else
-          accountStaged = new()
-          {
-            ID = tXOutput.IDAccount,
-            BlockHeightAccountCreated = blockHeight,
-            Nonce = 0,
-            Balance = tXOutput.Value
-          };
+        {
+          if (DatabaseAccountCollection.FindById(tXOutput.IDAccount) is Account accountStored)
+            accountStaged = new()
+            {
+              ID = accountStored.ID,
+              BlockHeightAccountCreated = accountStored.BlockHeightAccountCreated,
+              Nonce = accountStored.Nonce,
+              Balance = accountStored.Balance + tXOutput.Value
+            };
+          else
+            accountStaged = new()
+            {
+              ID = tXOutput.IDAccount,
+              BlockHeightAccountCreated = blockHeight,
+              Nonce = 0,
+              Balance = tXOutput.Value
+            };
 
-        AccountsStaged.Add(tXOutput.IDAccount, accountStaged);
+          AccountsStaged.Add(tXOutput.IDAccount, accountStaged);
+        }
       }
     }
 
-    //void EvictBlockFromCache()
-    //{
-    //  int heightBlock = DatabaseMetaCollection.FindById("lastProcessedBlock")["height"].AsInt32 + 1;
-
-    //  while (Cache.Count > COUNT_MAX_ACCOUNTS_IN_CACHE * HYSTERESIS_COUNT_MAX_CACHE_ARCHIV)
-    //    if (Network.TryLoadBlock(heightBlock, out Block block)) 
-    //      // hier doch einfach die ältesten entries löschen, mit Dictionary<int, List<Account>> AccountsGroupedByBlockheightLastModified = new(); arbeiten
-    //    {
-    //      $"Loaded block {block} for insertion in disk database and removal from cache.".Log(this, LogEntryNotifier);
-
-    //      RemoveAccountsFromCache(block);
-
-    //      foreach (TXBToken tX in block.TXs)
-    //      {
-    //        if (!AccountsStaged.TryGetValue(tX.IDAccountSource, out Account accountSource))
-    //        {
-    //          accountSource = DatabaseAccountCollection.FindById(tX.IDAccountSource) ??
-    //            throw new ProtocolException($"Account {tX.IDAccountSource.ToHexString()} referenced by TX {tX} not found in database.");
-
-    //          if (accountSource.BlockHeightLastUpdated < heightBlock)
-    //          {
-    //            accountSource.BlockHeightLastUpdated = heightBlock;
-    //            AccountsStaged.Add(accountSource.ID, accountSource);
-    //          }
-    //        }
-
-    //        accountSource.Nonce += 1;
-    //        accountSource.Balance -= tX.Fee + tX.GetValueOutputs();
-
-    //        foreach (TXOutputBToken tXOutput in tX.TXOutputs)
-    //        {
-    //          if (!AccountsStaged.TryGetValue(tXOutput.IDAccount, out Account accountOutput))
-    //          {
-    //            accountOutput = DatabaseAccountCollection.FindById(tXOutput.IDAccount) ??
-    //              new()
-    //              {
-    //                ID = tXOutput.IDAccount,
-    //                BlockHeightAccountCreated = heightBlock
-    //              };
-
-    //            if (accountOutput.BlockHeightLastUpdated < heightBlock)
-    //            {
-    //              accountOutput.BlockHeightLastUpdated = heightBlock;
-    //              AccountsStaged.Add(accountOutput.ID, accountOutput);
-    //            }
-    //          }
-
-    //          accountOutput.Balance += tXOutput.Value;
-    //        }
-    //      }
-
-    //      List<byte[]> accountIDsWhereBalanceZero = AccountsStaged.Values.Where(a => a.Balance == 0).Select(a => a.ID).ToList();
-
-    //      foreach (byte[] id in accountIDsWhereBalanceZero)
-    //      {
-    //        DatabaseAccountCollection.Delete(id);
-    //        AccountsStaged.Remove(id);
-    //      }
-
-    //      foreach (var batch in AccountsStaged.Values.Chunk(500))
-    //        DatabaseAccountCollection.Upsert(batch);
-
-    //      DatabaseMetaCollection.Upsert(new BsonDocument
-    //      {
-    //        ["_id"] = "lastProcessedBlock",
-    //        ["hash"] = block.Header.Hash,
-    //        ["height"] = heightBlock
-    //      });
-
-    //      heightBlock += 1;
-    //    }
-    //    else
-    //    {
-    //      $"Failed to load block {block} for insertion in disk database and removal from cache.".Log(this, LogEntryNotifier);
-    //      // Reload state
-    //    }
-
-    //  Database.Checkpoint();
-    //}
-
     Account GetCopyOfAccount(byte[] accountID)
     {
-      //if (Cache.TryGetValue(accountID, out Account accountCached))
-      //  return new(accountCached);
-      //else
       if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
         return new(accountStored);
       else
