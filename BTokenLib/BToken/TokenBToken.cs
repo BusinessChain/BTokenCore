@@ -31,9 +31,6 @@ namespace BTokenLib
     string PathRootDB;
     public const int COUNT_FILES_DB = 256;
     byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
-    const int COUNT_MAX_ACCOUNTS_IN_CACHE = 5_000_000; // Read from configuration file
-    const int COUNT_EVICTION_ACCOUNTS_FROM_CACHE = 200_000; // Read from configuration file
-    const double HYSTERESIS_COUNT_MAX_CACHE_ARCHIV = 0.9;
 
 
     public TokenBToken(ILogEntryNotifier logEntryNotifier, Token tokenParent)
@@ -43,6 +40,7 @@ namespace BTokenLib
 
       SizeBlockMax = SIZE_BLOCK_MAX;
 
+      Database = new LiteDatabase($"Filename={GetName()}.db;Mode=Exclusive");
       DatabaseAccountCollection = Database.GetCollection<Account>("accounts");
       DatabaseMetaCollection = Database.GetCollection<BsonDocument>("meta");
 
@@ -115,8 +113,6 @@ namespace BTokenLib
 
 
     const int LENGTH_TX_P2PKH = 120;
-    Account AccountWalletConfirmed;
-    Account AccountWallet;
 
     public override bool TryCreateTXAnchor(
       TXOutputTokenAnchor tokenAnchor, 
@@ -128,14 +124,16 @@ namespace BTokenLib
 
       long fee = feePerByte * LENGTH_TX_P2PKH;
 
-      if (AccountWallet.Balance < fee)
+      Account accountWallet = null; // Aus DB holen hier
+
+      if (accountWallet == null || accountWallet.Balance < fee)
         return false;
 
       TXBToken tX = new()
       {
         KeyPublic = Wallet.KeyPublic,
-        BlockheightAccountCreated = AccountWallet.BlockHeightAccountCreated,
-        Nonce = AccountWallet.Nonce,
+        BlockheightAccountCreated = accountWallet.BlockHeightAccountCreated,
+        Nonce = accountWallet.Nonce,
         Fee = fee
       };
 
@@ -143,7 +141,7 @@ namespace BTokenLib
 
       tX.Serialize(Wallet);
 
-      InsertTXUnconfirmed(tX);
+      TXPool.AddTX(tX);
 
       return true;
     }
@@ -173,25 +171,6 @@ namespace BTokenLib
       return false;
     }
 
-    protected void CommitStaged(Block block)
-    {
-      // In die DB einfügen
-      foreach (var account in AccountsStaged)
-      {
-        if (account.Value.Balance > 0)
-          Cache[account.Key] = account.Value;
-        else
-          Cache.Remove(account.Key);
-      }
-
-      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
-    }
-
-    protected void DiscardStaged()
-    {
-      AccountsStaged.Clear();
-    }
-
     public override void InsertBlock(Block block) 
     {
       try
@@ -207,47 +186,21 @@ namespace BTokenLib
             StageSpendTXInput(tX);
         }
 
-        CommitStaged(block);
+        foreach (Account account in AccountsStaged.Values)
+          if (account.Balance > 0)
+            DatabaseAccountCollection.Upsert(account);
+          else
+            DatabaseAccountCollection.Delete(account.ID);
 
-        foreach (TXBToken tX in block.TXs)
-        {
-          bool flagIndexTX = false;
-
-          if (tX.IDAccountSource.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-          {
-            flagIndexTX = true;
-            AccountWalletConfirmed.SpendTX(tX);
-          }
-
-          foreach (TXOutputP2PKH output in tX.TXOutputs)
-            if (output.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-            {
-              flagIndexTX = true;
-              AccountWalletConfirmed.Balance += output.Value;
-            }
-
-          if (flagIndexTX)
-            DatabaseTXCollection.Upsert(
-              new DBRecordTXWallet()
-              {
-                HashTX = tX.Hash,
-                BlockHeightOriginTX = block.Header.Height,
-                SerialNumberTX = SerialNumberTX++,
-                TXRaw = tX.TXRaw
-              });
-        }
+        TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
       }
       finally
       {
-        DiscardStaged();
+        AccountsStaged.Clear();
       }
     }
 
     int SerialNumberTX;
-
-    List<TX> TXsUnconfirmedReceived = new();
-
-    ILiteCollection<DBRecordTXWallet> DatabaseTXCollection;
 
     protected void StageInsertTXOutput(TXOutput tXOutput, int blockHeight)
     {
@@ -277,7 +230,7 @@ namespace BTokenLib
               Balance = tXOutput.Value
             };
 
-          AccountsStaged.Add(tXOutput.IDAccount, accountStaged);
+          AccountsStaged.Add(accountStaged.ID, accountStaged);
         }
       }
     }
@@ -290,45 +243,6 @@ namespace BTokenLib
         throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
     }
 
-    public void InsertTXUnconfirmed(TX tX)
-    {
-      if (!TryLock())
-        throw new SynchronizationLockException("Failed to acquire database lock.");
-
-      try
-      {
-        TXPool.AddTX(tX);
-
-        TXBToken tXBToken = tX as TXBToken;
-
-        if (tXBToken.IDAccountSource.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-          AccountWallet.SpendTX(tXBToken);
-
-        foreach (TXOutputP2PKH output in tXBToken.TXOutputs)
-          if (output.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-            AccountWallet.Balance += output.Value;
-      }
-      finally
-      {
-        ReleaseLock();
-      }
-    }
-
-    public Account GetCopyOfAccountUnconfirmed(byte[] iDAccount)
-    {
-      if (!TryLock())
-        throw new SynchronizationLockException("Failed to acquire database lock.");
-
-      try
-      {
-        return ((PoolTXBToken)TXPool).GetCopyOfAccount(iDAccount);
-      }
-      finally
-      {
-        ReleaseLock();
-      }
-    }
-
     protected void StageSpendTXInput(TX tX)
     {
       var tXBToken = tX as TXBToken;
@@ -338,25 +252,6 @@ namespace BTokenLib
 
       accountStaged.SpendTX(tXBToken);
     }
-         
-    //void RemoveAccountsFromCache(Block block)
-    //{
-    //  int heightBlock = block.Header.Height;
-
-    //  foreach (TXBToken tX in block.TXs)
-    //  {
-    //    TryRemove(tX.IDAccountSource);
-
-    //    foreach (TXOutputBToken outputBToken in tX.TXOutputs)
-    //      TryRemove(outputBToken.IDAccount);
-    //  }
-
-    //  void TryRemove(byte[] id)
-    //  {
-    //    if (Cache.TryGetValue(id, out Account account) && account.BlockHeightLastUpdated == heightBlock)
-    //      Cache.Remove(id);
-    //  }
-    //}
 
     public override void ReverseBlock(Block block)
     {
@@ -367,13 +262,10 @@ namespace BTokenLib
           TXBToken tX = block.TXs[i] as TXBToken;
 
           if(i > 0)
-            ReverseSpendInputInCache(tX);
+            ReverseSpendInputInDB(tX);
 
-          foreach (TXOutputP2PKH output in tX.TXOutputs)
-            ReverseOutputInCache(output);
-
-          //foreach (var account in AccountsStaged)
-          //  Cache[account.Key] = account.Value;
+          foreach (TXOutput output in tX.TXOutputs)
+            ReverseOutputInDB(output);
         }
       }
       finally
@@ -382,35 +274,14 @@ namespace BTokenLib
       }
     }
 
-    void ReverseOutputInCache(TXOutputP2PKH output)
+    void ReverseSpendInputInDB(TXBToken tX)
     {
-      if (!AccountsStaged.TryGetValue(output.IDAccount, out Account accountStaged))
-      {
-        //if (!Cache.TryGetValue(output.IDAccount, out accountStaged))
-        //  throw new ProtocolException($"TX Output cannot be reversed because account {output.IDAccount.ToHexString()} does not exist in cache.");
 
-        AccountsStaged.Add(output.IDAccount, accountStaged);
-      }
-
-      accountStaged.Balance -= output.Value;
     }
 
-    public void ReverseSpendInputInCache(TXBToken tX)
+    void ReverseOutputInDB(TXOutput tXOutput)
     {
-      if (!AccountsStaged.TryGetValue(tX.IDAccountSource, out Account accountStaged))
-      {
-        //if (!Cache.TryGetValue(tX.IDAccountSource, out accountStaged))
-        //  accountStaged = new()
-        //  {
-        //    ID = tX.IDAccountSource,
-        //    BlockHeightAccountCreated = tX.BlockheightAccountCreated,
-        //    Nonce = tX.Nonce,
-        //  };
 
-        AccountsStaged.Add(tX.IDAccountSource, accountStaged);
-      }
-
-      accountStaged.ReverseSpendTX(tX);
     }
 
     public List<byte[]> ParseHashesDB(byte[] buffer, int length, Header headerTip)
@@ -423,13 +294,6 @@ namespace BTokenLib
         throw new ProtocolException($"Root hash of hashesDB not equal to database hash in header tip");
 
       List<byte[]> hashesDB = new();
-
-      //for (int i = 0; i < DBAccounts.COUNT_CACHES + DBAccounts.COUNT_FILES_DB; i += 32)
-      //{
-      //  byte[] hashDB = new byte[32];
-      //  Array.Copy(buffer, i, hashDB, 0, 32);
-      //  hashesDB.Add(hashDB);
-      //}
 
       return hashesDB;
     }

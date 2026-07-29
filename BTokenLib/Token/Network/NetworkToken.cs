@@ -58,7 +58,7 @@ namespace BTokenLib
         foreach (FileInfo file in DirectoryPeersActive.GetFiles())
           file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
 
-        string connectionString = $"Filename={token.GetName()}.db;Mode=Exclusive";
+        string connectionString = $"Filename={token.GetName() + "Network"}.db;Mode=Exclusive";
         LiteDatabase = new LiteDatabase(connectionString);
         DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
         DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
@@ -69,10 +69,8 @@ namespace BTokenLib
         if (NetworkParent != null)
           NetworkParent.Start();
 
-        Log($"Load state from disk.");
         BlockchainRoot.LoadFromDisk();
 
-        Log($"Start Network.");
         StartPeerConnector();
       }
 

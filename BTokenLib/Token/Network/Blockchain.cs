@@ -24,6 +24,7 @@ namespace BTokenLib
         Header HeaderTipBlockchain;
 
         string PathDirectoryBlocks;
+        DirectoryInfo DirectoryBlocks;
 
         Dictionary<byte[], Header> HeadersDownloading = new(new EqualityComparerByteArray());
         Header HeaderDownloadNext;
@@ -41,27 +42,28 @@ namespace BTokenLib
           Network = network;
 
           BlockLoad = new(Token);
+
+          DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
         }
 
-        public Blockchain(Blockchain synchronizationRoot, Header headerRoot, Header headerTip)
+        public Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
         {
-          BlockchainParent = synchronizationRoot;
+          BlockchainParent = blockchainParent;
           HeaderRoot = headerRoot;
           HeaderTip = headerTip;
 
-          if (synchronizationRoot == null)
-            PathDirectoryBlocks = "blocksSyncRoot";
-          else
-          {
-            int indexBranch = synchronizationRoot.BlockchainBranches.Count;
-            PathDirectoryBlocks = Path.Combine(synchronizationRoot.PathDirectoryBlocks, $"branch{indexBranch}");
-          }
+          string pathDirectory = Path.Combine(
+            blockchainParent.DirectoryBlocks.FullName, 
+            "branch" + blockchainParent.BlockchainBranches.Count.ToString());
+
+          DirectoryBlocks = Directory.CreateDirectory(pathDirectory);
         }
+
 
         public void LoadFromDisk()
         {
-          int heightBlockNext = Directory.GetFiles(PathDirectoryBlocks, "*.blk")
-          .Select(Path.GetFileNameWithoutExtension)
+          int heightBlockNext = DirectoryBlocks.GetFiles()
+          .Select(file => Path.GetFileNameWithoutExtension(file.Name))
           .Where(name => int.TryParse(name, out _))
           .Select(name => int.Parse(name))
           .DefaultIfEmpty(0)
@@ -394,7 +396,7 @@ namespace BTokenLib
 
         public void LoadBlock(int height, Block blockUpload)
         {
-          string pathFile = Path.Combine(PathDirectoryBlocks, height.ToString());
+          string pathFile = Path.Combine(DirectoryBlocks.FullName, height.ToString());
 
           using FileStream fileBlock = File.OpenRead(pathFile);
 
