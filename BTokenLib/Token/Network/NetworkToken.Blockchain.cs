@@ -7,186 +7,185 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public abstract partial class Token
 {
-  public abstract partial class Token
+  protected partial class NetworkToken
   {
-    protected partial class NetworkToken
+    SemaphoreSlim SemaphoreBlockchainRoot = new(1);
+    Blockchain BlockchainRoot;
+
+    ConcurrentBag<Block> PoolBlocks = new();
+
+    string PathBlocksMined = "blocksMined";
+    bool IsMining;
+    long FeePerByte;
+    List<Block> BlocksMinedCache = new();
+
+    async Task<bool> TryLockBlockchain(int timeout)
     {
-      SemaphoreSlim SemaphoreBlockchainRoot = new(1);
-      Blockchain BlockchainRoot;
+      if (NetworkParent != null)
+        return await NetworkParent.TryLockBlockchain(timeout);
 
-      ConcurrentBag<Block> PoolBlocks = new();
+      return await SemaphoreBlockchainRoot.WaitAsync(timeout).ConfigureAwait(false);
+    }
 
-      string PathBlocksMined = "blocksMined";
-      bool IsMining;
-      long FeePerByte;
-      List<Block> BlocksMinedCache = new();
+    void ReleaseLockBlockchain()
+    {
+      if (NetworkParent != null)
+        NetworkParent.ReleaseLockBlockchain();
+      else
+        SemaphoreBlockchainRoot.Release();
+    }
 
-      async Task<bool> TryLockBlockchain(int timeout)
+    public async Task<List<byte[]>> ExtendHeaderchain(
+      Header headerRoot,
+      Block blockDownload)
+    {
+      List<byte[]> headerslocator = null;
+
+      if (!await TryLockBlockchain(10000))
+        return headerslocator;
+
+      try
       {
-        if (NetworkParent != null)
-          return await NetworkParent.TryLockBlockchain(timeout);
+        BlockchainRoot.TryExtendHeaderchain(
+          headerRoot,
+          out headerslocator,
+          blockDownload);
 
-        return await SemaphoreBlockchainRoot.WaitAsync(timeout).ConfigureAwait(false);
+        return headerslocator;
       }
-
-      void ReleaseLockBlockchain()
+      finally
       {
-        if (NetworkParent != null)
-          NetworkParent.ReleaseLockBlockchain();
-        else
-          SemaphoreBlockchainRoot.Release();
+        ReleaseLockBlockchain();
       }
+    }
 
-      public async Task<List<byte[]>> ExtendHeaderchain(
-        Header headerRoot,
-        Block blockDownload)
-      {
-        List<byte[]> headerslocator = null;
-
-        if (!await TryLockBlockchain(10000))
-          return headerslocator;
-
+    async Task<Block> InsertBlock(Block block)
+    {
+      if (await TryLockBlockchain(10000))
         try
         {
-          BlockchainRoot.TryExtendHeaderchain(
-            headerRoot,
-            out headerslocator,
-            blockDownload);
-
-          return headerslocator;
+          BlockchainRoot.TryAppendBlock(ref block, ref BlockchainRoot);
         }
         finally
         {
           ReleaseLockBlockchain();
         }
-      }
 
-      async Task<Block> InsertBlock(Block block)
+      return block;
+    }
+
+    void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
+    {
+      try
       {
-        if (await TryLockBlockchain(10000))
-          try
-          {
-            BlockchainRoot.TryAppendBlock(ref block, ref BlockchainRoot);
-          }
-          finally
-          {
-            ReleaseLockBlockchain();
-          }
+        Block blockMined = BlocksMinedCache
+          .Find(b => b.Header.Hash.IsAllBytesEqual(tokenAnchor.HashBlockReferenced));
 
-        return block;
-      }
-
-      void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
-      {
-        try
+        if (blockMined == null)
         {
-          Block blockMined = BlocksMinedCache
-            .Find(b => b.Header.Hash.IsAllBytesEqual(tokenAnchor.HashBlockReferenced));
+          string pathFileBlock = Path.Combine(PathBlocksMined, blockMined.Header.Height.ToString());
 
-          if (blockMined == null)
+          if (!File.Exists(pathFileBlock))
+            return;
+
+          blockMined = new(Token, File.ReadAllBytes(pathFileBlock));
+          blockMined.Parse();
+        }
+
+        if (BlockchainRoot.TryExtendHeaderchain(blockMined.Header, out List<byte[]> headerslocator, blockMined))
+          if (BlockchainRoot.TryAppendBlock(ref blockMined, ref BlockchainRoot))
           {
-            string pathFileBlock = Path.Combine(PathBlocksMined, blockMined.Header.Height.ToString());
-
-            if (!File.Exists(pathFileBlock))
-              return;
-
-            blockMined = new(Token, File.ReadAllBytes(pathFileBlock));
-            blockMined.Parse();
+            // Hier ein sendBlock machen und intern zuerst header und dann wenn
+            // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
+            lock (LOCK_Peers)
+              Peers.ForEach(p => HeadersMessage.SendHeaders(
+                p,
+                new List<byte[]> { blockMined.Header.Hash }));
           }
 
-          if (BlockchainRoot.TryExtendHeaderchain(blockMined.Header, out List<byte[]> headerslocator, blockMined))
-            if (BlockchainRoot.TryAppendBlock(ref blockMined, ref BlockchainRoot))
-            {
-              // Hier ein sendBlock machen und intern zuerst header und dann wenn
-              // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
-              lock (LOCK_Peers)
-                Peers.ForEach(p => HeadersMessage.SendHeaders(
-                  p,
-                  new List<byte[]> { blockMined.Header.Hash }));
-            }
+        // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.
+        // Dem user kann im GUI auch ein Tool zur verfügung gestellt werden welches ihm 
+        // erlaubt, die Fee Rate automatisiert zu steuern. z.B. anhand vergangener Fee Raten
+        // oder Marktpreis Arbitrierung.
 
-          // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.
-          // Dem user kann im GUI auch ein Tool zur verfügung gestellt werden welches ihm 
-          // erlaubt, die Fee Rate automatisiert zu steuern. z.B. anhand vergangener Fee Raten
-          // oder Marktpreis Arbitrierung.
-
-          if (IsMining)
-          {
-            Block block = BlockchainRoot.MineBlock(out TXOutputTokenAnchor anchorToken);
-
-            BlocksMinedCache.Add(block);
-
-            block.WriteToDisk(PathBlocksMined);
-
-            NetworkParent.MineTokenAnchor(tokenAnchor);
-          }
-        }
-        catch (Exception ex)
+        if (IsMining)
         {
-          $"{ex.GetType().Name} when attempting to load mined block {tokenAnchor.HashBlockReferenced.ToHexString()}: {ex.Message}.\n".Log(this, LogEntryNotifier);
+          Block block = BlockchainRoot.MineBlock(out TXOutputTokenAnchor anchorToken);
+
+          BlocksMinedCache.Add(block);
+
+          block.WriteToDisk(PathBlocksMined);
+
+          NetworkParent.MineTokenAnchor(tokenAnchor);
         }
       }
-
-      void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
+      catch (Exception ex)
       {
-        if (Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
-          lock (LOCK_Peers)
-            foreach (Peer peer in Peers)
-              peer.BroadcastTX(tX);
-        else
-        {
-          $"Could not create anchor tX, stop mining.".Log(this, LogEntryNotifier);
-          IsMining = false;
-        }
+        $"{ex.GetType().Name} when attempting to load mined block {tokenAnchor.HashBlockReferenced.ToHexString()}: {ex.Message}.\n".Log(this, LogEntryNotifier);
       }
+    }
 
-      List<byte[]> GetLocator()
+    void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
+    {
+      if (Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
+        lock (LOCK_Peers)
+          foreach (Peer peer in Peers)
+            peer.BroadcastTX(tX);
+      else
       {
-        lock (BlockchainRoot)
-          return BlockchainRoot.GetLocator();
+        $"Could not create anchor tX, stop mining.".Log(this, LogEntryNotifier);
+        IsMining = false;
       }
+    }
 
-      async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
-        List<byte[]> hashesLocator,
-        int maxCountHeaders)
+    List<byte[]> GetLocator()
+    {
+      lock (BlockchainRoot)
+        return BlockchainRoot.GetLocator();
+    }
+
+    async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
+      List<byte[]> hashesLocator,
+      int maxCountHeaders)
+    {
+      if (!await TryLockBlockchain(10000))
+        return (headers: new(), heightAncestor: -1);
+
+      try
       {
-        if (!await TryLockBlockchain(10000))
-          return (headers: new(), heightAncestor: -1);
-
-        try
-        {
-          return BlockchainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
-        }
-        finally
-        {
-          ReleaseLockBlockchain();
-        }
+        return BlockchainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
       }
-
-      public async Task GetBlock(byte[] hash, Block blockUpload)
+      finally
       {
-        if (!await TryLockBlockchain(10000))
-          return;
-
-        try
-        {
-          BlockchainRoot.GetBlock(hash, blockUpload);
-        }
-        finally
-        {
-          ReleaseLockBlockchain();
-        }
+        ReleaseLockBlockchain();
       }
+    }
 
-      public void StartMining()
+    public async Task GetBlock(byte[] hash, Block blockUpload)
+    {
+      if (!await TryLockBlockchain(10000))
+        return;
+
+      try
       {
-        if (NetworkParent == null)
-          return;
-
-        IsMining = true;
+        BlockchainRoot.GetBlock(hash, blockUpload);
       }
+      finally
+      {
+        ReleaseLockBlockchain();
+      }
+    }
+
+    public void StartMining()
+    {
+      if (NetworkParent == null)
+        return;
+
+      IsMining = true;
     }
   }
 }

@@ -1,9 +1,9 @@
-﻿namespace BTokenLib
+﻿
+namespace BTokenCore;
+
+public class TXOutputWallet
 {
-  public class TXOutputWallet
-  {
-    public byte[] TXID = new byte[32];
-    public int Index;
-    public long Value;
-  }
+  public byte[] TXID = new byte[32];
+  public int Index;
+  public long Value;
 }

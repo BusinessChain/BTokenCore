@@ -8,105 +8,103 @@ using System.Collections.Generic;
 using LiteDB;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public abstract partial class Token
 {
-  public abstract partial class Token
+  protected partial class NetworkToken
   {
-    protected partial class NetworkToken
+    public NetworkToken NetworkParent;
+
+    public List<NetworkToken> NetworksChild = new();
+
+    public Token Token;
+
+    LiteDatabase LiteDatabase;
+    ILiteCollection<BsonDocument> DatabaseMetaCollection;
+    ILiteCollection<BsonDocument> DatabaseHeaderCollection;
+
+
+    public NetworkToken(
+      Token tokenParent,
+      Token token,
+      int port,
+      bool flagEnableInboundConnections,
+      bool flagEnableRelay)
     {
-      public NetworkToken NetworkParent;
+      NetworkParent = tokenParent?.Network;
+      Token = token;
 
-      public List<NetworkToken> NetworksChild = new();
+      BlockchainRoot = new(Token, this);
 
-      public Token Token;
+      EnableInboundConnections = flagEnableInboundConnections;
+      EnableRelay = flagEnableRelay;
 
-      LiteDatabase LiteDatabase;
-      ILiteCollection<BsonDocument> DatabaseMetaCollection;
-      ILiteCollection<BsonDocument> DatabaseHeaderCollection;
+      string pathRoot = token.GetName();
 
+      DirectoryPeers = Directory.CreateDirectory(
+        Path.Combine(pathRoot, "logPeers"));
 
-      public NetworkToken(
-        Token tokenParent,
-        Token token,
-        int port,
-        bool flagEnableInboundConnections,
-        bool flagEnableRelay)
+      DirectoryPeersActive = Directory.CreateDirectory(
+        Path.Combine(DirectoryPeers.FullName, "active"));
+
+      DirectoryPeersDisposed = Directory.CreateDirectory(
+        Path.Combine(DirectoryPeers.FullName, "disposed"));
+
+      DirectoryPeersArchive = Directory.CreateDirectory(
+        Path.Combine(DirectoryPeers.FullName, "archive"));
+
+      foreach (FileInfo file in DirectoryPeersActive.GetFiles())
+        file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
+
+      string connectionString = $"Filename={token.GetName() + "Network"}.db;Mode=Exclusive";
+      LiteDatabase = new LiteDatabase(connectionString);
+      DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
+      DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
+    }
+
+    public void Start()
+    {
+      if (NetworkParent != null)
+        NetworkParent.Start();
+
+      BlockchainRoot.LoadFromDisk();
+
+      StartPeerConnector();
+    }
+
+    async Task StartHeaderSync(Peer peer)
+    {
+      if (!await TryLockBlockchain(10000))
+        return;
+
+      try
       {
-        NetworkParent = tokenParent?.Network; 
-        Token = token;
-
-        BlockchainRoot = new(Token, this);
-
-        EnableInboundConnections = flagEnableInboundConnections;
-        EnableRelay = flagEnableRelay;
-
-        LogEntryNotifier = token.LogEntryNotifier;
-        string pathRoot = token.GetName();
-
-        DirectoryPeers = Directory.CreateDirectory(
-          Path.Combine(pathRoot, "logPeers"));
-
-        DirectoryPeersActive = Directory.CreateDirectory(
-          Path.Combine(DirectoryPeers.FullName, "active"));
-
-        DirectoryPeersDisposed = Directory.CreateDirectory(
-          Path.Combine(DirectoryPeers.FullName, "disposed"));
-
-        DirectoryPeersArchive = Directory.CreateDirectory(
-          Path.Combine(DirectoryPeers.FullName, "archive"));
-
-        foreach (FileInfo file in DirectoryPeersActive.GetFiles())
-          file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
-
-        string connectionString = $"Filename={token.GetName() + "Network"}.db;Mode=Exclusive";
-        LiteDatabase = new LiteDatabase(connectionString);
-        DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
-        DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
+        if (NetworkParent.BlockchainRoot.GetHeight() > BlockchainRoot.GetHeight())
+          GetHeadersMessage.SendGetHeaders(peer, GetLocator());
       }
-
-      public void Start()
+      finally
       {
-        if (NetworkParent != null)
-          NetworkParent.Start();
-
-        BlockchainRoot.LoadFromDisk();
-
-        StartPeerConnector();
+        ReleaseLockBlockchain();
       }
+    }
 
-      async Task StartHeaderSync(Peer peer)
-      {
-        if (!await TryLockBlockchain(10000))
-          return;
+    void NotifyChildNetworksOfAnchorToken(Block block)
+    {
+      Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
+        new(new EqualityComparerByteArray());
 
-        try
-        {
-          if (NetworkParent.BlockchainRoot.GetHeight() > BlockchainRoot.GetHeight())
-            GetHeadersMessage.SendGetHeaders(peer, GetLocator());
-        }
-        finally
-        {
-          ReleaseLockBlockchain();
-        }
-      }
+      foreach (TX tX in block.TXs)
+        foreach (TXOutput tXOutput in tX.TXOutputs)
+          if (tXOutput is TXOutputTokenAnchor tokenAnchor)
+            if (cacheAnchorTokens.TryAdd(tokenAnchor.HashBlockReferenced, tokenAnchor))
+              NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken))
+                ?.OnTokenAnchorParent(tokenAnchor);
+    }
 
-      void NotifyChildNetworksOfAnchorToken(Block block)
-      {
-        Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
-          new(new EqualityComparerByteArray());
-
-        foreach (TX tX in block.TXs)
-          foreach (TXOutput tXOutput in tX.TXOutputs)
-            if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-              if (cacheAnchorTokens.TryAdd(tokenAnchor.HashBlockReferenced, tokenAnchor))
-                NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken))
-                  ?.OnTokenAnchorParent(tokenAnchor);
-      }
-         
-      void Log(string messageLog)
-      {
-        messageLog.Log(this, LogEntryNotifier);
-      }
+    void Log(string messageLog)
+    {
+      messageLog.Log(this, SocketToken);
     }
   }
 }

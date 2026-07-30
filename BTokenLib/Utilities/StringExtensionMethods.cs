@@ -6,104 +6,104 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public static class StringExtensionMethods
 {
-  public static class StringExtensionMethods
+  public static bool TryMoveDirectoryTo(this string pathSource, string pathDest)
   {
-    public static bool TryMoveDirectoryTo(this string pathSource, string pathDest)
-    {
-      if (!Directory.Exists(pathSource))
-        return false;
+    if (!Directory.Exists(pathSource))
+      return false;
 
-      while (true)
-        try
-        {
-          if (Directory.Exists(pathDest))
-            Directory.Delete(pathDest, true);
-
-          Directory.Move(pathSource, pathDest);
-
-          return true;
-        }
-        catch (Exception ex)
-        {
-          Console.WriteLine(
-            $"{ex.GetType().Name} when attempting " +
-            $"to move directory:\n{ex.Message}");
-
-          Thread.Sleep(10000);
-        }
-    }
-
-    public static byte[] Base58ToByteArray(this string base58)
-    {
-      Org.BouncyCastle.Math.BigInteger bi2 = new Org.BouncyCastle.Math.BigInteger("0");
-      string b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
-      foreach (char c in base58)
+    while (true)
+      try
       {
-        if (b58.IndexOf(c) != -1)
-        {
-          bi2 = bi2.Multiply(new Org.BouncyCastle.Math.BigInteger("58"));
-          bi2 = bi2.Add(new Org.BouncyCastle.Math.BigInteger(b58.IndexOf(c).ToString()));
-        }
-        else
-        {
-          return null;
-        }
+        if (Directory.Exists(pathDest))
+          Directory.Delete(pathDest, true);
+
+        Directory.Move(pathSource, pathDest);
+
+        return true;
       }
-
-      byte[] bb = bi2.ToByteArrayUnsigned();
-
-      // interpret leading '1's as leading zero bytes
-      foreach (char c in base58)
+      catch (Exception ex)
       {
-        if (c != '1') break;
-        byte[] bbb = new byte[bb.Length + 1];
-        Array.Copy(bb, 0, bbb, 1, bb.Length);
-        bb = bbb;
+        Console.WriteLine(
+          $"{ex.GetType().Name} when attempting " +
+          $"to move directory:\n{ex.Message}");
+
+        Thread.Sleep(10000);
       }
+  }
 
-      return bb;
-    }
+  public static byte[] Base58ToByteArray(this string base58)
+  {
+    Org.BouncyCastle.Math.BigInteger bi2 = new Org.BouncyCastle.Math.BigInteger("0");
+    string b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-    public static byte[] ToBinary(this string hexString)
+    foreach (char c in base58)
     {
-      hexString = hexString.ToUpper();
-
-      byte[] result = new byte[hexString.Length / 2];
-
-      for(int i = 0; i < result.Length; i++)
+      if (b58.IndexOf(c) != -1)
       {
-        string hexChar = hexString.Substring(i * 2, 2);
-
-        if(!HEX2BYTE.TryGetValue(hexChar, out result[result.Length - i - 1]))
-        {
-          throw new ArgumentOutOfRangeException($"{hexChar} not not convertible to byte.");
-        }
+        bi2 = bi2.Multiply(new Org.BouncyCastle.Math.BigInteger("58"));
+        bi2 = bi2.Add(new Org.BouncyCastle.Math.BigInteger(b58.IndexOf(c).ToString()));
       }
-
-      return result;
+      else
+      {
+        return null;
+      }
     }
 
-    public static byte[] Base58CheckToPubKeyHash(this string base58)
+    byte[] bb = bi2.ToByteArrayUnsigned();
+
+    // interpret leading '1's as leading zero bytes
+    foreach (char c in base58)
     {
-      byte[] bb = base58.Base58ToByteArray();
-
-      using SHA256 sha256 = SHA256.Create();
-      byte[] checksum = sha256.ComputeHash(bb, 0, bb.Length - 4);
-      checksum = sha256.ComputeHash(checksum);
-
-      for (int i = 0; i < 4; i++)
-        if (checksum[i] != bb[bb.Length - 4 + i])
-          throw new Exception($"Invalid checksum in address {base58}.");
-
-      byte[] rv = new byte[bb.Length - 5];
-      Array.Copy(bb, 1, rv, 0, bb.Length - 5);
-      return rv;
+      if (c != '1') break;
+      byte[] bbb = new byte[bb.Length + 1];
+      Array.Copy(bb, 0, bbb, 1, bb.Length);
+      bb = bbb;
     }
 
-    static readonly Dictionary<string, byte> HEX2BYTE = new()
+    return bb;
+  }
+
+  public static byte[] ToBinary(this string hexString)
+  {
+    hexString = hexString.ToUpper();
+
+    byte[] result = new byte[hexString.Length / 2];
+
+    for (int i = 0; i < result.Length; i++)
+    {
+      string hexChar = hexString.Substring(i * 2, 2);
+
+      if (!HEX2BYTE.TryGetValue(hexChar, out result[result.Length - i - 1]))
+      {
+        throw new ArgumentOutOfRangeException($"{hexChar} not not convertible to byte.");
+      }
+    }
+
+    return result;
+  }
+
+  public static byte[] Base58CheckToPubKeyHash(this string base58)
+  {
+    byte[] bb = base58.Base58ToByteArray();
+
+    using SHA256 sha256 = SHA256.Create();
+    byte[] checksum = sha256.ComputeHash(bb, 0, bb.Length - 4);
+    checksum = sha256.ComputeHash(checksum);
+
+    for (int i = 0; i < 4; i++)
+      if (checksum[i] != bb[bb.Length - 4 + i])
+        throw new Exception($"Invalid checksum in address {base58}.");
+
+    byte[] rv = new byte[bb.Length - 5];
+    Array.Copy(bb, 1, rv, 0, bb.Length - 5);
+    return rv;
+  }
+
+  static readonly Dictionary<string, byte> HEX2BYTE = new()
     {
       { "00", 0x00 },
       { "01", 0x01 },
@@ -363,50 +363,49 @@ namespace BTokenLib
       { "FF", 0xFF }
     };
 
-    public static void Log(this string message, object module, ILogEntryNotifier logEntryNotifier)
-    {
-      Log(
-        message,
-        module,
-        new List<StreamWriter>(),
-        logEntryNotifier);
-    }
+  public static void Log(this string message, object module, ILogEntryNotifier logEntryNotifier)
+  {
+    Log(
+      message,
+      module,
+      new List<StreamWriter>(),
+      logEntryNotifier);
+  }
 
-    public static void Log(
-      this string message,
-      object module,
-      StreamWriter logFile,
-      ILogEntryNotifier logEntryNotifier)
-    {
-      Log(
-        message, 
-        module, 
-        new List<StreamWriter>() { logFile },
-        logEntryNotifier);
-    }
+  public static void Log(
+    this string message,
+    object module,
+    StreamWriter logFile,
+    ILogEntryNotifier logEntryNotifier)
+  {
+    Log(
+      message,
+      module,
+      new List<StreamWriter>() { logFile },
+      logEntryNotifier);
+  }
 
-    public static void Log(
-      this string message,
-      object module,
-      List<StreamWriter> logFiles,
-      ILogEntryNotifier logEntryNotifier)
-    {
-      string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");
-      string logString = dateTime + " --- " + module + " >> " + message;
+  public static void Log(
+    this string message,
+    object module,
+    List<StreamWriter> logFiles,
+    ILogEntryNotifier logEntryNotifier)
+  {
+    string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");
+    string logString = dateTime + " --- " + module + " >> " + message;
 
-      foreach (StreamWriter logFile in logFiles)
-        lock (logFile)
-        {
-          logFile.WriteLine(logString);
-          logFile.Flush();
-        }
+    foreach (StreamWriter logFile in logFiles)
+      lock (logFile)
+      {
+        logFile.WriteLine(logString);
+        logFile.Flush();
+      }
 
-      logEntryNotifier?.NotifyLogEntry(logString, module.GetType().Name);
-    }
+    logEntryNotifier?.NotifyLogEntry(logString, module.GetType().Name);
+  }
 
-    public static string GetIPFromFileName(this string fileName)
-    {
-      return new string(fileName.TakeWhile(c => c != '-').ToArray());
-    }
+  public static string GetIPFromFileName(this string fileName)
+  {
+    return new string(fileName.TakeWhile(c => c != '-').ToArray());
   }
 }

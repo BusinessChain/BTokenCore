@@ -2,90 +2,89 @@
 using System.Linq;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public partial class TokenBToken : Token
 {
-  public partial class TokenBToken : Token
+  public class HeaderBToken : Header
   {
-    public class HeaderBToken : Header
+    public const int COUNT_HEADER_BYTES = 100;
+
+    // Statt den aktuellen DB Hash, könnte auch der diesem Block vorangehende DB Hash
+    // aufgeführt werden. Dies hätte beim Mining der vorteil, dass das Inserten des 
+    // gemineden Block nicht durchgespielt werden müsste.
+
+    public byte[] HashDatabase = new byte[32];
+
+
+    public HeaderBToken()
     {
-      public const int COUNT_HEADER_BYTES = 100;
+      Difficulty = 1;
+    }
 
-      // Statt den aktuellen DB Hash, könnte auch der diesem Block vorangehende DB Hash
-      // aufgeführt werden. Dies hätte beim Mining der vorteil, dass das Inserten des 
-      // gemineden Block nicht durchgespielt werden müsste.
+    public HeaderBToken(
+      byte[] headerHash,
+      byte[] hashPrevious,
+      byte[] merkleRootHash,
+      byte[] hashDatabase,
+      uint nonce) : base(
+        headerHash,
+        hashPrevious,
+        merkleRootHash,
+        nonce)
+    {
+      Difficulty = 1;
+      HashDatabase = hashDatabase;
 
-      public byte[] HashDatabase = new byte[32];
+      BlockRewardInitial = 200000000000000; // 200 BTK;
+      PeriodHalveningBlockReward = 105000;
+    }
 
+    public override byte[] Serialize()
+    {
+      byte[] buffer = new byte[COUNT_HEADER_BYTES];
 
-      public HeaderBToken()
+      HashPrevious.CopyTo(buffer, 0);
+
+      MerkleRoot.CopyTo(buffer, 32);
+
+      HashDatabase.CopyTo(buffer, 64);
+
+      BitConverter.GetBytes(Nonce).CopyTo(buffer, 96);
+
+      return buffer;
+    }
+
+    public override Header AppendToHeader(Header headerPrevious)
+    {
+      if (headerPrevious.HeaderParent != null)
       {
-        Difficulty = 1;
-      }
+        Header headerParent = headerPrevious.HeaderParent.HeaderNext;
 
-      public HeaderBToken(
-        byte[] headerHash,
-        byte[] hashPrevious,
-        byte[] merkleRootHash,
-        byte[] hashDatabase,
-        uint nonce) : base(
-          headerHash,
-          hashPrevious,
-          merkleRootHash,
-          nonce)
-      {
-        Difficulty = 1;
-        HashDatabase = hashDatabase;
-
-        BlockRewardInitial = 200000000000000; // 200 BTK;
-        PeriodHalveningBlockReward = 105000;
-      }
-
-      public override byte[] Serialize()
-      {
-        byte[] buffer = new byte[COUNT_HEADER_BYTES];
-
-        HashPrevious.CopyTo(buffer, 0);
-
-        MerkleRoot.CopyTo(buffer, 32);
-
-        HashDatabase.CopyTo(buffer, 64);
-
-        BitConverter.GetBytes(Nonce).CopyTo(buffer, 96);
-
-        return buffer;
-      }
-
-      public override Header AppendToHeader(Header headerPrevious)
-      {
-        if (headerPrevious.HeaderParent != null)
+        while (true)
         {
-          Header headerParent = headerPrevious.HeaderParent.HeaderNext;
+          if (headerParent == null)
+            throw new ProtocolException($"Cannot append header {this} to header {headerPrevious} because it is not anchored in parent chain.");
 
-          while (true)
+          if (headerParent.HashesChild.Any(h => h.Value.IsAllBytesEqual(Hash)))
           {
-            if (headerParent == null)
-              throw new ProtocolException($"Cannot append header {this} to header {headerPrevious} because it is not anchored in parent chain.");
-
-            if (headerParent.HashesChild.Any(h => h.Value.IsAllBytesEqual(Hash)))
-            {
-              HeaderParent = headerParent;
-              break;
-            }
-
-            headerParent = headerParent.HeaderNext;
+            HeaderParent = headerParent;
+            break;
           }
+
+          headerParent = headerParent.HeaderNext;
         }
-
-        return base.AppendToHeader(headerPrevious);
       }
 
-      public override void VerifyCoinbase(long valueOutputsTXCoinbase)
-      {
-        long blockReward = BlockRewardInitial >> Height / PeriodHalveningBlockReward;
+      return base.AppendToHeader(headerPrevious);
+    }
 
-        if (blockReward + Fee != valueOutputsTXCoinbase)
-          throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
-      }
+    public override void VerifyCoinbase(long valueOutputsTXCoinbase)
+    {
+      long blockReward = BlockRewardInitial >> Height / PeriodHalveningBlockReward;
+
+      if (blockReward + Fee != valueOutputsTXCoinbase)
+        throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
     }
   }
 }

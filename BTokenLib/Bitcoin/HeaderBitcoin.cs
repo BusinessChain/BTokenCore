@@ -1,161 +1,161 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace BTokenLib
+
+namespace BTokenCore;
+
+public class HeaderBitcoin : Header
 {
-  public class HeaderBitcoin : Header
+  public const int COUNT_HEADER_BYTES = 80;
+
+  public uint Version;
+  public uint NBits;
+
+  public uint UnixTimeSeconds;
+
+  const double MAX_TARGET = 2.695994666715064E67;
+  const int RETARGETING_BLOCK_INTERVAL = 2016;
+  const ulong RETARGETING_TIMESPAN_INTERVAL_SECONDS = 14 * 24 * 60 * 60;
+
+  static readonly UInt256 DIFFICULTY_1_TARGET = new UInt256(
+    "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
+
+
+  public HeaderBitcoin(
+    byte[] headerHash,
+    uint version,
+    byte[] hashPrevious,
+    byte[] merkleRootHash,
+    uint unixTimeSeconds,
+    uint nBits,
+    uint nonce)
+    : base(
+      headerHash,
+      hashPrevious,
+      merkleRootHash,
+      nonce)
   {
-    public const int COUNT_HEADER_BYTES = 80;
+    Version = version;
+    NBits = nBits;
 
-    public uint Version;
-    public uint NBits;
+    UnixTimeSeconds = unixTimeSeconds;
 
-    public uint UnixTimeSeconds;
+    BlockRewardInitial = 5000000000; // 200 BTK;
+    PeriodHalveningBlockReward = 210000;
 
-    const double MAX_TARGET = 2.695994666715064E67;
-    const int RETARGETING_BLOCK_INTERVAL = 2016;
-    const ulong RETARGETING_TIMESPAN_INTERVAL_SECONDS = 14 * 24 * 60 * 60;
+    Difficulty = ComputeDifficultyFromNBits(nBits);
+  }
 
-    static readonly UInt256 DIFFICULTY_1_TARGET = new UInt256(
-      "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
+  public static double ComputeDifficultyFromNBits(uint nBits)
+  {
+    return MAX_TARGET / (double)UInt256.ParseFromCompact(nBits);
+  }
 
+  public override Header AppendToHeader(Header headerPrevious)
+  {
+    uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
 
-    public HeaderBitcoin(
-      byte[] headerHash,
-      uint version,
-      byte[] hashPrevious,
-      byte[] merkleRootHash,
-      uint unixTimeSeconds,
-      uint nBits,
-      uint nonce ) 
-      : base(
-        headerHash,
-        hashPrevious,
-        merkleRootHash,
-        nonce)
+    if (UnixTimeSeconds < medianTimePastSeconds)
+      throw new ProtocolException(string.Format(
+        $"Header {this} with unix time {1} is older than median time past {2}.",
+        DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds),
+        DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)));
+
+    uint targetBitsNew = GetNextTarget((HeaderBitcoin)headerPrevious);
+
+    if (NBits != targetBitsNew)
+      throw new ProtocolException(
+        $"nBits {NBits} not equal to target nBits {targetBitsNew} in header {this}.");
+
+    return base.AppendToHeader(headerPrevious);
+  }
+
+  static uint GetMedianTimePastSeconds(HeaderBitcoin header)
+  {
+    const int MEDIAN_TIME_PAST = 11;
+
+    List<uint> timestampsPast = new();
+
+    int depth = 0;
+    while (depth < MEDIAN_TIME_PAST)
     {
-      Version = version;
-      NBits = nBits;
+      timestampsPast.Add(header.UnixTimeSeconds);
 
-      UnixTimeSeconds = unixTimeSeconds;
+      if (header.HeaderPrevious == null)
+        break;
 
-      BlockRewardInitial = 5000000000; // 200 BTK;
-      PeriodHalveningBlockReward = 210000;
-
-      Difficulty = ComputeDifficultyFromNBits(nBits);
+      header = header.HeaderPrevious as HeaderBitcoin;
+      depth++;
     }
 
-    public static double ComputeDifficultyFromNBits(uint nBits)
+    timestampsPast.Sort();
+
+    return timestampsPast[timestampsPast.Count / 2];
+  }
+
+  static uint GetNextTarget(HeaderBitcoin header)
+  {
+    if (((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
+      return header.NBits;
+
+    HeaderBitcoin headerIntervalStart = header;
+    int depth = RETARGETING_BLOCK_INTERVAL;
+
+    while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
+      headerIntervalStart = headerIntervalStart.HeaderPrevious as HeaderBitcoin;
+
+    ulong actualTimespan = Limit(
+      header.UnixTimeSeconds -
+      headerIntervalStart.UnixTimeSeconds);
+
+    UInt256 targetOld = UInt256.ParseFromCompact(header.NBits);
+
+    UInt256 targetNew = targetOld
+      .MultiplyBy(actualTimespan)
+      .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
+
+    return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
+  }
+
+  static ulong Limit(ulong actualTimespan)
+  {
+    if (actualTimespan < RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4)
     {
-      return MAX_TARGET / (double)UInt256.ParseFromCompact(nBits);
+      return RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4;
     }
 
-    public override Header AppendToHeader(Header headerPrevious)
+    if (actualTimespan > RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4)
     {
-      uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
-
-      if (UnixTimeSeconds < medianTimePastSeconds)
-        throw new ProtocolException(string.Format(
-          $"Header {this} with unix time {1} is older than median time past {2}.",
-          DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds),
-          DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)));
-
-      uint targetBitsNew = GetNextTarget((HeaderBitcoin)headerPrevious);
-
-      if (NBits != targetBitsNew)
-        throw new ProtocolException(
-          $"nBits {NBits} not equal to target nBits {targetBitsNew} in header {this}.");
-
-      return base.AppendToHeader(headerPrevious);
+      return RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4;
     }
 
-    static uint GetMedianTimePastSeconds(HeaderBitcoin header)
-    {
-      const int MEDIAN_TIME_PAST = 11;
+    return actualTimespan;
+  }
 
-      List<uint> timestampsPast = new();
+  public override byte[] Serialize()
+  {
+    byte[] buffer = new byte[COUNT_HEADER_BYTES];
 
-      int depth = 0;
-      while (depth < MEDIAN_TIME_PAST)
-      {
-        timestampsPast.Add(header.UnixTimeSeconds);
+    BitConverter.GetBytes(Version).CopyTo(buffer, 0);
 
-        if (header.HeaderPrevious == null)
-          break;
+    HashPrevious.CopyTo(buffer, 4);
 
-        header = header.HeaderPrevious as HeaderBitcoin;
-        depth++;
-      }
+    MerkleRoot.CopyTo(buffer, 36);
 
-      timestampsPast.Sort();
+    BitConverter.GetBytes(UnixTimeSeconds).CopyTo(buffer, 68);
 
-      return timestampsPast[timestampsPast.Count / 2];
-    }
+    BitConverter.GetBytes(NBits).CopyTo(buffer, 72);
 
-    static uint GetNextTarget(HeaderBitcoin header)
-    {
-      if (((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
-        return header.NBits;
+    BitConverter.GetBytes(Nonce).CopyTo(buffer, 76);
 
-      HeaderBitcoin headerIntervalStart = header;
-      int depth = RETARGETING_BLOCK_INTERVAL;
+    return buffer;
+  }
 
-      while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
-        headerIntervalStart = headerIntervalStart.HeaderPrevious as HeaderBitcoin;
+  public void IncrementNonce(uint nonceSeed)
+  {
+    Nonce += 1;
 
-      ulong actualTimespan = Limit(
-        header.UnixTimeSeconds -
-        headerIntervalStart.UnixTimeSeconds);
-
-      UInt256 targetOld = UInt256.ParseFromCompact(header.NBits);
-
-      UInt256 targetNew = targetOld
-        .MultiplyBy(actualTimespan)
-        .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
-
-      return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
-    }
-
-    static ulong Limit(ulong actualTimespan)
-    {
-      if (actualTimespan < RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4)
-      {
-        return RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4;
-      }
-
-      if (actualTimespan > RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4)
-      {
-        return RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4;
-      }
-
-      return actualTimespan;
-    }
-
-    public override byte[] Serialize()
-    {
-      byte[] buffer = new byte[COUNT_HEADER_BYTES];
-
-      BitConverter.GetBytes(Version).CopyTo(buffer, 0);
-
-      HashPrevious.CopyTo(buffer, 4);
-
-      MerkleRoot.CopyTo(buffer, 36);
-
-      BitConverter.GetBytes(UnixTimeSeconds).CopyTo(buffer, 68);
-
-      BitConverter.GetBytes(NBits).CopyTo(buffer, 72);
-
-      BitConverter.GetBytes(Nonce).CopyTo(buffer, 76);
-
-      return buffer;
-    }
-
-    public void IncrementNonce(uint nonceSeed)
-    {
-      Nonce += 1;
-
-      if (Nonce == 0)
-        Nonce = nonceSeed;
-    }
+    if (Nonce == 0)
+      Nonce = nonceSeed;
   }
 }

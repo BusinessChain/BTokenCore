@@ -4,32 +4,31 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public class Wallet
 {
-  public class Wallet
+  public SHA256 SHA256 = SHA256.Create();
+
+  public string KeyPrivateDecimal;
+  public byte[] KeyPublic;
+  public byte[] Hash160PKeyPublic = new byte[20];
+  public string AddressAccount;
+
+
+  public Wallet(string privKeyDec)
   {
-    public SHA256 SHA256 = SHA256.Create();
+    KeyPrivateDecimal = privKeyDec;
 
-    public string KeyPrivateDecimal;
-    public byte[] KeyPublic;
-    public byte[] Hash160PKeyPublic = new byte[20];
-    public string AddressAccount;
+    KeyPublic = Crypto.GetPubKeyFromPrivKey(KeyPrivateDecimal);
 
+    Hash160PKeyPublic = Crypto.ComputeHash160(KeyPublic, SHA256);
 
-    public Wallet(string privKeyDec)
-    {
-      KeyPrivateDecimal = privKeyDec;
+    AddressAccount = Hash160PKeyPublic.BinaryToBase58Check();
+  }
 
-      KeyPublic = Crypto.GetPubKeyFromPrivKey(KeyPrivateDecimal);
-
-      Hash160PKeyPublic = Crypto.ComputeHash160(KeyPublic, SHA256);
-
-      AddressAccount = Hash160PKeyPublic.BinaryToBase58Check();
-    }
-
-    public byte[] GetSignature(byte[] dataToBeSigned)
-    {
-      return Crypto.GetSignature(KeyPrivateDecimal, dataToBeSigned);
-    }
+  public byte[] GetSignature(byte[] dataToBeSigned)
+  {
+    return Crypto.GetSignature(KeyPrivateDecimal, dataToBeSigned);
   }
 }

@@ -4,55 +4,54 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public abstract partial class Token
 {
-  public abstract partial class Token
+  partial class NetworkToken
   {
-    partial class NetworkToken
+    partial class Peer
     {
-      partial class Peer
+      class AddressMessage : MessageNetworkProtocol
       {
-        class AddressMessage : MessageNetworkProtocol
+        const string Command = "addr";
+
+        public List<NetworkAddress> NetworkAddresses = new();
+
+        public AddressMessage()
+        { }
+
+        public AddressMessage(byte[] messagePayload)
+          : base(messagePayload)
         {
-          const string Command = "addr";
+          int startIndex = 0;
 
-          public List<NetworkAddress> NetworkAddresses = new();
+          int addressesCount = VarInt.GetInt(
+            Payload,
+            ref startIndex);
 
-          public AddressMessage()
-          { }
-
-          public AddressMessage(byte[] messagePayload)
-            : base(messagePayload)
+          for (int i = 0; i < addressesCount; i++)
           {
-            int startIndex = 0;
+            NetworkAddress address = NetworkAddress.ParseAddress(
+                Payload, ref startIndex);
 
-            int addressesCount = VarInt.GetInt(
-              Payload,
-              ref startIndex);
+            if (NetworkAddresses.Any(
+              a => a.IPAddress.ToString() == address.IPAddress.ToString()))
+              throw new ProtocolException("Duplicate network address advertized.");
 
-            for (int i = 0; i < addressesCount; i++)
-            {
-              NetworkAddress address = NetworkAddress.ParseAddress(
-                  Payload, ref startIndex);
-
-              if (NetworkAddresses.Any(
-                a => a.IPAddress.ToString() == address.IPAddress.ToString()))
-                throw new ProtocolException("Duplicate network address advertized.");
-
-              NetworkAddresses.Add(address);
-            }
+            NetworkAddresses.Add(address);
           }
+        }
 
 
-          public override async Task Run(Peer peer)
-          {
+        public override async Task Run(Peer peer)
+        {
 
-          }
+        }
 
-          public override string GetCommand()
-          {
-            return Command;
-          }
+        public override string GetCommand()
+        {
+          return Command;
         }
       }
     }

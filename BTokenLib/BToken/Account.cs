@@ -4,65 +4,64 @@ using System.IO;
 using LiteDB;
 
 
-namespace BTokenLib
+namespace BTokenCore;
+
+public partial class TokenBToken : Token
 {
-  public partial class TokenBToken : Token
+  public class Account
   {
-    public class Account
+    public const int LENGTH_ACCOUNT = 40;
+    public const int LENGTH_ID = 20;
+
+    [BsonId]
+    public byte[] ID = new byte[LENGTH_ID];
+
+    [BsonField]
+    public int BlockHeightAccountCreated;
+
+    [BsonField]
+    public int BlockHeightLastUpdated;
+
+    [BsonField]
+    public int Nonce;
+
+    [BsonField]
+    public long Balance;
+
+    byte[] ByteArraySerialized = new byte[LENGTH_ACCOUNT];
+
+
+    public Account() { }
+
+    public Account(Account account)
     {
-      public const int LENGTH_ACCOUNT = 40;
-      public const int LENGTH_ID = 20;
+      ID = account.ID;
+      BlockHeightAccountCreated = account.BlockHeightAccountCreated;
+      Nonce = account.Nonce;
+      Balance = account.Balance;
+    }
 
-      [BsonId]
-      public byte[] ID = new byte[LENGTH_ID];
+    public void SpendTX(TXBToken tX)
+    {
+      if (BlockHeightAccountCreated != tX.BlockheightAccountCreated || Nonce != tX.Nonce)
+        throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or blockheightAccountInit.");
 
-      [BsonField]
-      public int BlockHeightAccountCreated;
+      if (Balance < tX.GetValueOutputs() + tX.Fee)
+        throw new ProtocolException($"Staged account {this} referenced by TX {tX} does not have enough fund.");
 
-      [BsonField]
-      public int BlockHeightLastUpdated;
+      Nonce += 1;
+      Balance -= tX.GetValueOutputs() + tX.Fee;
+    }
 
-      [BsonField]
-      public int Nonce;
+    public void ReverseSpendTX(TXBToken tX)
+    {
+      Nonce -= 1;
+      Balance += tX.GetValueOutputs() + tX.Fee;
+    }
 
-      [BsonField]
-      public long Balance;
-
-      byte[] ByteArraySerialized = new byte[LENGTH_ACCOUNT];
-
-
-      public Account() { }
-
-      public Account(Account account) 
-      {
-        ID = account.ID;
-        BlockHeightAccountCreated = account.BlockHeightAccountCreated;
-        Nonce = account.Nonce;
-        Balance = account.Balance;
-      }
-
-      public void SpendTX(TXBToken tX)
-      {
-        if (BlockHeightAccountCreated != tX.BlockheightAccountCreated || Nonce != tX.Nonce)
-          throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or blockheightAccountInit.");
-
-        if (Balance < tX.GetValueOutputs() + tX.Fee)
-          throw new ProtocolException($"Staged account {this} referenced by TX {tX} does not have enough fund.");
-
-        Nonce += 1;
-        Balance -= tX.GetValueOutputs() + tX.Fee;
-      }
-
-      public void ReverseSpendTX(TXBToken tX)
-      {
-        Nonce -= 1;
-        Balance += tX.GetValueOutputs() + tX.Fee;
-      }
-
-      public override string ToString()
-      {
-        return ID.BinaryToBase58Check();
-      }
+    public override string ToString()
+    {
+      return ID.BinaryToBase58Check();
     }
   }
 }

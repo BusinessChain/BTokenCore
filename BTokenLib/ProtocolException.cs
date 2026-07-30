@@ -4,19 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BTokenLib
+
+namespace BTokenCore;
+
+public class ProtocolException : Exception
 {
-  public class ProtocolException : Exception
-  {
-    public ProtocolException()
-    { }
+  public ProtocolException()
+  { }
 
-    public ProtocolException(string message)
-        : base(message)
-    { }
+  public ProtocolException(string message)
+      : base(message)
+  { }
 
-    public ProtocolException(string message, Exception inner)
-        : base(message, inner)
-    { }
-  }
+  public ProtocolException(string message, Exception inner)
+      : base(message, inner)
+  { }
 }

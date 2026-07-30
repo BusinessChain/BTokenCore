@@ -12,93 +12,93 @@ using System.Security.Cryptography;
 using Org.BouncyCastle.Asn1.X9;
 using System.Linq;
 
-namespace BTokenLib
+
+namespace BTokenCore;
+
+public static class Crypto
 {
-  public static class Crypto
-  {       
-    public static bool VerifySignature(
-      byte[] buffer,
-      int startIndexMessage,
-      int lengthMessage,
-      byte[] pubKeyX,
-      byte[] signature)
+  public static bool VerifySignature(
+    byte[] buffer,
+    int startIndexMessage,
+    int lengthMessage,
+    byte[] pubKeyX,
+    byte[] signature)
+  {
+    X9ECParameters curve = SecNamedCurves.GetByName("secp256k1");
+
+    ECPublicKeyParameters keyParameters = new(
+      curve.Curve.DecodePoint(pubKeyX),
+      new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H));
+
+    ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
+
+    signer.Init(false, keyParameters);
+    signer.BlockUpdate(buffer, startIndexMessage, lengthMessage);
+
+    return signer.VerifySignature(signature);
+  }
+
+  public static byte[] GetSignature(string privateKey, byte[] message)
+  {
+    var curve = SecNamedCurves.GetByName("secp256k1");
+
+    ECPrivateKeyParameters keyParameters = new(
+      new BigInteger(privateKey),
+      new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H));
+
+    ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
+
+    while (true)
     {
-      X9ECParameters curve = SecNamedCurves.GetByName("secp256k1");
+      signer.Init(true, keyParameters);
+      signer.BlockUpdate(message, 0, message.Length);
 
-      ECPublicKeyParameters keyParameters = new(
-        curve.Curve.DecodePoint(pubKeyX),
-        new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H));
+      byte[] signature = signer.GenerateSignature();
 
-      ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
+      if (signature[signature[3] + 5] > 32)
+        continue;
 
-      signer.Init(false, keyParameters);
-      signer.BlockUpdate(buffer, startIndexMessage, lengthMessage);
-
-      return signer.VerifySignature(signature);
+      return signature;
     }
+  }
 
-    public static byte[] GetSignature(string privateKey, byte[] message)
-    {
-      var curve = SecNamedCurves.GetByName("secp256k1");
+  public static byte[] GetPubKeyFromPrivKey(string privKey)
+  {
+    var curve = SecNamedCurves.GetByName("secp256k1");
 
-      ECPrivateKeyParameters keyParameters = new(
-        new BigInteger(privateKey),
-        new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H));
+    var domain = new ECDomainParameters(
+      curve.Curve,
+      curve.G,
+      curve.N,
+      curve.H);
 
-      ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
+    var d = new BigInteger(privKey);
+    var q = domain.G.Multiply(d);
 
-      while (true)
-      {
-        signer.Init(true, keyParameters);
-        signer.BlockUpdate(message, 0, message.Length);
+    var publicKey = new ECPublicKeyParameters(q, domain);
 
-        byte[] signature = signer.GenerateSignature();
+    List<byte> pubKeyX = publicKey.Q.XCoord.GetEncoded().ToList();
 
-        if (signature[signature[3] + 5] > 32)
-          continue;
+    byte lasbByteY = publicKey.Q.YCoord.GetEncoded().Last();
 
-        return signature;
-      }
-    }
+    if ((lasbByteY & 0x01) == 0x00)
+      pubKeyX.Insert(0, 0x02);
+    else
+      pubKeyX.Insert(0, 0x03);
 
-    public static byte[] GetPubKeyFromPrivKey(string privKey)
-    {
-      var curve = SecNamedCurves.GetByName("secp256k1");
+    return pubKeyX.ToArray();
+  }
 
-      var domain = new ECDomainParameters(
-        curve.Curve, 
-        curve.G, 
-        curve.N, 
-        curve.H);
+  public static byte[] ComputeHash160(byte[] data, SHA256 sHA256)
+  {
+    byte[] publicKeyHash160 = new byte[20];
 
-      var d = new BigInteger(privKey);
-      var q = domain.G.Multiply(d);
+    var hashPublicKey = sHA256.ComputeHash(data);
 
-      var publicKey = new ECPublicKeyParameters(q, domain);
+    RipeMD160Digest RIPEMD160 = new();
+    RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
+    RIPEMD160.DoFinal(publicKeyHash160, 0);
 
-      List<byte> pubKeyX = publicKey.Q.XCoord.GetEncoded().ToList();
-
-      byte lasbByteY = publicKey.Q.YCoord.GetEncoded().Last();
-
-      if ((lasbByteY & 0x01) == 0x00)
-        pubKeyX.Insert(0, 0x02);
-      else
-        pubKeyX.Insert(0, 0x03);
-
-      return pubKeyX.ToArray();
-    }
-
-    public static byte[] ComputeHash160(byte[] data, SHA256 sHA256)
-    {
-      byte[] publicKeyHash160 = new byte[20];
-
-      var hashPublicKey = sHA256.ComputeHash(data);
-
-      RipeMD160Digest RIPEMD160 = new();
-      RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
-      RIPEMD160.DoFinal(publicKeyHash160, 0);
-
-      return publicKeyHash160;
-    }
+    return publicKeyHash160;
   }
 }

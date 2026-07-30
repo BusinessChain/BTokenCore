@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace BTokenLib
+
+namespace BTokenCore;
+
+public interface ILogEntryNotifier
 {
-  public interface ILogEntryNotifier
-  {
-    public void NotifyLogEntry(string logEntry, string source);
-  }
+  public void NotifyLogEntry(string logEntry, string source);
 }

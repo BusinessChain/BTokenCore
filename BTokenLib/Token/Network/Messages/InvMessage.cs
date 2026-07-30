@@ -4,62 +4,62 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-namespace BTokenLib
+
+namespace BTokenCore;
+
+public abstract partial class Token
 {
-  public abstract partial class Token
+  partial class NetworkToken
   {
-    partial class NetworkToken
+    partial class Peer
     {
-      partial class Peer
+      class InvMessage : MessageNetworkProtocol
       {
-        class InvMessage : MessageNetworkProtocol
+        public const string Command = "inv";
+
+        public List<Inventory> Inventories = new();
+
+        public InvMessage()
+        { }
+
+        public InvMessage(List<Inventory> inventories)
         {
-          public const string Command = "inv";
+          Inventories = inventories;
 
-          public List<Inventory> Inventories = new();
+          List<byte> payload = new();
 
-          public InvMessage()
-          { }
+          payload.AddRange(VarInt.GetBytes(inventories.Count));
 
-          public InvMessage(List<Inventory> inventories)
-          {
-            Inventories = inventories;
+          Inventories.ForEach(
+            i => payload.AddRange(i.GetBytes()));
 
-            List<byte> payload = new();
+          Payload = payload.ToArray();
+          LengthDataPayload = Payload.Length;
+        }
 
-            payload.AddRange(VarInt.GetBytes(inventories.Count));
+        public InvMessage(byte[] buffer)
+          : base(buffer)
+        {
+          int startIndex = 0;
 
-            Inventories.ForEach(
-              i => payload.AddRange(i.GetBytes()));
+          int inventoryCount = VarInt.GetInt(
+            Payload,
+            ref startIndex);
 
-            Payload = payload.ToArray();
-            LengthDataPayload = Payload.Length;
-          }
-
-          public InvMessage(byte[] buffer)
-            : base(buffer)
-          {
-            int startIndex = 0;
-
-            int inventoryCount = VarInt.GetInt(
+          for (int i = 0; i < inventoryCount; i++)
+            Inventories.Add(Inventory.Parse(
               Payload,
-              ref startIndex);
+              ref startIndex));
+        }
 
-            for (int i = 0; i < inventoryCount; i++)
-              Inventories.Add(Inventory.Parse(
-                Payload,
-                ref startIndex));
-          }
+        public override async Task Run(Peer peer)
+        {
 
-          public override async Task Run(Peer peer)
-          {
+        }
 
-          }
-
-          public override string GetCommand()
-          {
-            return Command;
-          }
+        public override string GetCommand()
+        {
+          return Command;
         }
       }
     }
