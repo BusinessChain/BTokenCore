@@ -153,7 +153,7 @@ namespace BTokenLib
 
       public override string ToString()
       {
-        return Header.ToString();
+        return Header?.ToString();
       }
     }
   }

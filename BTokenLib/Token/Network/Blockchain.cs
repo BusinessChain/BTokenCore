@@ -89,11 +89,8 @@ namespace BTokenLib
 
               heightBlockNext += 1;
             }
-            catch (ProtocolException ex)
+            catch (Exception ex)
             {
-              $"{ex.GetType().Name} when inserting block {BlockLoad}, height {heightBlockNext} loaded from disk: \n{ex.Message}. \nBlock is deleted."
-              .Log(this, Token.LogEntryNotifier);
-
               break;
             }
 
