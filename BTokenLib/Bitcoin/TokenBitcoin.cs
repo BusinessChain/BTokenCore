@@ -35,8 +35,8 @@ public partial class TokenBitcoin : Token
   List<TXOutputWallet> OutputsSpendableConfirmed = new();
 
 
-  public TokenBitcoin(ILogEntryNotifier logEntryNotifier)
-    : base(logEntryNotifier)
+  public TokenBitcoin(ISocketToken socketToken)
+    : base(socketToken)
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
@@ -134,6 +134,13 @@ public partial class TokenBitcoin : Token
 
   public override List<string> GetSeedAddresses()
   {
+    //mit DNS seeds arbeiten.
+    //seed.bitcoin.sipa.be
+    //dnsseed.bluematt.me
+    //dnsseed.bitcoin.dashjr.org
+    //seed.bitcoinstats.com
+    //seed.bitnodes.io
+
     return new List<string>()
         {"83.229.86.158" 
         // 84.74.69.100

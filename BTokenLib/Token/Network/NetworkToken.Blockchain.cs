@@ -125,7 +125,7 @@ public abstract partial class Token
       }
       catch (Exception ex)
       {
-        $"{ex.GetType().Name} when attempting to load mined block {tokenAnchor.HashBlockReferenced.ToHexString()}: {ex.Message}.\n".Log(this, LogEntryNotifier);
+        SocketToken.Log($"{ex.GetType().Name} when attempting to load mined block {tokenAnchor.HashBlockReferenced.ToHexString()}: {ex.Message}.\n");
       }
     }
 
@@ -137,7 +137,7 @@ public abstract partial class Token
             peer.BroadcastTX(tX);
       else
       {
-        $"Could not create anchor tX, stop mining.".Log(this, LogEntryNotifier);
+        $"Could not create anchor tX, stop mining.".Log(this, SocketToken);
         IsMining = false;
       }
     }

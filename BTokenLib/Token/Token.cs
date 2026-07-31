@@ -38,8 +38,6 @@ public abstract partial class Token
     SocketToken = socketToken;
   }
 
-  public abstract List<string> GetSeedAddresses();
-
   public bool TryLock()
   {
     lock (this)

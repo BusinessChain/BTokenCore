@@ -29,11 +29,9 @@ public abstract partial class Token
 
     public bool FlagEnableOutboundConnections = true;
 
-    public enum ConnectionType { OUTBOUND, INBOUND };
-    List<string> IPAddresses = new();
 
     object LOCK_Peers = new();
-    List<Peer> Peers = new();
+    List<IPeer> Peers = new();
 
     public bool EnableInboundConnections;
     public bool EnableRelay;
@@ -49,90 +47,15 @@ public abstract partial class Token
       if (EnableInboundConnections)
         StartPeerInboundConnector();
 
-      Random randomGenerator = new();
-
       while (true)
       {
-        try
-        {
-          Peers.RemoveAll(p => p.StateCurrent == Peer.StateProtocol.Disposed);
+        Peers.RemoveAll(p => p.IsDisposed());
 
-          int countPeersCreate = COUNT_MAX_OUTBOUND_CONNECTIONS - Peers.Count;
+        while (Peers.Count < COUNT_MAX_OUTBOUND_CONNECTIONS)
+          Peers.Add(await SocketToken.GetInterfacePeer());
 
-          if (countPeersCreate > 0)
-          {
-            List<IPAddress> iPAddresses = LoadIPAddresses(countPeersCreate, randomGenerator);
-
-            var createPeerTasks = iPAddresses
-              .Select(ip => CreatePeerOutbound(ip))
-              .ToArray();
-          }
-
-          int timespanRandomSeconds = TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS / 2
-            + randomGenerator.Next(TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS);
-
-          await Task.Delay(1000 * timespanRandomSeconds).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-          Log($"{ex.GetType().Name} in peer connector background process:\n {ex.Message}");
-
-          await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-        }
+        await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
       }
-    }
-
-    List<IPAddress> LoadIPAddresses(int maxCount, Random randomGenerator)
-    {
-      List<string> iPAddresses = new();
-
-      if (IPAddresses.Count == 0)
-      {
-        IPAddresses = Token.GetSeedAddresses();
-
-        foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
-        {
-          if (iPDisposed.Name.Contains(ConnectionType.OUTBOUND.ToString()))
-          {
-            int secondsBanned = TIMESPAN_PEER_BANNED_SECONDS -
-              (int)(DateTime.Now - iPDisposed.CreationTime).TotalSeconds;
-
-            if (0 < secondsBanned)
-            {
-              IPAddresses.RemoveAll(iP => iPDisposed.Name.Contains(iP));
-              continue;
-            }
-
-            iPDisposed.MoveTo(Path.Combine(
-              DirectoryPeersArchive.FullName,
-              iPDisposed.Name));
-          }
-        }
-
-        foreach (FileInfo fileIPAddressArchive in DirectoryPeersArchive.EnumerateFiles())
-        {
-          string iPFromFile = fileIPAddressArchive.Name.GetIPFromFileName();
-
-          if (!IPAddresses.Any(ip => ip == iPFromFile))
-            IPAddresses.Add(iPFromFile);
-        }
-
-        foreach (FileInfo fileIPAddressActive in DirectoryPeersActive.EnumerateFiles())
-          IPAddresses.RemoveAll(iP => fileIPAddressActive.Name.GetIPFromFileName() == iP);
-      }
-
-      while (iPAddresses.Count < maxCount && IPAddresses.Count > 0)
-      {
-        int randomIndex = randomGenerator.Next(IPAddresses.Count);
-
-        string iPAddress = IPAddresses[randomIndex];
-        IPAddresses.RemoveAt(randomIndex);
-
-        if (!Peers.Any(p => p.IPAddress.ToString() == iPAddress))
-          iPAddresses.Add(iPAddress);
-      }
-
-      return iPAddresses.Select(iP => IPAddress.Parse(iP)).ToList();
     }
 
     async Task StartPeerInboundConnector()
@@ -217,25 +140,7 @@ public abstract partial class Token
       return true;
     }
 
-    async Task CreatePeerOutbound(IPAddress iP)
-    {
-      TcpClient tcpClient = new();
-
-      try
-      {
-        Peer peer = new(CreateStateMachineProtocol(), tcpClient, ConnectionType.OUTBOUND, iP);
-
-        await peer.Start();
-
-        lock (LOCK_Peers)
-          Peers.Add(peer);
-      }
-      catch (Exception ex)
-      {
-        tcpClient.Dispose();
-      }
-    }
-
+    
     async Task CreatePeerInbound(TcpClient tcpClient, ConnectionType connection, IPAddress iP)
     {
       try
@@ -251,31 +156,6 @@ public abstract partial class Token
       {
         tcpClient.Dispose();
       }
-    }
-
-    Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
-    {
-      Dictionary<string, MessageNetworkProtocol> protocol = new();
-
-      Block blockDownload = new(Token);
-      Block blockUpload = new(Token);
-
-      AddMessageNetworkProtocol(protocol, new GetDataMessage(blockUpload));
-      AddMessageNetworkProtocol(protocol, new GetHeadersMessage());
-      AddMessageNetworkProtocol(protocol, new HeadersMessage(blockDownload));
-      AddMessageNetworkProtocol(protocol, new BlockMessage(blockDownload));
-      AddMessageNetworkProtocol(protocol, new TXMessage());
-      AddMessageNetworkProtocol(protocol, new VerAckMessage());
-      AddMessageNetworkProtocol(protocol, new VersionMessage());
-
-      return protocol;
-    }
-
-    static void AddMessageNetworkProtocol(
-      Dictionary<string, MessageNetworkProtocol> protocol,
-      MessageNetworkProtocol message)
-    {
-      protocol.Add(message.GetCommand(), message);
     }
   }
 }

@@ -363,33 +363,32 @@ public static class StringExtensionMethods
       { "FF", 0xFF }
     };
 
-  public static void Log(this string message, object module, ILogEntryNotifier logEntryNotifier)
+  public static void Log(this string message, object module, ISocketToken socketToken)
   {
     Log(
       message,
       module,
       new List<StreamWriter>(),
-      logEntryNotifier);
+      socketToken);
   }
 
   public static void Log(
     this string message,
     object module,
     StreamWriter logFile,
-    ILogEntryNotifier logEntryNotifier)
+    ISocketToken socketToken)
   {
     Log(
       message,
       module,
-      new List<StreamWriter>() { logFile },
-      logEntryNotifier);
+      socketToken);
   }
 
   public static void Log(
     this string message,
     object module,
     List<StreamWriter> logFiles,
-    ILogEntryNotifier logEntryNotifier)
+    ISocketToken socketToken)
   {
     string dateTime = DateTime.Now.ToString("MM/dd/yyyy hh:mm:ss.fff");
     string logString = dateTime + " --- " + module + " >> " + message;
@@ -401,7 +400,7 @@ public static class StringExtensionMethods
         logFile.Flush();
       }
 
-    logEntryNotifier?.NotifyLogEntry(logString, module.GetType().Name);
+    socketToken?.Log(module.GetType().Name + ": " + logString);
   }
 
   public static string GetIPFromFileName(this string fileName)
