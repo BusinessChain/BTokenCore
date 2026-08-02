@@ -24,6 +24,22 @@ public abstract partial class Token
     ILiteCollection<BsonDocument> DatabaseMetaCollection;
     ILiteCollection<BsonDocument> DatabaseHeaderCollection;
 
+    bool EnableInboundConnections;
+    bool EnableRelay;
+
+    object LOCK_Peers = new();
+    List<IPeer> Peers = new();
+
+    DirectoryInfo DirectoryPeers;
+    DirectoryInfo DirectoryPeersActive;
+    DirectoryInfo DirectoryPeersArchive;
+
+    const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
+    const int TIMESPAN_PEER_BANNED_SECONDS = 10;
+
+    const int COUNT_MAX_OUTBOUND_CONNECTIONS = 3;
+    const int COUNT_MAX_INBOUND_CONNECTIONS = 3;
+
 
     public NetworkToken(
       Token tokenParent,
@@ -48,9 +64,6 @@ public abstract partial class Token
       DirectoryPeersActive = Directory.CreateDirectory(
         Path.Combine(DirectoryPeers.FullName, "active"));
 
-      DirectoryPeersDisposed = Directory.CreateDirectory(
-        Path.Combine(DirectoryPeers.FullName, "disposed"));
-
       DirectoryPeersArchive = Directory.CreateDirectory(
         Path.Combine(DirectoryPeers.FullName, "archive"));
 
@@ -71,6 +84,22 @@ public abstract partial class Token
       BlockchainRoot.LoadFromDisk();
 
       StartPeerConnector();
+    }
+
+    async Task StartPeerConnector()
+    {
+      if (EnableInboundConnections)
+        SocketToken.StartPeerInboundConnector();
+
+      while (true)
+      {
+        Peers.RemoveAll(p => p.IsDisposed());
+
+        while (Peers.Count < COUNT_MAX_OUTBOUND_CONNECTIONS)
+          Peers.Add(await SocketToken.GetInterfacePeer());
+
+        await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
+      }
     }
 
     async Task StartHeaderSync(Peer peer)

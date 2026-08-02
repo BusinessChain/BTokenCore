@@ -15,4 +15,5 @@ public interface ISocketToken
   public void Log(string message);
 
   public Task<IPeer> GetInterfacePeer();
+  public Task StartPeerInboundConnector();
 }
