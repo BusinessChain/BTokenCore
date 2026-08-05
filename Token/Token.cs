@@ -22,12 +22,13 @@ public abstract partial class Token
 
   public StreamWriter LogFile;
 
-  static ISocketToken SocketToken;
+  protected ISocketToken SocketToken;
+  protected ISocketCommunication SocketCommunication;
 
   bool IsLocked;
 
 
-  public Token(ISocketToken socketToken)
+  public Token(ISocketCommunication socketCommunication)
   {
     Directory.CreateDirectory(GetName());
 
@@ -35,8 +36,12 @@ public abstract partial class Token
 
     LogFile = new StreamWriter(Path.Combine(GetName(), "LogToken"), append: false);
 
+    SocketCommunication = socketCommunication;
+
     SocketToken = socketToken;
   }
+  
+  public abstract Task<IPeer> GetInterfacePeer();
 
   public bool TryLock()
   {

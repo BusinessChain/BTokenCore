@@ -17,3 +17,8 @@ public interface ISocketToken
   public Task<IPeer> GetInterfacePeer();
   public Task StartPeerInboundConnector();
 }
+
+public interface ISocketCommunication
+{
+  public ICommunicationSocket GetSocketCommunication();
+}

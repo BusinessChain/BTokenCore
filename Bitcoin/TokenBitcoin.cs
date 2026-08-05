@@ -35,8 +35,8 @@ public partial class TokenBitcoin : Token
   List<TXOutputWallet> OutputsSpendableConfirmed = new();
 
 
-  public TokenBitcoin(ISocketToken socketToken)
-    : base(socketToken)
+  public TokenBitcoin(ISocketCommunication socketCommunication)
+    : base(socketCommunication)
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
@@ -199,6 +199,10 @@ public partial class TokenBitcoin : Token
     return true;
   }
 
+  public override async Task<IPeer> GetInterfacePeer()
+  {
+    return await SocketToken.GetInterfacePeer();
+  }
 
   // Hier darf es keine Exception geben, weil wir einen
   // geparsten Bitcoin Block mit PoW immer als korrekt betrachten
@@ -212,7 +216,6 @@ public partial class TokenBitcoin : Token
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
         if (TryAddTXOutputWallet(OutputsSpendable, tX, i))
-
           IndexTXs.Add(tX.Hash, tX);
     }
   }
