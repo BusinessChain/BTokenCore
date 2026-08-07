@@ -12,7 +12,7 @@ using LiteDB;
 
 namespace BTokenCore;
 
-public partial class NetworkToken : ISocketToken
+public partial class NetworkToken
 {
   public NetworkToken NetworkParent;
 
@@ -31,12 +31,17 @@ public partial class NetworkToken : ISocketToken
   bool EnableRelay;
 
   object LOCK_Peers = new();
-  List<IPeer> Peers = new();
+  List<Peer> Peers = new();
 
-  DirectoryInfo DirectoryPeers;
-  DirectoryInfo DirectoryPeersActive;
-  DirectoryInfo DirectoryPeersArchive;
-  DirectoryInfo DirectoryPeersDisposed;
+  int Port;
+  UInt32 ProtocolVersion = 70015;
+  ulong NetworkServicesLocal = 0;
+  ulong NetworkServicesRemote = 0;
+  string UserAgent = "/BTokenCore:0.0.0/";
+  byte RelayOption = 0x01;
+
+  public enum ConnectionType { OUTBOUND, INBOUND };
+  List<string> IPAddresses = new();
 
 
   public NetworkToken(
@@ -55,21 +60,6 @@ public partial class NetworkToken : ISocketToken
     EnableRelay = flagEnableRelay;
 
     string pathRoot = token.GetName();
-
-    DirectoryPeers = Directory.CreateDirectory(
-      Path.Combine(pathRoot, "logPeers"));
-
-    DirectoryPeersActive = Directory.CreateDirectory(
-      Path.Combine(DirectoryPeers.FullName, "active"));
-
-    DirectoryPeersDisposed = Directory.CreateDirectory(
-      Path.Combine(DirectoryPeers.FullName, "disposed"));
-
-    DirectoryPeersArchive = Directory.CreateDirectory(
-      Path.Combine(DirectoryPeers.FullName, "archive"));
-
-    foreach (FileInfo file in DirectoryPeersActive.GetFiles())
-      file.MoveTo(Path.Combine(DirectoryPeersArchive.FullName, file.Name));
 
     string connectionString = $"Filename={token.GetName() + "Network"}.db;Mode=Exclusive";
     LiteDatabase = new LiteDatabase(connectionString);
@@ -90,7 +80,7 @@ public partial class NetworkToken : ISocketToken
   async Task StartPeerConnector()
   {
     if (EnableInboundConnections)
-      SocketToken.StartPeerInboundConnector();
+      StartPeerInboundConnector();
 
     while (true)
     {
@@ -103,88 +93,28 @@ public partial class NetworkToken : ISocketToken
     }
   }
 
-  List<string> IPAddresses = new();
-
-  public async Task<IPeer> GetInterfacePeer(Token token)
-  {
-    IPAddress iP = LoadIPAddress();
-
-    TcpClient tcpClient = new TcpClient();
-
-    ISocketCommunication socketCommunication =
-      await token.SocketCommunication.GetSocketCommunication();
-
-    try
+  async Task<Peer> GetInterfacePeer(Token token)
+  {// muss das nicht gelockt werden LOCK_IPAddresses?
+    while (true)
     {
-      Peer peer = new(
-        CreateStateMachineProtocol(),
-        socketCommunication,
-        Peer.ConnectionType.OUTBOUND,
-        iP);
+      if (IPAddresses.Count == 0)
+        IPAddresses = await GetSeedAddresses();
 
-      await peer.Start();
+      string iP = IPAddresses[0];
+      IPAddresses.RemoveAt(0);
 
-      return peer;
-    }
-    catch (Exception ex)
-    {
-      tcpClient.Dispose();
-      return null;
+      try
+      {
+        ISocketCommunication socketCommunication = await token.GetSocketCommunication(iP);
+
+        return new Peer(CreateStateMachineProtocol(), socketCommunication, ConnectionType.OUTBOUND);
+      }
+      catch (Exception ex)
+      { }
     }
   }
 
-  IPAddress LoadIPAddress()
-  {
-    if (IPAddresses.Count == 0)
-    {
-      IPAddresses = GetSeedAddresses();
-
-      foreach (FileInfo iPDisposed in DirectoryPeersDisposed.EnumerateFiles())
-      {
-        if (iPDisposed.Name.Contains(ConnectionType.OUTBOUND.ToString()))
-        {
-          int secondsBanned = TIMESPAN_PEER_BANNED_SECONDS -
-            (int)(DateTime.Now - iPDisposed.CreationTime).TotalSeconds;
-
-          if (0 < secondsBanned)
-          {
-            IPAddresses.RemoveAll(iP => iPDisposed.Name.Contains(iP));
-            continue;
-          }
-
-          iPDisposed.MoveTo(Path.Combine(
-            DirectoryPeersArchive.FullName,
-            iPDisposed.Name));
-        }
-      }
-
-      foreach (FileInfo fileIPAddressArchive in DirectoryPeersArchive.EnumerateFiles())
-      {
-        string iPFromFile = fileIPAddressArchive.Name.GetIPFromFileName();
-
-        if (!IPAddresses.Any(ip => ip == iPFromFile))
-          IPAddresses.Add(iPFromFile);
-      }
-
-      foreach (FileInfo fileIPAddressActive in DirectoryPeersActive.EnumerateFiles())
-        IPAddresses.RemoveAll(iP => fileIPAddressActive.Name.GetIPFromFileName() == iP);
-    }
-
-    while (iPAddresses.Count < maxCount && IPAddresses.Count > 0)
-    {
-      int randomIndex = randomGenerator.Next(IPAddresses.Count);
-
-      string iPAddress = IPAddresses[randomIndex];
-      IPAddresses.RemoveAt(randomIndex);
-
-      if (!Peers.Any(p => p.IPAddress.ToString() == iPAddress))
-        iPAddresses.Add(iPAddress);
-    }
-
-    return iPAddresses.Select(iP => IPAddress.Parse(iP)).ToList();
-  }
-
-  public List<string> GetSeedAddresses()
+  public async Task<List<string>> GetSeedAddresses()
   {
     //mit DNS seeds arbeiten.
     //seed.bitcoin.sipa.be
@@ -224,7 +154,6 @@ public partial class NetworkToken : ISocketToken
     protocol.Add(message.GetCommand(), message);
   }
 
-
   async Task StartHeaderSync(Peer peer)
   {
     if (!await TryLockBlockchain(10000))
@@ -254,8 +183,82 @@ public partial class NetworkToken : ISocketToken
               ?.OnTokenAnchorParent(tokenAnchor);
   }
 
-  void Log(string messageLog)
+  int COUNT_MAX_INBOUND_CONNECTIONS = 8;
+
+  async Task StartPeerInboundConnector()
   {
-    messageLog.Log(this, SocketToken);
+
+
+    TcpListener tcpListener = new(IPAddress.Any, Port);
+
+    try
+    {
+      tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
+    }
+    catch (Exception ex)
+    {
+      return;
+    }
+
+    while (true)
+      try
+      {
+        TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
+
+        IPAddress remoteIP = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
+
+        if (!ValidateInboundPeer(remoteIP))
+        {
+          tcpClient.Dispose();
+          continue;
+        }
+
+        CreatePeerInbound(tcpClient, remoteIP);
+      }
+      catch (Exception ex)
+      {
+        await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+      }
+  }
+
+  bool ValidateInboundPeer(IPAddress remoteIP)
+  {
+    string rejectionString = "";
+
+    lock (LOCK_Peers)
+    {
+      if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
+        rejectionString = $"Peer {remoteIP} already connected.";
+      else if (Peers.Count(p => p.Connection == ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
+        rejectionString = $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.";
+    }
+
+    if (rejectionString == "")
+    {
+      if (remoteIP.ToString() != "84.74.69.100")
+        rejectionString = $"Peer {remoteIP} not on whitelist.";
+    }
+
+    if (rejectionString != "")
+      return false;
+
+    return true;
+  }
+
+  async Task CreatePeerInbound(TcpClient tcpClient, IPAddress iP)
+  {
+    try
+    {
+      Peer peer = new(CreateStateMachineProtocol(), tcpClient, C, iP);
+
+      await peer.Start();
+
+      lock (LOCK_Peers)
+        Peers.Add(peer);
+    }
+    catch (Exception ex)
+    {
+      tcpClient.Dispose();
+    }
   }
 }

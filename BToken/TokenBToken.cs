@@ -33,7 +33,7 @@ public partial class TokenBToken : Token
   byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
 
 
-  public TokenBToken(ISocketToken socketToken, Token tokenParent)
+  public TokenBToken(IEnvironment socketToken, Token tokenParent)
     : base(socketToken)
   {
     TXPool = new PoolTXBToken(this);

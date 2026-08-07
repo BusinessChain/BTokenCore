@@ -15,20 +15,19 @@ public abstract partial class Token
   public static byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
 
   public byte[] IDToken;
-  protected NetworkToken Network;
+  public NetworkToken Network;
   public Wallet Wallet;
 
   public int SizeBlockMax;
 
   public StreamWriter LogFile;
 
-  protected ISocketToken SocketToken;
-  protected ISocketCommunication SocketCommunication;
+  protected IEnvironment Environment;
 
   bool IsLocked;
 
 
-  public Token(ISocketCommunication socketCommunication)
+  public Token(IEnvironment environment)
   {
     Directory.CreateDirectory(GetName());
 
@@ -36,12 +35,13 @@ public abstract partial class Token
 
     LogFile = new StreamWriter(Path.Combine(GetName(), "LogToken"), append: false);
 
-    SocketCommunication = socketCommunication;
-
-    SocketToken = socketToken;
+    Environment = environment;
   }
-  
-  public abstract Task<IPeer> GetInterfacePeer();
+
+  public async Task<ISocketCommunication> GetSocketCommunication(string address)
+  {
+    return await Environment.GetSocketCommunication(this, address);
+  }
 
   public bool TryLock()
   {

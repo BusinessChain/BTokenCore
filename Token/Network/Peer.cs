@@ -12,15 +12,13 @@ namespace BTokenCore;
 
 public partial class NetworkToken
 {
-  partial class Peer : IPeer
+  partial class Peer
   {
-    public enum ConnectionType { OUTBOUND, INBOUND };
-
     public NetworkToken Network;
 
     public Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
 
-    TcpClient TcpClient;
+    ISocketCommunication SocketCommunication;
     public ConnectionType Connection;
     public IPAddress IPAddress;
 
@@ -52,17 +50,14 @@ public partial class NetworkToken
 
     public Peer(
       Dictionary<string, MessageNetworkProtocol> protocolStateMachine,
-      TcpClient tcpClient,
-      ConnectionType connection,
-      IPAddress iPAddress)
+      ISocketCommunication socketCommunication,
+      ConnectionType connection)
     {
       ProtocolStateMachine = protocolStateMachine;
 
-      TcpClient = tcpClient;
+      SocketCommunication = socketCommunication;
       Connection = connection;
       IPAddress = iPAddress;
-
-      //CreateLogFile($"{ip}-{Connection}");
     }
 
     public bool IsDisposed()
@@ -70,47 +65,8 @@ public partial class NetworkToken
       return StateCurrent == Peer.StateProtocol.Disposed;
     }
 
-    //void CreateLogFile(string name)
-    //{
-    //  string pathLogFileActive = Path.Combine(
-    //    Network.DirectoryPeersActive.FullName,
-    //    name);
-
-    //  if (File.Exists(pathLogFileActive))
-    //    throw new ProtocolException($"Peer {this} already active.");
-
-    //  string pathLogFileDisposed = Path.Combine(
-    //    Network.DirectoryPeersDisposed.FullName,
-    //    name);
-
-    //  if (File.Exists(pathLogFileDisposed))
-    //  {
-    //    TimeSpan secondsSincePeerDisposal = TimePeerCreation - File.GetLastWriteTime(pathLogFileDisposed);
-    //    int secondsBannedRemaining = TIMESPAN_PEER_BANNED_SECONDS - (int)secondsSincePeerDisposal.TotalSeconds;
-
-    //    if (secondsBannedRemaining > 0)
-    //      throw new ProtocolException(
-    //        $"Peer {this} is banned for {secondsBannedRemaining} seconds.");
-
-    //    File.Move(pathLogFileDisposed, pathLogFileActive);
-    //  }
-
-    //  string pathLogFileArchive = Path.Combine(
-    //    Network.DirectoryPeersArchive.FullName,
-    //    name);
-
-    //  if (File.Exists(pathLogFileArchive))
-    //    File.Move(pathLogFileArchive, pathLogFileActive);
-
-    //  LogFile = new StreamWriter(
-    //    pathLogFileActive,
-    //    append: true);
-    //}
-
     public async Task Start()
     {
-      Log($"Start peer - {Connection}.");
-
       if (!TcpClient.Connected)
         await TcpClient.ConnectAsync(IPAddress, Network.Port).ConfigureAwait(false);
 
@@ -132,8 +88,6 @@ public partial class NetworkToken
 
     public async Task AdvertizeTX(TX tX)
     {
-      Log($"Advertize token {tX}.");
-
       InvMessage invMessage = new(new List<Inventory> {
           new(InventoryType.MSG_TX, tX.Hash)
         });
@@ -143,8 +97,6 @@ public partial class NetworkToken
 
     public void Dispose()
     {
-      Log($"Dispose {Connection}.");
-
       Cancellation.Cancel();
 
       TcpClient.Dispose();
@@ -169,11 +121,6 @@ public partial class NetworkToken
           $"\nStatus peer {this}:\n" +
           $"lifeTime minutes: {lifeTime}\n" +
           $"Connection: {Connection}\n";
-    }
-
-    public void Log(string messageLog)
-    {
-      messageLog.Log(this, Token.SocketToken);
     }
   }
 }

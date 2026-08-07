@@ -35,8 +35,8 @@ public partial class TokenBitcoin : Token
   List<TXOutputWallet> OutputsSpendableConfirmed = new();
 
 
-  public TokenBitcoin(ISocketCommunication socketCommunication)
-    : base(socketCommunication)
+  public TokenBitcoin(IEnvironment environment)
+    : base(environment)
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
@@ -199,10 +199,6 @@ public partial class TokenBitcoin : Token
     return true;
   }
 
-  public override async Task<IPeer> GetInterfacePeer()
-  {
-    return await SocketToken.GetInterfacePeer();
-  }
 
   // Hier darf es keine Exception geben, weil wir einen
   // geparsten Bitcoin Block mit PoW immer als korrekt betrachten

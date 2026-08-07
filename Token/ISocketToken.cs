@@ -5,20 +5,16 @@ using System.Text;
 
 namespace BTokenCore;
 
-public interface IPeer
-{
-  public bool IsDisposed();
-}
 
-public interface ISocketToken
+public interface ISocketToken //wozu?
 {
-  public void Log(string message);
-
-  public Task<IPeer> GetInterfacePeer();
-  public Task StartPeerInboundConnector();
 }
 
 public interface ISocketCommunication
 {
-  public ICommunicationSocket GetSocketCommunication();
+}
+
+public interface IEnvironment
+{
+  public Task<ISocketCommunication> GetSocketCommunication(Token token, string address);
 }

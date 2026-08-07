@@ -7,22 +7,19 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-public abstract partial class Token
+public abstract class TXOutput
 {
-  public abstract class TXOutput
+  public enum TypesToken
   {
-    public enum TypesToken
-    {
-      Unspecified = 0x00,
-      P2PKH = 0x01
-    }
-
-    public byte[] IDAccount;
-
-    public byte[] Script;
-
-    public long Value;
-
-    public TypesToken Type;
+    Unspecified = 0x00,
+    P2PKH = 0x01
   }
+
+  public byte[] IDAccount;
+
+  public byte[] Script;
+
+  public long Value;
+
+  public TypesToken Type;
 }
