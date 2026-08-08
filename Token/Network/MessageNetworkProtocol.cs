@@ -18,7 +18,7 @@ public partial class NetworkToken
 
 
     public MessageNetworkProtocol()
-      : this(new byte[0])
+      : this(Array.Empty<byte>())
     { }
 
     public MessageNetworkProtocol(byte[] payload)

@@ -18,5 +18,5 @@ public interface IEnvironment
 
   public Task<ISocketCommunication> AcceptSocketCommunicationInbound();
 
-  public Task<ISocketCommunication> GetSocketCommunication(Token token, string address);
+  public ISocketCommunication GetSocketCommunication(Token token, string address);
 }

@@ -53,10 +53,7 @@ public partial class NetworkToken
     EnableInboundConnections = flagEnableInboundConnections;
     EnableRelay = flagEnableRelay;
 
-    string pathRoot = token.GetName();
-
-    string connectionString = $"Filename={token.GetName() + "Network"}.db;Mode=Exclusive";
-    LiteDatabase = new LiteDatabase(connectionString);
+    LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
     DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
   }
@@ -111,10 +108,12 @@ public partial class NetworkToken
         Thread.Sleep(1000);
     }
 
-    string iP = IPAddresses[0];
-    IPAddresses.RemoveAt(0);
+    int index = Random.Shared.Next(IPAddresses.Count);
 
-    return iP;
+    string ip = IPAddresses[index];
+    IPAddresses.RemoveAt(index);
+
+    return ip;
   }
 
   async Task<Peer> GetInterfacePeer(Token token)
@@ -123,12 +122,12 @@ public partial class NetworkToken
     {
       try
       {
-        string iP = GetIPAddress();
+        //string iP = GetIPAddress();
 
-        iP = "83.229.86.158";
+        string iP = "83.229.86.158";
         // 84.74.69.100
 
-        ISocketCommunication socketCommunication = await token.GetSocketCommunication(iP);
+        ISocketCommunication socketCommunication = token.GetSocketCommunication(iP);
 
         await StartPeer(socketCommunication, ConnectionType.OUTBOUND);
       }

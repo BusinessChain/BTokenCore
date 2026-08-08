@@ -48,9 +48,9 @@ public abstract partial class Token
 
   public abstract string[] GetSeedAddresses();
 
-  public async Task<ISocketCommunication> GetSocketCommunication(string address)
+  public ISocketCommunication GetSocketCommunication(string address)
   {
-    return await Environment.GetSocketCommunication(this, address);
+    return Environment.GetSocketCommunication(this, address);
   }
 
   public void StartListenerCommunicationInbound()

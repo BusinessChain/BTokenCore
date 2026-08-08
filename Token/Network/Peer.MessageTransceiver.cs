@@ -19,7 +19,7 @@ public partial class NetworkToken
     public const int CommandSize = 12;
     public const int ChecksumSize = 4;
 
-    static readonly byte[] MagicBytes = new byte[4] { 0xF9, 0xBE, 0xB4, 0xD9 };
+    static readonly byte[] MagicBytes = [0xF9, 0xBE, 0xB4, 0xD9];
     byte[] MagicBytesRead = new byte[4];
     byte[] CommandRead = new byte[CommandSize];
     byte[] LengthRead = new byte[4];
@@ -27,14 +27,12 @@ public partial class NetworkToken
 
     SemaphoreSlim SemaphoreSendMessage = new(1);
 
-    DOSMonitorPer10Minutes DOSMonitor;
-
 
     async Task StartMessageReceiver()
     {
-      while (true)
+      try
       {
-        try
+        while (true)
         {
           MessageNetworkProtocol message = await ReceiveMessageNext();
 
@@ -42,14 +40,11 @@ public partial class NetworkToken
 
           message.Run(this);
         }
-        catch (Exception ex)
-        {
-          if (DOSMonitor.IsOverflow)
-            break;
-        }
       }
-
-      Dispose();
+      catch
+      {
+        Dispose();
+      }
     }
 
     async Task<MessageNetworkProtocol> ReceiveMessageNext()
