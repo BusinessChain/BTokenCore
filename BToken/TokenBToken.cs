@@ -321,13 +321,16 @@ public partial class TokenBToken : Token
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
   }
 
-  public override List<string> GetSeedAddresses()
+  public override string[] GetSeedAddresses()
   {
-    return new List<string>()
-      {
-        "83.229.86.158" 
-        //84.74.69.100
-      };
+    return
+      [
+        //"seed.bitcoin.sipa.be",
+        //"dnsseed.bluematt.me",
+        //"dnsseed.bitcoin.dashjr.org",
+        //"seed.bitcoinstats.com",
+        //"seed.bitnodes.io"
+      ];
   }
 
   public override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)

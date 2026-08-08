@@ -29,10 +29,10 @@ public abstract partial class Token
 
   public int Port;
   public UInt32 ProtocolVersion = 70015;
-  ulong NetworkServicesLocal = 0;
-  ulong NetworkServicesRemote = 0;
-  string UserAgent = "/BTokenCore:0.0.0/";
-  byte RelayOption = 0x01;
+  public ulong NetworkServicesLocal = 0;
+  public ulong NetworkServicesRemote = 0;
+  public string UserAgent = "/BTokenCore:0.0.0/";
+  public byte RelayOption = 0x01;
 
 
   public Token(IEnvironment environment)
@@ -45,6 +45,8 @@ public abstract partial class Token
 
     Environment = environment;
   }
+
+  public abstract string[] GetSeedAddresses();
 
   public async Task<ISocketCommunication> GetSocketCommunication(string address)
   {

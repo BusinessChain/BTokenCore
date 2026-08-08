@@ -199,6 +199,17 @@ public partial class TokenBitcoin : Token
     return true;
   }
 
+  public override string[] GetSeedAddresses()
+  {
+    return
+      [
+        "seed.bitcoin.sipa.be",
+        "dnsseed.bluematt.me",
+        "dnsseed.bitcoin.dashjr.org",
+        "seed.bitcoinstats.com",
+        "seed.bitnodes.io"
+      ];
+  }
 
   // Hier darf es keine Exception geben, weil wir einen
   // geparsten Bitcoin Block mit PoW immer als korrekt betrachten

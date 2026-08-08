@@ -44,16 +44,11 @@ public partial class NetworkToken
         }
         catch (Exception ex)
         {
-          Log(
-            $"{ex.GetType().Name} in message receiver: " +
-            $"\n{ex.Message}");
-
           if (DOSMonitor.IsOverflow)
             break;
         }
       }
 
-      Log($"Disconnect from peer {this}");
       Dispose();
     }
 
@@ -82,28 +77,20 @@ public partial class NetworkToken
     {
       int offset = 0;
 
-      try
+      while (bytesToRead > 0)
       {
-        while (bytesToRead > 0)
-        {
-          int chunkSize = await NetworkStream.ReadAsync(
-            buffer,
-            offset,
-            bytesToRead,
-            Cancellation.Token)
-            .ConfigureAwait(false);
+        int chunkSize = await NetworkStream.ReadAsync(
+          buffer,
+          offset,
+          bytesToRead,
+          Cancellation.Token)
+          .ConfigureAwait(false);
 
-          if (chunkSize == 0)
-            throw new IOException("Stream returns 0 bytes signifying end of stream.");
+        if (chunkSize == 0)
+          throw new IOException("Stream returns 0 bytes signifying end of stream.");
 
-          offset += chunkSize;
-          bytesToRead -= chunkSize;
-        }
-      }
-      catch (OperationCanceledException)
-      {
-        Log($"Timeout occured when waiting for next message.");
-        throw;
+        offset += chunkSize;
+        bytesToRead -= chunkSize;
       }
     }
 
@@ -137,14 +124,6 @@ public partial class NetworkToken
       {
         SemaphoreSendMessage.Release();
       }
-    }
-
-    void SetTimer(string descriptionTimeOut = "", int millisecondsTimer = int.MaxValue)
-    {
-      if (descriptionTimeOut != "")
-        Log($"Set timeout for '{descriptionTimeOut}' to {millisecondsTimer} ms.");
-
-      Cancellation.CancelAfter(millisecondsTimer);
     }
   }
 }

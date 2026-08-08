@@ -87,40 +87,56 @@ public partial class NetworkToken
     }
   }
 
+  string GetIPAddress()
+  {
+    while (IPAddresses.Count == 0)
+    {
+      foreach (string dnsSeed in Token.GetSeedAddresses())
+      {
+        try
+        {
+          IPAddress[] addresses = Dns.GetHostAddresses(dnsSeed);
+
+          IPAddresses.AddRange(addresses
+            .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
+            .Select(x => x.ToString()));
+        }
+        catch
+        { }
+      }
+
+      IPAddresses = IPAddresses.Distinct().ToList();
+
+      if (IPAddresses.Count == 0)
+        Thread.Sleep(1000);
+    }
+
+    string iP = IPAddresses[0];
+    IPAddresses.RemoveAt(0);
+
+    return iP;
+  }
+
   async Task<Peer> GetInterfacePeer(Token token)
-  {// muss das nicht gelockt werden LOCK_IPAddresses?
+  {
     while (true)
     {
-      if (IPAddresses.Count == 0)
-        IPAddresses = await GetSeedAddresses();
-
-      string iP = IPAddresses[0];
-      IPAddresses.RemoveAt(0);
-
       try
       {
+        string iP = GetIPAddress();
+
+        iP = "83.229.86.158";
+        // 84.74.69.100
+
         ISocketCommunication socketCommunication = await token.GetSocketCommunication(iP);
 
         await StartPeer(socketCommunication, ConnectionType.OUTBOUND);
       }
       catch
-      { }
+      {
+        await Task.Delay(1000);
+      }
     }
-  }
-
-  public async Task<List<string>> GetSeedAddresses()
-  {
-    //mit DNS seeds arbeiten.
-    //seed.bitcoin.sipa.be
-    //dnsseed.bluematt.me
-    //dnsseed.bitcoin.dashjr.org
-    //seed.bitcoinstats.com
-    //seed.bitnodes.io
-
-    return new List<string>()
-        {"83.229.86.158" 
-        // 84.74.69.100
-        };
   }
 
   Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()

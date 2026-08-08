@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Text;
-using System.Text;
+using System.Net;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 
@@ -98,10 +98,9 @@ public partial class NetworkToken
       LengthDataPayload = Payload.Length;
     }
 
-
     public override async Task Run(Peer peer)
     {
-      peer.SendMessage(new PongMessage(Payload, LengthDataPayload));
+      PongMessage.SendPong(peer, LengthDataPayload, Payload);
     }
 
     public override string GetCommand()
@@ -109,6 +108,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+
   class BlockMessage : MessageNetworkProtocol
   {
     public const string Command = "block";
@@ -154,6 +154,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class GetDataMessage : MessageNetworkProtocol
   {
     public const string Command = "getdata";
@@ -227,6 +228,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class GetHeadersMessage : MessageNetworkProtocol
   {
     public const string Command = "getheaders";
@@ -298,6 +300,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class HeadersMessage : MessageNetworkProtocol
   {
     public const string Command = "headers";
@@ -386,6 +389,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class InvMessage : MessageNetworkProtocol
   {
     public const string Command = "inv";
@@ -435,6 +439,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class PongMessage : MessageNetworkProtocol
   {
     public const string Command = "pong";
@@ -462,11 +467,17 @@ public partial class NetworkToken
       peer.ProtocolStateMachine = null;
     }
 
+    public static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
+    {
+      await peer.SendMessage(Command, payloadLength, payload);
+    }
+
     public override string GetCommand()
     {
       return Command;
     }
   }
+  
   class TXMessage : MessageNetworkProtocol
   {
     public const string Command = "tx";
@@ -499,6 +510,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class VerAckMessage : MessageNetworkProtocol
   {
     public const string Command = "verack";
@@ -522,6 +534,7 @@ public partial class NetworkToken
       return Command;
     }
   }
+  
   class VersionMessage : MessageNetworkProtocol
   {
     public const string Command = "version";
@@ -540,19 +553,19 @@ public partial class NetworkToken
     {
       List<byte> versionPayload = new();
 
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.ProtocolVersion));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.NetworkServicesLocal));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
       versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.NetworkServicesRemote));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesRemote));
       versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.Network.Port));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.NetworkServicesLocal));
+      versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
       versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.Network.Port));
+      versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
       versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
-      versionPayload.AddRange(VarString.GetBytes(peer.Network.UserAgent));
+      versionPayload.AddRange(VarString.GetBytes(peer.Network.Token.UserAgent));
       versionPayload.AddRange(BitConverter.GetBytes(peer.Network.BlockchainRoot.GetHeight()));
-      versionPayload.Add(peer.Network.RelayOption);
+      versionPayload.Add(peer.Network.Token.RelayOption);
 
       byte[] buffer = versionPayload.ToArray();
 

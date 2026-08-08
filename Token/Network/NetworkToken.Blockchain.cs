@@ -122,9 +122,7 @@ public partial class NetworkToken
       }
     }
     catch (Exception ex)
-    {
-      SocketToken.Log($"{ex.GetType().Name} when attempting to load mined block {tokenAnchor.HashBlockReferenced.ToHexString()}: {ex.Message}.\n");
-    }
+    { }
   }
 
   void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
@@ -135,7 +133,6 @@ public partial class NetworkToken
           peer.BroadcastTX(tX);
     else
     {
-      $"Could not create anchor tX, stop mining.".Log(this, SocketToken);
       IsMining = false;
     }
   }
