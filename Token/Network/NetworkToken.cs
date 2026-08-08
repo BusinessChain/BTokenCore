@@ -25,20 +25,14 @@ public partial class NetworkToken
   ILiteCollection<BsonDocument> DatabaseHeaderCollection;
 
   const int COUNT_MAX_OUTBOUND_CONNECTIONS = 3;
-  const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 10;
+  const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
+  const int COUNT_MAX_INBOUND_CONNECTIONS = 8;
 
   bool EnableInboundConnections;
   bool EnableRelay;
 
   object LOCK_Peers = new();
   List<Peer> Peers = new();
-
-  int Port;
-  UInt32 ProtocolVersion = 70015;
-  ulong NetworkServicesLocal = 0;
-  ulong NetworkServicesRemote = 0;
-  string UserAgent = "/BTokenCore:0.0.0/";
-  byte RelayOption = 0x01;
 
   public enum ConnectionType { OUTBOUND, INBOUND };
   List<string> IPAddresses = new();
@@ -74,14 +68,14 @@ public partial class NetworkToken
 
     BlockchainRoot.LoadFromDisk();
 
-    StartPeerConnector();
+    StartPeerConnectorOutbound();
+
+    if (EnableInboundConnections)
+      StartPeerConnectorInbound();
   }
 
-  async Task StartPeerConnector()
+  async Task StartPeerConnectorOutbound()
   {
-    if (EnableInboundConnections)
-      StartPeerInboundConnector();
-
     while (true)
     {
       Peers.RemoveAll(p => p.IsDisposed());
@@ -107,9 +101,9 @@ public partial class NetworkToken
       {
         ISocketCommunication socketCommunication = await token.GetSocketCommunication(iP);
 
-        return new Peer(CreateStateMachineProtocol(), socketCommunication, ConnectionType.OUTBOUND);
+        await StartPeer(socketCommunication, ConnectionType.OUTBOUND);
       }
-      catch (Exception ex)
+      catch
       { }
     }
   }
@@ -183,82 +177,42 @@ public partial class NetworkToken
               ?.OnTokenAnchorParent(tokenAnchor);
   }
 
-  int COUNT_MAX_INBOUND_CONNECTIONS = 8;
-
-  async Task StartPeerInboundConnector()
+  async Task StartPeerConnectorInbound()
   {
-
-
-    TcpListener tcpListener = new(IPAddress.Any, Port);
-
-    try
-    {
-      tcpListener.Start(COUNT_MAX_INBOUND_CONNECTIONS);
-    }
-    catch (Exception ex)
-    {
-      return;
-    }
+    Token.StartListenerCommunicationInbound();
 
     while (true)
+    {
+      ISocketCommunication socketCommunicationInbound = null;
+
       try
       {
-        TcpClient tcpClient = await tcpListener.AcceptTcpClientAsync().ConfigureAwait(false);
+        socketCommunicationInbound = await Token.AcceptSocketCommunicationInbound();
 
-        IPAddress remoteIP = ((IPEndPoint)tcpClient.Client.RemoteEndPoint).Address;
-
-        if (!ValidateInboundPeer(remoteIP))
+        if (Peers.Any(p => p.GetIP().Equals(socketCommunicationInbound.GetIP()))
+          || Peers.Count(p => p.Connection == ConnectionType.INBOUND) + 1 > COUNT_MAX_INBOUND_CONNECTIONS)
         {
-          tcpClient.Dispose();
-          continue;
+          throw new ProtocolException("Inbound request rejected.");
         }
 
-        CreatePeerInbound(tcpClient, remoteIP);
+        await StartPeer(socketCommunicationInbound, ConnectionType.INBOUND);
       }
-      catch (Exception ex)
+      catch
       {
-        await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        socketCommunicationInbound?.Dispose();
+
+        await Task.Delay(30_000).ConfigureAwait(false);
       }
+    }
   }
 
-  bool ValidateInboundPeer(IPAddress remoteIP)
+  async Task StartPeer(ISocketCommunication socketCommunication, ConnectionType connection)
   {
-    string rejectionString = "";
+    Peer peer = new(CreateStateMachineProtocol(), socketCommunication, connection);
+
+    await peer.Start();
 
     lock (LOCK_Peers)
-    {
-      if (Peers.Any(p => p.IPAddress.Equals(remoteIP)))
-        rejectionString = $"Peer {remoteIP} already connected.";
-      else if (Peers.Count(p => p.Connection == ConnectionType.INBOUND) >= COUNT_MAX_INBOUND_CONNECTIONS)
-        rejectionString = $"Max number ({COUNT_MAX_INBOUND_CONNECTIONS}) of inbound connections reached.";
-    }
-
-    if (rejectionString == "")
-    {
-      if (remoteIP.ToString() != "84.74.69.100")
-        rejectionString = $"Peer {remoteIP} not on whitelist.";
-    }
-
-    if (rejectionString != "")
-      return false;
-
-    return true;
-  }
-
-  async Task CreatePeerInbound(TcpClient tcpClient, IPAddress iP)
-  {
-    try
-    {
-      Peer peer = new(CreateStateMachineProtocol(), tcpClient, C, iP);
-
-      await peer.Start();
-
-      lock (LOCK_Peers)
-        Peers.Add(peer);
-    }
-    catch (Exception ex)
-    {
-      tcpClient.Dispose();
-    }
+      Peers.Add(peer);
   }
 }

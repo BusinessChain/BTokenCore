@@ -1,7 +1,8 @@
 ﻿using System;
-using System.Linq;
+using System.Text;
 using System.Text;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -279,7 +280,7 @@ public partial class NetworkToken
     {
       List<byte> payload = new();
 
-      payload.AddRange(BitConverter.GetBytes(peer.Network.ProtocolVersion));
+      payload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
       payload.AddRange(VarInt.GetBytes(locator.Count()));
 
       foreach (byte[] locatorHash in locator)
@@ -290,8 +291,6 @@ public partial class NetworkToken
       byte[] buffer = payload.ToArray();
 
       await peer.SendMessage(Command, buffer.Length, buffer);
-
-      peer.Log($"Send getheaders. Locator: {locator.First().ToHexString()} ... {locator.Last().ToHexString()}");
     }
 
     public override string GetCommand()

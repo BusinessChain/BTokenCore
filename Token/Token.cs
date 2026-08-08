@@ -27,6 +27,14 @@ public abstract partial class Token
   bool IsLocked;
 
 
+  public int Port;
+  public UInt32 ProtocolVersion = 70015;
+  ulong NetworkServicesLocal = 0;
+  ulong NetworkServicesRemote = 0;
+  string UserAgent = "/BTokenCore:0.0.0/";
+  byte RelayOption = 0x01;
+
+
   public Token(IEnvironment environment)
   {
     Directory.CreateDirectory(GetName());
@@ -41,6 +49,16 @@ public abstract partial class Token
   public async Task<ISocketCommunication> GetSocketCommunication(string address)
   {
     return await Environment.GetSocketCommunication(this, address);
+  }
+
+  public void StartListenerCommunicationInbound()
+  {
+    Environment.StartListenerCommunicationInbound(Port);
+  }
+
+  public async Task<ISocketCommunication> AcceptSocketCommunicationInbound()
+  {
+    return await Environment.AcceptSocketCommunicationInbound();
   }
 
   public bool TryLock()

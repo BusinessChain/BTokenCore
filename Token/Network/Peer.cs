@@ -20,7 +20,6 @@ public partial class NetworkToken
 
     ISocketCommunication SocketCommunication;
     public ConnectionType Connection;
-    public IPAddress IPAddress;
 
     const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
@@ -39,14 +38,13 @@ public partial class NetworkToken
 
     byte[] HashDBDownload;
 
-    NetworkStream NetworkStream;
+    Stream NetworkStream;
     CancellationTokenSource Cancellation = new();
 
     SHA256 SHA256 = SHA256.Create();
 
-    StreamWriter LogFile;
-
     DateTime TimePeerCreation = DateTime.Now;
+
 
     public Peer(
       Dictionary<string, MessageNetworkProtocol> protocolStateMachine,
@@ -57,20 +55,16 @@ public partial class NetworkToken
 
       SocketCommunication = socketCommunication;
       Connection = connection;
-      IPAddress = iPAddress;
     }
 
     public bool IsDisposed()
     {
-      return StateCurrent == Peer.StateProtocol.Disposed;
+      return StateCurrent == StateProtocol.Disposed;
     }
 
     public async Task Start()
     {
-      if (!TcpClient.Connected)
-        await TcpClient.ConnectAsync(IPAddress, Network.Port).ConfigureAwait(false);
-
-      NetworkStream = TcpClient.GetStream();
+      NetworkStream = await SocketCommunication.Start();
 
       StartMessageReceiver();
 
@@ -99,17 +93,12 @@ public partial class NetworkToken
     {
       Cancellation.Cancel();
 
-      TcpClient.Dispose();
+      SocketCommunication.Dispose();
+    }
 
-      LogFile.Dispose();
-
-      //string pathLogFile = ((FileStream)LogFile.BaseStream).Name;
-      //string nameLogFile = Path.GetFileName(pathLogFile);
-      //string pathLogFileDisposed = Path.Combine(
-      //  Network.DirectoryPeersDisposed.FullName, nameLogFile);
-
-      //File.Move(pathLogFile, pathLogFileDisposed);
-      //File.SetCreationTime(pathLogFileDisposed, DateTime.Now);
+    public string GetIP()
+    {
+      return SocketCommunication.GetIP();
     }
 
     public string GetStatus()
