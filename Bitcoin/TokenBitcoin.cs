@@ -42,7 +42,7 @@ public partial class TokenBitcoin : Token
 
     IDToken = new byte[3] { (byte)'B', (byte)'T', (byte)'C' };
 
-    Network = new NetworkToken(
+    Network = new Network(
       null,
       this,
       port: 8333,

@@ -12,11 +12,11 @@ using LiteDB;
 
 namespace BTokenCore;
 
-public partial class NetworkToken
+public partial class Network
 {
-  public NetworkToken NetworkParent;
+  public Network NetworkParent;
 
-  public List<NetworkToken> NetworksChild = new();
+  public List<Network> NetworksChild = new();
 
   public Token Token;
 
@@ -38,7 +38,7 @@ public partial class NetworkToken
   List<string> IPAddresses = new();
 
 
-  public NetworkToken(
+  public Network(
     Token tokenParent,
     Token token,
     int port,
@@ -163,7 +163,7 @@ public partial class NetworkToken
     protocol.Add(message.GetCommand(), message);
   }
 
-  async Task StartHeaderSync(Peer peer)
+  public async Task StartHeaderSync(Peer peer)
   {
     if (!await TryLockBlockchain(10000))
       return;

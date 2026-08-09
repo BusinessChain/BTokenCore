@@ -7,7 +7,9 @@ namespace BTokenCore;
 
 public interface ISocketCommunication
 {
-  public Task<Stream> Start();
+  public Task Start();
+  public Task SendMessage(string commandString, int lengthDataPayload, byte[] payload);
+  public Task<MessageNetworkProtocol> ReceiveMessageNext();
   public void Dispose();
   public string GetIP();
 }

@@ -48,7 +48,7 @@ public partial class TokenBToken : Token
 
     IDToken = new byte[3] { (byte)'B', (byte)'T', (byte)'K' };
 
-    Network = new NetworkToken(
+    Network = new Network(
       tokenParent,
       this,
       port: 8777,

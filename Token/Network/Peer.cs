@@ -10,106 +10,92 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public partial class NetworkToken
+
+public partial class Peer
 {
-  partial class Peer
+  public Network Network;
+
+  public Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
+
+  public ISocketCommunication SocketCommunication;
+  public Network.ConnectionType Connection;
+
+  const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
+
+  public enum StateProtocol
   {
-    public NetworkToken Network;
+    Handshake,
+    AwaitVersion,
+    Idle,
+    HeaderDownload,
+    DBDownload,
+    GetData,
+    AdvertizingTX,
+    Disposed,
+    Busy
+  }
 
-    public Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
+  byte[] HashDBDownload;
 
-    ISocketCommunication SocketCommunication;
-    public ConnectionType Connection;
-
-    const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
-
-    public enum StateProtocol
-    {
-      Handshake,
-      AwaitVersion,
-      Idle,
-      HeaderDownload,
-      DBDownload,
-      GetData,
-      AdvertizingTX,
-      Disposed,
-      Busy
-    }
-
-    byte[] HashDBDownload;
-
-    Stream NetworkStream;
-    CancellationTokenSource Cancellation = new();
-
-    SHA256 SHA256 = SHA256.Create();
-
-    DateTime TimePeerCreation = DateTime.Now;
+  DateTime TimePeerCreation = DateTime.Now;
 
 
-    public Peer(
-      Dictionary<string, MessageNetworkProtocol> protocolStateMachine,
-      ISocketCommunication socketCommunication,
-      ConnectionType connection)
-    {
-      ProtocolStateMachine = protocolStateMachine;
+  public Peer(
+    Dictionary<string, MessageNetworkProtocol> protocolStateMachine,
+    ISocketCommunication socketCommunication,
+    Network.ConnectionType connection)
+  {
+    ProtocolStateMachine = protocolStateMachine;
 
-      SocketCommunication = socketCommunication;
-      Connection = connection;
-    }
+    SocketCommunication = socketCommunication;
+    Connection = connection;
+  }
 
-    public bool IsDisposed()
-    {
-      return StateCurrent == StateProtocol.Disposed;
-    }
+  public bool IsDisposed()
+  {
+    return StateCurrent == StateProtocol.Disposed;
+  }
 
-    public async Task Start()
-    {
-      NetworkStream = await SocketCommunication.Start();
+  public async Task Start()
+  {
+    await SocketCommunication.Start();
 
-      StartMessageReceiver();
+    StartMessageReceiver();
 
-      if (Connection == ConnectionType.OUTBOUND)
-        VersionMessage.SendVersion(this);
-    }
+    if (Connection == Network.ConnectionType.OUTBOUND)
+      VersionMessage.SendVersion(this);
+  }
 
-    public void BroadcastTX(TX tX)
-    {
-      InvMessage invMessage = new(new List<Inventory> {
-            new(InventoryType.MSG_TX, tX.Hash)});
+  public void BroadcastTX(TX tX)
+  {
+    InvMessage invMessage = new(new List<Inventory> {
+            new(Inventory.InventoryType.MSG_TX, tX.Hash)});
 
-      SendMessage(invMessage);
-    }
+    SendMessage(invMessage);
+  }
 
-    public async Task AdvertizeTX(TX tX)
-    {
-      InvMessage invMessage = new(new List<Inventory> {
-          new(InventoryType.MSG_TX, tX.Hash)
+  public async Task AdvertizeTX(TX tX)
+  {
+    InvMessage invMessage = new(new List<Inventory> {
+          new(Inventory.InventoryType.MSG_TX, tX.Hash)
         });
 
-      await SendMessage(invMessage);
-    }
+    await SendMessage(invMessage);
+  }
 
-    public void Dispose()
-    {
-      Cancellation.Cancel();
+  public string GetIP()
+  {
+    return SocketCommunication.GetIP();
+  }
 
-      SocketCommunication.Dispose();
-    }
+  public string GetStatus()
+  {
+    int lifeTime = (int)(DateTime.Now - TimePeerCreation).TotalMinutes;
 
-    public string GetIP()
-    {
-      return SocketCommunication.GetIP();
-    }
-
-    public string GetStatus()
-    {
-      int lifeTime = (int)(DateTime.Now - TimePeerCreation).TotalMinutes;
-
-      lock (this)
-        return
-          $"\nStatus peer {this}:\n" +
-          $"lifeTime minutes: {lifeTime}\n" +
-          $"Connection: {Connection}\n";
-    }
+    lock (this)
+      return
+        $"\nStatus peer {this}:\n" +
+        $"lifeTime minutes: {lifeTime}\n" +
+        $"Connection: {Connection}\n";
   }
 }

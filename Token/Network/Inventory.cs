@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-public partial class NetworkToken
+class Inventory
 {
   public enum InventoryType
   {
@@ -18,51 +18,48 @@ public partial class NetworkToken
     MSG_DB = 5
   }
 
-  class Inventory
+  public InventoryType Type;
+  public byte[] Hash;
+
+  public Inventory(InventoryType type, byte[] hash)
   {
-    public InventoryType Type;
-    public byte[] Hash;
+    Type = type;
+    Hash = hash;
+  }
 
-    public Inventory(InventoryType type, byte[] hash)
-    {
-      Type = type;
-      Hash = hash;
-    }
+  public List<byte> GetBytes()
+  {
+    List<byte> bytes = new List<byte>();
 
-    public List<byte> GetBytes()
-    {
-      List<byte> bytes = new List<byte>();
+    bytes.AddRange(BitConverter.GetBytes((uint)Type));
+    bytes.AddRange(Hash);
 
-      bytes.AddRange(BitConverter.GetBytes((uint)Type));
-      bytes.AddRange(Hash);
+    return bytes;
+  }
 
-      return bytes;
-    }
+  public static Inventory Parse(
+    byte[] buffer,
+    ref int startIndex)
+  {
+    uint type = BitConverter.ToUInt32(buffer, startIndex);
+    startIndex += 4;
 
-    public static Inventory Parse(
-      byte[] buffer,
-      ref int startIndex)
-    {
-      uint type = BitConverter.ToUInt32(buffer, startIndex);
-      startIndex += 4;
+    byte[] hash = new byte[32];
+    Array.Copy(buffer, startIndex, hash, 0, 32);
+    startIndex += 32;
 
-      byte[] hash = new byte[32];
-      Array.Copy(buffer, startIndex, hash, 0, 32);
-      startIndex += 32;
+    return new Inventory(
+      (InventoryType)type,
+      hash);
+  }
 
-      return new Inventory(
-        (InventoryType)type,
-        hash);
-    }
+  public bool IsTX()
+  {
+    return Type == InventoryType.MSG_TX;
+  }
 
-    public bool IsTX()
-    {
-      return Type == InventoryType.MSG_TX;
-    }
-
-    public override string ToString()
-    {
-      return Hash.ToHexString();
-    }
+  public override string ToString()
+  {
+    return Hash.ToHexString();
   }
 }

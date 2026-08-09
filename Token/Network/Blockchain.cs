@@ -7,16 +7,16 @@ using System.Collections.Concurrent;
 
 namespace BTokenCore;
 
-public partial class NetworkToken
+public partial class Network
 {
-  class Blockchain
+  public class Blockchain
   {
     Blockchain BlockchainParent;
     List<Blockchain> BlockchainBranches = new();
 
     Token Token;
 
-    NetworkToken Network;
+    Network Network;
 
     Header HeaderTip;
     Header HeaderRoot;
@@ -34,7 +34,7 @@ public partial class NetworkToken
     Block BlockLoad;
 
 
-    public Blockchain(Token token, NetworkToken network)
+    public Blockchain(Token token, Network network)
     {
       Token = token;
 

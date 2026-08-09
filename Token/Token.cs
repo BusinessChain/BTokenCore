@@ -15,7 +15,7 @@ public abstract partial class Token
   public static byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
 
   public byte[] IDToken;
-  public NetworkToken Network;
+  public Network Network;
   public Wallet Wallet;
 
   public int SizeBlockMax;

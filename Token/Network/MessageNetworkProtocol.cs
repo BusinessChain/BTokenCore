@@ -7,582 +7,576 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public partial class NetworkToken
+public abstract class MessageNetworkProtocol
 {
-  abstract class MessageNetworkProtocol
+  public byte[] Payload;
+  public int LengthDataPayload;
+
+  public DOSMonitorPer10Minutes DOSMonitor;
+
+
+  public MessageNetworkProtocol()
+    : this(Array.Empty<byte>())
+  { }
+
+  public MessageNetworkProtocol(byte[] payload)
   {
-    public byte[] Payload;
-    public int LengthDataPayload;
+    Payload = payload;
+    LengthDataPayload = payload.Length;
+  }
 
-    public DOSMonitorPer10Minutes DOSMonitor;
+  public virtual byte[] GetPayloadBuffer()
+  {
+    return Payload;
+  }
+
+  public abstract Task Run(Peer peer);
+
+  public abstract string GetCommand();
+}
 
 
-    public MessageNetworkProtocol()
-      : this(Array.Empty<byte>())
-    { }
+class AddressMessage : MessageNetworkProtocol
+{
+  const string Command = "addr";
 
-    public MessageNetworkProtocol(byte[] payload)
+  public List<NetworkAddress> NetworkAddresses = new();
+
+  public AddressMessage()
+  { }
+
+  public AddressMessage(byte[] messagePayload)
+    : base(messagePayload)
+  {
+    int startIndex = 0;
+
+    int addressesCount = VarInt.GetInt(
+      Payload,
+      ref startIndex);
+
+    for (int i = 0; i < addressesCount; i++)
     {
+      NetworkAddress address = NetworkAddress.ParseAddress(
+          Payload, ref startIndex);
 
-      Payload = payload;
+      if (NetworkAddresses.Any(
+        a => a.IPAddress.ToString() == address.IPAddress.ToString()))
+        throw new ProtocolException("Duplicate network address advertized.");
 
-      LengthDataPayload = payload.Length;
+      NetworkAddresses.Add(address);
     }
-
-    public virtual byte[] GetPayloadBuffer()
-    {
-      return Payload;
-    }
-
-    public abstract Task Run(Peer peer);
-
-    public abstract string GetCommand();
   }
 
 
-  class AddressMessage : MessageNetworkProtocol
+  public override async Task Run(Peer peer)
   {
-    const string Command = "addr";
 
-    public List<NetworkAddress> NetworkAddresses = new();
+  }
 
-    public AddressMessage()
-    { }
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
 
-    public AddressMessage(byte[] messagePayload)
-      : base(messagePayload)
+class PingMessage : MessageNetworkProtocol
+{
+  public const string Command = "ping";
+
+  public UInt64 Nonce;
+
+
+  public PingMessage()
+  { }
+
+  public PingMessage(byte[] payload)
+  {
+    Payload = payload;
+    LengthDataPayload = Payload.Length;
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    PongMessage.SendPong(peer, LengthDataPayload, Payload);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class BlockMessage : MessageNetworkProtocol
+{
+  public const string Command = "block";
+
+  public Block BlockDownload;
+
+
+  public BlockMessage(Block blockDownload)
+    : base()
+  {
+    BlockDownload = blockDownload;
+  }
+
+  public override byte[] GetPayloadBuffer()
+  {
+    return BlockDownload.Buffer;
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    if (BlockDownload?.Header == null)
+      throw new ProtocolException($"Received unrequested block message.");
+
+    DOSMonitor.Decrement(1);
+
+    BlockDownload.LengthDataPayload = LengthDataPayload;
+
+    BlockDownload.Parse();
+
+    BlockDownload = await peer.Network.InsertBlock(BlockDownload);
+
+    if (BlockDownload.Header != null)
+      GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
+  }
+
+  public static async Task SendBlock(Peer peer, Block block)
+  {
+    await peer.SocketCommunication.SendMessage(Command, block.LengthDataPayload, block.Buffer);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class GetDataMessage : MessageNetworkProtocol
+{
+  public const string Command = "getdata";
+
+  Block BlockUpload;
+
+
+  int HeightBlockDownloadedLast;
+
+
+  public GetDataMessage(Block blockUpload)
+    : base()
+  {
+    BlockUpload = blockUpload;
+
+    DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    int startIndex = 0;
+
+    int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
+
+    for (int i = 0; i < inventoryCount; i++)
     {
-      int startIndex = 0;
+      Inventory inventory = Inventory.Parse(Payload, ref startIndex);
 
-      int addressesCount = VarInt.GetInt(
-        Payload,
-        ref startIndex);
-
-      for (int i = 0; i < addressesCount; i++)
+      if (inventory.Type == Inventory.InventoryType.MSG_TX)
       {
-        NetworkAddress address = NetworkAddress.ParseAddress(
-            Payload, ref startIndex);
+        if (peer.Network.Token.TryGetTX(inventory.Hash, out TX tXInPool))
+          TXMessage.Send(peer, tXInPool.TXRaw);
+      }
+      else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
+      {
+        BlockUpload.Header = null;
 
-        if (NetworkAddresses.Any(
-          a => a.IPAddress.ToString() == address.IPAddress.ToString()))
-          throw new ProtocolException("Duplicate network address advertized.");
+        await peer.Network.GetBlock(inventory.Hash, BlockUpload);
 
-        NetworkAddresses.Add(address);
+        if (BlockUpload.Header != null)
+        {
+          BlockMessage.SendBlock(peer, BlockUpload);
+
+          if (BlockUpload.Header.Height > HeightBlockDownloadedLast)
+            DOSMonitor.Decrement(1);
+
+          HeightBlockDownloadedLast = BlockUpload.Header.Height;
+        }
+      }
+      else if (inventory.Type == Inventory.InventoryType.MSG_DB)
+      {
       }
     }
-
-
-    public override async Task Run(Peer peer)
-    {
-
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
-  }
-  class PingMessage : MessageNetworkProtocol
-  {
-    public const string Command = "ping";
-
-    public UInt64 Nonce;
-
-
-    public PingMessage()
-    { }
-
-    public PingMessage(byte[] payload)
-    {
-      Payload = payload;
-      LengthDataPayload = Payload.Length;
-    }
-
-    public override async Task Run(Peer peer)
-    {
-      PongMessage.SendPong(peer, LengthDataPayload, Payload);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
   }
 
-  class BlockMessage : MessageNetworkProtocol
+  public static async Task SendBlockRequest(Peer peer, byte[] hash)
   {
-    public const string Command = "block";
+    List<byte> payload = new();
 
-    public Block BlockDownload;
+    payload.AddRange(VarInt.GetBytes(1));
+    payload.AddRange(BitConverter.GetBytes((uint)Inventory.InventoryType.MSG_BLOCK));
+    payload.AddRange(hash);
+
+    byte[] buffer = payload.ToArray();
+
+    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class GetHeadersMessage : MessageNetworkProtocol
+{
+  public const string Command = "getheaders";
+
+  int HeightAncestorSentLast;
 
 
-    public BlockMessage(Block blockDownload)
-      : base()
+  public GetHeadersMessage()
+  {
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    int startIndex = 0;
+
+    byte[] version = new byte[4];
+    Array.Copy(Payload, startIndex, version, 0, version.Length);
+    startIndex += version.Length;
+
+    int countHeaderLocator = VarInt.GetInt(Payload, ref startIndex);
+
+    if (countHeaderLocator > 101)
+      throw new ProtocolException($"Too many ({countHeaderLocator}) headers in locator.");
+
+    List<byte[]> hashesLocator = new();
+
+    for (int i = 0; i < countHeaderLocator; i += 1)
     {
-      BlockDownload = blockDownload;
+      byte[] hashLocator = new byte[32];
+      Array.Copy(Payload, startIndex, hashLocator, 0, hashLocator.Length);
+      startIndex += hashLocator.Length;
+
+      hashesLocator.Add(hashLocator);
     }
 
-    public override byte[] GetPayloadBuffer()
-    {
-      return BlockDownload.Buffer;
-    }
+    (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
+      await peer.Network.GetHeadersSerialized( hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
 
-    public override async Task Run(Peer peer)
-    {
-      if (BlockDownload?.Header == null)
-        throw new ProtocolException($"Received unrequested block message.");
+    HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
 
+    if (tupleHeadersSerialized.heightAncestor > HeightAncestorSentLast)
+    {
       DOSMonitor.Decrement(1);
-
-      BlockDownload.LengthDataPayload = LengthDataPayload;
-
-      BlockDownload.Parse();
-
-      BlockDownload = await peer.Network.InsertBlock(BlockDownload);
-
-      if (BlockDownload.Header != null)
-        GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
-    }
-
-    public static async Task SendBlock(Peer peer, Block block)
-    {
-      await peer.SendMessage(Command, block.LengthDataPayload, block.Buffer);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
+      HeightAncestorSentLast = tupleHeadersSerialized.heightAncestor;
     }
   }
-  
-  class GetDataMessage : MessageNetworkProtocol
+
+  public static async Task SendGetHeaders(Peer peer, List<byte[]> locator)
   {
-    public const string Command = "getdata";
+    List<byte> payload = new();
 
-    Block BlockUpload;
+    payload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
+    payload.AddRange(VarInt.GetBytes(locator.Count()));
 
+    foreach (byte[] locatorHash in locator)
+      payload.AddRange(locatorHash);
 
-    int HeightBlockDownloadedLast;
+    payload.AddRange("0000000000000000000000000000000000000000000000000000000000000000".ToBinary());
 
+    byte[] buffer = payload.ToArray();
 
-    public GetDataMessage(Block blockUpload)
-      : base()
-    {
-      BlockUpload = blockUpload;
-
-      DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
-    }
-
-    public override async Task Run(Peer peer)
-    {
-      int startIndex = 0;
-
-      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
-
-      for (int i = 0; i < inventoryCount; i++)
-      {
-        Inventory inventory = Inventory.Parse(Payload, ref startIndex);
-
-        if (inventory.Type == InventoryType.MSG_TX)
-        {
-          if (peer.Network.Token.TryGetTX(inventory.Hash, out TX tXInPool))
-            TXMessage.Send(peer, tXInPool.TXRaw);
-        }
-        else if (inventory.Type == InventoryType.MSG_BLOCK)
-        {
-          BlockUpload.Header = null;
-
-          await peer.Network.GetBlock(inventory.Hash, BlockUpload);
-
-          if (BlockUpload.Header != null)
-          {
-            BlockMessage.SendBlock(peer, BlockUpload);
-
-            if (BlockUpload.Header.Height > HeightBlockDownloadedLast)
-              DOSMonitor.Decrement(1);
-
-            HeightBlockDownloadedLast = BlockUpload.Header.Height;
-          }
-        }
-        else if (inventory.Type == InventoryType.MSG_DB)
-        {
-        }
-      }
-    }
-
-    public static async Task SendBlockRequest(Peer peer, byte[] hash)
-    {
-      List<byte> payload = new();
-
-      payload.AddRange(VarInt.GetBytes(1));
-      payload.AddRange(BitConverter.GetBytes((uint)InventoryType.MSG_BLOCK));
-      payload.AddRange(hash);
-
-      byte[] buffer = payload.ToArray();
-
-      await peer.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
+    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
   }
-  
-  class GetHeadersMessage : MessageNetworkProtocol
+
+  public override string GetCommand()
   {
-    public const string Command = "getheaders";
+    return Command;
+  }
+}
 
-    int HeightAncestorSentLast;
+class HeadersMessage : MessageNetworkProtocol
+{
+  public const string Command = "headers";
+
+  public const int MAX_COUNT_HEADERS = 2000;
+
+  Block BlockDownload;
+
+  SHA256 SHA256 = SHA256.Create();
 
 
-    public GetHeadersMessage()
+  public HeadersMessage(Block blockDownload)
+  {
+    BlockDownload = blockDownload;
+    DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    int startIndex = 0;
+    int countHeaders = VarInt.GetInt(Payload, ref startIndex);
+
+    if (countHeaders > MAX_COUNT_HEADERS)
+      throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
+    else if (countHeaders > 0)
     {
-    }
+      Header headerRoot = ParseHeaderchain(peer, countHeaders, ref startIndex);
 
-    public override async Task Run(Peer peer)
-    {
-      int startIndex = 0;
+      List<byte[]> headerslocator = await peer.Network.ExtendHeaderchain(
+        headerRoot,
+        BlockDownload);
 
-      byte[] version = new byte[4];
-      Array.Copy(Payload, startIndex, version, 0, version.Length);
-      startIndex += version.Length;
-
-      int countHeaderLocator = VarInt.GetInt(Payload, ref startIndex);
-
-      if (countHeaderLocator > 101)
-        throw new ProtocolException($"Too many ({countHeaderLocator}) headers in locator.");
-
-      List<byte[]> hashesLocator = new();
-
-      for (int i = 0; i < countHeaderLocator; i += 1)
-      {
-        byte[] hashLocator = new byte[32];
-        Array.Copy(Payload, startIndex, hashLocator, 0, hashLocator.Length);
-        startIndex += hashLocator.Length;
-
-        hashesLocator.Add(hashLocator);
-      }
-
-      (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-        await peer.Network.GetHeadersSerialized(
-          hashesLocator,
-          HeadersMessage.MAX_COUNT_HEADERS);
-
-      HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
-
-      if (tupleHeadersSerialized.heightAncestor > HeightAncestorSentLast)
+      if (headerslocator != null)
       {
         DOSMonitor.Decrement(1);
-        HeightAncestorSentLast = tupleHeadersSerialized.heightAncestor;
+        GetHeadersMessage.SendGetHeaders(peer, headerslocator);
       }
     }
-
-    public static async Task SendGetHeaders(Peer peer, List<byte[]> locator)
-    {
-      List<byte> payload = new();
-
-      payload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
-      payload.AddRange(VarInt.GetBytes(locator.Count()));
-
-      foreach (byte[] locatorHash in locator)
-        payload.AddRange(locatorHash);
-
-      payload.AddRange("0000000000000000000000000000000000000000000000000000000000000000".ToBinary());
-
-      byte[] buffer = payload.ToArray();
-
-      await peer.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
+    else if (countHeaders == 0 && BlockDownload.Header != null)
+      GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
   }
-  
-  class HeadersMessage : MessageNetworkProtocol
+
+  Header ParseHeaderchain(Peer peer, int countHeaders, ref int startIndex)
   {
-    public const string Command = "headers";
+    Header headerRoot = peer.Network.Token.ParseHeader(Payload, ref startIndex, SHA256);
+    VarInt.GetInt(Payload, ref startIndex);
 
-    public const int MAX_COUNT_HEADERS = 2000;
+    Header headerTip = headerRoot;
 
-    Block BlockDownload;
+    countHeaders -= 1;
 
-    SHA256 SHA256 = SHA256.Create();
-
-
-    public HeadersMessage(Block blockDownload)
+    while (countHeaders > 0)
     {
-      BlockDownload = blockDownload;
-      DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
-    }
-
-    public override async Task Run(Peer peer)
-    {
-      int startIndex = 0;
-      int countHeaders = VarInt.GetInt(Payload, ref startIndex);
-
-      if (countHeaders > MAX_COUNT_HEADERS)
-        throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
-      else if (countHeaders > 0)
-      {
-        Header headerRoot = ParseHeaderchain(peer, countHeaders, ref startIndex);
-
-        List<byte[]> headerslocator = await peer.Network.ExtendHeaderchain(
-          headerRoot,
-          BlockDownload);
-
-        if (headerslocator != null)
-        {
-          DOSMonitor.Decrement(1);
-          GetHeadersMessage.SendGetHeaders(peer, headerslocator);
-        }
-      }
-      else if (countHeaders == 0 && BlockDownload.Header != null)
-        GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
-    }
-
-    Header ParseHeaderchain(Peer peer, int countHeaders, ref int startIndex)
-    {
-      Header headerRoot = peer.Network.Token.ParseHeader(Payload, ref startIndex, SHA256);
+      Header header = peer.Network.Token.ParseHeader(Payload, ref startIndex, SHA256);
       VarInt.GetInt(Payload, ref startIndex);
 
-      Header headerTip = headerRoot;
+      header.AppendToHeader(headerTip);
+      headerTip.HeaderNext = header;
+      headerTip = header;
 
       countHeaders -= 1;
-
-      while (countHeaders > 0)
-      {
-        Header header = peer.Network.Token.ParseHeader(Payload, ref startIndex, SHA256);
-        VarInt.GetInt(Payload, ref startIndex);
-
-        header.AppendToHeader(headerTip);
-        headerTip.HeaderNext = header;
-        headerTip = header;
-
-        countHeaders -= 1;
-      }
-
-      return headerRoot;
     }
 
-    public static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
-    {
-      List<byte> bufferList = new();
-
-      foreach (byte[] headerSerialized in headersSerialized)
-      {
-        bufferList.AddRange(headerSerialized);
-        bufferList.Add(0x00);
-      }
-
-      bufferList.InsertRange(0, VarInt.GetBytes(bufferList.Count));
-
-      byte[] buffer = bufferList.ToArray();
-
-      await peer.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
+    return headerRoot;
   }
-  
-  class InvMessage : MessageNetworkProtocol
+
+  public static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
   {
-    public const string Command = "inv";
+    List<byte> bufferList = new();
 
-    public List<Inventory> Inventories = new();
-
-    public InvMessage()
-    { }
-
-    public InvMessage(List<Inventory> inventories)
+    foreach (byte[] headerSerialized in headersSerialized)
     {
-      Inventories = inventories;
-
-      List<byte> payload = new();
-
-      payload.AddRange(VarInt.GetBytes(inventories.Count));
-
-      Inventories.ForEach(
-        i => payload.AddRange(i.GetBytes()));
-
-      Payload = payload.ToArray();
-      LengthDataPayload = Payload.Length;
+      bufferList.AddRange(headerSerialized);
+      bufferList.Add(0x00);
     }
 
-    public InvMessage(byte[] buffer)
-      : base(buffer)
-    {
-      int startIndex = 0;
+    bufferList.InsertRange(0, VarInt.GetBytes(bufferList.Count));
 
-      int inventoryCount = VarInt.GetInt(
+    byte[] buffer = bufferList.ToArray();
+
+    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class InvMessage : MessageNetworkProtocol
+{
+  public const string Command = "inv";
+
+  public List<Inventory> Inventories = new();
+
+  public InvMessage()
+  { }
+
+  public InvMessage(List<Inventory> inventories)
+  {
+    Inventories = inventories;
+
+    List<byte> payload = new();
+
+    payload.AddRange(VarInt.GetBytes(inventories.Count));
+
+    Inventories.ForEach(
+      i => payload.AddRange(i.GetBytes()));
+
+    Payload = payload.ToArray();
+    LengthDataPayload = Payload.Length;
+  }
+
+  public InvMessage(byte[] buffer)
+    : base(buffer)
+  {
+    int startIndex = 0;
+
+    int inventoryCount = VarInt.GetInt(
+      Payload,
+      ref startIndex);
+
+    for (int i = 0; i < inventoryCount; i++)
+      Inventories.Add(Inventory.Parse(
         Payload,
-        ref startIndex);
-
-      for (int i = 0; i < inventoryCount; i++)
-        Inventories.Add(Inventory.Parse(
-          Payload,
-          ref startIndex));
-    }
-
-    public override async Task Run(Peer peer)
-    {
-
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
+        ref startIndex));
   }
-  
-  class PongMessage : MessageNetworkProtocol
+
+  public override async Task Run(Peer peer)
   {
-    public const string Command = "pong";
 
-
-    public PongMessage()
-    { }
-
-    public PongMessage(byte[] payload, int lengthDataPayload)
-    {
-      Payload = payload;
-      LengthDataPayload = lengthDataPayload;
-    }
-
-    public override async Task Run(Peer peer)
-    {
-      PingMessage messagePing = peer.ProtocolStateMachine[PingMessage.Command] as PingMessage;
-
-      if (messagePing == null)
-        throw new ProtocolException("Transistion into state 'pong' from other than state 'ping' is not supported.");
-
-      if (messagePing.Payload != Payload)
-        throw new ProtocolException("'Pong' message did not return same nonce as sended in 'ping' message.");
-
-      peer.ProtocolStateMachine = null;
-    }
-
-    public static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
-    {
-      await peer.SendMessage(Command, payloadLength, payload);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
   }
-  
-  class TXMessage : MessageNetworkProtocol
+
+  public override string GetCommand()
   {
-    public const string Command = "tx";
-
-    public TXMessage()
-    {
-      // amount bytes per 10 minutes
-      DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5000000);
-
-    }
-
-    public TXMessage(byte[] tXRaw)
-    {
-      Payload = tXRaw;
-      LengthDataPayload = Payload.Length;
-    }
-
-    public override async Task Run(Peer peer)
-    {
-
-    }
-
-    public static async Task Send(Peer peer, byte[] buffer)
-    {
-      await peer.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
+    return Command;
   }
-  
-  class VerAckMessage : MessageNetworkProtocol
+}
+
+class PongMessage : MessageNetworkProtocol
+{
+  public const string Command = "pong";
+
+
+  public PongMessage()
+  { }
+
+  public PongMessage(byte[] payload, int lengthDataPayload)
   {
-    public const string Command = "verack";
-
-    public VerAckMessage()
-    { }
-
-    public static async Task Send(Peer peer)
-    {
-      await peer.SendMessage(Command, 0, new byte[0]);
-    }
-
-    public override async Task Run(Peer peer)
-    {
-      if (peer.Connection == ConnectionType.OUTBOUND)
-        peer.Network.StartHeaderSync(peer);
-    }
-
-    public override string GetCommand()
-    {
-      return Command;
-    }
+    Payload = payload;
+    LengthDataPayload = lengthDataPayload;
   }
-  
-  class VersionMessage : MessageNetworkProtocol
+
+  public override async Task Run(Peer peer)
   {
-    public const string Command = "version";
+    PingMessage messagePing = peer.ProtocolStateMachine[PingMessage.Command] as PingMessage;
 
-    public VersionMessage()
-    { }
+    if (messagePing == null)
+      throw new ProtocolException("Transistion into state 'pong' from other than state 'ping' is not supported.");
 
-    static byte[] GetBytes(UInt16 uint16)
-    {
-      byte[] byteArray = BitConverter.GetBytes(uint16);
-      Array.Reverse(byteArray);
-      return byteArray;
-    }
+    if (messagePing.Payload != Payload)
+      throw new ProtocolException("'Pong' message did not return same nonce as sended in 'ping' message.");
 
-    public static async Task SendVersion(Peer peer)
-    {
-      List<byte> versionPayload = new();
+    peer.ProtocolStateMachine = null;
+  }
 
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
-      versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesRemote));
-      versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
-      versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
-      versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
-      versionPayload.AddRange(VarString.GetBytes(peer.Network.Token.UserAgent));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.Network.BlockchainRoot.GetHeight()));
-      versionPayload.Add(peer.Network.Token.RelayOption);
+  public static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
+  {
+    await peer.SocketCommunication.SendMessage(Command, payloadLength, payload);
+  }
 
-      byte[] buffer = versionPayload.ToArray();
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
 
-      await peer.SendMessage(Command, buffer.Length, buffer);
-    }
+class TXMessage : MessageNetworkProtocol
+{
+  public const string Command = "tx";
 
-    public override async Task Run(Peer peer)
-    {
-      VerAckMessage.Send(peer);
+  public TXMessage()
+  {
+    // amount bytes per 10 minutes
+    DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5000000);
 
-      if (peer.Connection == ConnectionType.INBOUND)
-        SendVersion(peer);
-    }
+  }
 
-    public override string GetCommand()
-    {
-      return Command;
-    }
+  public TXMessage(byte[] tXRaw)
+  {
+    Payload = tXRaw;
+    LengthDataPayload = Payload.Length;
+  }
+
+  public override async Task Run(Peer peer)
+  {
+
+  }
+
+  public static async Task Send(Peer peer, byte[] buffer)
+  {
+    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class VerAckMessage : MessageNetworkProtocol
+{
+  public const string Command = "verack";
+
+  public VerAckMessage()
+  { }
+
+  public static async Task Send(Peer peer)
+  {
+    await peer.SocketCommunication.SendMessage(Command, 0, new byte[0]);
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    if (peer.Connection == Network.ConnectionType.OUTBOUND)
+      peer.Network.StartHeaderSync(peer);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class VersionMessage : MessageNetworkProtocol
+{
+  public const string Command = "version";
+
+  public VersionMessage()
+  { }
+
+  static byte[] GetBytes(UInt16 uint16)
+  {
+    byte[] byteArray = BitConverter.GetBytes(uint16);
+    Array.Reverse(byteArray);
+    return byteArray;
+  }
+
+  public static async Task SendVersion(Peer peer)
+  {
+    List<byte> versionPayload = new();
+
+    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
+    versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesRemote));
+    versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
+    versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
+    versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
+    versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
+    versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
+    versionPayload.AddRange(VarString.GetBytes(peer.Network.Token.UserAgent));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.BlockchainRoot.GetHeight()));
+    versionPayload.Add(peer.Network.Token.RelayOption);
+
+    byte[] buffer = versionPayload.ToArray();
+
+    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+  }
+
+  public override async Task Run(Peer peer)
+  {
+    VerAckMessage.Send(peer);
+
+    if (peer.Connection == Network.ConnectionType.INBOUND)
+      SendVersion(peer);
+  }
+
+  public override string GetCommand()
+  {
+    return Command;
   }
 }
