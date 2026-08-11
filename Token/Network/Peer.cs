@@ -1,15 +1,7 @@
 ﻿using System;
-using System.IO;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
-
 
 public partial class Peer
 {
@@ -19,8 +11,6 @@ public partial class Peer
 
   public ISocketCommunication SocketCommunication;
   public Network.ConnectionType Connection;
-
-  const int TIMEOUT_RESPONSE_MILLISECONDS = 5000;
 
   public enum StateProtocol
   {
@@ -35,18 +25,17 @@ public partial class Peer
     Busy
   }
 
-  byte[] HashDBDownload;
-
-  DateTime TimePeerCreation = DateTime.Now;
+  public StateProtocol StateCurrent = StateProtocol.Handshake;
 
 
   public Peer(
+    Network network,
     Dictionary<string, MessageNetworkProtocol> protocolStateMachine,
     ISocketCommunication socketCommunication,
     Network.ConnectionType connection)
   {
+    Network = network;
     ProtocolStateMachine = protocolStateMachine;
-
     SocketCommunication = socketCommunication;
     Connection = connection;
   }
@@ -88,14 +77,31 @@ public partial class Peer
     return SocketCommunication.GetIP();
   }
 
-  public string GetStatus()
+  async Task StartMessageReceiver()
   {
-    int lifeTime = (int)(DateTime.Now - TimePeerCreation).TotalMinutes;
+    try
+    {
+      while (true)
+      {
+        string commandMessage = await SocketCommunication.ReceiveCommandMessageNext();
 
-    lock (this)
-      return
-        $"\nStatus peer {this}:\n" +
-        $"lifeTime minutes: {lifeTime}\n" +
-        $"Connection: {Connection}\n";
+        MessageNetworkProtocol message = ProtocolStateMachine[commandMessage];
+
+        await SocketCommunication.LoadMessageNext(message);
+
+        message.DOSMonitor.Increment(1);
+
+        message.Run(this);
+      }
+    }
+    finally
+    {
+      SocketCommunication.Dispose();
+    }
+  }
+
+  async Task SendMessage(MessageNetworkProtocol message)
+  {
+    await SocketCommunication.SendMessage(message.GetCommand(), message.LengthDataPayload, message.Payload);
   }
 }

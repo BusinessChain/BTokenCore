@@ -198,23 +198,23 @@ public partial class Network
 
     while (true)
     {
-      ISocketCommunication socketCommunicationInbound = null;
+      ISocketCommunication socketCommunication = null;
 
       try
       {
-        socketCommunicationInbound = await Token.AcceptSocketCommunicationInbound();
+        socketCommunication = await Token.AcceptSocketCommunicationInbound();
 
-        if (Peers.Any(p => p.GetIP().Equals(socketCommunicationInbound.GetIP()))
+        if (Peers.Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
           || Peers.Count(p => p.Connection == ConnectionType.INBOUND) + 1 > COUNT_MAX_INBOUND_CONNECTIONS)
         {
           throw new ProtocolException("Inbound request rejected.");
         }
 
-        await StartPeer(socketCommunicationInbound, ConnectionType.INBOUND);
+        await StartPeer(socketCommunication, ConnectionType.INBOUND);
       }
       catch
       {
-        socketCommunicationInbound?.Dispose();
+        socketCommunication?.Dispose();
 
         await Task.Delay(30_000).ConfigureAwait(false);
       }
@@ -223,7 +223,7 @@ public partial class Network
 
   async Task StartPeer(ISocketCommunication socketCommunication, ConnectionType connection)
   {
-    Peer peer = new(CreateStateMachineProtocol(), socketCommunication, connection);
+    Peer peer = new(this, CreateStateMachineProtocol(), socketCommunication, connection);
 
     await peer.Start();
 

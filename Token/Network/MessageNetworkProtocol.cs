@@ -35,7 +35,6 @@ public abstract class MessageNetworkProtocol
   public abstract string GetCommand();
 }
 
-
 class AddressMessage : MessageNetworkProtocol
 {
   const string Command = "addr";
