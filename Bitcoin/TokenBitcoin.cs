@@ -40,12 +40,12 @@ public partial class TokenBitcoin : Token
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
-    IDToken = new byte[3] { (byte)'B', (byte)'T', (byte)'C' };
+    IDToken = [(byte)'B', (byte)'T', (byte)'C'];
+    Port = 8333;
 
     Network = new Network(
       null,
       this,
-      port: 8333,
       flagEnableInboundConnections: false,
       flagEnableRelay: false);
   }

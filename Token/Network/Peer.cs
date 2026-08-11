@@ -30,12 +30,11 @@ public partial class Peer
 
   public Peer(
     Network network,
-    Dictionary<string, MessageNetworkProtocol> protocolStateMachine,
     ISocketCommunication socketCommunication,
     Network.ConnectionType connection)
   {
     Network = network;
-    ProtocolStateMachine = protocolStateMachine;
+    ProtocolStateMachine = network.CreateStateMachineProtocol();
     SocketCommunication = socketCommunication;
     Connection = connection;
   }

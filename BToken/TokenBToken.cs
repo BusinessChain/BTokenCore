@@ -46,12 +46,12 @@ public partial class TokenBToken : Token
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database?.Dispose(); };
 
-    IDToken = new byte[3] { (byte)'B', (byte)'T', (byte)'K' };
+    IDToken = [(byte)'B', (byte)'T', (byte)'K'];
+    Port = 8777;
 
     Network = new Network(
       tokenParent,
       this,
-      port: 8777,
       flagEnableInboundConnections: true,
       flagEnableRelay: true);
   }

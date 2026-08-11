@@ -24,9 +24,9 @@ public partial class Network
   ILiteCollection<BsonDocument> DatabaseMetaCollection;
   ILiteCollection<BsonDocument> DatabaseHeaderCollection;
 
-  const int COUNT_MAX_OUTBOUND_CONNECTIONS = 3;
+  const int COUNT_MAX_OUTBOUND_CONNECTIONS = 1;
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
-  const int COUNT_MAX_INBOUND_CONNECTIONS = 8;
+  const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
 
   bool EnableInboundConnections;
   bool EnableRelay;
@@ -41,7 +41,6 @@ public partial class Network
   public Network(
     Token tokenParent,
     Token token,
-    int port,
     bool flagEnableInboundConnections,
     bool flagEnableRelay)
   {
@@ -77,10 +76,35 @@ public partial class Network
     {
       Peers.RemoveAll(p => p.IsDisposed());
 
-      while (Peers.Count < COUNT_MAX_OUTBOUND_CONNECTIONS)
-        Peers.Add(await GetInterfacePeer(Token));
+      if(Peers.Count < COUNT_MAX_OUTBOUND_CONNECTIONS)
+        Peers.Add(await GetPeer(Token));
+      else
+        await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
+    }
+  }
 
-      await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
+  async Task<Peer> GetPeer(Token token)
+  {
+    while (true)
+    {
+      try
+      {
+        //string iP = GetIPAddress();
+
+        string iP = "83.229.86.158"; // 84.74.69.100
+
+        ISocketCommunication socketCommunication = token.GetSocketCommunication(iP);
+
+        Peer peer = new(this, socketCommunication, ConnectionType.OUTBOUND);
+
+        await peer.Start();
+
+        return peer;
+      }
+      catch
+      {
+        await Task.Delay(1000);
+      }
     }
   }
 
@@ -116,29 +140,7 @@ public partial class Network
     return ip;
   }
 
-  async Task<Peer> GetInterfacePeer(Token token)
-  {
-    while (true)
-    {
-      try
-      {
-        //string iP = GetIPAddress();
-
-        string iP = "83.229.86.158";
-        // 84.74.69.100
-
-        ISocketCommunication socketCommunication = token.GetSocketCommunication(iP);
-
-        await StartPeer(socketCommunication, ConnectionType.OUTBOUND);
-      }
-      catch
-      {
-        await Task.Delay(1000);
-      }
-    }
-  }
-
-  Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
+  public Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
   {
     Dictionary<string, MessageNetworkProtocol> protocol = new();
 
@@ -223,7 +225,7 @@ public partial class Network
 
   async Task StartPeer(ISocketCommunication socketCommunication, ConnectionType connection)
   {
-    Peer peer = new(this, CreateStateMachineProtocol(), socketCommunication, connection);
+    Peer peer = new(this, socketCommunication, connection);
 
     await peer.Start();
 
