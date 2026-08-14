@@ -11,8 +11,8 @@ namespace BTokenCore;
 public abstract partial class Token
 {
   public const byte LENGTH_SCRIPT_P2PKH = 25;
-  public static byte[] PREFIX_P2PKH = new byte[] { 0x76, 0xA9, 0x14 };
-  public static byte[] POSTFIX_P2PKH = new byte[] { 0x88, 0xAC };
+  public static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
+  public static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
 
   public byte[] IDToken;
   public Network Network;
@@ -35,7 +35,7 @@ public abstract partial class Token
   public byte RelayOption = 0x01;
 
 
-  public Token(IEnvironment environment)
+  protected Token(IEnvironment environment)
   {
     Directory.CreateDirectory(GetName());
 
@@ -46,24 +46,39 @@ public abstract partial class Token
     Environment = environment;
   }
 
-  public abstract string[] GetSeedAddresses();
+  public void Start()
+  {
+    Network.Start();
+  }
 
-  public ISocketCommunication GetSocketCommunication(string address)
+  public void StartMiner()
+  {
+    Network.StartMiner();
+  }
+
+  public void StopMiner()
+  {
+    Network.StopMiner();
+  }
+
+  internal abstract string[] GetSeedAddresses();
+
+  internal ISocketCommunication GetSocketCommunication(string address)
   {
     return Environment.GetSocketCommunication(this, address);
   }
 
-  public void StartListenerCommunicationInbound()
+  internal void StartListenerCommunicationInbound()
   {
     Environment.StartListenerCommunicationInbound(Port);
   }
 
-  public async Task<ISocketCommunication> AcceptSocketCommunicationInbound()
+  internal async Task<ISocketCommunication> AcceptSocketCommunicationInbound()
   {
     return await Environment.AcceptSocketCommunicationInbound();
   }
 
-  public bool TryLock()
+  internal bool TryLock()
   {
     lock (this)
     {
@@ -75,33 +90,33 @@ public abstract partial class Token
     }
   }
 
-  public void ReleaseLock()
+  internal void ReleaseLock()
   {
     IsLocked = false;
   }
 
-  public abstract Header CreateHeaderGenesis();
+  internal abstract Header CreateHeaderGenesis();
 
-  public abstract bool TryGetTX(byte[] hash, out TX tX);
+  internal abstract bool TryGetTX(byte[] hash, out TX tX);
 
-  public abstract void InsertBlock(Block block);
+  internal abstract void InsertBlock(Block block);
 
-  public virtual void ReverseBlock(Block block) { }
+  internal virtual void ReverseBlock(Block block) { }
 
-  public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
+  internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
-  public abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
+  internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
-  public string GetName()
+  internal string GetName()
   {
     return GetType().Name;
   }
 
-  public abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
+  internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
-  public virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  internal virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
-  public virtual bool TryGetDB(byte[] hash, out byte[] dataDB)
+  internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)
   { throw new NotSupportedException(); }
 }

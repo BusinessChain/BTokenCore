@@ -1,9 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 
@@ -14,7 +10,7 @@ namespace BTokenCore;
 
 public partial class Network
 {
-  public Network NetworkParent;
+  Network NetworkParent;
 
   public List<Network> NetworksChild = new();
 
@@ -59,15 +55,22 @@ public partial class Network
 
   public void Start()
   {
-    if (NetworkParent != null)
-      NetworkParent.Start();
-
     BlockchainRoot.LoadFromDisk();
 
     StartPeerConnectorOutbound();
 
     if (EnableInboundConnections)
       StartPeerConnectorInbound();
+  }
+
+  internal void StartMiner()
+  {
+    IsMining = true;
+  }
+
+  internal void StopMiner()
+  {
+    IsMining = true;
   }
 
   async Task StartPeerConnectorOutbound()

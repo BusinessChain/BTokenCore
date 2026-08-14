@@ -24,12 +24,9 @@ public partial class TokenBitcoin : Token
 
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
-  public const long BLOCK_REWARD_INITIAL = 5000000000;
-  public const int PERIOD_HALVENING_BLOCK_REWARD = 210000;
-
-  public const int LENGTH_P2PKH_INPUT = 148;
-  public const int LENGTH_P2PKH_OUTPUT = 34;
-  public const int LENGTH_TX_OVERHEAD = 10;
+  const int LENGTH_P2PKH_INPUT = 148;
+  const int LENGTH_P2PKH_OUTPUT = 34;
+  const int LENGTH_TX_OVERHEAD = 10;
 
   List<TXOutputWallet> OutputsSpendable = new();
   List<TXOutputWallet> OutputsSpendableConfirmed = new();
@@ -50,7 +47,7 @@ public partial class TokenBitcoin : Token
       flagEnableRelay: false);
   }
 
-  public override Header CreateHeaderGenesis()
+  internal override Header CreateHeaderGenesis()
   {
     //HeaderBitcoin header = new(
     //   headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
@@ -80,7 +77,7 @@ public partial class TokenBitcoin : Token
     return header;
   }
 
-  public override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  internal override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
     byte[] hash = sHA256.ComputeHash(
         sHA256.ComputeHash(
@@ -127,18 +124,18 @@ public partial class TokenBitcoin : Token
       nonce);
   }
 
-  public override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBitcoin(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  public override bool TryGetTX(byte[] hash, out TX tX)
+  internal override bool TryGetTX(byte[] hash, out TX tX)
   {
     tX = null;
     return false;
   }
 
-  public override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
   {
     tXAnchor = new TXBitcoin();
 
@@ -199,7 +196,7 @@ public partial class TokenBitcoin : Token
     return true;
   }
 
-  public override string[] GetSeedAddresses()
+  internal override string[] GetSeedAddresses()
   {
     return
       [
@@ -214,7 +211,7 @@ public partial class TokenBitcoin : Token
   // Hier darf es keine Exception geben, weil wir einen
   // geparsten Bitcoin Block mit PoW immer als korrekt betrachten
 
-  public override void InsertBlock(Block block)
+  internal override void InsertBlock(Block block)
   {
     foreach (TXBitcoin tX in block.TXs)
     {
@@ -228,9 +225,9 @@ public partial class TokenBitcoin : Token
   }
 
   // Das muss eine Datanbank sein!!
-  public Dictionary<byte[], TX> IndexTXs = new(new EqualityComparerByteArray());
+  internal Dictionary<byte[], TX> IndexTXs = new(new EqualityComparerByteArray());
 
-  public override void ReverseBlock(Block block)
+  internal override void ReverseBlock(Block block)
   {
     for (int t = block.TXs.Count - 1; t >= 0; t--)
     {

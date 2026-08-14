@@ -28,10 +28,6 @@ public partial class TokenBToken : Token
 
   PoolTXBToken TXPool;
 
-  string PathRootDB;
-  public const int COUNT_FILES_DB = 256;
-  byte[] HashesFilesDB = new byte[COUNT_FILES_DB * 32];
-
 
   public TokenBToken(IEnvironment socketToken, Token tokenParent)
     : base(socketToken)
@@ -56,12 +52,8 @@ public partial class TokenBToken : Token
       flagEnableRelay: true);
   }
 
-  public void Start()
-  {
-    Network.Start();
-  }
 
-  public override Header CreateHeaderGenesis()
+  internal override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(
       headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
@@ -73,12 +65,12 @@ public partial class TokenBToken : Token
     return header;
   }
 
-  public override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  public override Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  internal override Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
   {
     Block block = new Block(this);
 
@@ -114,7 +106,7 @@ public partial class TokenBToken : Token
 
   const int LENGTH_TX_P2PKH = 120;
 
-  public override bool TryCreateTXAnchor(
+  internal override bool TryCreateTXAnchor(
     TXOutputTokenAnchor tokenAnchor,
     long feePerByte,
     out TX tXAnchor)
@@ -165,13 +157,13 @@ public partial class TokenBToken : Token
     return tX;
   }
 
-  public override bool TryGetTX(byte[] hash, out TX tX)
+  internal override bool TryGetTX(byte[] hash, out TX tX)
   {
     tX = null;
     return false;
   }
 
-  public override void InsertBlock(Block block)
+  internal override void InsertBlock(Block block)
   {
     try
     {
@@ -202,7 +194,7 @@ public partial class TokenBToken : Token
 
   int SerialNumberTX;
 
-  protected void StageInsertTXOutput(TXOutput tXOutput, int blockHeight)
+  void StageInsertTXOutput(TXOutput tXOutput, int blockHeight)
   {
     if (tXOutput.Value < 0)
       throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
@@ -243,7 +235,7 @@ public partial class TokenBToken : Token
       throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
   }
 
-  protected void StageSpendTXInput(TX tX)
+  void StageSpendTXInput(TX tX)
   {
     var tXBToken = tX as TXBToken;
 
@@ -253,7 +245,7 @@ public partial class TokenBToken : Token
     accountStaged.SpendTX(tXBToken);
   }
 
-  public override void ReverseBlock(Block block)
+  internal override void ReverseBlock(Block block)
   {
     try
     {
@@ -284,7 +276,7 @@ public partial class TokenBToken : Token
 
   }
 
-  public List<byte[]> ParseHashesDB(byte[] buffer, int length, Header headerTip)
+  internal List<byte[]> ParseHashesDB(byte[] buffer, int length, Header headerTip)
   {
     SHA256 sHA256 = SHA256.Create();
 
@@ -300,7 +292,7 @@ public partial class TokenBToken : Token
 
   byte[] GetGenesisBlockBytes()
   {
-    return new byte[285]{
+    return [
         0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x3b, 0xa3, 0xed, 0xfd, 0x7a, 0x7b, 0x12, 0xb2, 0x7a, 0xc7, 0x2c, 0x3e,
@@ -318,10 +310,10 @@ public partial class TokenBToken : Token
         0x19, 0x67, 0xf1, 0xa6, 0x71, 0x30, 0xb7, 0x10, 0x5c, 0xd6, 0xa8, 0x28, 0xe0, 0x39, 0x09, 0xa6,
         0x79, 0x62, 0xe0, 0xea, 0x1f, 0x61, 0xde, 0xb6, 0x49, 0xf6, 0xbc, 0x3f, 0x4c, 0xef, 0x38, 0xc4,
         0xf3, 0x55, 0x04, 0xe5, 0x1e, 0xc1 ,0x12, 0xde, 0x5c, 0x38, 0x4d, 0xf7, 0xba, 0x0b, 0x8d, 0x57,
-        0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 };
+        0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 ];
   }
 
-  public override string[] GetSeedAddresses()
+  internal override string[] GetSeedAddresses()
   {
     return
       [
@@ -333,7 +325,7 @@ public partial class TokenBToken : Token
       ];
   }
 
-  public override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  internal override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
     byte[] hash =
       sHA256.ComputeHash(
