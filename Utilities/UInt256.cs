@@ -5,9 +5,9 @@ using System.Numerics;
 
 namespace BTokenCore;
 
-public class UInt256
+internal class UInt256
 {
-  public const int BYTE_LENGTH = 32;
+  internal const int BYTE_LENGTH = 32;
 
   BigInteger Data;
 
@@ -17,7 +17,7 @@ public class UInt256
     Data = data;
   }
 
-  public UInt256(byte[] byteStream, ref int startIndex)
+  internal UInt256(byte[] byteStream, ref int startIndex)
   {
     byte[] tempByteArray = new byte[BYTE_LENGTH];
     Array.Copy(byteStream, startIndex, tempByteArray, 0, BYTE_LENGTH);
@@ -26,7 +26,7 @@ public class UInt256
     WriteToInternalData(tempByteArray);
   }
 
-  public UInt256(byte[] dataBytes)
+  internal UInt256(byte[] dataBytes)
   {
     WriteToInternalData(dataBytes);
   }
@@ -44,14 +44,14 @@ public class UInt256
     dataBytes = dataBytes.Concat(unsignedPostfix).ToArray();
   }
 
-  public byte[] GetBytes()
+  internal byte[] GetBytes()
   {
     byte[] byteArray = Data.ToByteArray();
     Array.Resize(ref byteArray, BYTE_LENGTH);
     return byteArray;
   }
 
-  public UInt32 GetCompact()
+  internal UInt32 GetCompact()
   {
     uint numberOfBytesUsed;
 
@@ -106,7 +106,7 @@ public class UInt256
     return mantissa;
   }
 
-  public static UInt256 ParseFromCompact(uint nBits)
+  internal static UInt256 ParseFromCompact(uint nBits)
   {
     int expBits = ((int)nBits & 0x7F000000) >> 24;
     UInt32 factorBits = nBits & 0x00FFFFFF;
@@ -126,22 +126,22 @@ public class UInt256
     return new UInt256(bytes.ToArray());
   }
 
-  public UInt256 MultiplyBy(ulong factor)
+  internal UInt256 MultiplyBy(ulong factor)
   {
     return new UInt256(Data * factor);
   }
 
-  public UInt256 DivideBy(ulong divisor)
+  internal UInt256 DivideBy(ulong divisor)
   {
     return new UInt256(Data / divisor);
   }
 
-  public bool IsGreaterThan(UInt256 number)
+  internal bool IsGreaterThan(UInt256 number)
   {
     return Data > number.Data;
   }
 
-  public static UInt256 Min(UInt256 number1, UInt256 number2)
+  internal static UInt256 Min(UInt256 number1, UInt256 number2)
   {
     if (number1.IsGreaterThan(number2))
       return number2;

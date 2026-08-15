@@ -7,39 +7,39 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public abstract class Header
+internal abstract class Header
 {
-  public byte[] Hash;
-  public byte[] HashPrevious;
-  public byte[] MerkleRoot;
-  public uint Nonce;
+  internal byte[] Hash;
+  internal byte[] HashPrevious;
+  internal byte[] MerkleRoot;
+  internal uint Nonce;
 
-  public Header HeaderPrevious;
-  public Header HeaderNext;
+  internal Header HeaderPrevious;
+  internal Header HeaderNext;
 
-  public Header HeaderParent;
-  public Dictionary<byte[], byte[]> HashesChild = new(new EqualityComparerByteArray());
+  internal Header HeaderParent;
+  internal Dictionary<byte[], byte[]> HashesChild = new(new EqualityComparerByteArray());
 
-  public int Height;
-  public int CountTXs;
+  internal int Height;
+  internal int CountTXs;
 
-  public double Difficulty;
-  public double DifficultyAccumulated;
+  internal double Difficulty;
+  internal double DifficultyAccumulated;
 
-  public long BlockRewardInitial;
-  public int PeriodHalveningBlockReward;
+  internal long BlockRewardInitial;
+  internal int PeriodHalveningBlockReward;
 
-  public long Fee;
+  internal long Fee;
 
 
-  public Header()
+  internal Header()
   {
     Hash = new byte[32];
     HashPrevious = new byte[32];
     MerkleRoot = new byte[32];
   }
 
-  public Header(
+  internal Header(
     byte[] headerHash,
     byte[] hashPrevious,
     byte[] merkleRootHash,
@@ -51,9 +51,9 @@ public abstract class Header
     Nonce = nonce;
   }
 
-  public abstract byte[] Serialize();
+  internal abstract byte[] Serialize();
 
-  public virtual Header AppendToHeader(Header headerPrevious)
+  internal virtual Header AppendToHeader(Header headerPrevious)
   {
     if (!HashPrevious.IsAllBytesEqual(headerPrevious.Hash))
       throw new ProtocolException($"Header {this} references header previous {HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
@@ -68,22 +68,17 @@ public abstract class Header
       return this;
   }
 
-  public virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }
+  internal virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }
 
-  public void ComputeHash()
+  internal void ComputeHash()
   {
     SHA256 sHA256 = SHA256.Create();
     ComputeHash(sHA256);
   }
 
-  public void ComputeHash(SHA256 sHA256)
+  internal void ComputeHash(SHA256 sHA256)
   {
     Hash = sHA256.ComputeHash(
       sHA256.ComputeHash(Serialize()));
-  }
-
-  public override string ToString()
-  {
-    return Hash.ToHexString();
   }
 }

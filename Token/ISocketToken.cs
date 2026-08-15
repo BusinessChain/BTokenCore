@@ -3,21 +3,21 @@
 
 namespace BTokenCore;
 
-public interface ISocketCommunication
+internal interface ISocketCommunication
 {
-  public Task Start();
-  public Task SendMessage(string commandString, int lengthDataPayload, byte[] payload);
-  public Task<string> ReceiveCommandMessageNext();
-  public Task LoadMessageNext(MessageNetworkProtocol message);
-  public void Dispose();
-  public string GetIP();
+  internal Task Start();
+  internal Task SendMessage(string commandString, int lengthDataPayload, byte[] payload);
+  internal Task<string> ReceiveCommandMessageNext();
+  internal Task LoadMessageNext(MessageNetworkProtocol message);
+  internal void Dispose();
+  internal string GetIP();
 }
 
 public interface IEnvironment
 {
-  public void StartListenerCommunicationInbound(int port);
+  internal void StartListenerCommunicationInbound(int port);
 
-  public Task<ISocketCommunication> AcceptSocketCommunicationInbound();
+  internal Task<ISocketCommunication> AcceptSocketCommunicationInbound();
 
-  public ISocketCommunication GetSocketCommunication(Token token, string address);
+  internal ISocketCommunication GetSocketCommunication(Token token, string address);
 }

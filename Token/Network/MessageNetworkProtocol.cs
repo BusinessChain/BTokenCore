@@ -7,44 +7,44 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public abstract class MessageNetworkProtocol
+internal abstract class MessageNetworkProtocol
 {
-  public byte[] Payload;
-  public int LengthDataPayload;
+  internal byte[] Payload;
+  internal int LengthDataPayload;
 
-  public DOSMonitorPer10Minutes DOSMonitor;
+  internal DOSMonitorPer10Minutes DOSMonitor;
 
 
-  public MessageNetworkProtocol()
+  internal MessageNetworkProtocol()
     : this(Array.Empty<byte>())
   { }
 
-  public MessageNetworkProtocol(byte[] payload)
+  internal MessageNetworkProtocol(byte[] payload)
   {
     Payload = payload;
     LengthDataPayload = payload.Length;
   }
 
-  public virtual byte[] GetPayloadBuffer()
+  internal virtual byte[] GetPayloadBuffer()
   {
     return Payload;
   }
 
-  public abstract Task Run(Peer peer);
+  internal abstract Task Run(Peer peer);
 
-  public abstract string GetCommand();
+  internal abstract string GetCommand();
 }
 
 class AddressMessage : MessageNetworkProtocol
 {
-  const string Command = "addr";
+  internal const string Command = "addr";
 
-  public List<NetworkAddress> NetworkAddresses = new();
+  internal List<NetworkAddress> NetworkAddresses = new();
 
-  public AddressMessage()
+  internal AddressMessage()
   { }
 
-  public AddressMessage(byte[] messagePayload)
+  internal AddressMessage(byte[] messagePayload)
     : base(messagePayload)
   {
     int startIndex = 0;
@@ -67,12 +67,12 @@ class AddressMessage : MessageNetworkProtocol
   }
 
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
 
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -80,26 +80,26 @@ class AddressMessage : MessageNetworkProtocol
 
 class PingMessage : MessageNetworkProtocol
 {
-  public const string Command = "ping";
+  internal const string Command = "ping";
 
-  public UInt64 Nonce;
+  internal UInt64 Nonce;
 
 
-  public PingMessage()
+  internal PingMessage()
   { }
 
-  public PingMessage(byte[] payload)
+  internal PingMessage(byte[] payload)
   {
     Payload = payload;
     LengthDataPayload = Payload.Length;
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     PongMessage.SendPong(peer, LengthDataPayload, Payload);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -107,23 +107,23 @@ class PingMessage : MessageNetworkProtocol
 
 class BlockMessage : MessageNetworkProtocol
 {
-  public const string Command = "block";
+  internal const string Command = "block";
 
-  public Block BlockDownload;
+  internal Block BlockDownload;
 
 
-  public BlockMessage(Block blockDownload)
+  internal BlockMessage(Block blockDownload)
     : base()
   {
     BlockDownload = blockDownload;
   }
 
-  public override byte[] GetPayloadBuffer()
+  internal override byte[] GetPayloadBuffer()
   {
     return BlockDownload.Buffer;
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     if (BlockDownload?.Header == null)
       throw new ProtocolException($"Received unrequested block message.");
@@ -140,12 +140,12 @@ class BlockMessage : MessageNetworkProtocol
       GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
   }
 
-  public static async Task SendBlock(Peer peer, Block block)
+  internal static async Task SendBlock(Peer peer, Block block)
   {
     await peer.SocketCommunication.SendMessage(Command, block.LengthDataPayload, block.Buffer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -153,15 +153,14 @@ class BlockMessage : MessageNetworkProtocol
 
 class GetDataMessage : MessageNetworkProtocol
 {
-  public const string Command = "getdata";
+  internal const string Command = "getdata";
 
-  Block BlockUpload;
+  internal Block BlockUpload;
+
+  internal int HeightBlockDownloadedLast;
 
 
-  int HeightBlockDownloadedLast;
-
-
-  public GetDataMessage(Block blockUpload)
+  internal GetDataMessage(Block blockUpload)
     : base()
   {
     BlockUpload = blockUpload;
@@ -169,7 +168,7 @@ class GetDataMessage : MessageNetworkProtocol
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     int startIndex = 0;
 
@@ -206,7 +205,7 @@ class GetDataMessage : MessageNetworkProtocol
     }
   }
 
-  public static async Task SendBlockRequest(Peer peer, byte[] hash)
+  internal static async Task SendBlockRequest(Peer peer, byte[] hash)
   {
     List<byte> payload = new();
 
@@ -219,7 +218,7 @@ class GetDataMessage : MessageNetworkProtocol
     await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -227,16 +226,16 @@ class GetDataMessage : MessageNetworkProtocol
 
 class GetHeadersMessage : MessageNetworkProtocol
 {
-  public const string Command = "getheaders";
+  internal const string Command = "getheaders";
 
-  int HeightAncestorSentLast;
+  internal int HeightAncestorSentLast;
 
 
-  public GetHeadersMessage()
+  internal GetHeadersMessage()
   {
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     int startIndex = 0;
 
@@ -272,7 +271,7 @@ class GetHeadersMessage : MessageNetworkProtocol
     }
   }
 
-  public static async Task SendGetHeaders(Peer peer, List<byte[]> locator)
+  internal static async Task SendGetHeaders(Peer peer, List<byte[]> locator)
   {
     List<byte> payload = new();
 
@@ -289,7 +288,7 @@ class GetHeadersMessage : MessageNetworkProtocol
     await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -297,22 +296,22 @@ class GetHeadersMessage : MessageNetworkProtocol
 
 class HeadersMessage : MessageNetworkProtocol
 {
-  public const string Command = "headers";
+  internal const string Command = "headers";
 
-  public const int MAX_COUNT_HEADERS = 2000;
+  internal const int MAX_COUNT_HEADERS = 2000;
 
-  Block BlockDownload;
+  internal Block BlockDownload;
 
   SHA256 SHA256 = SHA256.Create();
 
 
-  public HeadersMessage(Block blockDownload)
+  internal HeadersMessage(Block blockDownload)
   {
     BlockDownload = blockDownload;
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     int startIndex = 0;
     int countHeaders = VarInt.GetInt(Payload, ref startIndex);
@@ -361,7 +360,7 @@ class HeadersMessage : MessageNetworkProtocol
     return headerRoot;
   }
 
-  public static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
+  internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
   {
     List<byte> bufferList = new();
 
@@ -378,7 +377,7 @@ class HeadersMessage : MessageNetworkProtocol
     await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -386,14 +385,14 @@ class HeadersMessage : MessageNetworkProtocol
 
 class InvMessage : MessageNetworkProtocol
 {
-  public const string Command = "inv";
+  internal const string Command = "inv";
 
-  public List<Inventory> Inventories = new();
+  internal List<Inventory> Inventories = new();
 
-  public InvMessage()
+  internal InvMessage()
   { }
 
-  public InvMessage(List<Inventory> inventories)
+  internal InvMessage(List<Inventory> inventories)
   {
     Inventories = inventories;
 
@@ -408,7 +407,7 @@ class InvMessage : MessageNetworkProtocol
     LengthDataPayload = Payload.Length;
   }
 
-  public InvMessage(byte[] buffer)
+  internal InvMessage(byte[] buffer)
     : base(buffer)
   {
     int startIndex = 0;
@@ -423,12 +422,12 @@ class InvMessage : MessageNetworkProtocol
         ref startIndex));
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
 
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -436,19 +435,19 @@ class InvMessage : MessageNetworkProtocol
 
 class PongMessage : MessageNetworkProtocol
 {
-  public const string Command = "pong";
+  internal const string Command = "pong";
 
 
-  public PongMessage()
+  internal PongMessage()
   { }
 
-  public PongMessage(byte[] payload, int lengthDataPayload)
+  internal PongMessage(byte[] payload, int lengthDataPayload)
   {
     Payload = payload;
     LengthDataPayload = lengthDataPayload;
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     PingMessage messagePing = peer.ProtocolStateMachine[PingMessage.Command] as PingMessage;
 
@@ -461,12 +460,12 @@ class PongMessage : MessageNetworkProtocol
     peer.ProtocolStateMachine = null;
   }
 
-  public static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
+  internal static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
   {
     await peer.SocketCommunication.SendMessage(Command, payloadLength, payload);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -474,32 +473,32 @@ class PongMessage : MessageNetworkProtocol
 
 class TXMessage : MessageNetworkProtocol
 {
-  public const string Command = "tx";
+  internal const string Command = "tx";
 
-  public TXMessage()
+  internal TXMessage()
   {
     // amount bytes per 10 minutes
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5000000);
 
   }
 
-  public TXMessage(byte[] tXRaw)
+  internal TXMessage(byte[] tXRaw)
   {
     Payload = tXRaw;
     LengthDataPayload = Payload.Length;
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
 
   }
 
-  public static async Task Send(Peer peer, byte[] buffer)
+  internal static async Task Send(Peer peer, byte[] buffer)
   {
     await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -507,23 +506,23 @@ class TXMessage : MessageNetworkProtocol
 
 class VerAckMessage : MessageNetworkProtocol
 {
-  public const string Command = "verack";
+  internal const string Command = "verack";
 
-  public VerAckMessage()
+  internal VerAckMessage()
   { }
 
-  public static async Task Send(Peer peer)
+  internal static async Task Send(Peer peer)
   {
     await peer.SocketCommunication.SendMessage(Command, 0, new byte[0]);
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     if (peer.Connection == Network.ConnectionType.OUTBOUND)
       peer.Network.StartHeaderSync(peer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }
@@ -531,19 +530,19 @@ class VerAckMessage : MessageNetworkProtocol
 
 class VersionMessage : MessageNetworkProtocol
 {
-  public const string Command = "version";
+  internal const string Command = "version";
 
-  public VersionMessage()
+  internal VersionMessage()
   { }
 
-  static byte[] GetBytes(UInt16 uint16)
+  internal static byte[] GetBytes(UInt16 uint16)
   {
     byte[] byteArray = BitConverter.GetBytes(uint16);
     Array.Reverse(byteArray);
     return byteArray;
   }
 
-  public static async Task SendVersion(Peer peer)
+  internal static async Task SendVersion(Peer peer)
   {
     List<byte> versionPayload = new();
 
@@ -566,7 +565,7 @@ class VersionMessage : MessageNetworkProtocol
     await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
   }
 
-  public override async Task Run(Peer peer)
+  internal override async Task Run(Peer peer)
   {
     VerAckMessage.Send(peer);
 
@@ -574,7 +573,7 @@ class VersionMessage : MessageNetworkProtocol
       SendVersion(peer);
   }
 
-  public override string GetCommand()
+  internal override string GetCommand()
   {
     return Command;
   }

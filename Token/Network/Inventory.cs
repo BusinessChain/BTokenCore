@@ -6,9 +6,9 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-class Inventory
+internal class Inventory
 {
-  public enum InventoryType
+  internal enum InventoryType
   {
     UNDEFINED = 0,
     MSG_TX = 1,
@@ -18,16 +18,16 @@ class Inventory
     MSG_DB = 5
   }
 
-  public InventoryType Type;
-  public byte[] Hash;
+  internal InventoryType Type;
+  internal byte[] Hash;
 
-  public Inventory(InventoryType type, byte[] hash)
+  internal Inventory(InventoryType type, byte[] hash)
   {
     Type = type;
     Hash = hash;
   }
 
-  public List<byte> GetBytes()
+  internal List<byte> GetBytes()
   {
     List<byte> bytes = new List<byte>();
 
@@ -37,7 +37,7 @@ class Inventory
     return bytes;
   }
 
-  public static Inventory Parse(
+  internal static Inventory Parse(
     byte[] buffer,
     ref int startIndex)
   {
@@ -53,13 +53,8 @@ class Inventory
       hash);
   }
 
-  public bool IsTX()
+  internal bool IsTX()
   {
     return Type == InventoryType.MSG_TX;
-  }
-
-  public override string ToString()
-  {
-    return Hash.ToHexString();
   }
 }

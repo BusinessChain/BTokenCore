@@ -8,32 +8,30 @@ namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
-  public class Account
+  internal class Account
   {
-    public const int LENGTH_ACCOUNT = 40;
-    public const int LENGTH_ID = 20;
+    internal const int LENGTH_ACCOUNT = 40;
+    internal const int LENGTH_ID = 20;
 
     [BsonId]
-    public byte[] ID = new byte[LENGTH_ID];
+    internal byte[] ID = new byte[LENGTH_ID];
 
     [BsonField]
-    public int BlockHeightAccountCreated;
+    internal int BlockHeightAccountCreated;
 
     [BsonField]
-    public int BlockHeightLastUpdated;
+    internal int BlockHeightLastUpdated;
 
     [BsonField]
-    public int Nonce;
+    internal int Nonce;
 
     [BsonField]
-    public long Balance;
-
-    byte[] ByteArraySerialized = new byte[LENGTH_ACCOUNT];
+    internal long Balance;
 
 
-    public Account() { }
+    internal Account() { }
 
-    public Account(Account account)
+    internal Account(Account account)
     {
       ID = account.ID;
       BlockHeightAccountCreated = account.BlockHeightAccountCreated;
@@ -41,7 +39,7 @@ public partial class TokenBToken : Token
       Balance = account.Balance;
     }
 
-    public void SpendTX(TXBToken tX)
+    internal void SpendTX(TXBToken tX)
     {
       if (BlockHeightAccountCreated != tX.BlockheightAccountCreated || Nonce != tX.Nonce)
         throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or blockheightAccountInit.");
@@ -53,15 +51,10 @@ public partial class TokenBToken : Token
       Balance -= tX.GetValueOutputs() + tX.Fee;
     }
 
-    public void ReverseSpendTX(TXBToken tX)
+    internal void ReverseSpendTX(TXBToken tX)
     {
       Nonce -= 1;
       Balance += tX.GetValueOutputs() + tX.Fee;
-    }
-
-    public override string ToString()
-    {
-      return ID.BinaryToBase58Check();
     }
   }
 }

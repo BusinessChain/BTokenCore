@@ -3,16 +3,16 @@
 
 namespace BTokenCore;
 
-public partial class Peer
+internal partial class Peer
 {
-  public Network Network;
+  internal Network Network;
 
-  public Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
+  internal Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
 
-  public ISocketCommunication SocketCommunication;
-  public Network.ConnectionType Connection;
+  internal ISocketCommunication SocketCommunication;
+  internal Network.ConnectionType Connection;
 
-  public enum StateProtocol
+  internal enum StateProtocol
   {
     Handshake,
     AwaitVersion,
@@ -25,10 +25,10 @@ public partial class Peer
     Busy
   }
 
-  public StateProtocol StateCurrent = StateProtocol.Handshake;
+  internal StateProtocol StateCurrent = StateProtocol.Handshake;
 
 
-  public Peer(
+  internal Peer(
     Network network,
     ISocketCommunication socketCommunication,
     Network.ConnectionType connection)
@@ -39,12 +39,12 @@ public partial class Peer
     Connection = connection;
   }
 
-  public bool IsDisposed()
+  internal bool IsDisposed()
   {
     return StateCurrent == StateProtocol.Disposed;
   }
 
-  public async Task Start()
+  internal async Task Start()
   {
     await SocketCommunication.Start();
 
@@ -54,7 +54,7 @@ public partial class Peer
       VersionMessage.SendVersion(this);
   }
 
-  public void BroadcastTX(TX tX)
+  internal void BroadcastTX(TX tX)
   {
     InvMessage invMessage = new(new List<Inventory> {
             new(Inventory.InventoryType.MSG_TX, tX.Hash)});
@@ -62,7 +62,7 @@ public partial class Peer
     SendMessage(invMessage);
   }
 
-  public async Task AdvertizeTX(TX tX)
+  internal async Task AdvertizeTX(TX tX)
   {
     InvMessage invMessage = new(new List<Inventory> {
           new(Inventory.InventoryType.MSG_TX, tX.Hash)
@@ -71,7 +71,7 @@ public partial class Peer
     await SendMessage(invMessage);
   }
 
-  public string GetIP()
+  internal string GetIP()
   {
     return SocketCommunication.GetIP();
   }

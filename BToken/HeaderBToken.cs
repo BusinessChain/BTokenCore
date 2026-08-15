@@ -6,23 +6,23 @@ namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
-  public class HeaderBToken : Header
+  internal class HeaderBToken : Header
   {
-    public const int COUNT_HEADER_BYTES = 100;
+    internal const int COUNT_HEADER_BYTES = 100;
 
     // Statt den aktuellen DB Hash, könnte auch der diesem Block vorangehende DB Hash
     // aufgeführt werden. Dies hätte beim Mining der vorteil, dass das Inserten des 
     // gemineden Block nicht durchgespielt werden müsste.
 
-    public byte[] HashDatabase = new byte[32];
+    internal byte[] HashDatabase = new byte[32];
 
 
-    public HeaderBToken()
+    internal HeaderBToken()
     {
       Difficulty = 1;
     }
 
-    public HeaderBToken(
+    internal HeaderBToken(
       byte[] headerHash,
       byte[] hashPrevious,
       byte[] merkleRootHash,
@@ -40,7 +40,7 @@ public partial class TokenBToken : Token
       PeriodHalveningBlockReward = 105000;
     }
 
-    public override byte[] Serialize()
+    internal override byte[] Serialize()
     {
       byte[] buffer = new byte[COUNT_HEADER_BYTES];
 
@@ -55,7 +55,7 @@ public partial class TokenBToken : Token
       return buffer;
     }
 
-    public override Header AppendToHeader(Header headerPrevious)
+    internal override Header AppendToHeader(Header headerPrevious)
     {
       if (headerPrevious.HeaderParent != null)
       {
@@ -79,7 +79,7 @@ public partial class TokenBToken : Token
       return base.AppendToHeader(headerPrevious);
     }
 
-    public override void VerifyCoinbase(long valueOutputsTXCoinbase)
+    internal override void VerifyCoinbase(long valueOutputsTXCoinbase)
     {
       long blockReward = BlockRewardInitial >> Height / PeriodHalveningBlockReward;
 

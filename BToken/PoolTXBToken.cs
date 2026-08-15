@@ -7,15 +7,15 @@ namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
-  public class PoolTXBToken
+  internal class PoolTXBToken
   {
     class TXBundle
     {
-      public byte[] IDAccountSource;
-      public long FeeAverageTX;
-      public List<TXBToken> TXs = new();
+      internal byte[] IDAccountSource;
+      internal long FeeAverageTX;
+      internal List<TXBToken> TXs = new();
 
-      public TXBundle(TXBToken tX)
+      internal TXBundle(TXBToken tX)
       {
         IDAccountSource = tX.IDAccountSource;
         FeeAverageTX = tX.Fee;
@@ -40,12 +40,12 @@ public partial class TokenBToken : Token
     List<TXBundle> TXBundlesSortedByFee = new();
 
 
-    public PoolTXBToken(TokenBToken token)
+    internal PoolTXBToken(TokenBToken token)
     {
       Token = token;
     }
 
-    public Account GetCopyOfAccount(byte[] accountID)
+    internal Account GetCopyOfAccount(byte[] accountID)
     {
       Account account;
 
@@ -63,7 +63,7 @@ public partial class TokenBToken : Token
       return account;
     }
 
-    public void AddTX(TX tX)
+    internal void AddTX(TX tX)
     {
       TXBToken tXBToken = tX as TXBToken;
 
@@ -92,7 +92,7 @@ public partial class TokenBToken : Token
       InsertTXInTXBundlesSortedByFee(tXBToken);
     }
 
-    public void RemoveTXs(IEnumerable<byte[]> hashesTX)
+    internal void RemoveTXs(IEnumerable<byte[]> hashesTX)
     {
       foreach (byte[] hashTX in hashesTX)
       {
@@ -165,7 +165,7 @@ public partial class TokenBToken : Token
       TXBundlesSortedByFee.Insert(0, tXBundle);
     }
 
-    public List<TX> GetTXs(int countBytesMax)
+    internal List<TX> GetTXs(int countBytesMax)
     {
       List<TX> tXs = new();
       int countBytesCurrent = 0;

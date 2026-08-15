@@ -7,9 +7,9 @@ using System.Collections.Concurrent;
 
 namespace BTokenCore;
 
-public partial class Network
+internal partial class Network
 {
-  public class Blockchain
+  internal class Blockchain
   {
     Blockchain BlockchainParent;
     List<Blockchain> BlockchainBranches = new();
@@ -34,7 +34,7 @@ public partial class Network
     Block BlockLoad;
 
 
-    public Blockchain(Token token, Network network)
+    internal Blockchain(Token token, Network network)
     {
       Token = token;
 
@@ -45,7 +45,7 @@ public partial class Network
       DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
     }
 
-    public Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
+    internal Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
     {
       BlockchainParent = blockchainParent;
       HeaderRoot = headerRoot;
@@ -59,7 +59,7 @@ public partial class Network
     }
 
 
-    public void LoadFromDisk()
+    internal void LoadFromDisk()
     {
       int heightBlockNext = DirectoryBlocks.GetFiles()
       .Select(file => Path.GetFileNameWithoutExtension(file.Name))
@@ -100,17 +100,17 @@ public partial class Network
       }
     }
 
-    public int GetHeight()
+    internal int GetHeight()
     {
       return HeaderTip.Height;
     }
 
-    public bool IsHigherThan(Blockchain sync)
+    internal bool IsHigherThan(Blockchain sync)
     {
       return HeaderTip.Height > sync.HeaderTip.Height;
     }
 
-    public bool TryExtendHeaderchain(
+    internal bool TryExtendHeaderchain(
       Header header,
       out List<byte[]> locator,
       Block blockDownload)
@@ -192,7 +192,7 @@ public partial class Network
       return null;
     }
 
-    public Block MineBlock(out TXOutputTokenAnchor anchorToken)
+    internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
     {
       int height = HeaderTip.Height + 1;
 
@@ -207,7 +207,7 @@ public partial class Network
       return block;
     }
 
-    public bool TryAppendBlock(ref Block block, ref Blockchain blockchainRoot)
+    internal bool TryAppendBlock(ref Block block, ref Blockchain blockchainRoot)
     {
       if (!HeadersDownloading.Remove(block.Header.Hash))
       {
@@ -365,7 +365,7 @@ public partial class Network
       return HeaderTipBlockchain.DifficultyAccumulated > blockchain.HeaderTipBlockchain.DifficultyAccumulated;
     }
 
-    public void GetBlock(byte[] hash, Block blockUpload)
+    internal void GetBlock(byte[] hash, Block blockUpload)
     {
       Header header = HeaderRoot;
 
@@ -390,7 +390,7 @@ public partial class Network
       }
     }
 
-    public void LoadBlock(int height, Block blockUpload)
+    internal void LoadBlock(int height, Block blockUpload)
     {
       string pathFile = Path.Combine(DirectoryBlocks.FullName, height.ToString());
 
@@ -418,7 +418,7 @@ public partial class Network
       blockUpload.Parse();
     }
 
-    public List<byte[]> GetLocator()
+    internal List<byte[]> GetLocator()
     {
       Header header = HeaderTip;
       List<byte[]> locator = new();
@@ -440,7 +440,7 @@ public partial class Network
       return locator;
     }
 
-    public (List<byte[]> headers, int heightAncestor) GetHeadersSerialized(
+    internal (List<byte[]> headers, int heightAncestor) GetHeadersSerialized(
       List<byte[]> hashesLocator,
       int maxCountHeaders)
     {

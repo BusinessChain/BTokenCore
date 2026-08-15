@@ -8,39 +8,39 @@ namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
-  public class TXBToken : TX
+  internal class TXBToken : TX
   {
     const int LENGTH_PUBKEYCOMPRESSED = 33;
 
     /// <summary>
     /// The PublicKey specifies from which account the funds are sourced.
     /// </summary>
-    public byte[] KeyPublic = new byte[LENGTH_PUBKEYCOMPRESSED];
+    internal byte[] KeyPublic = new byte[LENGTH_PUBKEYCOMPRESSED];
 
-    public const int LENGTH_IDACCOUNT = 20;
+    internal const int LENGTH_IDACCOUNT = 20;
 
     /// <summary>
     /// IDAccountSource is derived from the PublicKey and is used to address the account in the database.
     /// </summary>
-    public byte[] IDAccountSource = new byte[LENGTH_IDACCOUNT];
+    internal byte[] IDAccountSource = new byte[LENGTH_IDACCOUNT];
 
     /// <summary>
     /// In order for the transaction to be valid, the nonce must be equal to the nonce of the 
     /// account source.
     /// </summary>
-    public int Nonce;
+    internal int Nonce;
 
     /// <summary>
     /// This has to match the block height at which the account source was created.
     /// It is in a sense an extension of the nonce.
     /// </summary>
-    public int BlockheightAccountCreated;
+    internal int BlockheightAccountCreated;
 
 
-    public TXBToken()
+    internal TXBToken()
     { }
 
-    public TXBToken(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+    internal TXBToken(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
     {
       int indexTxStart = index;
 
@@ -92,7 +92,7 @@ public partial class TokenBToken : Token
         return null;
     }
 
-    public void VerifySignatureTX(int indexTxStart, byte[] buffer, ref int index)
+    internal void VerifySignatureTX(int indexTxStart, byte[] buffer, ref int index)
     {
       int lengthMessage = index - indexTxStart;
 
@@ -105,7 +105,7 @@ public partial class TokenBToken : Token
         throw new ProtocolException($"TX {this} contains invalid signature.");
     }
 
-    public override void Serialize(Wallet wallet)
+    internal override void Serialize(Wallet wallet)
     {
       List<byte> tXRaw = new();
 

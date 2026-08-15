@@ -10,29 +10,27 @@ namespace BTokenCore;
 
 public abstract partial class Token
 {
-  public const byte LENGTH_SCRIPT_P2PKH = 25;
-  public static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
-  public static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
+  internal const byte LENGTH_SCRIPT_P2PKH = 25;
+  internal static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
+  internal static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
 
-  public byte[] IDToken;
-  public Network Network;
-  public Wallet Wallet;
+  internal byte[] IDToken;
+  internal Network Network;
+  internal Wallet Wallet;
 
-  public int SizeBlockMax;
-
-  public StreamWriter LogFile;
+  internal int SizeBlockMax;
 
   protected IEnvironment Environment;
 
   bool IsLocked;
 
 
-  public int Port;
-  public UInt32 ProtocolVersion = 70015;
-  public ulong NetworkServicesLocal = 0;
-  public ulong NetworkServicesRemote = 0;
-  public string UserAgent = "/BTokenCore:0.0.0/";
-  public byte RelayOption = 0x01;
+  internal int Port;
+  internal UInt32 ProtocolVersion = 70015;
+  internal ulong NetworkServicesLocal = 0;
+  internal ulong NetworkServicesRemote = 0;
+  internal string UserAgent = "/BTokenCore:0.0.0/";
+  internal byte RelayOption = 0x01;
 
 
   protected Token(IEnvironment environment)
@@ -40,8 +38,6 @@ public abstract partial class Token
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));
-
-    LogFile = new StreamWriter(Path.Combine(GetName(), "LogToken"), append: false);
 
     Environment = environment;
   }

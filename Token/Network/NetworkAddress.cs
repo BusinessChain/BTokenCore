@@ -5,15 +5,15 @@ using System.Linq;
 
 namespace BTokenCore;
 
-class NetworkAddress
+internal class NetworkAddress
 {
-  public UInt32 UnixTimeSeconds { get; private set; }
-  public UInt64 NetworkServices { get; private set; }
-  public IPAddress IPAddress { get; private set; }
-  public UInt16 Port { get; private set; }
+  internal UInt32 UnixTimeSeconds { get; private set; }
+  internal UInt64 NetworkServices { get; private set; }
+  internal IPAddress IPAddress { get; private set; }
+  internal UInt16 Port { get; private set; }
 
 
-  public NetworkAddress(
+  internal NetworkAddress(
     UInt32 unixTimeSeconds,
     UInt64 networkServices,
     IPAddress iPAddress,
@@ -25,7 +25,7 @@ class NetworkAddress
     Port = port;
   }
 
-  public static NetworkAddress ParseAddress(byte[] buffer, ref int startIndex)
+  internal static NetworkAddress ParseAddress(byte[] buffer, ref int startIndex)
   {
     UInt32 unixTimeSeconds = BitConverter.ToUInt32(buffer, startIndex);
     startIndex += 4;

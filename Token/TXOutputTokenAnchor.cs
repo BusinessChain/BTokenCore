@@ -4,33 +4,33 @@ using System.Linq;
 
 namespace BTokenCore;
 
-public class TXOutputTokenAnchor : TXOutput
+internal class TXOutputTokenAnchor : TXOutput
 {
-  public static byte[] IDENTIFIER_BTOKEN_PROTOCOL = new byte[] { (byte)'B', (byte)'T', (byte)'K' };
+  internal static byte[] IDENTIFIER_BTOKEN_PROTOCOL = new byte[] { (byte)'B', (byte)'T', (byte)'K' };
 
-  public const byte OP_RETURN = 0x6A;
-  public const byte LengthDataAnchorToken = 70;
+  internal const byte OP_RETURN = 0x6A;
+  internal const byte LengthDataAnchorToken = 70;
 
-  public static byte[] PREFIX_ANCHOR_TOKEN =
+  internal static byte[] PREFIX_ANCHOR_TOKEN =
     new byte[] { OP_RETURN, LengthDataAnchorToken }.Concat(IDENTIFIER_BTOKEN_PROTOCOL).ToArray();
 
-  public readonly static int LENGTH_SCRIPT_ANCHOR_TOKEN =
+  internal readonly static int LENGTH_SCRIPT_ANCHOR_TOKEN =
     PREFIX_ANCHOR_TOKEN.Length + LENGTH_IDTOKEN + 32 + 32;
 
-  public const int LENGTH_IDTOKEN = 4;
-  public byte[] IDToken = new byte[LENGTH_IDTOKEN];
+  internal const int LENGTH_IDTOKEN = 4;
+  internal byte[] IDToken = new byte[LENGTH_IDTOKEN];
 
-  public byte[] HashBlockReferenced = new byte[32];
-  public byte[] HashBlockPreviousReferenced = new byte[32];
+  internal byte[] HashBlockReferenced = new byte[32];
+  internal byte[] HashBlockPreviousReferenced = new byte[32];
 
   byte[] TXOutputTokenAnchorRaw = new byte[IDENTIFIER_BTOKEN_PROTOCOL.Length + LENGTH_IDTOKEN + 32 + 32];
 
 
-  public TXOutputTokenAnchor()
+  internal TXOutputTokenAnchor()
   {
   }
 
-  public TXOutputTokenAnchor(byte[] buffer, ref int startIndex)
+  internal TXOutputTokenAnchor(byte[] buffer, ref int startIndex)
   {
     startIndex += PREFIX_ANCHOR_TOKEN.Length;
 
@@ -44,7 +44,7 @@ public class TXOutputTokenAnchor : TXOutput
     startIndex += HashBlockPreviousReferenced.Length;
   }
 
-  public byte[] Serialize()
+  internal byte[] Serialize()
   {
     int startIndex = 0;
 

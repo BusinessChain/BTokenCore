@@ -6,17 +6,17 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public class Wallet
+internal class Wallet
 {
-  public SHA256 SHA256 = SHA256.Create();
+  internal SHA256 SHA256 = SHA256.Create();
 
-  public string KeyPrivateDecimal;
-  public byte[] KeyPublic;
-  public byte[] Hash160PKeyPublic = new byte[20];
-  public string AddressAccount;
+  internal string KeyPrivateDecimal;
+  internal byte[] KeyPublic;
+  internal byte[] Hash160PKeyPublic = new byte[20];
+  internal string AddressAccount;
 
 
-  public Wallet(string privKeyDec)
+  internal Wallet(string privKeyDec)
   {
     KeyPrivateDecimal = privKeyDec;
 
@@ -27,7 +27,7 @@ public class Wallet
     AddressAccount = Hash160PKeyPublic.BinaryToBase58Check();
   }
 
-  public byte[] GetSignature(byte[] dataToBeSigned)
+  internal byte[] GetSignature(byte[] dataToBeSigned)
   {
     return Crypto.GetSignature(KeyPrivateDecimal, dataToBeSigned);
   }

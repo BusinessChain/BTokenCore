@@ -8,15 +8,15 @@ public partial class TokenBToken : Token
 {
   class TXOutputP2PKH : TXOutput
   {
-    public byte[] IDAccount;
+    internal byte[] IDAccount;
 
-    public byte[] Script;
+    internal byte[] Script;
 
 
-    public TXOutputP2PKH()
+    internal TXOutputP2PKH()
     { }
 
-    public TXOutputP2PKH(byte[] buffer, ref int index)
+    internal TXOutputP2PKH(byte[] buffer, ref int index)
     {
       Type = (TypesToken)buffer[index];
       index += 1;

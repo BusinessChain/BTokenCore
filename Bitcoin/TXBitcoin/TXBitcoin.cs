@@ -8,15 +8,15 @@ namespace BTokenCore;
 
 public partial class TokenBitcoin : Token
 {
-  public class TXBitcoin : TX
+  internal class TXBitcoin : TX
   {
-    public List<TXInputBitcoin> Inputs = new();
+    internal List<TXInputBitcoin> Inputs = new();
 
 
-    public TXBitcoin()
+    internal TXBitcoin()
     { }
 
-    public TXBitcoin(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+    internal TXBitcoin(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
     {
       int indexTxStart = index;
 
@@ -64,7 +64,7 @@ public partial class TokenBitcoin : Token
     }
 
 
-    public override void Serialize(Wallet wallet)
+    internal override void Serialize(Wallet wallet)
     {
       List<byte> tXRaw = new();
 

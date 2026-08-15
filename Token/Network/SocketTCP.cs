@@ -9,15 +9,15 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public class SocketTCP : ISocketCommunication
+internal class SocketTCP : ISocketCommunication
 {
   TcpClient TcpClient;
   Stream NetworkStream;
   string IP;
   int Port;
 
-  public const int CommandSize = 12;
-  public const int ChecksumSize = 4;
+  internal const int CommandSize = 12;
+  internal const int ChecksumSize = 4;
 
   static readonly byte[] MagicBytes = [0xF9, 0xBE, 0xB4, 0xD9];
   byte[] MagicBytesRead = new byte[4];
@@ -32,14 +32,14 @@ public class SocketTCP : ISocketCommunication
   CancellationTokenSource Cancellation = new();
 
 
-  public SocketTCP(string iPAddress, int port)
+  internal SocketTCP(string iPAddress, int port)
   {
     TcpClient = new TcpClient();
     IP = iPAddress;
     Port = port;
   }
 
-  public SocketTCP(TcpClient tcpClient)
+  internal SocketTCP(TcpClient tcpClient)
   {
     TcpClient = tcpClient;
 
@@ -104,6 +104,17 @@ public class SocketTCP : ISocketCommunication
     await ReadBytes(bufferPayloadMessage, message.LengthDataPayload);
   }
 
+  public void Dispose()
+  {
+    TcpClient.Dispose();
+  }
+
+  public string GetIP()
+  {
+    return IP;
+  }
+
+
   async Task ReadBytes(byte[] buffer, int bytesToRead)
   {
     int offset = 0;
@@ -122,15 +133,5 @@ public class SocketTCP : ISocketCommunication
       offset += chunkSize;
       bytesToRead -= chunkSize;
     }
-  }
-
-  public void Dispose()
-  {
-    TcpClient.Dispose();
-  }
-
-  public string GetIP()
-  {
-    return IP;
   }
 }

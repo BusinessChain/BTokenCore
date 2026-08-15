@@ -6,33 +6,23 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-public abstract class TX
+internal abstract class TX
 {
-  public byte[] Hash;
+  internal byte[] Hash;
 
-  public int CountBytes;
+  internal int CountBytes;
 
-  public long Fee;
+  internal long Fee;
 
-  public byte[] TXRaw;
+  internal byte[] TXRaw;
 
-  public List<TXOutput> TXOutputs = new();
+  internal List<TXOutput> TXOutputs = new();
 
 
-  public abstract void Serialize(Wallet wallet);
+  internal abstract void Serialize(Wallet wallet);
 
-  public long GetValueOutputs()
+  internal long GetValueOutputs()
   {
     return TXOutputs.Sum(t => t.Value);
-  }
-
-  public void WriteToStream(Stream stream)
-  {
-    stream.Write(TXRaw, 0, TXRaw.Length);
-  }
-
-  public override string ToString()
-  {
-    return Hash.ToHexString();
   }
 }

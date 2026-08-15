@@ -6,34 +6,34 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public class Block
+internal class Block
 {
   Token Token;
 
-  public Header Header;
-  public List<TX> TXs = new();
+  internal Header Header;
+  internal List<TX> TXs = new();
 
   // The buffer is constant in size [SizeBlockMax]
   // LengthDataPayload signifies the length of used data in buffer.
-  public byte[] Buffer;
-  public int LengthDataPayload;
+  internal byte[] Buffer;
+  internal int LengthDataPayload;
 
-  public SHA256 SHA256 = SHA256.Create();
+  SHA256 SHA256 = SHA256.Create();
 
 
-  public Block(Token token)
+  internal Block(Token token)
     : this(
         token,
         new byte[token.SizeBlockMax])
   { }
 
-  public Block(Token token, byte[] buffer)
+  internal Block(Token token, byte[] buffer)
   {
     Token = token;
     Buffer = buffer;
   }
 
-  public void Parse()
+  internal void Parse()
   {
     TXs.Clear();
     int startIndex = 0;
@@ -62,7 +62,7 @@ public class Block
     Header.VerifyCoinbase(TXs[0].GetValueOutputs());
   }
 
-  public byte[] ComputeMerkleRoot()
+  internal byte[] ComputeMerkleRoot()
   {
     const int HASH_BYTE_SIZE = 32;
 
@@ -105,7 +105,7 @@ public class Block
     }
   }
 
-  public void Serialize()
+  internal void Serialize()
   {
     int startIndex = 0;
 
@@ -127,7 +127,7 @@ public class Block
     LengthDataPayload = startIndex;
   }
 
-  public void WriteToDisk(string pathDirectory)
+  internal void WriteToDisk(string pathDirectory)
   {
     string pathFileBlock = Path.Combine(pathDirectory, Header.Height.ToString());
     string pathTemp = pathFileBlock + ".tmp";
@@ -147,10 +147,5 @@ public class Block
     }
 
     File.Move(pathTemp, pathFileBlock, overwrite: true);
-  }
-
-  public override string ToString()
-  {
-    return Header?.ToString();
   }
 }

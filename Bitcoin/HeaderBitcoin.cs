@@ -4,14 +4,14 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-public class HeaderBitcoin : Header
+internal class HeaderBitcoin : Header
 {
-  public const int COUNT_HEADER_BYTES = 80;
+  internal const int COUNT_HEADER_BYTES = 80;
 
-  public uint Version;
-  public uint NBits;
+  internal uint Version;
+  internal uint NBits;
 
-  public uint UnixTimeSeconds;
+  internal uint UnixTimeSeconds;
 
   const double MAX_TARGET = 2.695994666715064E67;
   const int RETARGETING_BLOCK_INTERVAL = 2016;
@@ -21,7 +21,7 @@ public class HeaderBitcoin : Header
     "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
 
 
-  public HeaderBitcoin(
+  internal HeaderBitcoin(
     byte[] headerHash,
     uint version,
     byte[] hashPrevious,
@@ -46,12 +46,12 @@ public class HeaderBitcoin : Header
     Difficulty = ComputeDifficultyFromNBits(nBits);
   }
 
-  public static double ComputeDifficultyFromNBits(uint nBits)
+  internal static double ComputeDifficultyFromNBits(uint nBits)
   {
     return MAX_TARGET / (double)UInt256.ParseFromCompact(nBits);
   }
 
-  public override Header AppendToHeader(Header headerPrevious)
+  internal override Header AppendToHeader(Header headerPrevious)
   {
     uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
 
@@ -132,7 +132,7 @@ public class HeaderBitcoin : Header
     return actualTimespan;
   }
 
-  public override byte[] Serialize()
+  internal override byte[] Serialize()
   {
     byte[] buffer = new byte[COUNT_HEADER_BYTES];
 
@@ -151,7 +151,7 @@ public class HeaderBitcoin : Header
     return buffer;
   }
 
-  public void IncrementNonce(uint nonceSeed)
+  internal void IncrementNonce(uint nonceSeed)
   {
     Nonce += 1;
 

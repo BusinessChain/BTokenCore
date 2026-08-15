@@ -5,19 +5,19 @@ namespace BTokenCore;
 
 public partial class TokenBitcoin : Token
 {
-  public class TXInputBitcoin
+  internal class TXInputBitcoin
   {
     const int HASH_BYTE_SIZE = 32;
 
-    public byte[] TXIDOutput;
-    public int OutputIndex;
-    public int Sequence;
+    internal byte[] TXIDOutput;
+    internal int OutputIndex;
+    internal int Sequence;
 
 
-    public TXInputBitcoin()
+    internal TXInputBitcoin()
     { }
 
-    public TXInputBitcoin(byte[] buffer, ref int index)
+    internal TXInputBitcoin(byte[] buffer, ref int index)
     {
       TXIDOutput = new byte[HASH_BYTE_SIZE];
 

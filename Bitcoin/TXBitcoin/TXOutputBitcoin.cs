@@ -7,16 +7,16 @@ public partial class TokenBitcoin : Token
 {
   class TXOutputBitcoin : TXOutput
   {
-    public byte[] PublicKeyHash160 = new byte[20];
+    internal byte[] PublicKeyHash160 = new byte[20];
 
-    public byte[] Data;
+    internal byte[] Data;
 
-    public byte[] Script;
+    internal byte[] Script;
 
 
-    public TXOutputBitcoin() { }
+    internal TXOutputBitcoin() { }
 
-    public TXOutputBitcoin(byte[] buffer, ref int startIndex)
+    internal TXOutputBitcoin(byte[] buffer, ref int startIndex)
     {
       startIndex += PREFIX_P2PKH.Length;
 

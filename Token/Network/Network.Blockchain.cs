@@ -9,10 +9,10 @@ using System.Collections.Concurrent;
 
 namespace BTokenCore;
 
-public partial class Network
+internal partial class Network
 {
   SemaphoreSlim SemaphoreBlockchainRoot = new(1);
-  public Blockchain BlockchainRoot;
+  internal Blockchain BlockchainRoot;
 
   ConcurrentBag<Block> PoolBlocks = new();
 
@@ -37,7 +37,7 @@ public partial class Network
       SemaphoreBlockchainRoot.Release();
   }
 
-  public async Task<List<byte[]>> ExtendHeaderchain(
+  internal async Task<List<byte[]>> ExtendHeaderchain(
     Header headerRoot,
     Block blockDownload)
   {
@@ -61,7 +61,7 @@ public partial class Network
     }
   }
 
-  public async Task<Block> InsertBlock(Block block)
+  internal async Task<Block> InsertBlock(Block block)
   {
     if (await TryLockBlockchain(10000))
       try
@@ -143,7 +143,7 @@ public partial class Network
       return BlockchainRoot.GetLocator();
   }
 
-  public async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
+  internal async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
     List<byte[]> hashesLocator,
     int maxCountHeaders)
   {
@@ -160,7 +160,7 @@ public partial class Network
     }
   }
 
-  public async Task GetBlock(byte[] hash, Block blockUpload)
+  internal async Task GetBlock(byte[] hash, Block blockUpload)
   {
     if (!await TryLockBlockchain(10000))
       return;

@@ -8,17 +8,17 @@ using LiteDB;
 
 namespace BTokenCore;
 
-public partial class Network
+internal partial class Network
 {
-  Network NetworkParent;
+  internal Network NetworkParent;
 
-  public List<Network> NetworksChild = new();
+  internal List<Network> NetworksChild = new();
 
-  public Token Token;
+  internal Token Token;
 
-  LiteDatabase LiteDatabase;
-  ILiteCollection<BsonDocument> DatabaseMetaCollection;
-  ILiteCollection<BsonDocument> DatabaseHeaderCollection;
+  internal LiteDatabase LiteDatabase;
+  internal ILiteCollection<BsonDocument> DatabaseMetaCollection;
+  internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
 
   const int COUNT_MAX_OUTBOUND_CONNECTIONS = 1;
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
@@ -28,13 +28,13 @@ public partial class Network
   bool EnableRelay;
 
   object LOCK_Peers = new();
-  List<Peer> Peers = new();
+  internal List<Peer> Peers = new();
 
-  public enum ConnectionType { OUTBOUND, INBOUND };
-  List<string> IPAddresses = new();
+  internal enum ConnectionType { OUTBOUND, INBOUND };
+  internal List<string> IPAddresses = new();
 
 
-  public Network(
+  internal Network(
     Token tokenParent,
     Token token,
     bool flagEnableInboundConnections,
@@ -53,7 +53,7 @@ public partial class Network
     DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
   }
 
-  public void Start()
+  internal void Start()
   {
     BlockchainRoot.LoadFromDisk();
 
@@ -143,7 +143,7 @@ public partial class Network
     return ip;
   }
 
-  public Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
+  internal Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
   {
     Dictionary<string, MessageNetworkProtocol> protocol = new();
 
@@ -168,7 +168,7 @@ public partial class Network
     protocol.Add(message.GetCommand(), message);
   }
 
-  public async Task StartHeaderSync(Peer peer)
+  internal async Task StartHeaderSync(Peer peer)
   {
     if (!await TryLockBlockchain(10000))
       return;
