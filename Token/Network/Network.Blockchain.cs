@@ -14,14 +14,12 @@ internal partial class Network
   SemaphoreSlim SemaphoreBlockchainRoot = new(1);
   internal Blockchain BlockchainRoot;
 
-  ConcurrentBag<Block> PoolBlocks = new();
-
   string PathBlocksMined = "blocksMined";
   bool IsMining;
   long FeePerByte;
   List<Block> BlocksMinedCache = new();
 
-  async Task<bool> TryLockBlockchain(int timeout)
+  internal async Task<bool> TryLockBlockchain(int timeout)
   {
     if (NetworkParent != null)
       return await NetworkParent.TryLockBlockchain(timeout);
@@ -61,12 +59,40 @@ internal partial class Network
     }
   }
 
+  internal List<Block> PoolBlocks = new();
+
   internal async Task<Block> InsertBlock(Block block)
   {
     if (await TryLockBlockchain(10000))
       try
       {
-        BlockchainRoot.TryAppendBlock(ref block, ref BlockchainRoot);
+        Blockchain chain = BlockchainRoot.FindChain(block);
+
+        if (chain == null)
+          return block;
+
+        do
+        {
+          if (chain == BlockchainRoot)
+          {
+            Token.InsertBlock(block);
+            NotifyChildNetworksOfAnchorToken(block);
+          }
+
+          chain.HeaderTipBlockchain = block.Header;
+
+          block.WriteToDisk(chain.PathDirectoryBlocks);
+
+          PoolBlocks.Add(block);
+
+        } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
+
+        if (chain.IsHigherThan(BlockchainRoot))
+          Reorg(chain);
+
+        block = TakeFromBlockPool();
+
+        block.Header = chain.FetchHeaderDownload();
       }
       finally
       {
@@ -76,34 +102,65 @@ internal partial class Network
     return block;
   }
 
+  void Reorg(Blockchain chain)
+  {
+
+  }
+
+  Block TakeFromBlockPool()
+  {
+    if (!PoolBlocks.Any())
+      return new(Token);
+
+    Block block = PoolBlocks[0];
+    PoolBlocks.RemoveAt(0);
+
+    return block;
+  }
+
+  bool TryGetBlockMined(out Block block, byte[] hash)
+  {
+    block = BlocksMinedCache
+      .Find(b => b.Header.Hash.IsAllBytesEqual(hash));
+
+    if (block == null)
+    {
+      string pathFileBlock = Path.Combine(PathBlocksMined, block.Header.Hash.ToHexString());
+
+      if (!File.Exists(pathFileBlock))
+        return false;
+
+      block = new(Token, File.ReadAllBytes(pathFileBlock));
+      block.Parse();
+    }
+
+    return block.Header.HashPrevious.IsAllBytesEqual(BlockchainRoot.HeaderTipBlockchain.Hash);
+  }
+
   void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
   {
     try
     {
-      Block blockMined = BlocksMinedCache
-        .Find(b => b.Header.Hash.IsAllBytesEqual(tokenAnchor.HashBlockReferenced));
+      if (!TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
+        return;
 
-      if (blockMined == null)
-      {
-        string pathFileBlock = Path.Combine(PathBlocksMined, blockMined.Header.Height.ToString());
+      BlockchainRoot.AppendHeader(block.Header);
 
-        if (!File.Exists(pathFileBlock))
-          return;
+      Token.InsertBlock(block);
+      NotifyChildNetworksOfAnchorToken(block);
 
-        blockMined = new(Token, File.ReadAllBytes(pathFileBlock));
-        blockMined.Parse();
-      }
+      BlockchainRoot.HeaderTipBlockchain = block.Header;
 
-      if (BlockchainRoot.TryExtendHeaderchain(blockMined.Header, out List<byte[]> headerslocator, blockMined))
-        if (BlockchainRoot.TryAppendBlock(ref blockMined, ref BlockchainRoot))
-        {
-          // Hier ein sendBlock machen und intern zuerst header und dann wenn
-          // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
-          lock (LOCK_Peers)
-            Peers.ForEach(p => HeadersMessage.SendHeaders(
-              p,
-              new List<byte[]> { blockMined.Header.Hash }));
-        }
+      block.WriteToDisk(BlockchainRoot.PathDirectoryBlocks);
+
+      PoolBlocks.Add(block);
+
+      // Hier ein sendBlock machen und intern zuerst header und dann wenn
+      // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
+      lock (LOCK_Peers)
+        Peers.ForEach(p => HeadersMessage.SendHeaders(
+          p,
+          new List<byte[]> { block.Header.Hash }));
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.
       // Dem user kann im GUI auch ein Tool zur verfügung gestellt werden welches ihm 
@@ -112,7 +169,7 @@ internal partial class Network
 
       if (IsMining)
       {
-        Block block = BlockchainRoot.MineBlock(out TXOutputTokenAnchor anchorToken);
+        block = BlockchainRoot.MineBlock(out TXOutputTokenAnchor anchorToken);
 
         BlocksMinedCache.Add(block);
 
@@ -122,7 +179,9 @@ internal partial class Network
       }
     }
     catch (Exception ex)
-    { }
+    {
+      return;
+    }
   }
 
   void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)

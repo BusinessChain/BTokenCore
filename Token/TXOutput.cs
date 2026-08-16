@@ -7,7 +7,7 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-internal abstract class TXOutput
+public abstract class TXOutput
 {
   internal enum TypesToken
   {

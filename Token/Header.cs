@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-internal abstract class Header
+public abstract class Header
 {
   internal byte[] Hash;
   internal byte[] HashPrevious;

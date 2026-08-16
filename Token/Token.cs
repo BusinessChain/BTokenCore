@@ -8,7 +8,16 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public abstract partial class Token
+internal interface IToken
+{
+  internal Block CreateBlock();
+  internal void InsertBlock(Block block);
+  internal Header CreateHeaderGenesis();
+  internal Block MineBlock(int height, out TXOutputTokenAnchor anchorToken);
+  internal void ReverseBlock(Block block);
+}
+
+public abstract partial class Token : IToken
 {
   internal const byte LENGTH_SCRIPT_P2PKH = 25;
   internal static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
@@ -91,13 +100,18 @@ public abstract partial class Token
     IsLocked = false;
   }
 
-  internal abstract Header CreateHeaderGenesis();
+  public Block CreateBlock()
+  {
+    return new Block(this);
+  }
+
+  public abstract Header CreateHeaderGenesis();
 
   internal abstract bool TryGetTX(byte[] hash, out TX tX);
 
-  internal abstract void InsertBlock(Block block);
+  public abstract void InsertBlock(Block block);
 
-  internal virtual void ReverseBlock(Block block) { }
+  public virtual void ReverseBlock(Block block) { }
 
   internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
@@ -110,7 +124,7 @@ public abstract partial class Token
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
-  internal virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  public virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
   internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)

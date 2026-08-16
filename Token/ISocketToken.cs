@@ -1,7 +1,4 @@
-﻿using System;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal interface ISocketCommunication
 {

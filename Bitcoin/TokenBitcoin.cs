@@ -47,7 +47,7 @@ public partial class TokenBitcoin : Token
       flagEnableRelay: false);
   }
 
-  internal override Header CreateHeaderGenesis()
+  public override Header CreateHeaderGenesis()
   {
     //HeaderBitcoin header = new(
     //   headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
@@ -211,7 +211,7 @@ public partial class TokenBitcoin : Token
   // Hier darf es keine Exception geben, weil wir einen
   // geparsten Bitcoin Block mit PoW immer als korrekt betrachten
 
-  internal override void InsertBlock(Block block)
+  public override void InsertBlock(Block block)
   {
     foreach (TXBitcoin tX in block.TXs)
     {
@@ -227,7 +227,7 @@ public partial class TokenBitcoin : Token
   // Das muss eine Datanbank sein!!
   internal Dictionary<byte[], TX> IndexTXs = new(new EqualityComparerByteArray());
 
-  internal override void ReverseBlock(Block block)
+  public override void ReverseBlock(Block block)
   {
     for (int t = block.TXs.Count - 1; t >= 0; t--)
     {

@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-internal class Block
+public class Block
 {
   Token Token;
 

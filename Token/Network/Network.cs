@@ -43,7 +43,7 @@ internal partial class Network
     NetworkParent = tokenParent?.Network;
     Token = token;
 
-    BlockchainRoot = new(Token, this);
+    BlockchainRoot = new(Token);
 
     EnableInboundConnections = flagEnableInboundConnections;
     EnableRelay = flagEnableRelay;
@@ -184,7 +184,7 @@ internal partial class Network
     }
   }
 
-  void NotifyChildNetworksOfAnchorToken(Block block)
+  internal void NotifyChildNetworksOfAnchorToken(Block block)
   {
     Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
       new(new EqualityComparerByteArray());

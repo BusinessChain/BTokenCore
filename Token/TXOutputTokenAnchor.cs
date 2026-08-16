@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace BTokenCore;
 
-internal class TXOutputTokenAnchor : TXOutput
+public class TXOutputTokenAnchor : TXOutput
 {
   internal static byte[] IDENTIFIER_BTOKEN_PROTOCOL = new byte[] { (byte)'B', (byte)'T', (byte)'K' };
 

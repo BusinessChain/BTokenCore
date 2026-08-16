@@ -28,6 +28,8 @@ public partial class TokenBToken : Token
 
   PoolTXBToken TXPool;
 
+  const int LENGTH_TX_P2PKH = 120;
+
 
   public TokenBToken(IEnvironment socketToken, Token tokenParent)
     : base(socketToken)
@@ -52,8 +54,7 @@ public partial class TokenBToken : Token
       flagEnableRelay: true);
   }
 
-
-  internal override Header CreateHeaderGenesis()
+  public override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(
       headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
@@ -70,7 +71,7 @@ public partial class TokenBToken : Token
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  internal override Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  public override Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
   {
     Block block = new Block(this);
 
@@ -102,9 +103,6 @@ public partial class TokenBToken : Token
 
     return block;
   }
-
-
-  const int LENGTH_TX_P2PKH = 120;
 
   internal override bool TryCreateTXAnchor(
     TXOutputTokenAnchor tokenAnchor,
@@ -163,7 +161,7 @@ public partial class TokenBToken : Token
     return false;
   }
 
-  internal override void InsertBlock(Block block)
+  public override void InsertBlock(Block block)
   {
     try
     {
@@ -245,7 +243,7 @@ public partial class TokenBToken : Token
     accountStaged.SpendTX(tXBToken);
   }
 
-  internal override void ReverseBlock(Block block)
+  public override void ReverseBlock(Block block)
   {
     try
     {
