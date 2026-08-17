@@ -10,7 +10,7 @@ internal interface ISocketCommunication
   internal string GetIP();
 }
 
-public interface IEnvironment
+public interface ICommunication
 {
   internal void StartListenerCommunicationInbound(int port);
 

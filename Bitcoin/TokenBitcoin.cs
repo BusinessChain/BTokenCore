@@ -32,8 +32,8 @@ public partial class TokenBitcoin : Token
   List<TXOutputWallet> OutputsSpendableConfirmed = new();
 
 
-  public TokenBitcoin(IEnvironment environment)
-    : base(environment)
+  public TokenBitcoin(ICommunication communication)
+    : base()
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
@@ -41,6 +41,7 @@ public partial class TokenBitcoin : Token
     Port = 8333;
 
     Network = new Network(
+      communication,
       null,
       this,
       flagEnableInboundConnections: false,

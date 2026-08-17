@@ -8,15 +8,6 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-internal interface IToken
-{
-  internal Block CreateBlock();
-  internal void InsertBlock(Block block);
-  internal Header CreateHeaderGenesis();
-  internal Block MineBlock(int height, out TXOutputTokenAnchor anchorToken);
-  internal void ReverseBlock(Block block);
-}
-
 public abstract partial class Token : IToken
 {
   internal const byte LENGTH_SCRIPT_P2PKH = 25;
@@ -29,8 +20,6 @@ public abstract partial class Token : IToken
 
   internal int SizeBlockMax;
 
-  protected IEnvironment Environment;
-
   bool IsLocked;
 
 
@@ -42,13 +31,11 @@ public abstract partial class Token : IToken
   internal byte RelayOption = 0x01;
 
 
-  protected Token(IEnvironment environment)
+  protected Token()
   {
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));
-
-    Environment = environment;
   }
 
   public void Start()
@@ -67,21 +54,6 @@ public abstract partial class Token : IToken
   }
 
   internal abstract string[] GetSeedAddresses();
-
-  internal ISocketCommunication GetSocketCommunication(string address)
-  {
-    return Environment.GetSocketCommunication(this, address);
-  }
-
-  internal void StartListenerCommunicationInbound()
-  {
-    Environment.StartListenerCommunicationInbound(Port);
-  }
-
-  internal async Task<ISocketCommunication> AcceptSocketCommunicationInbound()
-  {
-    return await Environment.AcceptSocketCommunicationInbound();
-  }
 
   internal bool TryLock()
   {

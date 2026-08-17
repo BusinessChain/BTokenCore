@@ -10,6 +10,7 @@ namespace BTokenCore;
 
 internal partial class Network
 {
+  internal ICommunication Communication;
   internal Network NetworkParent;
 
   internal List<Network> NetworksChild = new();
@@ -35,11 +36,14 @@ internal partial class Network
 
 
   internal Network(
+    ICommunication communication,
     Token tokenParent,
     Token token,
     bool flagEnableInboundConnections,
     bool flagEnableRelay)
   {
+    Communication = communication;
+
     NetworkParent = tokenParent?.Network;
     Token = token;
 
@@ -96,7 +100,7 @@ internal partial class Network
 
         string iP = "83.229.86.158"; // 84.74.69.100
 
-        ISocketCommunication socketCommunication = token.GetSocketCommunication(iP);
+        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(Token, iP);
 
         Peer peer = new(this, socketCommunication, ConnectionType.OUTBOUND);
 
@@ -199,7 +203,7 @@ internal partial class Network
 
   async Task StartPeerConnectorInbound()
   {
-    Token.StartListenerCommunicationInbound();
+    Communication.StartListenerCommunicationInbound(Token.Port);
 
     while (true)
     {
@@ -207,7 +211,7 @@ internal partial class Network
 
       try
       {
-        socketCommunication = await Token.AcceptSocketCommunicationInbound();
+        socketCommunication = await Communication.AcceptSocketCommunicationInbound();
 
         if (Peers.Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
           || Peers.Count(p => p.Connection == ConnectionType.INBOUND) + 1 > COUNT_MAX_INBOUND_CONNECTIONS)

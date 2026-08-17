@@ -31,8 +31,8 @@ public partial class TokenBToken : Token
   const int LENGTH_TX_P2PKH = 120;
 
 
-  public TokenBToken(IEnvironment socketToken, Token tokenParent)
-    : base(socketToken)
+  public TokenBToken(ICommunication communication, Token tokenParent)
+    : base()
   {
     TXPool = new PoolTXBToken(this);
 
@@ -48,6 +48,7 @@ public partial class TokenBToken : Token
     Port = 8777;
 
     Network = new Network(
+      communication,
       tokenParent,
       this,
       flagEnableInboundConnections: true,
