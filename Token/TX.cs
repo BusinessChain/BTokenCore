@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-internal abstract class TX
+public abstract class TX
 {
   internal byte[] Hash;
 

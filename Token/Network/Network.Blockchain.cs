@@ -1,13 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal partial class Network
 {
@@ -33,6 +24,78 @@ internal partial class Network
       NetworkParent.ReleaseLockBlockchain();
     else
       SemaphoreBlockchainRoot.Release();
+  }
+
+
+  DirectoryInfo DirectoryBlocks;
+  
+
+  internal void LoadBlockchain()
+  {
+    Token.Load();
+
+    DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
+
+    int heightBlockNext = DirectoryBlocks.GetFiles()
+    .Select(file => Path.GetFileNameWithoutExtension(file.Name))
+    .Where(name => int.TryParse(name, out _))
+    .Select(int.Parse)
+    .DefaultIfEmpty(0)
+    .Min();
+
+    Block blockLoad = new(Token);
+
+    while (true)
+      try
+      {
+        // alle anderen chains sind nur im memory, und gehen bei neustart verloren.
+        blockLoad.Header = null;
+        LoadBlock(heightBlockNext, blockLoad);
+
+        Token.InsertBlock(blockLoad);
+
+        BlockchainRoot.AppendHeader(blockLoad.Header);
+
+        heightBlockNext += 1;
+      }
+      catch (Exception ex)
+      {
+        break;
+      }
+
+    if (HeaderRoot == null)
+    {
+      HeaderRoot = Token.CreateHeaderGenesis();
+      HeaderTip = HeaderRoot;
+    }
+  }
+
+  internal void LoadBlock(int height, Block blockUpload)
+  {
+    string pathFile = Path.Combine(DirectoryBlocks.FullName, height.ToString());
+
+    using FileStream fileBlock = File.OpenRead(pathFile);
+
+    if (fileBlock.Length > blockUpload.Buffer.Length)
+      throw new InvalidOperationException("Block too large for buffer.");
+
+    blockUpload.LengthDataPayload = (int)fileBlock.Length;
+
+    int offset = 0;
+    while (offset < blockUpload.LengthDataPayload)
+    {
+      int n = fileBlock.Read(
+          blockUpload.Buffer,
+          offset,
+          blockUpload.LengthDataPayload - offset);
+
+      if (n == 0)
+        throw new EndOfStreamException();
+
+      offset += n;
+    }
+
+    blockUpload.Parse();
   }
 
   internal async Task<List<byte[]>> ExtendHeaderchain(
@@ -87,8 +150,13 @@ internal partial class Network
 
         } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
 
-        if (chain.IsHigherThan(BlockchainRoot))
-          Reorg(chain);
+        if (chain.IsStrongerThan(BlockchainRoot))
+        {
+          Header headerAncestor = chain.HeaderRoot.HeaderPrevious;
+
+          if (TryReorgToken(headerAncestor.Height))
+            chain.SwitchWithParentBranch(headerAncestor);
+        }
 
         block = TakeFromBlockPool();
 
@@ -102,9 +170,28 @@ internal partial class Network
     return block;
   }
 
-  void Reorg(Blockchain chain)
+  bool TryReorgToken(int heightAncestor)
   {
+    BlockchainRoot.RewindTokenToHeight(heightAncestor);
 
+    Token = BlockchainParent.Token;
+
+    try
+    {
+      RollTokenForwardToTip(heightAncestor);
+    }
+    catch
+    {
+      Token = null;
+
+      BlockchainParent.RollTokenForwardToTip(heightAncestor);
+
+      return false;
+    }
+
+    BlockchainParent.Token = null;
+
+    return true;
   }
 
   Block TakeFromBlockPool()

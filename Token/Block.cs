@@ -8,7 +8,7 @@ namespace BTokenCore;
 
 public class Block
 {
-  Token Token;
+  IToken Token;
 
   internal Header Header;
   internal List<TX> TXs = new();
@@ -21,13 +21,13 @@ public class Block
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal Block(Token token)
+  internal Block(IToken token)
     : this(
         token,
-        new byte[token.SizeBlockMax])
+        new byte[token.GetSizeBlockBuffer()])
   { }
 
-  internal Block(Token token, byte[] buffer)
+  internal Block(IToken token, byte[] buffer)
   {
     Token = token;
     Buffer = buffer;

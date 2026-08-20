@@ -59,7 +59,7 @@ internal partial class Network
 
   internal void Start()
   {
-    BlockchainRoot.LoadFromDisk();
+    LoadBlockchain();
 
     StartPeerConnectorOutbound();
 

@@ -1,9 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Collections.Generic;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -72,9 +67,9 @@ public abstract partial class Token : IToken
     IsLocked = false;
   }
 
-  public Block CreateBlock()
+  public int GetSizeBlockBuffer()
   {
-    return new Block(this);
+    return SizeBlockMax;
   }
 
   public abstract Header CreateHeaderGenesis();
@@ -85,9 +80,9 @@ public abstract partial class Token : IToken
 
   public virtual void ReverseBlock(Block block) { }
 
-  internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
+  public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
-  internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
+  public abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
   internal string GetName()
   {

@@ -6,7 +6,7 @@ namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
-  internal class HeaderBToken : Header
+  public class HeaderBToken : Header
   {
     internal const int COUNT_HEADER_BYTES = 100;
 

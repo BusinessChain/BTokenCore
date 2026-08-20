@@ -6,10 +6,8 @@ internal class Blockchain
   Blockchain BlockchainParent;
   List<Blockchain> BlockchainBranches = new();
 
-  IToken Token;
-
   Header HeaderTip;
-  Header HeaderRoot;
+  internal Header HeaderRoot;
   internal Header HeaderTipBlockchain;
 
   internal string PathDirectoryBlocks;
@@ -26,9 +24,7 @@ internal class Blockchain
 
   internal Blockchain(IToken token)
   {
-    Token = token;
-
-    BlockLoad = Token.CreateBlock();
+    BlockLoad = new Block(token);
 
     DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
   }
@@ -46,55 +42,9 @@ internal class Blockchain
     DirectoryBlocks = Directory.CreateDirectory(pathDirectory);
   }
 
-  internal void LoadFromDisk()
-  {
-    int heightBlockNext = DirectoryBlocks.GetFiles()
-    .Select(file => Path.GetFileNameWithoutExtension(file.Name))
-    .Where(name => int.TryParse(name, out _))
-    .Select(name => int.Parse(name))
-    .DefaultIfEmpty(0)
-    .Min();
-
-    while (true)
-      try
-      {
-        BlockLoad.Header = null;
-        LoadBlock(heightBlockNext, BlockLoad);
-
-        Token.InsertBlock(BlockLoad);
-
-        if (HeaderRoot == null)
-          HeaderRoot = BlockLoad.Header;
-        else
-        {
-          BlockLoad.Header.AppendToHeader(HeaderTip);
-          HeaderTip.HeaderNext = BlockLoad.Header;
-        }
-
-        HeaderTip = BlockLoad.Header;
-
-        heightBlockNext += 1;
-      }
-      catch (Exception ex)
-      {
-        break;
-      }
-
-    if (HeaderRoot == null)
-    {
-      HeaderRoot = Token.CreateHeaderGenesis();
-      HeaderTip = HeaderRoot;
-    }
-  }
-
   internal int GetHeight()
   {
     return HeaderTip.Height;
-  }
-
-  internal bool IsHigherThan(Blockchain sync)
-  {
-    return HeaderTip.Height > sync.HeaderTip.Height;
   }
 
   internal bool TryExtendHeaderchain(
@@ -265,7 +215,7 @@ internal class Blockchain
     return true;
   }
 
-  void RewindTokenToHeight(int heightAncestor)
+  internal void RewindTokenToHeight(int heightAncestor)
   {
     int height = HeaderTip.Height;
 
@@ -280,7 +230,7 @@ internal class Blockchain
     }
   }
 
-  void RollTokenForwardToTip(int heightAncestor)
+  internal void RollTokenForwardToTip(int heightAncestor)
   {
     int height = heightAncestor + 1;
 
@@ -295,7 +245,7 @@ internal class Blockchain
     }
   }
 
-  void SwitchWithParentBranch(Header headerAncestor)
+  internal void SwitchWithParentBranch(Header headerAncestor)
   {
     Header headerRootNewSyncParent = headerAncestor.HeaderNext;
     headerAncestor.HeaderNext = HeaderRoot;
@@ -328,9 +278,10 @@ internal class Blockchain
     return BlockchainParent == null;
   }
 
-  bool IsStrongerThan(Blockchain blockchain)
+  internal bool IsStrongerThan(Blockchain blockchain)
   {
-    return HeaderTipBlockchain.DifficultyAccumulated > blockchain.HeaderTipBlockchain.DifficultyAccumulated;
+    return HeaderTipBlockchain.DifficultyAccumulated > 
+      blockchain.HeaderTipBlockchain.DifficultyAccumulated;
   }
 
   internal void GetBlock(byte[] hash, Block blockUpload)

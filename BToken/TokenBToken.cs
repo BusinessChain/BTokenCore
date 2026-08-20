@@ -67,7 +67,7 @@ public partial class TokenBToken : Token
     return header;
   }
 
-  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  public override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
@@ -324,7 +324,7 @@ public partial class TokenBToken : Token
       ];
   }
 
-  internal override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  public override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
     byte[] hash =
       sHA256.ComputeHash(
