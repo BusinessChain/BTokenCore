@@ -134,7 +134,7 @@ class BlockMessage : MessageNetworkProtocol
 
     BlockDownload.Parse();
 
-    BlockDownload = await peer.Network.InsertBlock(BlockDownload);
+    BlockDownload = await peer.Network.InsertBlockReturnNextBlock(BlockDownload);
 
     if (BlockDownload.Header != null)
       GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);

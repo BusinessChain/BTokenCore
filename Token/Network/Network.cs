@@ -10,16 +10,17 @@ namespace BTokenCore;
 
 internal partial class Network
 {
-  internal ICommunication Communication;
   internal Network NetworkParent;
-
   internal List<Network> NetworksChild = new();
 
   internal Token Token;
 
+  internal ICommunication Communication;
+
   internal LiteDatabase LiteDatabase;
   internal ILiteCollection<BsonDocument> DatabaseMetaCollection;
   internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
+  internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
   const int COUNT_MAX_OUTBOUND_CONNECTIONS = 1;
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
@@ -47,13 +48,14 @@ internal partial class Network
     NetworkParent = tokenParent?.Network;
     Token = token;
 
-    BlockchainRoot = new(Token);
+    BlockchainRoot = new();
 
     EnableInboundConnections = flagEnableInboundConnections;
     EnableRelay = flagEnableRelay;
 
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
+    DatabaseBlockCollection = LiteDatabase.GetCollection<BsonDocument>("blocks");
     DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
   }
 

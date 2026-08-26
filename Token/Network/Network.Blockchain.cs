@@ -1,4 +1,9 @@
-﻿namespace BTokenCore;
+﻿using LiteDB;
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
+
+
+namespace BTokenCore;
 
 internal partial class Network
 {
@@ -10,12 +15,15 @@ internal partial class Network
   long FeePerByte;
   List<Block> BlocksMinedCache = new();
 
-  internal async Task<bool> TryLockBlockchain(int timeout)
+  internal ConcurrentBag<Block> PoolBlocks = new();
+
+
+  internal async Task<bool> TryLockBlockchain(int timeoutMilliSeconds)
   {
     if (NetworkParent != null)
-      return await NetworkParent.TryLockBlockchain(timeout);
+      return await NetworkParent.TryLockBlockchain(timeoutMilliSeconds);
 
-    return await SemaphoreBlockchainRoot.WaitAsync(timeout).ConfigureAwait(false);
+    return await SemaphoreBlockchainRoot.WaitAsync(timeoutMilliSeconds).ConfigureAwait(false);
   }
 
   void ReleaseLockBlockchain()
@@ -26,76 +34,41 @@ internal partial class Network
       SemaphoreBlockchainRoot.Release();
   }
 
-
-  DirectoryInfo DirectoryBlocks;
-  
-
-  internal void LoadBlockchain()
+  void LoadBlockchain()
   {
-    Token.Load();
-
-    DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
-
-    int heightBlockNext = DirectoryBlocks.GetFiles()
-    .Select(file => Path.GetFileNameWithoutExtension(file.Name))
-    .Where(name => int.TryParse(name, out _))
-    .Select(int.Parse)
-    .DefaultIfEmpty(0)
-    .Min();
-
+    SHA256 sHA256 = SHA256.Create();
     Block blockLoad = new(Token);
 
-    while (true)
+    int height = 1;
+    BsonDocument headerDB = DatabaseHeaderCollection.FindById(height);
+
+    while (headerDB != null)
       try
       {
-        // alle anderen chains sind nur im memory, und gehen bei neustart verloren.
-        blockLoad.Header = null;
-        LoadBlock(heightBlockNext, blockLoad);
+        byte[] headerBytes = headerDB["headerBytes"].AsBinary;
+        int startIndex = 0;
 
-        Token.InsertBlock(blockLoad);
+        Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
 
-        BlockchainRoot.AppendHeader(blockLoad.Header);
+        BlockchainRoot.AppendHeader(header);
 
-        heightBlockNext += 1;
+        BsonDocument blockDB = DatabaseBlockCollection.FindById(height);
+        if (blockDB != null)
+        {
+          blockLoad.Buffer = headerDB["blockBytes"].AsBinary;
+          blockLoad.Header = header;
+          blockLoad.Parse();
+
+          Token.InsertBlock(blockLoad);
+        }
+
+        height++;
+        headerDB = DatabaseHeaderCollection.FindById(height);
       }
-      catch (Exception ex)
+      catch
       {
         break;
       }
-
-    if (HeaderRoot == null)
-    {
-      HeaderRoot = Token.CreateHeaderGenesis();
-      HeaderTip = HeaderRoot;
-    }
-  }
-
-  internal void LoadBlock(int height, Block blockUpload)
-  {
-    string pathFile = Path.Combine(DirectoryBlocks.FullName, height.ToString());
-
-    using FileStream fileBlock = File.OpenRead(pathFile);
-
-    if (fileBlock.Length > blockUpload.Buffer.Length)
-      throw new InvalidOperationException("Block too large for buffer.");
-
-    blockUpload.LengthDataPayload = (int)fileBlock.Length;
-
-    int offset = 0;
-    while (offset < blockUpload.LengthDataPayload)
-    {
-      int n = fileBlock.Read(
-          blockUpload.Buffer,
-          offset,
-          blockUpload.LengthDataPayload - offset);
-
-      if (n == 0)
-        throw new EndOfStreamException();
-
-      offset += n;
-    }
-
-    blockUpload.Parse();
   }
 
   internal async Task<List<byte[]>> ExtendHeaderchain(
@@ -122,59 +95,114 @@ internal partial class Network
     }
   }
 
-  internal List<Block> PoolBlocks = new();
-
-  internal async Task<Block> InsertBlock(Block block)
+  /// <summary>
+  /// Returns block because ref block is not possible with async.
+  /// </summary>
+  internal async Task<Block> InsertBlockReturnNextBlock(Block block)
   {
-    if (await TryLockBlockchain(10000))
-      try
-      {
-        Blockchain chain = BlockchainRoot.FindChain(block);
+    Block blockNext = null;
 
-        if (chain == null)
+    if (!await TryLockBlockchain(timeoutMilliSeconds: 10000))
+      return block;
+
+    try
+    {
+      do
+      {
+        if (!BlockchainRoot.TryInsertBlock(block, out blockNext, out bool flagBlockInsertedInRoot))
           return block;
 
-        do
+        if (flagBlockInsertedInRoot)
         {
-          if (chain == BlockchainRoot)
+          DatabaseHeaderCollection.Insert(new BsonDocument
           {
-            Token.InsertBlock(block);
-            NotifyChildNetworksOfAnchorToken(block);
-          }
+            ["_id"] = block.Header.Height,
+            ["headerBytes"] = block.Header.Serialize()
+          });
 
-          chain.HeaderTipBlockchain = block.Header;
+          DatabaseBlockCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["blockBytes"] = block.Buffer
+          });
 
-          block.WriteToDisk(chain.PathDirectoryBlocks);
-
-          PoolBlocks.Add(block);
-
-        } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
-
-        if (chain.IsStrongerThan(BlockchainRoot))
-        {
-          Header headerAncestor = chain.HeaderRoot.HeaderPrevious;
-
-          if (TryReorgToken(headerAncestor.Height))
-            chain.SwitchWithParentBranch(headerAncestor);
+          NotifyChildNetworksOfAnchorToken(block);
         }
 
-        block = TakeFromBlockPool();
+        PoolBlocks.Add(block);
 
-        block.Header = chain.FetchHeaderDownload();
-      }
-      finally
+      } while (blockNext != null);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+
+
+    try
+    {
+      Blockchain chain = BlockchainRoot.FindChain(block);
+
+      if (chain == null)
+        return block;
+
+      do
       {
-        ReleaseLockBlockchain();
-      }
+        chain.InsertBlock(block); // falls ein weiterer existiert
+        // der inserted werden kann, könnte der hier einfach returned werden
+
+        if (chain == BlockchainRoot)
+          NotifyChildNetworksOfAnchorToken(block);
+
+        DatabaseHeaderCollection.Insert(new BsonDocument
+        {
+          ["_id"] = block.Header.Height,
+          ["headerBytes"] = block.Header.Serialize()
+        });
+        DatabaseBlockCollection.Insert(new BsonDocument
+        {
+          ["_id"] = block.Header.Height,
+          ["blockBytes"] = block.Buffer
+        });
+
+        PoolBlocks.Add(block);
+
+      } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
+
+      if (chain.IsStrongerThan(BlockchainRoot))
+        ReorgBlockchain(chain);
+
+      if (!PoolBlocks.TryTake(out block))
+        block = new Block(Token);
+
+      block.Header = chain.FetchHeaderDownload();
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
 
     return block;
   }
 
-  bool TryReorgToken(int heightAncestor)
+  void ReorgBlockchain(Blockchain chain)
   {
-    BlockchainRoot.RewindTokenToHeight(heightAncestor);
+    Header headerAncestor = chain.HeaderRoot.HeaderPrevious;
 
-    Token = BlockchainParent.Token;
+    while(BlockchainRoot.tip > )
+    BlockchainRoot.RewindTokenToHeight(headerAncestor.Height);
+
+    int height = HeaderTip.Height;
+
+    while (height > heightAncestor)
+    {
+      BlockLoad.Header = null;
+      LoadBlock(height, BlockLoad);
+
+      Token.ReverseBlock(BlockLoad);
+
+      height--;
+    }
 
     try
     {
@@ -189,39 +217,10 @@ internal partial class Network
       return false;
     }
 
-    BlockchainParent.Token = null;
+    chain.SwitchWithRootBranch(headerAncestor);
+    BlockchainRoot = chain;
 
     return true;
-  }
-
-  Block TakeFromBlockPool()
-  {
-    if (!PoolBlocks.Any())
-      return new(Token);
-
-    Block block = PoolBlocks[0];
-    PoolBlocks.RemoveAt(0);
-
-    return block;
-  }
-
-  bool TryGetBlockMined(out Block block, byte[] hash)
-  {
-    block = BlocksMinedCache
-      .Find(b => b.Header.Hash.IsAllBytesEqual(hash));
-
-    if (block == null)
-    {
-      string pathFileBlock = Path.Combine(PathBlocksMined, block.Header.Hash.ToHexString());
-
-      if (!File.Exists(pathFileBlock))
-        return false;
-
-      block = new(Token, File.ReadAllBytes(pathFileBlock));
-      block.Parse();
-    }
-
-    return block.Header.HashPrevious.IsAllBytesEqual(BlockchainRoot.HeaderTipBlockchain.Hash);
   }
 
   void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
@@ -271,6 +270,24 @@ internal partial class Network
     }
   }
 
+  bool TryGetBlockMined(out Block block, byte[] hash)
+  {
+    block = BlocksMinedCache
+      .Find(b => b.Header.Hash.IsAllBytesEqual(hash));
+
+    if (block == null)
+    {
+      string pathFileBlock = Path.Combine(PathBlocksMined, block.Header.Hash.ToHexString());
+
+      if (!File.Exists(pathFileBlock))
+        return false;
+
+      block = new(Token, File.ReadAllBytes(pathFileBlock));
+      block.Parse();
+    }
+
+    return block.Header.HashPrevious.IsAllBytesEqual(BlockchainRoot.HeaderTipBlockchain.Hash);
+  }
   void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
   {
     if (Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))

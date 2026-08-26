@@ -1,5 +1,7 @@
-﻿namespace BTokenCore;
+﻿using LiteDB;
 
+
+namespace BTokenCore;
 
 internal class Blockchain
 {
@@ -22,11 +24,14 @@ internal class Blockchain
   Block BlockLoad;
 
 
-  internal Blockchain(IToken token)
+  internal Blockchain(IToken token, Header headerGenesis)
   {
     BlockLoad = new Block(token);
 
     DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
+
+    HeaderRoot = headerGenesis;
+    HeaderTip = headerGenesis;
   }
 
   Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
@@ -76,7 +81,7 @@ internal class Blockchain
 
     while (headerAncestor != HeaderTip)
     {
-      if (headerAncestor.HeaderNext.Hash.IsAllBytesEqual(header.Hash) == false)
+      if (!headerAncestor.HeaderNext.Hash.IsAllBytesEqual(header.Hash))
       {
         foreach (Blockchain sync in BlockchainBranches)
           if (sync.HeaderRoot.Hash.IsAllBytesEqual(header.Hash))
@@ -173,48 +178,6 @@ internal class Blockchain
     return null;
   }
 
-  bool TryReorg()
-  {
-    if (IsRoot() || !IsStrongerThan(BlockchainParent))
-      return false;
-
-    Header headerAncestor = HeaderRoot.HeaderPrevious;
-
-    if (BlockchainParent.IsRoot() && !TryReorgToken(headerAncestor.Height))
-      return false;
-
-    SwitchWithParentBranch(headerAncestor);
-
-    if (!IsRoot())
-      return TryReorg();
-
-    return true;
-  }
-
-  bool TryReorgToken(int heightAncestor)
-  {
-    BlockchainParent.RewindTokenToHeight(heightAncestor);
-
-    Token = BlockchainParent.Token;
-
-    try
-    {
-      RollTokenForwardToTip(heightAncestor);
-    }
-    catch
-    {
-      Token = null;
-
-      BlockchainParent.RollTokenForwardToTip(heightAncestor);
-
-      return false;
-    }
-
-    BlockchainParent.Token = null;
-
-    return true;
-  }
-
   internal void RewindTokenToHeight(int heightAncestor)
   {
     int height = HeaderTip.Height;
@@ -245,7 +208,16 @@ internal class Blockchain
     }
   }
 
-  internal void SwitchWithParentBranch(Header headerAncestor)
+  /// <summary>
+  /// Returns false if block cannot be inserted anywhere in the blockchain.
+  /// </summary>
+  internal bool TryInsertBlock(Block block, out Block blockNext, out bool flagBlockInsertedInRoot)
+  {
+    Token?.InsertBlock(block);
+    chain.HeaderTipBlockchain = block.Header;
+  }
+
+  internal void SwitchWithRootBranch(Header headerAncestor)
   {
     Header headerRootNewSyncParent = headerAncestor.HeaderNext;
     headerAncestor.HeaderNext = HeaderRoot;
@@ -298,14 +270,6 @@ internal class Blockchain
       }
 
       header = header.HeaderNext;
-    }
-
-    foreach (Blockchain syncBranch in BlockchainBranches)
-    {
-      syncBranch.GetBlock(hash, blockUpload);
-
-      if (blockUpload.Header != null)
-        return;
     }
   }
 
