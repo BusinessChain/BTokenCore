@@ -190,7 +190,7 @@ internal partial class Network
     }
   }
 
-  internal void NotifyChildNetworksOfAnchorToken(Block block)
+  internal void NotifyChildNetworksIfAnchorToken(Block block)
   {
     Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
       new(new EqualityComparerByteArray());

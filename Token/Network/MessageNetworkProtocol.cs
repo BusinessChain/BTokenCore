@@ -134,7 +134,7 @@ class BlockMessage : MessageNetworkProtocol
 
     BlockDownload.Parse();
 
-    BlockDownload = await peer.Network.InsertBlockReturnNextBlock(BlockDownload);
+    BlockDownload = await peer.Network.InsertBlockReturnNewBlock(BlockDownload);
 
     if (BlockDownload.Header != null)
       GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
@@ -311,6 +311,9 @@ class HeadersMessage : MessageNetworkProtocol
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
 
+
+  Header HeaderDownload;
+
   internal override async Task Run(Peer peer)
   {
     int startIndex = 0;
@@ -320,42 +323,56 @@ class HeadersMessage : MessageNetworkProtocol
       throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
     else if (countHeaders > 0)
     {
-      Header headerRoot = ParseHeaderchain(peer, countHeaders, ref startIndex);
+      Header headerRoot = ParseHeaderchain(peer.Network.Token, countHeaders, startIndex);
 
-      List<byte[]> headerslocator = await peer.Network.ExtendHeaderchain(
-        headerRoot,
-        BlockDownload);
+      if (await peer.Network.TryLockBlockchain(10000)) // evt. mit LOCK_Node arbeiten
+        try
+        {
+          // evt. Hier mit BlockchainRoot.TryFindChain arbeiten
+          peer.Network.BlockchainRoot.TryExtendHeaderchain(
+            headerRoot,
+            out List<byte[]> headerslocatorNext,
+            out HeaderDownload);
 
-      if (headerslocator != null)
-      {
-        DOSMonitor.Decrement(1);
-        GetHeadersMessage.SendGetHeaders(peer, headerslocator);
-      }
+          if (headerslocatorNext != null)
+          {
+            DOSMonitor.Decrement(1);
+            GetHeadersMessage.SendGetHeaders(peer, headerslocatorNext);
+          }
+        }
+        finally
+        {
+          peer.Network.ReleaseLockBlockchain();
+        }
     }
-    else if (countHeaders == 0 && BlockDownload.Header != null)
-      GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
+    else if (countHeaders == 0 && HeaderDownload != null)
+      GetDataMessage.SendBlockRequest(peer, HeaderDownload.Hash);
   }
 
-  Header ParseHeaderchain(Peer peer, int countHeaders, ref int startIndex)
+  Header ParseHeaderchain(Token token, int countHeaders, int startIndex)
   {
-    Header headerRoot = peer.Network.Token.ParseHeader(Payload, ref startIndex, SHA256);
-    VarInt.GetInt(Payload, ref startIndex);
+    Header headerRoot = null;
+    Header headerTip = null;
 
-    Header headerTip = headerRoot;
-
-    countHeaders -= 1;
-
-    while (countHeaders > 0)
+    do
     {
-      Header header = peer.Network.Token.ParseHeader(Payload, ref startIndex, SHA256);
+      Header header = token.ParseHeader(Payload, ref startIndex, SHA256);
       VarInt.GetInt(Payload, ref startIndex);
 
-      header.AppendToHeader(headerTip);
-      headerTip.HeaderNext = header;
-      headerTip = header;
+      if (headerRoot == null)
+      {
+        headerRoot = header;
+        headerTip = header;
+      }
+      else
+      {
+        header.AppendToHeader(headerTip);
+        headerTip.HeaderNext = header;
+        headerTip = header;
+      }
 
       countHeaders -= 1;
-    }
+    } while (countHeaders > 0);
 
     return headerRoot;
   }

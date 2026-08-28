@@ -1,12 +1,12 @@
 ﻿using LiteDB;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Diagnostics;
 
 
 namespace BTokenCore;
 
-internal partial class Network
-{
+internal partial class Network {
   SemaphoreSlim SemaphoreBlockchainRoot = new(1);
   internal Blockchain BlockchainRoot;
 
@@ -18,16 +18,14 @@ internal partial class Network
   internal ConcurrentBag<Block> PoolBlocks = new();
 
 
-  internal async Task<bool> TryLockBlockchain(int timeoutMilliSeconds)
-  {
+  internal async Task<bool> TryLockBlockchain(int timeoutMilliSeconds) {
     if (NetworkParent != null)
       return await NetworkParent.TryLockBlockchain(timeoutMilliSeconds);
 
     return await SemaphoreBlockchainRoot.WaitAsync(timeoutMilliSeconds).ConfigureAwait(false);
   }
 
-  void ReleaseLockBlockchain()
-  {
+  internal void ReleaseLockBlockchain() {
     if (NetworkParent != null)
       NetworkParent.ReleaseLockBlockchain();
     else
@@ -43,8 +41,7 @@ internal partial class Network
     BsonDocument headerDB = DatabaseHeaderCollection.FindById(height);
 
     while (headerDB != null)
-      try
-      {
+      try {
         byte[] headerBytes = headerDB["headerBytes"].AsBinary;
         int startIndex = 0;
 
@@ -53,8 +50,7 @@ internal partial class Network
         BlockchainRoot.AppendHeader(header);
 
         BsonDocument blockDB = DatabaseBlockCollection.FindById(height);
-        if (blockDB != null)
-        {
+        if (blockDB != null) {
           blockLoad.Buffer = headerDB["blockBytes"].AsBinary;
           blockLoad.Header = header;
           blockLoad.Parse();
@@ -64,138 +60,80 @@ internal partial class Network
 
         height++;
         headerDB = DatabaseHeaderCollection.FindById(height);
-      }
-      catch
-      {
+      } catch {
         break;
       }
   }
 
-  internal async Task<List<byte[]>> ExtendHeaderchain(
-    Header headerRoot,
-    Block blockDownload)
-  {
-    List<byte[]> headerslocator = null;
-
-    if (!await TryLockBlockchain(10000))
-      return headerslocator;
-
-    try
-    {
-      BlockchainRoot.TryExtendHeaderchain(
-        headerRoot,
-        out headerslocator,
-        blockDownload);
-
-      return headerslocator;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
 
   /// <summary>
   /// Returns block because ref block is not possible with async.
   /// </summary>
-  internal async Task<Block> InsertBlockReturnNextBlock(Block block)
+  internal async Task<Block> InsertBlockReturnNewBlock(Block block)
   {
-    Block blockNext = null;
-
-    if (!await TryLockBlockchain(timeoutMilliSeconds: 10000))
-      return block;
-
-    try
-    {
-      do
+    if (await TryLockBlockchain(timeoutMilliSeconds: 10000))
+      try
       {
-        if (!BlockchainRoot.TryInsertBlock(block, out blockNext, out bool flagBlockInsertedInRoot))
+        Header header = block.Header;
+        block.Header = null;
+
+        if (!BlockchainRoot.TryFindChain(header, out Blockchain chain))
           return block;
 
-        if (flagBlockInsertedInRoot)
-        {
-          DatabaseHeaderCollection.Insert(new BsonDocument
-          {
-            ["_id"] = block.Header.Height,
-            ["headerBytes"] = block.Header.Serialize()
-          });
+        Debug.Assert(header.Height > chain.HeaderTipBlockchain.Height);
 
-          DatabaseBlockCollection.Insert(new BsonDocument
-          {
-            ["_id"] = block.Header.Height,
-            ["blockBytes"] = block.Buffer
-          });
+        if (header.Height > chain.HeaderTipBlockchain.Height + 1)
+          chain.QueueBlocks.Add(header.Height, block);
+        else
+          do
+          {// wo werden die Blöcke der Branches gespeichert?
+            chain.HeaderTipBlockchain = block.Header;
 
-          NotifyChildNetworksOfAnchorToken(block);
-        }
+            if (chain == BlockchainRoot)
+            {
+              Token.InsertBlock(block);
 
-        PoolBlocks.Add(block);
+              DatabaseHeaderCollection.Insert(new BsonDocument
+              {
+                ["_id"] = block.Header.Height,
+                ["headerBytes"] = block.Header.Serialize()
+              });
+              DatabaseBlockCollection.Insert(new BsonDocument
+              {
+                ["_id"] = block.Header.Height,
+                ["blockBytes"] = block.Buffer
+              });
 
-      } while (blockNext != null);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+              NotifyChildNetworksIfAnchorToken(block);
+            }
+            else if (chain.IsStrongerThan(BlockchainRoot))
+              ReorgBlockchain(chain);
 
+            PoolBlocks.Add(block);
+          } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
 
-    try
-    {
-      Blockchain chain = BlockchainRoot.FindChain(block);
+        if (!PoolBlocks.TryTake(out block))
+          block = new Block(Token);
 
-      if (chain == null)
-        return block;
-
-      do
+        block.Header = chain.FetchHeaderDownload();
+      }
+      finally
       {
-        chain.InsertBlock(block); // falls ein weiterer existiert
-        // der inserted werden kann, könnte der hier einfach returned werden
-
-        if (chain == BlockchainRoot)
-          NotifyChildNetworksOfAnchorToken(block);
-
-        DatabaseHeaderCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["headerBytes"] = block.Header.Serialize()
-        });
-        DatabaseBlockCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["blockBytes"] = block.Buffer
-        });
-
-        PoolBlocks.Add(block);
-
-      } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
-
-      if (chain.IsStrongerThan(BlockchainRoot))
-        ReorgBlockchain(chain);
-
-      if (!PoolBlocks.TryTake(out block))
-        block = new Block(Token);
-
-      block.Header = chain.FetchHeaderDownload();
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+        ReleaseLockBlockchain();
+      }
 
     return block;
   }
 
-  void ReorgBlockchain(Blockchain chain)
-  {
+  void ReorgBlockchain(Blockchain chain) {
     Header headerAncestor = chain.HeaderRoot.HeaderPrevious;
 
-    while(BlockchainRoot.tip > )
-    BlockchainRoot.RewindTokenToHeight(headerAncestor.Height);
+    while (BlockchainRoot.tip > )
+      BlockchainRoot.RewindTokenToHeight(headerAncestor.Height);
 
     int height = HeaderTip.Height;
 
-    while (height > heightAncestor)
-    {
+    while (height > heightAncestor) {
       BlockLoad.Header = null;
       LoadBlock(height, BlockLoad);
 
@@ -204,12 +142,9 @@ internal partial class Network
       height--;
     }
 
-    try
-    {
+    try {
       RollTokenForwardToTip(heightAncestor);
-    }
-    catch
-    {
+    } catch {
       Token = null;
 
       BlockchainParent.RollTokenForwardToTip(heightAncestor);
@@ -223,17 +158,15 @@ internal partial class Network
     return true;
   }
 
-  void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
-  {
-    try
-    {
+  void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor) {
+    try {
       if (!TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
         return;
 
       BlockchainRoot.AppendHeader(block.Header);
 
       Token.InsertBlock(block);
-      NotifyChildNetworksOfAnchorToken(block);
+      NotifyChildNetworksIfAnchorToken(block);
 
       BlockchainRoot.HeaderTipBlockchain = block.Header;
 
@@ -253,8 +186,7 @@ internal partial class Network
       // erlaubt, die Fee Rate automatisiert zu steuern. z.B. anhand vergangener Fee Raten
       // oder Marktpreis Arbitrierung.
 
-      if (IsMining)
-      {
+      if (IsMining) {
         block = BlockchainRoot.MineBlock(out TXOutputTokenAnchor anchorToken);
 
         BlocksMinedCache.Add(block);
@@ -263,20 +195,16 @@ internal partial class Network
 
         NetworkParent.MineTokenAnchor(tokenAnchor);
       }
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
       return;
     }
   }
 
-  bool TryGetBlockMined(out Block block, byte[] hash)
-  {
+  bool TryGetBlockMined(out Block block, byte[] hash) {
     block = BlocksMinedCache
       .Find(b => b.Header.Hash.IsAllBytesEqual(hash));
 
-    if (block == null)
-    {
+    if (block == null) {
       string pathFileBlock = Path.Combine(PathBlocksMined, block.Header.Hash.ToHexString());
 
       if (!File.Exists(pathFileBlock))
@@ -288,37 +216,31 @@ internal partial class Network
 
     return block.Header.HashPrevious.IsAllBytesEqual(BlockchainRoot.HeaderTipBlockchain.Hash);
   }
-  void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
-  {
+
+  void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor) {
     if (Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
       lock (LOCK_Peers)
         foreach (Peer peer in Peers)
           peer.BroadcastTX(tX);
-    else
-    {
+    else {
       IsMining = false;
     }
   }
 
-  List<byte[]> GetLocator()
-  {
+  List<byte[]> GetLocator() {
     lock (BlockchainRoot)
       return BlockchainRoot.GetLocator();
   }
 
   internal async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
     List<byte[]> hashesLocator,
-    int maxCountHeaders)
-  {
+    int maxCountHeaders) {
     if (!await TryLockBlockchain(10000))
       return (headers: new(), heightAncestor: -1);
 
-    try
-    {
+    try {
       return BlockchainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
-    }
-    finally
-    {
+    } finally {
       ReleaseLockBlockchain();
     }
   }
@@ -328,12 +250,9 @@ internal partial class Network
     if (!await TryLockBlockchain(10000))
       return;
 
-    try
-    {
+    try {
       BlockchainRoot.GetBlock(hash, blockUpload);
-    }
-    finally
-    {
+    } finally {
       ReleaseLockBlockchain();
     }
   }
