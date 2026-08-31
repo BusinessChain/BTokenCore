@@ -71,22 +71,19 @@ internal partial class Network {
   /// </summary>
   internal async Task<Block> InsertBlockReturnNewBlock(Block block)
   {
-    if (await TryLockBlockchain(timeoutMilliSeconds: 10000))
+    if (await TryLockBlockchain(timeoutMilliSeconds: 10_000))
       try
       {
         Header header = block.Header;
-        block.Header = null;
 
         if (!BlockchainRoot.TryFindChain(header, out Blockchain chain))
           return block;
 
         Debug.Assert(header.Height > chain.HeaderTipBlockchain.Height);
 
-        if (header.Height > chain.HeaderTipBlockchain.Height + 1)
-          chain.QueueBlocks.Add(header.Height, block);
-        else
+        if (header.Height == chain.HeaderTipBlockchain.Height + 1)
           do
-          {// wo werden die Blöcke der Branches gespeichert?
+          {// wo werden die Blöcke der Branches gespeichert? -> in den branches im memory
             chain.HeaderTipBlockchain = block.Header;
 
             if (chain == BlockchainRoot)
@@ -107,10 +104,22 @@ internal partial class Network {
               NotifyChildNetworksIfAnchorToken(block);
             }
             else if (chain.IsStrongerThan(BlockchainRoot))
-              ReorgBlockchain(chain);
+            {
+              while(BlockchainRoot.HeaderTipBlockchain.Height > chain.HeaderRoot.Height - 1)
+              {
+                BlockchainRoot.RollBack();
+                Token.ReverseBlock();
+              }
+
+              // connect chain.HeaderRoot to HeaderAncestor here.
+
+
+            }
 
             PoolBlocks.Add(block);
           } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
+        else
+          chain.QueueBlocks.Add(header.Height, block);
 
         if (!PoolBlocks.TryTake(out block))
           block = new Block(Token);
@@ -125,7 +134,8 @@ internal partial class Network {
     return block;
   }
 
-  void ReorgBlockchain(Blockchain chain) {
+  void ReorgBlockchain(Blockchain chain) 
+  {
     Header headerAncestor = chain.HeaderRoot.HeaderPrevious;
 
     while (BlockchainRoot.tip > )
@@ -159,7 +169,8 @@ internal partial class Network {
   }
 
   void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor) {
-    try {
+    try
+    {
       if (!TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
         return;
 
@@ -186,8 +197,17 @@ internal partial class Network {
       // erlaubt, die Fee Rate automatisiert zu steuern. z.B. anhand vergangener Fee Raten
       // oder Marktpreis Arbitrierung.
 
-      if (IsMining) {
-        block = BlockchainRoot.MineBlock(out TXOutputTokenAnchor anchorToken);
+      if (IsMining)
+      {
+        int height = BlockchainRoot.HeaderTip.Height + 1;
+
+        block = Token.MineBlock(height, out TXOutputTokenAnchor anchorToken);
+
+        block.Header.HashPrevious = BlockchainRoot.HeaderTip.Hash;
+
+        block.Header.ComputeHash();
+
+        block.Serialize();
 
         BlocksMinedCache.Add(block);
 
@@ -195,7 +215,9 @@ internal partial class Network {
 
         NetworkParent.MineTokenAnchor(tokenAnchor);
       }
-    } catch (Exception ex) {
+    }
+    catch (Exception ex)
+    {
       return;
     }
   }
@@ -251,6 +273,7 @@ internal partial class Network {
       return;
 
     try {
+      // Get Block from Database. 
       BlockchainRoot.GetBlock(hash, blockUpload);
     } finally {
       ReleaseLockBlockchain();

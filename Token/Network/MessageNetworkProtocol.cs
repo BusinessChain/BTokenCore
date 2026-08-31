@@ -131,7 +131,6 @@ class BlockMessage : MessageNetworkProtocol
     DOSMonitor.Decrement(1);
 
     BlockDownload.LengthDataPayload = LengthDataPayload;
-
     BlockDownload.Parse();
 
     BlockDownload = await peer.Network.InsertBlockReturnNewBlock(BlockDownload);
@@ -300,19 +299,15 @@ class HeadersMessage : MessageNetworkProtocol
 
   internal const int MAX_COUNT_HEADERS = 2000;
 
-  internal Block BlockDownload;
+  Blockchain ChainHeadersExtended;
 
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal HeadersMessage(Block blockDownload)
+  internal HeadersMessage()
   {
-    BlockDownload = blockDownload;
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
-
-
-  Header HeaderDownload;
 
   internal override async Task Run(Peer peer)
   {
@@ -325,28 +320,22 @@ class HeadersMessage : MessageNetworkProtocol
     {
       Header headerRoot = ParseHeaderchain(peer.Network.Token, countHeaders, startIndex);
 
-      if (await peer.Network.TryLockBlockchain(10000)) // evt. mit LOCK_Node arbeiten
+      if (await peer.Network.TryLockBlockchain(timeoutMilliSeconds: 10_000)) // evt. mit LOCK_Node arbeiten
         try
         {
-          // evt. Hier mit BlockchainRoot.TryFindChain arbeiten
-          peer.Network.BlockchainRoot.TryExtendHeaderchain(
-            headerRoot,
-            out List<byte[]> headerslocatorNext,
-            out HeaderDownload);
+          if (!peer.Network.BlockchainRoot.TryExtendHeaderchain(headerRoot, out ChainHeadersExtended))
+            return;
 
-          if (headerslocatorNext != null)
-          {
-            DOSMonitor.Decrement(1);
-            GetHeadersMessage.SendGetHeaders(peer, headerslocatorNext);
-          }
+          DOSMonitor.Decrement(1);
+          GetHeadersMessage.SendGetHeaders(peer, ChainHeadersExtended.GetLocator());
         }
         finally
         {
           peer.Network.ReleaseLockBlockchain();
         }
     }
-    else if (countHeaders == 0 && HeaderDownload != null)
-      GetDataMessage.SendBlockRequest(peer, HeaderDownload.Hash);
+    else if (countHeaders == 0 && ChainHeadersExtended.IsStrongerThan(peer.Network.BlockchainRoot))
+      GetDataMessage.SendBlockRequest(peer, ChainHeadersExtended.HeaderRoot.Hash);
   }
 
   Header ParseHeaderchain(Token token, int countHeaders, int startIndex)

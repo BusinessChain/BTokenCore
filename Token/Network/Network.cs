@@ -158,7 +158,7 @@ internal partial class Network
 
     AddMessageNetworkProtocol(protocol, new GetDataMessage(blockUpload));
     AddMessageNetworkProtocol(protocol, new GetHeadersMessage());
-    AddMessageNetworkProtocol(protocol, new HeadersMessage(blockDownload));
+    AddMessageNetworkProtocol(protocol, new HeadersMessage());
     AddMessageNetworkProtocol(protocol, new BlockMessage(blockDownload));
     AddMessageNetworkProtocol(protocol, new TXMessage());
     AddMessageNetworkProtocol(protocol, new VerAckMessage());

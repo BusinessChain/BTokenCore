@@ -8,12 +8,9 @@ internal class Blockchain
   Blockchain BlockchainParent;
   List<Blockchain> BlockchainBranches = new();
 
-  Header HeaderTip;
+  internal Header HeaderTip;
   internal Header HeaderRoot;
   internal Header HeaderTipBlockchain;
-
-  internal string PathDirectoryBlocks;
-  DirectoryInfo DirectoryBlocks;
 
   Dictionary<byte[], Header> HeadersDownloading = new(new EqualityComparerByteArray());
   Header HeaderDownloadNext;
@@ -21,15 +18,9 @@ internal class Blockchain
   const int CAPACITY_MAX_QueueBlocksInsertion = 20;
   internal Dictionary<int, Block> QueueBlocks = new();
 
-  Block BlockLoad;
 
-
-  internal Blockchain(IToken token, Header headerGenesis)
+  internal Blockchain(Header headerGenesis)
   {
-    BlockLoad = new Block(token);
-
-    DirectoryBlocks = Directory.CreateDirectory("blocksRoot");
-
     HeaderRoot = headerGenesis;
     HeaderTip = headerGenesis;
   }
@@ -39,12 +30,6 @@ internal class Blockchain
     BlockchainParent = blockchainParent;
     HeaderRoot = headerRoot;
     HeaderTip = headerTip;
-
-    string pathDirectory = Path.Combine(
-      blockchainParent.DirectoryBlocks.FullName,
-      "branch" + blockchainParent.BlockchainBranches.Count.ToString());
-
-    DirectoryBlocks = Directory.CreateDirectory(pathDirectory);
   }
 
   internal int GetHeight()
@@ -52,66 +37,61 @@ internal class Blockchain
     return HeaderTip.Height;
   }
 
-  internal bool TryExtendHeaderchain(
-    Header header,
-    out List<byte[]> locator,
-    out Header headerDownload)
+  internal bool TryExtendHeaderchain(Header headerRoot, out Blockchain chain)
   {
-    locator = null;
-    headerDownload = null;
-
-    if (header == null) // braucht es das wegen der rekursion?
+    if (!TryFindHeaderchain(ref headerRoot, out chain, out Header headerAncestor))
       return false;
 
-    Header headerAncestor = HeaderTip;
+    if(chain.HeaderTip != headerAncestor)
+    {
+      foreach (Blockchain branch in BlockchainBranches)
+        if (branch.HeaderRoot.Hash.IsAllBytesEqual(headerRoot.Hash))
+          return branch.TryExtendHeaderchain(headerRoot.HeaderNext, out chain);
 
-    while (!headerAncestor.Hash.IsAllBytesEqual(header.HashPrevious))
+      Header headerTip = headerRoot.AppendToHeader(headerAncestor);
+      chain.BlockchainBranches.Add(new(this, headerRoot, headerTip));
+      return true;
+    }
+
+    chain.AppendHeader(headerRoot);
+    return true;
+  }
+
+  bool TryFindHeaderchain(ref Header headerRoot, out Blockchain chain, out Header headerAncestor)
+  {
+    headerAncestor = HeaderTip;
+
+    while (!headerAncestor.Hash.IsAllBytesEqual(headerRoot.HashPrevious))
     {
       if (headerAncestor == HeaderRoot)
       {
-        foreach (Blockchain sync in BlockchainBranches)
-          if (sync.TryExtendHeaderchain(header, out locator, out headerDownload))
+        foreach (Blockchain branch in BlockchainBranches)
+          if (branch.TryFindHeaderchain(ref headerRoot, out chain, out headerAncestor))
             return true;
 
-        locator = GetLocator();
+        headerAncestor = null;
+        chain = null;
         return false;
       }
 
       headerAncestor = headerAncestor.HeaderPrevious;
     }
 
-    while (headerAncestor != HeaderTip)
+    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headerRoot.Hash) == true)
     {
-      if (!headerAncestor.HeaderNext.Hash.IsAllBytesEqual(header.Hash))
-      {
-        foreach (Blockchain sync in BlockchainBranches)
-          if (sync.HeaderRoot.Hash.IsAllBytesEqual(header.Hash))
-            return sync.TryExtendHeaderchain(header.HeaderNext, out locator, out headerDownload);
-
-        Header headerTip = header.AppendToHeader(headerAncestor);
-        Blockchain syncBranch = new(this, header, headerTip);
-        BlockchainBranches.Add(syncBranch);
-
-        headerDownload = syncBranch.FetchHeaderDownload();
-        locator = new List<byte[]> { headerTip.Hash };
-        return false;
-      }
-
-      if (header.HeaderNext == null)
-      {
-        headerDownload = FetchHeaderDownload();
-        locator = null;
-        return false;
-      }
-
       headerAncestor = headerAncestor.HeaderNext;
-      header = header.HeaderNext;
+
+      if (headerRoot.HeaderNext != null)
+        headerRoot = headerRoot.HeaderNext;
+      else
+      {
+        headerAncestor = null;
+        chain = null;
+        return false;
+      }
     }
 
-    AppendHeader(header);
-
-    headerDownload = FetchHeaderDownload();
-    locator = new List<byte[]> { HeaderTip.Hash };
+    chain = this;
     return true;
   }
 
@@ -139,21 +119,6 @@ internal class Blockchain
     return null;
   }
 
-  internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
-  {
-    int height = HeaderTip.Height + 1;
-
-    Block block = Token.MineBlock(height, out anchorToken);
-
-    block.Header.HashPrevious = HeaderTip.Hash;
-
-    block.Header.ComputeHash();
-
-    block.Serialize();
-
-    return block;
-  }
-
   internal bool TryFindChain(Header header, out Blockchain chain)
   {
     if (HeadersDownloading.Remove(header.Hash))
@@ -170,36 +135,6 @@ internal class Blockchain
 
     chain = null;
     return false;
-  }
-
-  internal void RewindTokenToHeight(int heightAncestor)
-  {
-    int height = HeaderTip.Height;
-
-    while (height > heightAncestor)
-    {
-      BlockLoad.Header = null;
-      LoadBlock(height, BlockLoad);
-
-      Token.ReverseBlock(BlockLoad);
-
-      height--;
-    }
-  }
-
-  internal void RollTokenForwardToTip(int heightAncestor)
-  {
-    int height = heightAncestor + 1;
-
-    while (height <= HeaderTip.Height)
-    {
-      BlockLoad.Header = null;
-      LoadBlock(height, BlockLoad);
-
-      Token.InsertBlock(BlockLoad);
-
-      height++;
-    }
   }
 
   internal void SwitchWithRootBranch(Header headerAncestor)
@@ -230,60 +165,10 @@ internal class Blockchain
     BlockchainParent = syncParentNew;
   }
 
-  bool IsRoot()
-  {
-    return BlockchainParent == null;
-  }
-
   internal bool IsStrongerThan(Blockchain blockchain)
   {
     return HeaderTipBlockchain.DifficultyAccumulated >
       blockchain.HeaderTipBlockchain.DifficultyAccumulated;
-  }
-
-  internal void GetBlock(byte[] hash, Block blockUpload)
-  {
-    Header header = HeaderRoot;
-
-    while (header != null)
-    {
-      if (header.Hash.IsAllBytesEqual(hash))
-      {
-        blockUpload.Header = header;
-        LoadBlock(header.Height, blockUpload);
-        return;
-      }
-
-      header = header.HeaderNext;
-    }
-  }
-
-  internal void LoadBlock(int height, Block blockUpload)
-  {
-    string pathFile = Path.Combine(DirectoryBlocks.FullName, height.ToString());
-
-    using FileStream fileBlock = File.OpenRead(pathFile);
-
-    if (fileBlock.Length > blockUpload.Buffer.Length)
-      throw new InvalidOperationException("Block too large for buffer.");
-
-    blockUpload.LengthDataPayload = (int)fileBlock.Length;
-
-    int offset = 0;
-    while (offset < blockUpload.LengthDataPayload)
-    {
-      int n = fileBlock.Read(
-          blockUpload.Buffer,
-          offset,
-          blockUpload.LengthDataPayload - offset);
-
-      if (n == 0)
-        throw new EndOfStreamException();
-
-      offset += n;
-    }
-
-    blockUpload.Parse();
   }
 
   internal List<byte[]> GetLocator()
