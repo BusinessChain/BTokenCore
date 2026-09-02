@@ -18,7 +18,6 @@ internal partial class Network
   internal ICommunication Communication;
 
   internal LiteDatabase LiteDatabase;
-  internal ILiteCollection<BsonDocument> DatabaseMetaCollection;
   internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
   internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
@@ -56,7 +55,6 @@ internal partial class Network
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
     DatabaseBlockCollection = LiteDatabase.GetCollection<BsonDocument>("blocks");
-    DatabaseMetaCollection = LiteDatabase.GetCollection<BsonDocument>("meta");
   }
 
   internal void Start()
@@ -176,12 +174,11 @@ internal partial class Network
 
   internal async Task StartHeaderSync(Peer peer)
   {
-    if (!await TryLockBlockchain(10000))
-      return;
-
     try
     {
-      if (NetworkParent.BlockchainRoot.GetHeight() > BlockchainRoot.GetHeight())
+      await LockBlockchain();
+
+      if (NetworkParent.BlockchainRoot.HeaderTip.Height > BlockchainRoot.HeaderTip.Height)
         GetHeadersMessage.SendGetHeaders(peer, GetLocator());
     }
     finally
@@ -190,6 +187,8 @@ internal partial class Network
     }
   }
 
+
+  // Das darf keine exception werfen.
   internal void NotifyChildNetworksIfAnchorToken(Block block)
   {
     Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =

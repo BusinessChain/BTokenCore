@@ -18,11 +18,12 @@ internal partial class Network {
   internal ConcurrentBag<Block> PoolBlocks = new();
 
 
-  internal async Task<bool> TryLockBlockchain(int timeoutMilliSeconds) {
+  internal async Task LockBlockchain() 
+  {
     if (NetworkParent != null)
-      return await NetworkParent.TryLockBlockchain(timeoutMilliSeconds);
+      await NetworkParent.LockBlockchain();
 
-    return await SemaphoreBlockchainRoot.WaitAsync(timeoutMilliSeconds).ConfigureAwait(false);
+    await SemaphoreBlockchainRoot.WaitAsync().ConfigureAwait(false);
   }
 
   internal void ReleaseLockBlockchain() {
@@ -66,72 +67,79 @@ internal partial class Network {
   }
 
 
+  internal async Task<Blockchain> TryExtendHeaderchain(Header headerRoot)
+  {
+    try
+    {
+      await LockBlockchain(); // evt. mit LOCK_Node arbeiten
+
+      return BlockchainRoot.TryExtendHeaderchain(headerRoot);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   /// <summary>
   /// Returns block because ref block is not possible with async.
   /// </summary>
   internal async Task<Block> InsertBlockReturnNewBlock(Block block)
   {
-    if (await TryLockBlockchain(timeoutMilliSeconds: 10_000))
-      try
+    try
+    {
+      await LockBlockchain();
+
+      Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
+
+      while (chain.TryGetBlockNextFromQueue(out block))
       {
-        Header header = block.Header;
+        if (chain == BlockchainRoot)
+        {
+          Token.InsertBlock(block);
 
-        if (!BlockchainRoot.TryFindChain(header, out Blockchain chain))
-          return block;
+          DatabaseHeaderCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["headerBytes"] = block.Header.Serialize()
+          });
+          DatabaseBlockCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["blockBytes"] = block.Buffer
+          });
 
-        Debug.Assert(header.Height > chain.HeaderTipBlockchain.Height);
+          NotifyChildNetworksIfAnchorToken(block);
+        }
+        else if (chain.IsStrongerThan(BlockchainRoot))
+        {
+          while (BlockchainRoot.HeaderTipBlockchain.Height > chain.HeaderRoot.Height - 1)
+          {
+            BlockchainRoot.Rollback();
+            Token.ReverseBlock();
 
-        if (header.Height == chain.HeaderTipBlockchain.Height + 1)
-          do
-          {// wo werden die Blöcke der Branches gespeichert? -> in den branches im memory
-            chain.HeaderTipBlockchain = block.Header;
+            NotifyChildNetworksOfRollback(block);
+          }
 
-            if (chain == BlockchainRoot)
-            {
-              Token.InsertBlock(block);
+          // connect chain.HeaderRoot to HeaderAncestor here.
+        }
 
-              DatabaseHeaderCollection.Insert(new BsonDocument
-              {
-                ["_id"] = block.Header.Height,
-                ["headerBytes"] = block.Header.Serialize()
-              });
-              DatabaseBlockCollection.Insert(new BsonDocument
-              {
-                ["_id"] = block.Header.Height,
-                ["blockBytes"] = block.Buffer
-              });
+        chain.HeaderTipBlockchain = block.Header;
 
-              NotifyChildNetworksIfAnchorToken(block);
-            }
-            else if (chain.IsStrongerThan(BlockchainRoot))
-            {
-              while(BlockchainRoot.HeaderTipBlockchain.Height > chain.HeaderRoot.Height - 1)
-              {
-                BlockchainRoot.RollBack();
-                Token.ReverseBlock();
-              }
-
-              // connect chain.HeaderRoot to HeaderAncestor here.
-
-
-            }
-
-            PoolBlocks.Add(block);
-          } while (chain.QueueBlocks.TryGetValue(chain.HeaderTipBlockchain.Height + 1, out block));
-        else
-          chain.QueueBlocks.Add(header.Height, block);
-
-        if (!PoolBlocks.TryTake(out block))
-          block = new Block(Token);
-
-        block.Header = chain.FetchHeaderDownload();
-      }
-      finally
-      {
-        ReleaseLockBlockchain();
+        PoolBlocks.Add(block);
       }
 
-    return block;
+      if (!PoolBlocks.TryTake(out block))
+        block = new Block(Token);
+
+      block.Header = chain.FetchHeaderDownload();
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+
+    return block; // because ref block is not possible with async.
   }
 
   void ReorgBlockchain(Blockchain chain) 

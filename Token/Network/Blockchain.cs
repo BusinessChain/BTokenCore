@@ -12,7 +12,7 @@ internal class Blockchain
   internal Header HeaderRoot;
   internal Header HeaderTipBlockchain;
 
-  Dictionary<byte[], Header> HeadersDownloading = new(new EqualityComparerByteArray());
+  Dictionary<byte[], Header> HeadersInThisChain = new(new EqualityComparerByteArray());
   Header HeaderDownloadNext;
 
   const int CAPACITY_MAX_QueueBlocksInsertion = 20;
@@ -32,15 +32,10 @@ internal class Blockchain
     HeaderTip = headerTip;
   }
 
-  internal int GetHeight()
+  internal Blockchain TryExtendHeaderchain(Header headerRoot)
   {
-    return HeaderTip.Height;
-  }
-
-  internal bool TryExtendHeaderchain(Header headerRoot, out Blockchain chain)
-  {
-    if (!TryFindHeaderchain(ref headerRoot, out chain, out Header headerAncestor))
-      return false;
+    if (!TryFindHeaderchain(ref headerRoot, out Blockchain chain, out Header headerAncestor))
+      return chain;
 
     if(chain.HeaderTip != headerAncestor)
     {
@@ -57,7 +52,10 @@ internal class Blockchain
     return true;
   }
 
-  bool TryFindHeaderchain(ref Header headerRoot, out Blockchain chain, out Header headerAncestor)
+  bool TryFindHeaderchain(
+    ref Header headerRoot,
+    out Blockchain chain,
+    out Header headerAncestor)
   {
     headerAncestor = HeaderTip;
 
@@ -105,13 +103,13 @@ internal class Blockchain
   internal Header FetchHeaderDownload()
   {
     if ((QueueBlocks.Count > CAPACITY_MAX_QueueBlocksInsertion || HeaderDownloadNext == null)
-        && HeadersDownloading.Any())
-      return HeadersDownloading.Values.MinBy(h => h.Height);
+        && HeadersInThisChain.Any())
+      return HeadersInThisChain.Values.MinBy(h => h.Height);
 
     if (HeaderDownloadNext != null)
     {
       Header headerDownload = HeaderDownloadNext;
-      HeadersDownloading.Add(headerDownload.Hash, headerDownload);
+      HeadersInThisChain.Add(headerDownload.Hash, headerDownload);
       HeaderDownloadNext = HeaderDownloadNext.HeaderNext;
       return headerDownload;
     }
@@ -119,22 +117,34 @@ internal class Blockchain
     return null;
   }
 
-  internal bool TryFindChain(Header header, out Blockchain chain)
-  {
-    if (HeadersDownloading.Remove(header.Hash))
+  /// <summary>
+  /// Searches the chain that contains a maching header and queue the block.
+  /// </summary>
+  /// <param name="block"></param>
+  /// <returns>The chain that now contains that block in its queue.</returns>
+  /// <exception cref="ProtocolException"></exception>
+  internal Blockchain InsertBlockInChain(Block block)
+  {    
+    if (HeadersInThisChain.Remove(block.Header.Hash))
     {
-      chain = this;
-      return true;
+      QueueBlocks.Add(block.Header.Height, block);
+      return this;
     }
 
     foreach (Blockchain branch in BlockchainBranches)
-    {
-      if (branch.TryFindChain(header, out chain))
-        return true;
-    }
+      if (branch.InsertBlockInChain(block) is Blockchain chain)
+        return chain;
 
-    chain = null;
-    return false;
+    if (BlockchainParent == null)
+      throw new ProtocolException(
+        $"Received block {block} but header in blockchain not found.");
+
+    return null;
+  }
+
+  internal bool TryGetBlockNextFromQueue(out Block block)
+  {
+    return QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block);
   }
 
   internal void SwitchWithRootBranch(Header headerAncestor)

@@ -319,23 +319,17 @@ class HeadersMessage : MessageNetworkProtocol
     else if (countHeaders > 0)
     {
       Header headerRoot = ParseHeaderchain(peer.Network.Token, countHeaders, startIndex);
+      
+      ChainHeadersExtended = await peer.Network.TryExtendHeaderchain(headerRoot);
 
-      if (await peer.Network.TryLockBlockchain(timeoutMilliSeconds: 10_000)) // evt. mit LOCK_Node arbeiten
-        try
-        {
-          if (!peer.Network.BlockchainRoot.TryExtendHeaderchain(headerRoot, out ChainHeadersExtended))
-            return;
-
-          DOSMonitor.Decrement(1);
-          GetHeadersMessage.SendGetHeaders(peer, ChainHeadersExtended.GetLocator());
-        }
-        finally
-        {
-          peer.Network.ReleaseLockBlockchain();
-        }
+      if (ChainHeadersExtended != null)
+      {
+        DOSMonitor.Decrement(1);
+        GetHeadersMessage.SendGetHeaders(peer, [ChainHeadersExtended.HeaderTip.Hash]);
+      }
     }
-    else if (countHeaders == 0 && ChainHeadersExtended.IsStrongerThan(peer.Network.BlockchainRoot))
-      GetDataMessage.SendBlockRequest(peer, ChainHeadersExtended.HeaderRoot.Hash);
+    else if (ChainHeadersExtended?.HeaderTip.Height > peer.Network.BlockchainRoot.HeaderTip.Height)
+      GetDataMessage.SendBlockRequest(peer, ChainHeadersExtended.HeaderTipBlockchain.HeaderNext.Hash);
   }
 
   Header ParseHeaderchain(Token token, int countHeaders, int startIndex)
@@ -563,7 +557,7 @@ class VersionMessage : MessageNetworkProtocol
     versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
     versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
     versionPayload.AddRange(VarString.GetBytes(peer.Network.Token.UserAgent));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.BlockchainRoot.GetHeight()));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.BlockchainRoot.HeaderTip.Height));
     versionPayload.Add(peer.Network.Token.RelayOption);
 
     byte[] buffer = versionPayload.ToArray();
