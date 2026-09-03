@@ -20,6 +20,7 @@ internal partial class Network
   internal LiteDatabase LiteDatabase;
   internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
   internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
+  internal ILiteCollection<BsonDocument> DatabaseBlockMinedCollection;
 
   const int COUNT_MAX_OUTBOUND_CONNECTIONS = 1;
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
@@ -55,6 +56,7 @@ internal partial class Network
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
     DatabaseBlockCollection = LiteDatabase.GetCollection<BsonDocument>("blocks");
+    DatabaseBlockMinedCollection = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
   }
 
   internal void Start()

@@ -1,4 +1,5 @@
 ﻿using LiteDB;
+using System.Reflection.Metadata.Ecma335;
 
 
 namespace BTokenCore;
@@ -6,7 +7,7 @@ namespace BTokenCore;
 internal class Blockchain
 {
   Blockchain BlockchainParent;
-  List<Blockchain> BlockchainBranches = new();
+  internal List<Blockchain> BlockchainBranches = new();
 
   internal Header HeaderTip;
   internal Header HeaderRoot;
@@ -34,22 +35,17 @@ internal class Blockchain
 
   internal Blockchain TryExtendHeaderchain(Header headerRoot)
   {
-    if (!TryFindHeaderchain(ref headerRoot, out Blockchain chain, out Header headerAncestor))
-      return chain;
+    if (TryFindHeaderchain(ref headerRoot, out Blockchain chain, out Header headerAncestor))
+      if (chain.HeaderTip == headerAncestor)
+        chain.AppendHeader(headerRoot);
+      else
+      {
+        Header headerTip = headerRoot.AppendToHeader(headerAncestor);
+        chain = new(this, headerRoot, headerTip);
+        chain.BlockchainBranches.Add(chain);
+      }
 
-    if(chain.HeaderTip != headerAncestor)
-    {
-      foreach (Blockchain branch in BlockchainBranches)
-        if (branch.HeaderRoot.Hash.IsAllBytesEqual(headerRoot.Hash))
-          return branch.TryExtendHeaderchain(headerRoot.HeaderNext, out chain);
-
-      Header headerTip = headerRoot.AppendToHeader(headerAncestor);
-      chain.BlockchainBranches.Add(new(this, headerRoot, headerTip));
-      return true;
-    }
-
-    chain.AppendHeader(headerRoot);
-    return true;
+    return chain;
   }
 
   bool TryFindHeaderchain(
@@ -118,7 +114,8 @@ internal class Blockchain
   }
 
   /// <summary>
-  /// Searches the chain that contains a maching header and queue the block.
+  /// Searches the chain that contains a maching header and queues the block.
+  /// Throws an exception if no matching header is found.
   /// </summary>
   /// <param name="block"></param>
   /// <returns>The chain that now contains that block in its queue.</returns>
@@ -144,7 +141,13 @@ internal class Blockchain
 
   internal bool TryGetBlockNextFromQueue(out Block block)
   {
-    return QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block);
+    if (QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block))
+    {
+      HeaderTipBlockchain = block.Header;
+      return true;
+    }
+
+    return false;
   }
 
   internal void SwitchWithRootBranch(Header headerAncestor)
@@ -177,8 +180,8 @@ internal class Blockchain
 
   internal bool IsStrongerThan(Blockchain blockchain)
   {
-    return HeaderTipBlockchain.DifficultyAccumulated >
-      blockchain.HeaderTipBlockchain.DifficultyAccumulated;
+    return HeaderTipBlockchain.Height >
+      blockchain.HeaderTipBlockchain.Height;
   }
 
   internal List<byte[]> GetLocator()

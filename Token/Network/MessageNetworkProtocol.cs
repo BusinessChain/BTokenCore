@@ -327,7 +327,7 @@ class HeadersMessage : MessageNetworkProtocol
         DOSMonitor.Decrement(1);
         GetHeadersMessage.SendGetHeaders(peer, [ChainHeadersExtended.HeaderTip.Hash]);
       }
-    }
+    }// Here BlockchainRoot is not locked.
     else if (ChainHeadersExtended?.HeaderTip.Height > peer.Network.BlockchainRoot.HeaderTip.Height)
       GetDataMessage.SendBlockRequest(peer, ChainHeadersExtended.HeaderTipBlockchain.HeaderNext.Hash);
   }

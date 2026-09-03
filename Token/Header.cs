@@ -24,7 +24,6 @@ public abstract class Header
   internal int CountTXs;
 
   internal double Difficulty;
-  internal double DifficultyAccumulated;
 
   internal long BlockRewardInitial;
   internal int PeriodHalveningBlockReward;
@@ -60,7 +59,6 @@ public abstract class Header
 
     Height = headerPrevious.Height + 1;
     HeaderPrevious = headerPrevious;
-    DifficultyAccumulated = headerPrevious.DifficultyAccumulated + Difficulty;
 
     if (HeaderNext != null)
       return HeaderNext.AppendToHeader(this);
