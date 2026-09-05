@@ -73,8 +73,6 @@ public partial class TokenBitcoin : Token
 
     header.Height = 0; // Should be modulo 2016 so it calculates next target bits correctly.
 
-    header.DifficultyAccumulated = header.Difficulty;
-
     return header;
   }
 

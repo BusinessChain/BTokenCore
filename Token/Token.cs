@@ -1,4 +1,6 @@
 ﻿using System.Security.Cryptography;
+using System.Collections.Concurrent;
+using System.Reflection.Metadata.Ecma335;
 
 
 namespace BTokenCore;
@@ -12,6 +14,8 @@ public abstract partial class Token : IToken
   internal byte[] IDToken;
   internal Network Network;
   internal Wallet Wallet;
+
+  internal ConcurrentBag<Block> PoolBlocks = new();
 
   internal int SizeBlockMax;
 
@@ -37,6 +41,8 @@ public abstract partial class Token : IToken
   {
     Network.Start();
   }
+
+
 
   public void StartMiner()
   {
@@ -67,9 +73,22 @@ public abstract partial class Token : IToken
     IsLocked = false;
   }
 
-  public int GetSizeBlockBuffer()
+  internal int GetSizeBlockBuffer()
   {
     return SizeBlockMax;
+  }
+
+  internal Block GetBlock()
+  {
+    if (!PoolBlocks.TryTake(out Block block))
+      block = new Block(this);
+
+    return block;
+  }
+
+  internal void ReturnBlock(Block block)
+  {
+    PoolBlocks.Add(block);
   }
 
   public abstract Header CreateHeaderGenesis();
@@ -91,7 +110,7 @@ public abstract partial class Token : IToken
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
-  public virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  public virtual void MineBlock(int height, Block block, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
   internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)

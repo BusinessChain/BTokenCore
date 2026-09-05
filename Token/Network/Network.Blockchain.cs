@@ -1,7 +1,5 @@
 ﻿using LiteDB;
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
-using System.Diagnostics;
 
 
 namespace BTokenCore;
@@ -15,8 +13,6 @@ internal partial class Network
   bool IsMining;
   long FeePerByte;
   List<Block> BlocksMinedCache = new();
-
-  internal ConcurrentBag<Block> PoolBlocks = new();
 
 
   internal async Task LockBlockchain()
@@ -96,34 +92,7 @@ internal partial class Network
     {
       await LockBlockchain();
 
-      Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
-
-      while (chain.TryGetBlockNextFromQueue(out block))
-      {
-        if (chain == BlockchainRoot)
-          WriteBlock(block);
-        else if (chain.IsStrongerThan(BlockchainRoot))
-        {
-          while (BlockchainRoot.HeaderTipBlockchain.Height > chain.HeaderRoot.Height - 1)
-          {
-            Block blockRollback = BlockchainRoot.Rollback();
-            Token.ReverseBlock(blockRollback);
-
-            NotifyChildNetworksOfRollback(blockRollback);
-          }
-
-          chain.BlockchainBranches.Add(BlockchainRoot);
-          BlockchainRoot = chain;
-          chain.SwitchWithRootBranch();
-        }
-
-        PoolBlocks.Add(block);
-      }
-
-      if (!PoolBlocks.TryTake(out block))
-        block = new Block(Token);
-
-      block.Header = chain.FetchHeaderDownload();
+      InsertBlock(block);
     }
     finally
     {
@@ -131,6 +100,37 @@ internal partial class Network
     }
 
     return block; // because ref block is not possible with async.
+  }
+
+  internal void InsertBlock(Block block)
+  {
+    Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
+
+    while (chain.TryGetBlockNextFromQueue(out block))
+    {
+      if (chain == BlockchainRoot)
+        WriteBlock(block);
+      else if (chain.IsStrongerThan(BlockchainRoot))
+      {
+        while (BlockchainRoot.HeaderTipBlockchain.Height > chain.HeaderRoot.Height - 1)
+        {
+          Block blockRollback = BlockchainRoot.Rollback();
+          Token.ReverseBlock(blockRollback);
+
+          NotifyChildNetworksOfRollback(blockRollback);
+        }
+
+        chain.BlockchainBranches.Add(BlockchainRoot);
+        BlockchainRoot = chain;
+        chain.SwitchWithRootBranch();
+      }
+
+      Token.ReturnBlock(block);
+    }
+
+    block = Token.GetBlock();
+
+    block.Header = chain.FetchHeaderDownload();
   }
 
   void WriteBlock(Block block)
@@ -155,23 +155,19 @@ internal partial class Network
   {
     try
     {
-      if (!TryGetBlockMined(out Block blockMined, tokenAnchor.HashBlockReferenced))
-        return;
+      if (TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
+      {
+        BlockchainRoot.TryExtendHeaderchain(block.Header);
 
-      BlockchainRoot.AppendHeader(blockMined.Header);
+        // Hier ein sendBlock machen und intern zuerst header und dann wenn
+        // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
+        lock (LOCK_Peers)
+          Peers.ForEach(p => HeadersMessage.SendHeaders(
+            p,
+            new List<byte[]> { block.Header.Hash }));
 
-      WriteBlock(blockMined);
-
-      BlockchainRoot.HeaderTipBlockchain = blockMined.Header;
-
-      // Hier ein sendBlock machen und intern zuerst header und dann wenn
-      // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
-      lock (LOCK_Peers)
-        Peers.ForEach(p => HeadersMessage.SendHeaders(
-          p,
-          new List<byte[]> { blockMined.Header.Hash }));
-
-      PoolBlocks.Add(blockMined);
+        InsertBlock(block);
+      }
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.
       // Dem user kann im GUI auch ein Tool zur verfügung gestellt werden welches ihm 
@@ -180,21 +176,22 @@ internal partial class Network
 
       if (IsMining)
       {
-        int height = BlockchainRoot.HeaderTip.Height + 1;
+        Token.MineBlock(
+          BlockchainRoot.HeaderTip.Height + 1,
+          block,
+          out TXOutputTokenAnchor anchorToken);
 
-        blockMined = Token.MineBlock(height, out TXOutputTokenAnchor anchorToken);
+        block.Header.HashPrevious = BlockchainRoot.HeaderTip.Hash;
 
-        blockMined.Header.HashPrevious = BlockchainRoot.HeaderTip.Hash;
+        block.Header.ComputeHash();
 
-        blockMined.Header.ComputeHash();
+        block.Serialize();
 
-        blockMined.Serialize();
+        BlocksMinedCache.Add(block);
 
-        BlocksMinedCache.Add(blockMined);
+        block.WriteToDisk(PathBlocksMined); // write to LiteDB
 
-        blockMined.WriteToDisk(PathBlocksMined);
-
-        NetworkParent.MineTokenAnchor(tokenAnchor);
+        NetworkParent.MineTokenAnchor(anchorToken);
       }
     }
     catch (Exception ex)
@@ -220,7 +217,7 @@ internal partial class Network
       block.Parse();
     }
 
-    return block.Header.HashPrevious.IsAllBytesEqual(BlockchainRoot.HeaderTipBlockchain.Hash);
+    return true;
   }
 
   void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)

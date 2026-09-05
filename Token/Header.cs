@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.IO;
-using System.Collections.Generic;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -17,7 +13,7 @@ public abstract class Header
   internal Header HeaderPrevious;
   internal Header HeaderNext;
 
-  internal Header HeaderParent;
+  internal Header HeaderParent; // wo wird in die Childs geschrieben?
   internal Dictionary<byte[], byte[]> HashesChild = new(new EqualityComparerByteArray());
 
   internal int Height;
