@@ -83,72 +83,96 @@ internal partial class Network
     }
   }
 
-  /// <summary>
-  /// Returns block because ref block is not possible with async.
-  /// </summary>
-  internal async Task<Block> InsertBlockReturnNewBlock(Block block)
+  internal async Task<Block> InsertBlockReturnNextBlock(Block block)
   {
     try
     {
       await LockBlockchain();
 
-      InsertBlock(block);
+      InsertBlock(ref block, out Blockchain chain);
+
+      block = Token.GetBlock();
+      block.Header = chain.FetchHeaderDownload();
+      return block;
     }
     finally
     {
       ReleaseLockBlockchain();
     }
-
-    return block; // because ref block is not possible with async.
   }
 
-  internal void InsertBlock(Block block)
+  internal void InsertBlock(ref Block block, out Blockchain chain)
   {
-    Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
+    chain = BlockchainRoot.InsertBlockInChain(block);
 
     while (chain.TryGetBlockNextFromQueue(out block))
     {
       if (chain == BlockchainRoot)
-        WriteBlock(block);
+      {
+        Token.InsertBlock(block);
+
+        DatabaseHeaderCollection.Insert(new BsonDocument
+        {
+          ["_id"] = block.Header.Height,
+          ["headerBytes"] = block.Header.Serialize()
+        });
+        DatabaseBlockCollection.Insert(new BsonDocument
+        {
+          ["_id"] = block.Header.Height,
+          ["blockBytes"] = block.Buffer
+        });
+
+        NotifyChildNetworksOfAnchorTokens(
+          block,
+          (networkChild, tokenAnchor) => networkChild.OnTokenAnchorParent(tokenAnchor));
+      }
       else if (chain.IsStrongerThan(BlockchainRoot))
       {
-        while (BlockchainRoot.HeaderTipBlockchain.Height > chain.HeaderRoot.Height - 1)
+        while (BlockchainRoot.HeaderTipBlockchain.Height
+          > chain.HeaderRoot.Height - 1)
         {
-          Block blockRollback = BlockchainRoot.Rollback();
+          Block blockRollback = BlockchainRoot.RollBack();
+
           Token.ReverseBlock(blockRollback);
 
-          NotifyChildNetworksOfRollback(blockRollback);
+          NotifyChildNetworksOfAnchorTokens(
+            blockRollback,
+            (network, tokenAnchor) => network.OnTokenAnchorParentRollback(tokenAnchor));
         }
 
         chain.BlockchainBranches.Add(BlockchainRoot);
         BlockchainRoot = chain;
-        chain.SwitchWithRootBranch();
+        chain.SwitchWithRootBranch();// clean up queue, and DB of blocks
       }
 
       Token.ReturnBlock(block);
     }
 
-    block = Token.GetBlock();
-
-    block.Header = chain.FetchHeaderDownload();
+    block = null;
   }
 
-  void WriteBlock(Block block)
+  /// <summary>
+  /// Performs action(network, tokenAnchor) with the child networks who are referenced by anchor tokens.
+  /// </summary>
+  void NotifyChildNetworksOfAnchorTokens(
+    Block block,
+    Action<Network, TXOutputTokenAnchor> action)
   {
-    Token.InsertBlock(block);
+    Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
+        new(new EqualityComparerByteArray());
 
-    DatabaseHeaderCollection.Insert(new BsonDocument
-    {
-      ["_id"] = block.Header.Height,
-      ["headerBytes"] = block.Header.Serialize()
-    });
-    DatabaseBlockCollection.Insert(new BsonDocument
-    {
-      ["_id"] = block.Header.Height,
-      ["blockBytes"] = block.Buffer
-    });
+    foreach (TX tX in block.TXs)
+      foreach (TXOutput tXOutput in tX.TXOutputs)
+        if (tXOutput is TXOutputTokenAnchor tokenAnchor &&
+            cacheAnchorTokens.TryAdd(tokenAnchor.HashBlockReferenced, tokenAnchor))
+          if (NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken)) is Network network)
+            action(network, tokenAnchor);
+  }
 
-    NotifyChildNetworksIfAnchorToken(block);
+  
+  void OnTokenAnchorParentRollback(TXOutputTokenAnchor tokenAnchor)
+  {
+
   }
 
   void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
@@ -166,7 +190,7 @@ internal partial class Network
             p,
             new List<byte[]> { block.Header.Hash }));
 
-        InsertBlock(block);
+        InsertBlock(ref block, out Blockchain chain);
       }
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.
@@ -176,9 +200,8 @@ internal partial class Network
 
       if (IsMining)
       {
-        Token.MineBlock(
+        block = Token.MineBlock(
           BlockchainRoot.HeaderTip.Height + 1,
-          block,
           out TXOutputTokenAnchor anchorToken);
 
         block.Header.HashPrevious = BlockchainRoot.HeaderTip.Hash;
@@ -194,7 +217,7 @@ internal partial class Network
         NetworkParent.MineTokenAnchor(anchorToken);
       }
     }
-    catch (Exception ex)
+    catch
     {
       return;
     }

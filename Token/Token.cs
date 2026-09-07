@@ -1,6 +1,5 @@
 ﻿using System.Security.Cryptography;
 using System.Collections.Concurrent;
-using System.Reflection.Metadata.Ecma335;
 
 
 namespace BTokenCore;
@@ -110,7 +109,7 @@ public abstract partial class Token : IToken
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
-  public virtual void MineBlock(int height, Block block, out TXOutputTokenAnchor anchorToken)
+  public virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
   internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)

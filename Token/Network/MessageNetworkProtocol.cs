@@ -133,7 +133,7 @@ class BlockMessage : MessageNetworkProtocol
     BlockDownload.LengthDataPayload = LengthDataPayload;
     BlockDownload.Parse();
 
-    BlockDownload = await peer.Network.InsertBlockReturnNewBlock(BlockDownload);
+    BlockDownload = await peer.Network.InsertBlockReturnNextBlock(BlockDownload);
 
     if (BlockDownload.Header != null)
       GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);

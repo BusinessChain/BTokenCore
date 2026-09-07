@@ -112,15 +112,8 @@ internal class Blockchain
     return null;
   }
 
-  /// <summary>
-  /// Searches the chain that contains a maching header and queues the block.
-  /// Throws an exception if no matching header is found.
-  /// </summary>
-  /// <param name="block"></param>
-  /// <returns>The chain that now contains that block in its queue.</returns>
-  /// <exception cref="ProtocolException"></exception>
   internal Blockchain InsertBlockInChain(Block block)
-  {    
+  {
     if (HeadersInThisChain.Remove(block.Header.Hash))
     {
       QueueBlocks.Add(block.Header.Height, block);
@@ -140,13 +133,20 @@ internal class Blockchain
 
   internal bool TryGetBlockNextFromQueue(out Block block)
   {
-    if (QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block))
-    {
-      HeaderTipBlockchain = block.Header;
-      return true;
-    }
+    if (!QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block))
+      return false;
 
-    return false;
+    HeaderTipBlockchain = block.Header;
+    return true;
+  }
+
+  internal Block RollBack()
+  {
+    QueueBlocks.TryGetValue(HeaderTipBlockchain.Height, out Block block);
+
+    HeaderTipBlockchain = HeaderTipBlockchain.HeaderPrevious;
+
+    return block;
   }
 
   internal void SwitchWithRootBranch(Header headerAncestor)

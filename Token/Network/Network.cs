@@ -48,7 +48,7 @@ internal partial class Network
     NetworkParent = tokenParent?.Network;
     Token = token;
 
-    BlockchainRoot = new();
+    BlockchainRoot = new(Token.CreateHeaderGenesis());
 
     EnableInboundConnections = flagEnableInboundConnections;
     EnableRelay = flagEnableRelay;
@@ -187,21 +187,6 @@ internal partial class Network
     {
       ReleaseLockBlockchain();
     }
-  }
-
-
-  // Das darf keine exception werfen.
-  internal void NotifyChildNetworksIfAnchorToken(Block block)
-  {
-    Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
-      new(new EqualityComparerByteArray());
-
-    foreach (TX tX in block.TXs)
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-          if (cacheAnchorTokens.TryAdd(tokenAnchor.HashBlockReferenced, tokenAnchor))
-            NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken))
-              ?.OnTokenAnchorParent(tokenAnchor);
   }
 
   async Task StartPeerConnectorInbound()
