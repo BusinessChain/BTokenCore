@@ -244,7 +244,7 @@ public partial class TokenBToken : Token
     accountStaged.SpendTX(tXBToken);
   }
 
-  public override void ReverseBlock(Block block)
+  public override void RollBack(Block block)
   {
     try
     {

@@ -89,7 +89,7 @@ internal partial class Network
     {
       await LockBlockchain();
 
-      InsertBlock(ref block, out Blockchain chain);
+      InsertBlock(block, out Blockchain chain);
 
       block = Token.GetBlock();
       block.Header = chain.FetchHeaderDownload();
@@ -101,16 +101,17 @@ internal partial class Network
     }
   }
 
-  internal void InsertBlock(ref Block block, out Blockchain chain)
+  internal void InsertBlock(Block block, out Blockchain chain)
   {
     chain = BlockchainRoot.InsertBlockInChain(block);
 
-    while (chain.TryGetBlockNextFromQueue(out block))
+    while (chain.TryGetBlockNext(out block, out bool isDirectionForward))
     {
-      if (chain == BlockchainRoot)
+      if (isDirectionForward)
       {
         Token.InsertBlock(block);
 
+        // Können die DB allenfalls ins abstrakte Token verschoben werden
         DatabaseHeaderCollection.Insert(new BsonDocument
         {
           ["_id"] = block.Header.Height,
@@ -122,39 +123,31 @@ internal partial class Network
           ["blockBytes"] = block.Buffer
         });
 
-        NotifyChildNetworksOfAnchorTokens(
+        NotifyChildNetworksOnAnchorTokens(
           block,
-          (networkChild, tokenAnchor) => networkChild.OnTokenAnchorParent(tokenAnchor));
+          (networkChild, tokenAnchor) => networkChild.InsertBlock(tokenAnchor));
       }
-      else if (chain.IsStrongerThan(BlockchainRoot))
+      else
       {
-        while (BlockchainRoot.HeaderTipBlockchain.Height
-          > chain.HeaderRoot.Height - 1)
-        {
-          Block blockRollback = BlockchainRoot.RollBack();
+        Token.RollBack(block);
 
-          Token.ReverseBlock(blockRollback);
+        DatabaseHeaderCollection.Delete(block.Header.Height);
+        DatabaseBlockCollection.Delete(block.Header.Height);
 
-          NotifyChildNetworksOfAnchorTokens(
-            blockRollback,
-            (network, tokenAnchor) => network.OnTokenAnchorParentRollback(tokenAnchor));
-        }
-
-        chain.BlockchainBranches.Add(BlockchainRoot);
-        BlockchainRoot = chain;
-        chain.SwitchWithRootBranch();// clean up queue, and DB of blocks
+        NotifyChildNetworksOnAnchorTokens(
+          block,
+          (networkChild, tokenAnchor) => networkChild.Rollback(tokenAnchor));
       }
 
-      Token.ReturnBlock(block);
+      BlockchainRoot = chain;
+
+      Token.ReturnBlock(block); // vielleicht besser durch die Blockchain verwalten lassen im root.
     }
 
     block = null;
   }
 
-  /// <summary>
-  /// Performs action(network, tokenAnchor) with the child networks who are referenced by anchor tokens.
-  /// </summary>
-  void NotifyChildNetworksOfAnchorTokens(
+  void NotifyChildNetworksOnAnchorTokens(
     Block block,
     Action<Network, TXOutputTokenAnchor> action)
   {
@@ -170,12 +163,12 @@ internal partial class Network
   }
 
   
-  void OnTokenAnchorParentRollback(TXOutputTokenAnchor tokenAnchor)
+  void Rollback(TXOutputTokenAnchor tokenAnchor)
   {
 
   }
 
-  void OnTokenAnchorParent(TXOutputTokenAnchor tokenAnchor)
+  void InsertBlock(TXOutputTokenAnchor tokenAnchor)
   {
     try
     {
@@ -190,7 +183,7 @@ internal partial class Network
             p,
             new List<byte[]> { block.Header.Hash }));
 
-        InsertBlock(ref block, out Blockchain chain);
+        InsertBlock(block, out Blockchain chain);
       }
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.

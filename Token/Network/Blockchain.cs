@@ -1,5 +1,4 @@
-﻿using LiteDB;
-
+﻿using System.Diagnostics;
 
 namespace BTokenCore;
 
@@ -12,7 +11,7 @@ internal class Blockchain
   internal Header HeaderRoot;
   internal Header HeaderTipBlockchain;
 
-  Dictionary<byte[], Header> HeadersInThisChain = new(new EqualityComparerByteArray());
+  Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
   Header HeaderDownloadNext;
 
   const int CAPACITY_MAX_QueueBlocksInsertion = 20;
@@ -98,13 +97,13 @@ internal class Blockchain
   internal Header FetchHeaderDownload()
   {
     if ((QueueBlocks.Count > CAPACITY_MAX_QueueBlocksInsertion || HeaderDownloadNext == null)
-        && HeadersInThisChain.Any())
-      return HeadersInThisChain.Values.MinBy(h => h.Height);
+        && HeadersAwaitingBlock.Any())
+      return HeadersAwaitingBlock.Values.MinBy(h => h.Height);
 
     if (HeaderDownloadNext != null)
     {
       Header headerDownload = HeaderDownloadNext;
-      HeadersInThisChain.Add(headerDownload.Hash, headerDownload);
+      HeadersAwaitingBlock.Add(headerDownload.Hash, headerDownload);
       HeaderDownloadNext = HeaderDownloadNext.HeaderNext;
       return headerDownload;
     }
@@ -114,7 +113,7 @@ internal class Blockchain
 
   internal Blockchain InsertBlockInChain(Block block)
   {
-    if (HeadersInThisChain.Remove(block.Header.Hash))
+    if (HeadersAwaitingBlock.Remove(block.Header.Hash))
     {
       QueueBlocks.Add(block.Header.Height, block);
       return this;
@@ -131,13 +130,43 @@ internal class Blockchain
     return null;
   }
 
-  internal bool TryGetBlockNextFromQueue(out Block block)
+  Blockchain GetRootChain()
   {
-    if (!QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block))
-      return false;
+    if (BlockchainParent != null)
+      return BlockchainParent.GetRootChain();
 
-    HeaderTipBlockchain = block.Header;
-    return true;
+    return this;
+  }
+
+  internal bool TryGetBlockNext(
+    out Block block,
+    out bool isDirectionForward)
+  {
+    Blockchain blockchainRoot = GetRootChain();
+    isDirectionForward = true;
+
+    while(QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block))
+    {
+      HeaderTipBlockchain = block.Header;
+
+      if (this == blockchainRoot)
+        return true;
+
+      if (IsStrongerThan(blockchainRoot))
+      {
+        if (blockchainRoot.HeaderTipBlockchain.Height > HeaderRoot.Height - 1)
+        {
+          block = blockchainRoot.RollBack();
+          isDirectionForward = false;
+
+          return true;
+        }
+
+        SwitchWithRootBranch(blockchainRoot);
+      }
+    }
+
+    return false;
   }
 
   internal Block RollBack()
@@ -149,32 +178,16 @@ internal class Blockchain
     return block;
   }
 
-  internal void SwitchWithRootBranch(Header headerAncestor)
+  internal void SwitchWithRootBranch(Blockchain blockchainRootOld)
   {
-    Header headerRootNewSyncParent = headerAncestor.HeaderNext;
-    headerAncestor.HeaderNext = HeaderRoot;
-    HeaderRoot = BlockchainParent.HeaderRoot;
-    BlockchainParent.HeaderRoot = headerRootNewSyncParent;
+    HeaderRoot = blockchainRootOld.HeaderRoot;
+    blockchainRootOld.HeaderRoot = blockchainRootOld.HeaderTipBlockchain.HeaderNext;
 
-    List<Blockchain> branches = BlockchainParent.BlockchainBranches.ToList();
+    BlockchainBranches.Add(blockchainRootOld);
+    BlockchainParent.BlockchainBranches.Remove(this);
 
-    foreach (Blockchain syncBranch in branches)
-      if (syncBranch.HeaderRoot.Height <= HeaderRoot.Height)
-      {
-        BlockchainParent.BlockchainBranches.Remove(syncBranch);
-
-        if (syncBranch != this)
-        {
-          syncBranch.BlockchainParent = this;
-          BlockchainBranches.Add(syncBranch);
-        }
-      }
-
-    BlockchainBranches.Add(BlockchainParent);
-
-    Blockchain syncParentNew = BlockchainParent.BlockchainParent;
-    BlockchainParent.BlockchainParent = this;
-    BlockchainParent = syncParentNew;
+    blockchainRootOld.BlockchainParent = this;
+    BlockchainParent = null;
   }
 
   internal bool IsStrongerThan(Blockchain blockchain)

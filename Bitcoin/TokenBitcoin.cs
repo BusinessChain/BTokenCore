@@ -226,7 +226,7 @@ public partial class TokenBitcoin : Token
   // Das muss eine Datanbank sein!!
   internal Dictionary<byte[], TX> IndexTXs = new(new EqualityComparerByteArray());
 
-  public override void ReverseBlock(Block block)
+  public override void RollBack(Block block)
   {
     for (int t = block.TXs.Count - 1; t >= 0; t--)
     {

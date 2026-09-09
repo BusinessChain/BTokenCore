@@ -96,7 +96,7 @@ public abstract partial class Token : IToken
 
   public abstract void InsertBlock(Block block);
 
-  public virtual void ReverseBlock(Block block) { }
+  public virtual void RollBack(Block block) { }
 
   public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
