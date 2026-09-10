@@ -15,6 +15,21 @@ internal partial class Network
   List<Block> BlocksMinedCache = new();
 
 
+  internal async Task StartHeaderSync(Peer peer)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      if (NetworkParent.BlockchainRoot.HeaderTip.Height > BlockchainRoot.HeaderTip.Height)
+        GetHeadersMessage.SendGetHeaders(peer, GetLocator());
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal async Task LockBlockchain()
   {
     if (NetworkParent != null)
@@ -31,28 +46,54 @@ internal partial class Network
       SemaphoreBlockchainRoot.Release();
   }
 
+  internal async Task GetBlock(byte[] hash, Block blockLoad)
+  {
+    Header header;
+    BsonDocument bsonDocumentBlock;
+
+    try
+    {
+      await LockBlockchain();
+
+      header = BlockchainRoot.GetHeader(hash);
+
+      bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+
+    if (bsonDocumentBlock != null)
+    {
+      blockLoad.Buffer = bsonDocumentBlock["blockBytes"].AsBinary;
+      blockLoad.Header = header;
+      blockLoad.Parse();
+    }
+  }
+
   void LoadBlockchain()
   {
     SHA256 sHA256 = SHA256.Create();
     Block blockLoad = new(Token);
 
     int height = 1;
-    BsonDocument headerDB = DatabaseHeaderCollection.FindById(height);
+    BsonDocument bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
 
-    while (headerDB != null)
+    while (bsonDocumentHeader != null)
       try
       {
-        byte[] headerBytes = headerDB["headerBytes"].AsBinary;
+        byte[] headerBytes = bsonDocumentHeader["headerBytes"].AsBinary;
         int startIndex = 0;
 
         Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
 
         BlockchainRoot.AppendHeader(header);
 
-        BsonDocument blockDB = DatabaseBlockCollection.FindById(height);
-        if (blockDB != null)
+        BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
+        if (bsonDocumentBlock != null)
         {
-          blockLoad.Buffer = headerDB["blockBytes"].AsBinary;
+          blockLoad.Buffer = bsonDocumentHeader["blockBytes"].AsBinary;
           blockLoad.Header = header;
           blockLoad.Parse();
 
@@ -60,14 +101,13 @@ internal partial class Network
         }
 
         height++;
-        headerDB = DatabaseHeaderCollection.FindById(height);
+        bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
       }
       catch
       {
         break;
       }
   }
-
 
   internal async Task<Blockchain> TryExtendHeaderchain(Header headerRoot)
   {
@@ -89,10 +129,7 @@ internal partial class Network
     {
       await LockBlockchain();
 
-      InsertBlock(block, out Blockchain chain);
-
-      block = Token.GetBlock();
-      block.Header = chain.FetchHeaderDownload();
+      InsertBlock(ref block);
       return block;
     }
     finally
@@ -101,9 +138,9 @@ internal partial class Network
     }
   }
 
-  internal void InsertBlock(Block block, out Blockchain chain)
+  internal void InsertBlock(ref Block block)
   {
-    chain = BlockchainRoot.InsertBlockInChain(block);
+    Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
 
     while (chain.TryGetBlockNext(out block, out bool isDirectionForward))
     {
@@ -111,7 +148,6 @@ internal partial class Network
       {
         Token.InsertBlock(block);
 
-        // Können die DB allenfalls ins abstrakte Token verschoben werden
         DatabaseHeaderCollection.Insert(new BsonDocument
         {
           ["_id"] = block.Header.Height,
@@ -141,10 +177,11 @@ internal partial class Network
 
       BlockchainRoot = chain;
 
-      Token.ReturnBlock(block); // vielleicht besser durch die Blockchain verwalten lassen im root.
+      Token.ReturnBlock(block);
     }
 
-    block = null;
+    block = Token.GetBlock();
+    block.Header = chain.FetchHeaderDownload();
   }
 
   void NotifyChildNetworksOnAnchorTokens(
@@ -183,7 +220,7 @@ internal partial class Network
             p,
             new List<byte[]> { block.Header.Hash }));
 
-        InsertBlock(block, out Blockchain chain);
+        InsertBlock(ref block);
       }
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.

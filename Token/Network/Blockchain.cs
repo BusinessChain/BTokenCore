@@ -46,6 +46,16 @@ internal class Blockchain
     return chain;
   }
 
+  internal Header GetHeader(byte[] hash)
+  {
+    Header header = HeaderTip;
+
+    while (header != null && !header.Hash.IsAllBytesEqual(hash))
+      header = header.HeaderPrevious;
+
+    return header;
+  }
+
   bool TryFindHeaderchain(
     ref Header headerRoot,
     out Blockchain chain,

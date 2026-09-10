@@ -41,8 +41,6 @@ public abstract partial class Token : IToken
     Network.Start();
   }
 
-
-
   public void StartMiner()
   {
     Network.StartMiner();
@@ -72,7 +70,7 @@ public abstract partial class Token : IToken
     IsLocked = false;
   }
 
-  internal int GetSizeBlockBuffer()
+  public int GetSizeBlockBuffer()
   {
     return SizeBlockMax;
   }

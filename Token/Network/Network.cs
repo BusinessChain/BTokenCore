@@ -174,21 +174,6 @@ internal partial class Network
     protocol.Add(message.GetCommand(), message);
   }
 
-  internal async Task StartHeaderSync(Peer peer)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      if (NetworkParent.BlockchainRoot.HeaderTip.Height > BlockchainRoot.HeaderTip.Height)
-        GetHeadersMessage.SendGetHeaders(peer, GetLocator());
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
   async Task StartPeerConnectorInbound()
   {
     Communication.StartListenerCommunicationInbound(Token.Port);
