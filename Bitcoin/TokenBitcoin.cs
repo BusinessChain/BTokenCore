@@ -50,28 +50,16 @@ public partial class TokenBitcoin : Token
 
   public override Header CreateHeaderGenesis()
   {
-    //HeaderBitcoin header = new(
-    //   headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
-    //   version: 0x01,
-    //   hashPrevious: "00000000000000000008b5ffa0ae1b604dd27bf4af84602ea53f7920320a3c96".ToBinary(),
-    //   merkleRootHash: "ef303d1cf8090e1bcea36432eceea2bbc156e81108deff1616d9c6dee64ba7c7".ToBinary(),
-    //   unixTimeSeconds: 1653490985, // take timestamp from trezor.io explorer and convert to epoch time GMT
-    //   nBits: 386492960,
-    //   nonce: 578608666);
+    HeaderBitcoin header = new(
+       headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
+       version: 0x20000000,
+       hashPrevious: "00000000000000000008b5ffa0ae1b604dd27bf4af84602ea53f7920320a3c96".ToBinary(),
+       merkleRootHash: "ef303d1cf8090e1bcea36432eceea2bbc156e81108deff1616d9c6dee64ba7c7".ToBinary(),
+       unixTimeSeconds: 1653490985,
+       nBits: 386492960,
+       nonce: 578608666);
 
-    //header.Height = 737856; // Should be modulo 2016 so it calculates next target bits correctly.
-
-    HeaderBitcoin header = new HeaderBitcoin(
-       headerHash: "000000A13F15EC9FECECAB8EF438F8E16E729AC2AF816C3DBE7E27BAF110F66A".ToBinary(),
-       version: 0x01,
-       hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-       merkleRootHash: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-       unixTimeSeconds: 1667333891,
-       //nBits: 0x1d4fffff,
-       nBits: 0x1dffffff,
-       nonce: 1441757173);
-
-    header.Height = 0; // Should be modulo 2016 so it calculates next target bits correctly.
+    header.Height = 737856;
 
     return header;
   }
@@ -206,9 +194,6 @@ public partial class TokenBitcoin : Token
         "seed.bitnodes.io"
       ];
   }
-
-  // Hier darf es keine Exception geben, weil wir einen
-  // geparsten Bitcoin Block mit PoW immer als korrekt betrachten
 
   public override void InsertBlock(Block block)
   {

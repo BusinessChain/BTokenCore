@@ -1,34 +1,25 @@
-﻿using System.Diagnostics;
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal class Blockchain
 {
-  Blockchain BlockchainParent;
-  internal List<Blockchain> BlockchainBranches = new();
-
   internal Header HeaderTip;
   internal Header HeaderRoot;
   internal Header HeaderTipBlockchain;
+
+  Blockchain BlockchainParent;
+  List<Blockchain> BlockchainBranches = new();
 
   Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
   Header HeaderDownloadNext;
 
   const int CAPACITY_MAX_QueueBlocksInsertion = 20;
-  internal Dictionary<int, Block> QueueBlocks = new();
+  Dictionary<int, Block> QueueBlocks = new();
 
 
   internal Blockchain(Header headerGenesis)
   {
     HeaderRoot = headerGenesis;
     HeaderTip = headerGenesis;
-  }
-
-  Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
-  {
-    BlockchainParent = blockchainParent;
-    HeaderRoot = headerRoot;
-    HeaderTip = headerTip;
   }
 
   internal Blockchain TryExtendHeaderchain(Header headerRoot)
@@ -54,47 +45,6 @@ internal class Blockchain
       header = header.HeaderPrevious;
 
     return header;
-  }
-
-  bool TryFindHeaderchain(
-    ref Header headerRoot,
-    out Blockchain chain,
-    out Header headerAncestor)
-  {
-    headerAncestor = HeaderTip;
-
-    while (!headerAncestor.Hash.IsAllBytesEqual(headerRoot.HashPrevious))
-    {
-      if (headerAncestor == HeaderRoot)
-      {
-        foreach (Blockchain branch in BlockchainBranches)
-          if (branch.TryFindHeaderchain(ref headerRoot, out chain, out headerAncestor))
-            return true;
-
-        headerAncestor = null;
-        chain = null;
-        return false;
-      }
-
-      headerAncestor = headerAncestor.HeaderPrevious;
-    }
-
-    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headerRoot.Hash) == true)
-    {
-      headerAncestor = headerAncestor.HeaderNext;
-
-      if (headerRoot.HeaderNext != null)
-        headerRoot = headerRoot.HeaderNext;
-      else
-      {
-        headerAncestor = null;
-        chain = null;
-        return false;
-      }
-    }
-
-    chain = this;
-    return true;
   }
 
   internal void AppendHeader(Header header)
@@ -140,17 +90,7 @@ internal class Blockchain
     return null;
   }
 
-  Blockchain GetRootChain()
-  {
-    if (BlockchainParent != null)
-      return BlockchainParent.GetRootChain();
-
-    return this;
-  }
-
-  internal bool TryGetBlockNext(
-    out Block block,
-    out bool isDirectionForward)
+  internal bool TryGetBlockNext( out Block block, out bool isDirectionForward)
   {
     Blockchain blockchainRoot = GetRootChain();
     isDirectionForward = true;
@@ -177,33 +117,6 @@ internal class Blockchain
     }
 
     return false;
-  }
-
-  internal Block RollBack()
-  {
-    QueueBlocks.TryGetValue(HeaderTipBlockchain.Height, out Block block);
-
-    HeaderTipBlockchain = HeaderTipBlockchain.HeaderPrevious;
-
-    return block;
-  }
-
-  internal void SwitchWithRootBranch(Blockchain blockchainRootOld)
-  {
-    HeaderRoot = blockchainRootOld.HeaderRoot;
-    blockchainRootOld.HeaderRoot = blockchainRootOld.HeaderTipBlockchain.HeaderNext;
-
-    BlockchainBranches.Add(blockchainRootOld);
-    BlockchainParent.BlockchainBranches.Remove(this);
-
-    blockchainRootOld.BlockchainParent = this;
-    BlockchainParent = null;
-  }
-
-  internal bool IsStrongerThan(Blockchain blockchain)
-  {
-    return HeaderTipBlockchain.Height >
-      blockchain.HeaderTipBlockchain.Height;
   }
 
   internal List<byte[]> GetLocator()
@@ -257,5 +170,89 @@ internal class Blockchain
     }
 
     return (headers, heightAncestor);
+  }
+
+
+  Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
+  {
+    BlockchainParent = blockchainParent;
+    HeaderRoot = headerRoot;
+    HeaderTip = headerTip;
+  }
+
+  bool TryFindHeaderchain(
+    ref Header headerRoot,
+    out Blockchain chain,
+    out Header headerAncestor)
+  {
+    headerAncestor = HeaderTip;
+
+    while (!headerAncestor.Hash.IsAllBytesEqual(headerRoot.HashPrevious))
+    {
+      if (headerAncestor == HeaderRoot)
+      {
+        foreach (Blockchain branch in BlockchainBranches)
+          if (branch.TryFindHeaderchain(ref headerRoot, out chain, out headerAncestor))
+            return true;
+
+        headerAncestor = null;
+        chain = null;
+        return false;
+      }
+
+      headerAncestor = headerAncestor.HeaderPrevious;
+    }
+
+    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headerRoot.Hash) == true)
+    {
+      headerAncestor = headerAncestor.HeaderNext;
+
+      if (headerRoot.HeaderNext != null)
+        headerRoot = headerRoot.HeaderNext;
+      else
+      {
+        headerAncestor = null;
+        chain = null;
+        return false;
+      }
+    }
+
+    chain = this;
+    return true;
+  }
+
+  Blockchain GetRootChain()
+  {
+    if (BlockchainParent != null)
+      return BlockchainParent.GetRootChain();
+
+    return this;
+  }
+
+  Block RollBack()
+  {
+    QueueBlocks.TryGetValue(HeaderTipBlockchain.Height, out Block block);
+
+    HeaderTipBlockchain = HeaderTipBlockchain.HeaderPrevious;
+
+    return block;
+  }
+
+  void SwitchWithRootBranch(Blockchain blockchainRootOld)
+  {
+    HeaderRoot = blockchainRootOld.HeaderRoot;
+    blockchainRootOld.HeaderRoot = blockchainRootOld.HeaderTipBlockchain.HeaderNext;
+
+    BlockchainBranches.Add(blockchainRootOld);
+    BlockchainParent.BlockchainBranches.Remove(this);
+
+    blockchainRootOld.BlockchainParent = this;
+    BlockchainParent = null;
+  }
+
+  bool IsStrongerThan(Blockchain blockchain)
+  {
+    return HeaderTipBlockchain.Height >
+      blockchain.HeaderTipBlockchain.Height;
   }
 }
