@@ -78,9 +78,10 @@ internal partial class Peer
 
   async Task StartMessageReceiver()
   {
-    try
-    {
-      while (true)
+    int numberOfExceptionsUntilDispose = 3;
+
+    while (numberOfExceptionsUntilDispose != 0)
+      try
       {
         string commandMessage = await SocketCommunication.ReceiveCommandMessageNext();
 
@@ -92,11 +93,12 @@ internal partial class Peer
 
         message.Run(this);
       }
-    }
-    finally
-    {
-      SocketCommunication.Dispose();
-    }
+      catch
+      {
+        numberOfExceptionsUntilDispose--;
+      }
+
+    SocketCommunication.Dispose();
   }
 
   async Task SendMessage(MessageNetworkProtocol message)

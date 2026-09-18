@@ -55,7 +55,7 @@ public partial class TokenBToken : Token
       return buffer;
     }
 
-    internal override Header AppendToHeader(Header headerPrevious)
+    internal override void AppendToHeader(Header headerPrevious)
     {
       if (headerPrevious.HeaderParent != null)
       {
@@ -76,7 +76,7 @@ public partial class TokenBToken : Token
         }
       }
 
-      return base.AppendToHeader(headerPrevious);
+      base.AppendToHeader(headerPrevious);
     }
 
     internal override void VerifyCoinbase(long valueOutputsTXCoinbase)

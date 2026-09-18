@@ -109,13 +109,14 @@ internal partial class Network
       }
   }
 
-  internal async Task<Blockchain> TryExtendHeaderchain(Header headerRoot)
+  internal async Task<(byte[] headerTipChainHash, byte[] hashBlockNextDownload)>
+    TryExtendHeaderchain(List<Header> headers)
   {
     try
     {
       await LockBlockchain(); // evt. mit LOCK_Node arbeiten
 
-      return BlockchainRoot.TryExtendHeaderchain(headerRoot);
+      return BlockchainRoot.TryExtendHeaderchain(headers);
     }
     finally
     {
@@ -141,6 +142,10 @@ internal partial class Network
   internal void InsertBlock(ref Block block)
   {
     Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
+
+    // Wenn ich ein Block erhalte, der NICHT in die Root geht, 
+    // verwerfe ich den Block einfach. Mich interessieren ausschliesslich
+    // Blöcke für die Root. Andere Blöcke werden einfach ignoriert.
 
     while (chain.TryGetBlockNext(out block, out bool isDirectionForward))
     {

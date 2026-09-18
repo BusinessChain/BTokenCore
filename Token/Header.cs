@@ -48,18 +48,13 @@ public abstract class Header
 
   internal abstract byte[] Serialize();
 
-  internal virtual Header AppendToHeader(Header headerPrevious)
+  internal virtual void AppendToHeader(Header headerPrevious)
   {
     if (!HashPrevious.IsAllBytesEqual(headerPrevious.Hash))
       throw new ProtocolException($"Header {this} references header previous {HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
 
     Height = headerPrevious.Height + 1;
     HeaderPrevious = headerPrevious;
-
-    if (HeaderNext != null)
-      return HeaderNext.AppendToHeader(this);
-    else
-      return this;
   }
 
   internal virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }
@@ -67,11 +62,7 @@ public abstract class Header
   internal void ComputeHash()
   {
     SHA256 sHA256 = SHA256.Create();
-    ComputeHash(sHA256);
-  }
 
-  internal void ComputeHash(SHA256 sHA256)
-  {
     Hash = sHA256.ComputeHash(
       sHA256.ComputeHash(Serialize()));
   }

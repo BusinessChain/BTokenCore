@@ -17,24 +17,78 @@ internal class Blockchain
 
 
   internal Blockchain(Header headerGenesis)
-  {
-    HeaderRoot = headerGenesis;
-    HeaderTip = headerGenesis;
-  }
+    : this(null, headerGenesis)
+  { }
 
-  internal Blockchain TryExtendHeaderchain(Header headerRoot)
+  internal static bool TrySearchHeaderAncestor(
+    byte[] hashPrevious,
+    out Header headerAncestor,
+    ref Blockchain chain)
   {
-    if (TryFindHeaderchain(ref headerRoot, out Blockchain chain, out Header headerAncestor))
-      if (chain.HeaderTip == headerAncestor)
-        chain.AppendHeader(headerRoot);
-      else
+    headerAncestor = chain.HeaderTip;
+
+    while (!headerAncestor.Hash.IsAllBytesEqual(hashPrevious))
+    {
+      if (headerAncestor == chain.HeaderRoot)
       {
-        Header headerTip = headerRoot.AppendToHeader(headerAncestor);
-        chain = new(this, headerRoot, headerTip);
-        chain.BlockchainBranches.Add(chain);
+        foreach(Blockchain branch in chain.BlockchainBranches)
+        {
+          chain = branch;
+
+          if (TrySearchHeaderAncestor(hashPrevious, out headerAncestor, ref chain))
+            return true;
+        }
+
+        return false;
       }
 
-    return chain;
+      headerAncestor = headerAncestor.HeaderPrevious;
+    }
+
+    return true;
+  }
+
+  internal (byte[] headerTipChainHash, byte[] hashBlockNextDownload)
+    TryExtendHeaderchain(List<Header> headers)
+  {
+    Blockchain chain = this;
+    Header headerAncestor;
+
+    if(!TrySearchHeaderAncestor(headers[0].HashPrevious, out headerAncestor, ref chain))
+      return (null, null);
+
+    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
+    {
+      headers.RemoveAt(0);
+
+      if (headers.Count == 0)
+        return (null, null);
+
+      headerAncestor = headerAncestor.HeaderNext;
+    }
+
+    if (headerAncestor != chain.HeaderTip)
+    {
+      headers[0].AppendToHeader(headerAncestor);
+
+      Blockchain branch = new(this, headers[0]);
+      chain.BlockchainBranches.Add(branch);
+      chain = branch;
+    }
+
+    for (int i = 1; i < headers.Count; i++)
+      chain.AppendHeader(headers[i]);
+
+    byte[] hashBlockNextDownload = null;
+
+    if (chain.HeaderTip.Height > GetRootChain().HeaderTipBlockchain.Height)
+    {
+      if(chain.HeaderTipBlockchain == null)
+        hashBlockNextDownload = chain.ro // Chains stufenweise promoten
+      hashBlockNextDownload = chain.HeaderTipBlockchain.HeaderNext.Hash;
+    }
+
+    return (chain.HeaderTip.Hash, hashBlockNextDownload);
   }
 
   internal Header GetHeader(byte[] hash)
@@ -49,9 +103,10 @@ internal class Blockchain
 
   internal void AppendHeader(Header header)
   {
-    Header headerTipNew = header.AppendToHeader(HeaderTip);
+    header.AppendToHeader(HeaderTip);
+
     HeaderTip.HeaderNext = header;
-    HeaderTip = headerTipNew;
+    HeaderTip = header;
   }
 
   internal Header FetchHeaderDownload()
@@ -173,26 +228,29 @@ internal class Blockchain
   }
 
 
-  Blockchain(Blockchain blockchainParent, Header headerRoot, Header headerTip)
+  Blockchain(Blockchain blockchainParent, Header headerRoot)
   {
     BlockchainParent = blockchainParent;
     HeaderRoot = headerRoot;
-    HeaderTip = headerTip;
+    HeaderTip = headerRoot;
+    HeaderDownloadNext = headerRoot;
+
   }
 
   bool TryFindHeaderchain(
-    ref Header headerRoot,
+    List<Header> headers,
     out Blockchain chain,
     out Header headerAncestor)
   {
+    chain = this;
     headerAncestor = HeaderTip;
 
-    while (!headerAncestor.Hash.IsAllBytesEqual(headerRoot.HashPrevious))
+    while (!headerAncestor.Hash.IsAllBytesEqual(headers[0].HashPrevious))
     {
       if (headerAncestor == HeaderRoot)
       {
         foreach (Blockchain branch in BlockchainBranches)
-          if (branch.TryFindHeaderchain(ref headerRoot, out chain, out headerAncestor))
+          if (branch.TryFindHeaderchain(headers, out chain, out headerAncestor))
             return true;
 
         headerAncestor = null;
@@ -203,13 +261,12 @@ internal class Blockchain
       headerAncestor = headerAncestor.HeaderPrevious;
     }
 
-    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headerRoot.Hash) == true)
+    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
     {
+      headers.RemoveAt(0);
       headerAncestor = headerAncestor.HeaderNext;
 
-      if (headerRoot.HeaderNext != null)
-        headerRoot = headerRoot.HeaderNext;
-      else
+      if (headers.Count == 0)
       {
         headerAncestor = null;
         chain = null;
@@ -217,7 +274,6 @@ internal class Blockchain
       }
     }
 
-    chain = this;
     return true;
   }
 

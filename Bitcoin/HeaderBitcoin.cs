@@ -51,7 +51,7 @@ internal class HeaderBitcoin : Header
     return MAX_TARGET / (double)UInt256.ParseFromCompact(nBits);
   }
 
-  internal override Header AppendToHeader(Header headerPrevious)
+  internal override void AppendToHeader(Header headerPrevious)
   {
     uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
 
@@ -67,7 +67,7 @@ internal class HeaderBitcoin : Header
       throw new ProtocolException(
         $"nBits {NBits} not equal to target nBits {targetBitsNew} in header {this}.");
 
-    return base.AppendToHeader(headerPrevious);
+    base.AppendToHeader(headerPrevious);
   }
 
   static uint GetMedianTimePastSeconds(HeaderBitcoin header)

@@ -299,7 +299,7 @@ class HeadersMessage : MessageNetworkProtocol
 
   internal const int MAX_COUNT_HEADERS = 2000;
 
-  Blockchain ChainHeadersExtended;
+  byte[] HashBlockNextDownload;
 
   SHA256 SHA256 = SHA256.Create();
 
@@ -318,46 +318,35 @@ class HeadersMessage : MessageNetworkProtocol
       throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
     else if (countHeaders > 0)
     {
-      Header headerRoot = ParseHeaderchain(peer.Network.Token, countHeaders, startIndex);
-      
-      ChainHeadersExtended = await peer.Network.TryExtendHeaderchain(headerRoot);
+      List<Header> headers = ParseHeaders(peer.Network.Token, countHeaders, startIndex);
 
-      if (ChainHeadersExtended != null)
+      (byte[] headerTipChainHash, byte[] hashBlockNextDownload) = 
+        await peer.Network.TryExtendHeaderchain(headers);
+
+      HashBlockNextDownload = hashBlockNextDownload;
+
+      if (headerTipChainHash != null)
       {
         DOSMonitor.Decrement(1);
-        GetHeadersMessage.SendGetHeaders(peer, [ChainHeadersExtended.HeaderTip.Hash]);
+        GetHeadersMessage.SendGetHeaders(peer, [headerTipChainHash]);
       }
-    }// Here BlockchainRoot is not locked.
-    else if (ChainHeadersExtended?.HeaderTip.Height > peer.Network.BlockchainRoot.HeaderTip.Height)
-      GetDataMessage.SendBlockRequest(peer, ChainHeadersExtended.HeaderTipBlockchain.HeaderNext.Hash);
+    }
+    else if (HashBlockNextDownload != null)
+      GetDataMessage.SendBlockRequest(peer, HashBlockNextDownload);
   }
 
-  Header ParseHeaderchain(Token token, int countHeaders, int startIndex)
+  List<Header> ParseHeaders(Token token, int countHeaders, int startIndex)
   {
-    Header headerRoot = null;
-    Header headerTip = null;
+    List<Header> headers = new();
 
-    do
+    while (countHeaders > 0)
     {
-      Header header = token.ParseHeader(Payload, ref startIndex, SHA256);
+      headers.Add(token.ParseHeader(Payload, ref startIndex, SHA256));
       VarInt.GetInt(Payload, ref startIndex);
-
-      if (headerRoot == null)
-      {
-        headerRoot = header;
-        headerTip = header;
-      }
-      else
-      {
-        header.AppendToHeader(headerTip);
-        headerTip.HeaderNext = header;
-        headerTip = header;
-      }
-
       countHeaders -= 1;
-    } while (countHeaders > 0);
+    }
 
-    return headerRoot;
+    return headers;
   }
 
   internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
