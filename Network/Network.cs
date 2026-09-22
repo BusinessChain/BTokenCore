@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 
 using LiteDB;
+using Org.BouncyCastle.Asn1.Cmp;
 
 
 namespace BTokenCore;
@@ -106,7 +107,7 @@ internal partial class Network
 
         Peer peer = new(this, socketCommunication, ConnectionType.OUTBOUND);
 
-        await peer.Start();
+        await peer.Start(BlockchainRoot.HeaderTipBlockchain .Height);
 
         return peer;
       }
@@ -156,13 +157,13 @@ internal partial class Network
     Block blockDownload = new(Token);
     Block blockUpload = new(Token);
 
-    AddMessageNetworkProtocol(protocol, new GetDataMessage(blockUpload));
-    AddMessageNetworkProtocol(protocol, new GetHeadersMessage());
-    AddMessageNetworkProtocol(protocol, new HeadersMessage());
-    AddMessageNetworkProtocol(protocol, new BlockMessage(blockDownload));
+    AddMessageNetworkProtocol(protocol, new GetDataMessage(this, blockUpload));
+    AddMessageNetworkProtocol(protocol, new GetHeadersMessage(this));
+    AddMessageNetworkProtocol(protocol, new HeadersMessage(this));
+    AddMessageNetworkProtocol(protocol, new BlockMessage(this, blockDownload));
     AddMessageNetworkProtocol(protocol, new TXMessage());
-    AddMessageNetworkProtocol(protocol, new VerAckMessage());
-    AddMessageNetworkProtocol(protocol, new VersionMessage());
+    AddMessageNetworkProtocol(protocol, new VerAckMessage(this));
+    AddMessageNetworkProtocol(protocol, new VersionMessage(this));
 
     return protocol;
   }
@@ -207,7 +208,7 @@ internal partial class Network
   {
     Peer peer = new(this, socketCommunication, connection);
 
-    await peer.Start();
+    await peer.Start(BlockchainRoot.HeaderTipBlockchain.Height);
 
     lock (LOCK_Peers)
       Peers.Add(peer);

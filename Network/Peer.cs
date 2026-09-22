@@ -5,9 +5,14 @@ namespace BTokenCore;
 
 internal partial class Peer
 {
-  internal Network Network;
-
   internal Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
+
+  internal int Port;
+  internal UInt32 ProtocolVersion;
+  internal ulong NetworkServicesLocal;
+  internal ulong NetworkServicesRemote;
+  internal string UserAgent;
+  internal byte RelayOption;
 
   internal ISocketCommunication SocketCommunication;
   internal Network.ConnectionType Connection;
@@ -33,7 +38,13 @@ internal partial class Peer
     ISocketCommunication socketCommunication,
     Network.ConnectionType connection)
   {
-    Network = network;
+    Port = network.Token.Port;
+    ProtocolVersion = network.Token.ProtocolVersion;
+    NetworkServicesLocal = network.Token.NetworkServicesLocal;
+    NetworkServicesRemote = network.Token.NetworkServicesRemote;
+    UserAgent = network.Token.UserAgent;
+    RelayOption = network.Token.RelayOption;
+
     ProtocolStateMachine = network.CreateStateMachineProtocol();
     SocketCommunication = socketCommunication;
     Connection = connection;
@@ -44,14 +55,14 @@ internal partial class Peer
     return StateCurrent == StateProtocol.Disposed;
   }
 
-  internal async Task Start()
+  internal async Task Start(int heightBlockchainTip)
   {
     await SocketCommunication.Start();
 
     StartMessageReceiver();
 
     if (Connection == Network.ConnectionType.OUTBOUND)
-      VersionMessage.SendVersion(this);
+      VersionMessage.SendVersion(this, heightBlockchainTip);
   }
 
   internal void BroadcastTX(TX tX)

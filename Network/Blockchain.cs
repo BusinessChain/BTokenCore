@@ -20,43 +20,15 @@ internal class Blockchain
     : this(null, headerGenesis)
   { }
 
-  internal static bool TrySearchHeaderAncestor(
-    byte[] hashPrevious,
-    out Header headerAncestor,
-    ref Blockchain chain)
-  {
-    headerAncestor = chain.HeaderTip;
-
-    while (!headerAncestor.Hash.IsAllBytesEqual(hashPrevious))
-    {
-      if (headerAncestor == chain.HeaderRoot)
-      {
-        foreach(Blockchain branch in chain.BlockchainBranches)
-        {
-          chain = branch;
-
-          if (TrySearchHeaderAncestor(hashPrevious, out headerAncestor, ref chain))
-            return true;
-        }
-
-        return false;
-      }
-
-      headerAncestor = headerAncestor.HeaderPrevious;
-    }
-
-    return true;
-  }
-
   internal (byte[] headerTipChainHash, byte[] hashBlockNextDownload)
     TryExtendHeaderchain(List<Header> headers)
   {
     Blockchain chain = this;
     Header headerAncestor;
 
-    if(!TrySearchHeaderAncestor(headers[0].HashPrevious, out headerAncestor, ref chain))
-      return (null, null);
-
+    if(!TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
+      return (null, null); 
+    
     while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
     {
       headers.RemoveAt(0);
@@ -71,7 +43,7 @@ internal class Blockchain
     {
       headers[0].AppendToHeader(headerAncestor);
 
-      Blockchain branch = new(this, headers[0]);
+      Blockchain branch = new(chain, headers[0]);
       chain.BlockchainBranches.Add(branch);
       chain = branch;
     }
@@ -79,16 +51,43 @@ internal class Blockchain
     for (int i = 1; i < headers.Count; i++)
       chain.AppendHeader(headers[i]);
 
-    byte[] hashBlockNextDownload = null;
+    while (chain.BlockchainParent?.HeaderTip.Height < chain.HeaderTip.Height)
+      chain.Promote();
 
-    if (chain.HeaderTip.Height > GetRootChain().HeaderTipBlockchain.Height)
+    return (chain.HeaderTip.Hash, chain.HeaderTipBlockchain.HeaderNext.Hash);
+  }
+
+  internal static bool TrySearchHeaderAncestor(
+    List<Header> headers,
+    out Header headerAncestor,
+    ref Blockchain chain)
+  {
+    headerAncestor = chain.HeaderTip;
+
+    while (!headerAncestor.Hash.IsAllBytesEqual(headers[0].HashPrevious))
     {
-      if(chain.HeaderTipBlockchain == null)
-        hashBlockNextDownload = chain.ro // Chains stufenweise promoten
-      hashBlockNextDownload = chain.HeaderTipBlockchain.HeaderNext.Hash;
+      if (headerAncestor == chain.HeaderRoot)
+      {
+        foreach (Blockchain branch in chain.BlockchainBranches)
+        {
+          chain = branch;
+
+          if (TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
+            return true;
+        }
+
+        return false;
+      }
+
+      headerAncestor = headerAncestor.HeaderPrevious;
     }
 
-    return (chain.HeaderTip.Hash, hashBlockNextDownload);
+    return true;
+  }
+   
+  internal void Promote()
+  {
+
   }
 
   internal Header GetHeader(byte[] hash)
@@ -234,47 +233,6 @@ internal class Blockchain
     HeaderRoot = headerRoot;
     HeaderTip = headerRoot;
     HeaderDownloadNext = headerRoot;
-
-  }
-
-  bool TryFindHeaderchain(
-    List<Header> headers,
-    out Blockchain chain,
-    out Header headerAncestor)
-  {
-    chain = this;
-    headerAncestor = HeaderTip;
-
-    while (!headerAncestor.Hash.IsAllBytesEqual(headers[0].HashPrevious))
-    {
-      if (headerAncestor == HeaderRoot)
-      {
-        foreach (Blockchain branch in BlockchainBranches)
-          if (branch.TryFindHeaderchain(headers, out chain, out headerAncestor))
-            return true;
-
-        headerAncestor = null;
-        chain = null;
-        return false;
-      }
-
-      headerAncestor = headerAncestor.HeaderPrevious;
-    }
-
-    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
-    {
-      headers.RemoveAt(0);
-      headerAncestor = headerAncestor.HeaderNext;
-
-      if (headers.Count == 0)
-      {
-        headerAncestor = null;
-        chain = null;
-        return false;
-      }
-    }
-
-    return true;
   }
 
   Blockchain GetRootChain()

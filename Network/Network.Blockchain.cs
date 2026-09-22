@@ -203,11 +203,10 @@ internal partial class Network
           if (NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken)) is Network network)
             action(network, tokenAnchor);
   }
-
-  
+    
   void Rollback(TXOutputTokenAnchor tokenAnchor)
   {
-
+    
   }
 
   void InsertBlock(TXOutputTokenAnchor tokenAnchor)

@@ -111,10 +111,13 @@ class BlockMessage : MessageNetworkProtocol
 
   internal Block BlockDownload;
 
+  Network Network;
 
-  internal BlockMessage(Block blockDownload)
+
+  internal BlockMessage(Network network, Block blockDownload)
     : base()
   {
+    Network = network;
     BlockDownload = blockDownload;
   }
 
@@ -133,7 +136,7 @@ class BlockMessage : MessageNetworkProtocol
     BlockDownload.LengthDataPayload = LengthDataPayload;
     BlockDownload.Parse();
 
-    BlockDownload = await peer.Network.InsertBlockReturnNextBlock(BlockDownload);
+    BlockDownload = await Network.InsertBlockReturnNextBlock(BlockDownload);
 
     if (BlockDownload.Header != null)
       GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
@@ -154,14 +157,17 @@ class GetDataMessage : MessageNetworkProtocol
 {
   internal const string Command = "getdata";
 
+  Network Network;
+
   internal Block BlockUpload;
 
   internal int HeightBlockDownloadedLast;
 
 
-  internal GetDataMessage(Block blockUpload)
+  internal GetDataMessage(Network network, Block blockUpload)
     : base()
   {
+    Network = network;
     BlockUpload = blockUpload;
 
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
@@ -179,14 +185,14 @@ class GetDataMessage : MessageNetworkProtocol
 
       if (inventory.Type == Inventory.InventoryType.MSG_TX)
       {
-        if (peer.Network.Token.TryGetTX(inventory.Hash, out TX tXInPool))
+        if (Network.Token.TryGetTX(inventory.Hash, out TX tXInPool))
           TXMessage.Send(peer, tXInPool.TXRaw);
       }
       else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
       {
         BlockUpload.Header = null;
 
-        await peer.Network.GetBlock(inventory.Hash, BlockUpload);
+        await Network.GetBlock(inventory.Hash, BlockUpload);
 
         if (BlockUpload.Header != null)
         {
@@ -227,11 +233,14 @@ class GetHeadersMessage : MessageNetworkProtocol
 {
   internal const string Command = "getheaders";
 
+  Network Network;
+
   internal int HeightAncestorSentLast;
 
 
-  internal GetHeadersMessage()
+  internal GetHeadersMessage(Network network)
   {
+    Network = network;
   }
 
   internal override async Task Run(Peer peer)
@@ -259,7 +268,7 @@ class GetHeadersMessage : MessageNetworkProtocol
     }
 
     (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-      await peer.Network.GetHeadersSerialized( hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
+      await Network.GetHeadersSerialized( hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
 
     HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
 
@@ -274,7 +283,7 @@ class GetHeadersMessage : MessageNetworkProtocol
   {
     List<byte> payload = new();
 
-    payload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
+    payload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
     payload.AddRange(VarInt.GetBytes(locator.Count()));
 
     foreach (byte[] locatorHash in locator)
@@ -295,17 +304,19 @@ class GetHeadersMessage : MessageNetworkProtocol
 
 class HeadersMessage : MessageNetworkProtocol
 {
+  internal const int MAX_COUNT_HEADERS = 2000;
   internal const string Command = "headers";
 
-  internal const int MAX_COUNT_HEADERS = 2000;
+  Network Network;
 
   byte[] HashBlockNextDownload;
 
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal HeadersMessage()
+  internal HeadersMessage(Network network)
   {
+    Network = network;
     DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
 
@@ -318,10 +329,10 @@ class HeadersMessage : MessageNetworkProtocol
       throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
     else if (countHeaders > 0)
     {
-      List<Header> headers = ParseHeaders(peer.Network.Token, countHeaders, startIndex);
+      List<Header> headers = ParseHeaders(Network.Token, countHeaders, startIndex);
 
       (byte[] headerTipChainHash, byte[] hashBlockNextDownload) = 
-        await peer.Network.TryExtendHeaderchain(headers);
+        await Network.TryExtendHeaderchain(headers);
 
       HashBlockNextDownload = hashBlockNextDownload;
 
@@ -497,8 +508,13 @@ class VerAckMessage : MessageNetworkProtocol
 {
   internal const string Command = "verack";
 
-  internal VerAckMessage()
-  { }
+  Network Network;
+
+
+  internal VerAckMessage(Network network)
+  {
+    Network = network;
+  }
 
   internal static async Task Send(Peer peer)
   {
@@ -508,7 +524,7 @@ class VerAckMessage : MessageNetworkProtocol
   internal override async Task Run(Peer peer)
   {
     if (peer.Connection == Network.ConnectionType.OUTBOUND)
-      peer.Network.StartHeaderSync(peer);
+      Network.StartHeaderSync(peer);
   }
 
   internal override string GetCommand()
@@ -521,8 +537,13 @@ class VersionMessage : MessageNetworkProtocol
 {
   internal const string Command = "version";
 
-  internal VersionMessage()
-  { }
+  Network Network;
+
+
+  internal VersionMessage(Network network)
+  {
+    Network = network;
+  }
 
   internal static byte[] GetBytes(UInt16 uint16)
   {
@@ -531,23 +552,23 @@ class VersionMessage : MessageNetworkProtocol
     return byteArray;
   }
 
-  internal static async Task SendVersion(Peer peer)
+  internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
   {
     List<byte> versionPayload = new();
 
-    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.ProtocolVersion));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
     versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesRemote));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesRemote));
     versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-    versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.Token.NetworkServicesLocal));
+    versionPayload.AddRange(GetBytes((ushort)peer.Port));
+    versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
     versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-    versionPayload.AddRange(GetBytes((ushort)peer.Network.Token.Port));
+    versionPayload.AddRange(GetBytes((ushort)peer.Port));
     versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
-    versionPayload.AddRange(VarString.GetBytes(peer.Network.Token.UserAgent));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.Network.BlockchainRoot.HeaderTip.Height));
-    versionPayload.Add(peer.Network.Token.RelayOption);
+    versionPayload.AddRange(VarString.GetBytes(peer.UserAgent));
+    versionPayload.AddRange(BitConverter.GetBytes(heightBlockchainTip));
+    versionPayload.Add(peer.RelayOption);
 
     byte[] buffer = versionPayload.ToArray();
 
@@ -559,7 +580,7 @@ class VersionMessage : MessageNetworkProtocol
     VerAckMessage.Send(peer);
 
     if (peer.Connection == Network.ConnectionType.INBOUND)
-      SendVersion(peer);
+      SendVersion(peer, Network.BlockchainRoot.HeaderTip.Height);
   }
 
   internal override string GetCommand()

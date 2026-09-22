@@ -20,7 +20,6 @@ public abstract partial class Token : IToken
 
   bool IsLocked;
 
-
   internal int Port;
   internal UInt32 ProtocolVersion = 70015;
   internal ulong NetworkServicesLocal = 0;
@@ -39,16 +38,6 @@ public abstract partial class Token : IToken
   public void Start()
   {
     Network.Start();
-  }
-
-  public void StartMiner()
-  {
-    Network.StartMiner();
-  }
-
-  public void StopMiner()
-  {
-    Network.StopMiner();
   }
 
   internal abstract string[] GetSeedAddresses();
