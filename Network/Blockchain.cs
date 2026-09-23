@@ -51,7 +51,8 @@ internal class Blockchain
     for (int i = 1; i < headers.Count; i++)
       chain.AppendHeader(headers[i]);
 
-    while (chain.BlockchainParent?.HeaderTip.Height < chain.HeaderTip.Height)
+    while (chain.BlockchainParent?.BlockchainParent != null
+      && chain.BlockchainParent.HeaderTip.Height < chain.HeaderTip.Height)
       chain.Promote();
 
     return (chain.HeaderTip.Hash, chain.HeaderTipBlockchain.HeaderNext.Hash);
@@ -87,7 +88,57 @@ internal class Blockchain
    
   internal void Promote()
   {
+    Blockchain chainParent = BlockchainParent;
+    Header headerAncestor = HeaderRoot.HeaderPrevious;
+    Header headerRootParentNew = headerAncestor.HeaderNext; // Das wird der neue Root sein der Parentchain welche zum Branch wird.
 
+    // Take over the parent's segment up to and including the fork header.
+    headerAncestor.HeaderNext = HeaderRoot;
+    HeaderRoot = chainParent.HeaderRoot;
+    chainParent.HeaderRoot = headerRootParentNew;
+
+    // Take the parent's place in the tree.
+    List<Blockchain> branchesGrandparent = chainParent.BlockchainParent.BlockchainBranches;
+    branchesGrandparent[branchesGrandparent.IndexOf(chainParent)] = this;
+    BlockchainParent = chainParent.BlockchainParent;
+
+    chainParent.BlockchainBranches.Remove(this);
+    chainParent.BlockchainParent = this;
+
+    // Branches forking at or below the fork header now fork off this chain.
+    foreach (Blockchain branch in chainParent.BlockchainBranches
+      .Where(b => b.HeaderRoot.HeaderPrevious.Height <= headerAncestor.Height).ToList())
+    {
+      chainParent.BlockchainBranches.Remove(branch);
+      BlockchainBranches.Add(branch);
+      branch.BlockchainParent = this;
+    }
+
+    BlockchainBranches.Add(chainParent);
+
+    // Download state of the shared segment moves along with it.
+    foreach (Header header in chainParent.HeadersAwaitingBlock.Values
+      .Where(h => h.Height <= headerAncestor.Height).ToList())
+    {
+      chainParent.HeadersAwaitingBlock.Remove(header.Hash);
+      HeadersAwaitingBlock.Add(header.Hash, header);
+    }
+
+    foreach (int height in chainParent.QueueBlocks.Keys
+      .Where(h => h <= headerAncestor.Height).ToList())
+    {
+      QueueBlocks.Add(height, chainParent.QueueBlocks[height]);
+      chainParent.QueueBlocks.Remove(height);
+    }
+
+    if (chainParent.HeaderTipBlockchain.Height < headerAncestor.Height)
+      HeaderTipBlockchain = chainParent.HeaderTipBlockchain;
+
+    if (chainParent.HeaderDownloadNext?.Height <= headerAncestor.Height)
+    {
+      HeaderDownloadNext = chainParent.HeaderDownloadNext;
+      chainParent.HeaderDownloadNext = chainParent.HeaderRoot;
+    }
   }
 
   internal Header GetHeader(byte[] hash)

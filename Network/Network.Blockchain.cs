@@ -143,10 +143,6 @@ internal partial class Network
   {
     Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
 
-    // Wenn ich ein Block erhalte, der NICHT in die Root geht, 
-    // verwerfe ich den Block einfach. Mich interessieren ausschliesslich
-    // Blöcke für die Root. Andere Blöcke werden einfach ignoriert.
-
     while (chain.TryGetBlockNext(out block, out bool isDirectionForward))
     {
       if (isDirectionForward)
