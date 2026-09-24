@@ -90,14 +90,12 @@ internal class Blockchain
   {
     Blockchain chainParent = BlockchainParent;
     Header headerAncestor = HeaderRoot.HeaderPrevious;
-    Header headerRootParentNew = headerAncestor.HeaderNext; // Das wird der neue Root sein der Parentchain welche zum Branch wird.
+    Header headerRootParentNew = headerAncestor.HeaderNext;
 
-    // Take over the parent's segment up to and including the fork header.
     headerAncestor.HeaderNext = HeaderRoot;
     HeaderRoot = chainParent.HeaderRoot;
     chainParent.HeaderRoot = headerRootParentNew;
 
-    // Take the parent's place in the tree.
     List<Blockchain> branchesGrandparent = chainParent.BlockchainParent.BlockchainBranches;
     branchesGrandparent[branchesGrandparent.IndexOf(chainParent)] = this;
     BlockchainParent = chainParent.BlockchainParent;
@@ -105,7 +103,6 @@ internal class Blockchain
     chainParent.BlockchainBranches.Remove(this);
     chainParent.BlockchainParent = this;
 
-    // Branches forking at or below the fork header now fork off this chain.
     foreach (Blockchain branch in chainParent.BlockchainBranches
       .Where(b => b.HeaderRoot.HeaderPrevious.Height <= headerAncestor.Height).ToList())
     {
@@ -116,7 +113,6 @@ internal class Blockchain
 
     BlockchainBranches.Add(chainParent);
 
-    // Download state of the shared segment moves along with it.
     foreach (Header header in chainParent.HeadersAwaitingBlock.Values
       .Where(h => h.Height <= headerAncestor.Height).ToList())
     {
@@ -131,6 +127,7 @@ internal class Blockchain
       chainParent.QueueBlocks.Remove(height);
     }
 
+    // HeaderTipBlockchain und evt. HeaderTipBlockchain müssen im Parent allenfalls auf null gesetzt werden.
     if (chainParent.HeaderTipBlockchain.Height < headerAncestor.Height)
       HeaderTipBlockchain = chainParent.HeaderTipBlockchain;
 

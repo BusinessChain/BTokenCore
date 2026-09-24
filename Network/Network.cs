@@ -1,10 +1,7 @@
-﻿using System;
-using System.IO;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 
 using LiteDB;
-using Org.BouncyCastle.Asn1.Cmp;
 
 
 namespace BTokenCore;
@@ -70,16 +67,6 @@ internal partial class Network
       StartPeerConnectorInbound();
   }
 
-  internal void StartMiner()
-  {
-    IsMining = true;
-  }
-
-  internal void StopMiner()
-  {
-    IsMining = true;
-  }
-
   async Task StartPeerConnectorOutbound()
   {
     while (true)
@@ -107,7 +94,7 @@ internal partial class Network
 
         Peer peer = new(this, socketCommunication, ConnectionType.OUTBOUND);
 
-        await peer.Start(BlockchainRoot.HeaderTipBlockchain .Height);
+        await peer.Start(BlockchainRoot.HeaderTipBlockchain.Height);
 
         return peer;
       }
@@ -193,7 +180,12 @@ internal partial class Network
           throw new ProtocolException("Inbound request rejected.");
         }
 
-        await StartPeer(socketCommunication, ConnectionType.INBOUND);
+        Peer peer = new(this, socketCommunication, ConnectionType.INBOUND);
+
+        await peer.Start(BlockchainRoot.HeaderTipBlockchain.Height);
+
+        lock (LOCK_Peers)
+          Peers.Add(peer);
       }
       catch
       {
@@ -202,15 +194,5 @@ internal partial class Network
         await Task.Delay(30_000).ConfigureAwait(false);
       }
     }
-  }
-
-  async Task StartPeer(ISocketCommunication socketCommunication, ConnectionType connection)
-  {
-    Peer peer = new(this, socketCommunication, connection);
-
-    await peer.Start(BlockchainRoot.HeaderTipBlockchain.Height);
-
-    lock (LOCK_Peers)
-      Peers.Add(peer);
   }
 }
