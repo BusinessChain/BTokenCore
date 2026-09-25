@@ -15,14 +15,11 @@ internal abstract class MessageNetworkProtocol
   internal DOSMonitorPer10Minutes DOSMonitor;
 
 
-  internal MessageNetworkProtocol()
-    : this(Array.Empty<byte>())
-  { }
-
-  internal MessageNetworkProtocol(byte[] payload)
+  internal MessageNetworkProtocol(byte[] payload, int maxLevelDoSPer10Minutes)
   {
     Payload = payload;
     LengthDataPayload = payload.Length;
+    DOSMonitor = new DOSMonitorPer10Minutes(maxLevelDoSPer10Minutes);
   }
 
   internal virtual byte[] GetPayloadBuffer()
@@ -41,11 +38,16 @@ class AddressMessage : MessageNetworkProtocol
 
   internal List<NetworkAddress> NetworkAddresses = new();
 
+  // up to 1000 addresses of 30 bytes each, plus count
+  const int SIZE_BUFFER_PAYLOAD = 30_003;
+
+
   internal AddressMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 10)
   { }
 
   internal AddressMessage(byte[] messagePayload)
-    : base(messagePayload)
+    : base(messagePayload, maxLevelDoSPer10Minutes: 0)
   {
     int startIndex = 0;
 
@@ -66,7 +68,6 @@ class AddressMessage : MessageNetworkProtocol
     }
   }
 
-
   internal override async Task Run(Peer peer)
   {
 
@@ -85,14 +86,17 @@ class PingMessage : MessageNetworkProtocol
   internal UInt64 Nonce;
 
 
+  // nonce
+  const int SIZE_BUFFER_PAYLOAD = 8;
+
+
   internal PingMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 10)
   { }
 
   internal PingMessage(byte[] payload)
-  {
-    Payload = payload;
-    LengthDataPayload = Payload.Length;
-  }
+    : base(payload, maxLevelDoSPer10Minutes: 0)
+  { }
 
   internal override async Task Run(Peer peer)
   {
@@ -114,8 +118,9 @@ class BlockMessage : MessageNetworkProtocol
   Network Network;
 
 
+  // The payload is read into BlockDownload.Buffer, see GetPayloadBuffer().
   internal BlockMessage(Network network, Block blockDownload)
-    : base()
+    : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 5)
   {
     Network = network;
     BlockDownload = blockDownload;
@@ -163,14 +168,15 @@ class GetDataMessage : MessageNetworkProtocol
 
   internal int HeightBlockDownloadedLast;
 
+  // up to 1000 inventories of 36 bytes each, plus count
+  const int SIZE_BUFFER_PAYLOAD = 36_003;
+
 
   internal GetDataMessage(Network network, Block blockUpload)
-    : base()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5)
   {
     Network = network;
     BlockUpload = blockUpload;
-
-    DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
 
   internal override async Task Run(Peer peer)
@@ -237,8 +243,12 @@ class GetHeadersMessage : MessageNetworkProtocol
 
   internal int HeightAncestorSentLast;
 
+  // version, count, up to 101 locator hashes and the stop hash
+  const int SIZE_BUFFER_PAYLOAD = 3_300;
+
 
   internal GetHeadersMessage(Network network)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5)
   {
     Network = network;
   }
@@ -309,13 +319,17 @@ class HeadersMessage : MessageNetworkProtocol
 
   Network Network;
 
+  // count plus MAX_COUNT_HEADERS headers of the largest header size (BToken, 100 bytes),
+  // each followed by its transaction count (1 byte)
+  const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
+
   SHA256 SHA256 = SHA256.Create();
 
 
   internal HeadersMessage(Network network)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5)
   {
     Network = network;
-    DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5);
   }
 
   internal override async Task Run(Peer peer)
@@ -381,10 +395,16 @@ class InvMessage : MessageNetworkProtocol
 
   internal List<Inventory> Inventories = new();
 
+  // up to 1000 inventories of 36 bytes each, plus count
+  const int SIZE_BUFFER_PAYLOAD = 36_003;
+
+
   internal InvMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 50)
   { }
 
   internal InvMessage(List<Inventory> inventories)
+    : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 0)
   {
     Inventories = inventories;
 
@@ -400,7 +420,7 @@ class InvMessage : MessageNetworkProtocol
   }
 
   internal InvMessage(byte[] buffer)
-    : base(buffer)
+    : base(buffer, maxLevelDoSPer10Minutes: 0)
   {
     int startIndex = 0;
 
@@ -429,13 +449,17 @@ class PongMessage : MessageNetworkProtocol
 {
   internal const string Command = "pong";
 
+  // nonce
+  const int SIZE_BUFFER_PAYLOAD = 8;
+
 
   internal PongMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 10)
   { }
 
   internal PongMessage(byte[] payload, int lengthDataPayload)
+    : base(payload, maxLevelDoSPer10Minutes: 0)
   {
-    Payload = payload;
     LengthDataPayload = lengthDataPayload;
   }
 
@@ -467,18 +491,18 @@ class TXMessage : MessageNetworkProtocol
 {
   internal const string Command = "tx";
 
-  internal TXMessage()
-  {
-    // amount bytes per 10 minutes
-    DOSMonitor = new DOSMonitorPer10Minutes(maxLevel: 5000000);
+  // standard maximum transaction size
+  const int SIZE_BUFFER_PAYLOAD = 100_000;
 
-  }
+
+  // maxLevel is meant as amount of bytes per 10 minutes
+  internal TXMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5_000_000)
+  { }
 
   internal TXMessage(byte[] tXRaw)
-  {
-    Payload = tXRaw;
-    LengthDataPayload = Payload.Length;
-  }
+    : base(tXRaw, maxLevelDoSPer10Minutes: 0)
+  { }
 
   internal override async Task Run(Peer peer)
   {
@@ -504,6 +528,7 @@ class VerAckMessage : MessageNetworkProtocol
 
 
   internal VerAckMessage(Network network)
+    : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 1)
   {
     Network = network;
   }
@@ -531,8 +556,12 @@ class VersionMessage : MessageNetworkProtocol
 
   Network Network;
 
+  // about 90 bytes of fixed fields plus a user agent of up to 256 bytes
+  const int SIZE_BUFFER_PAYLOAD = 1_000;
+
 
   internal VersionMessage(Network network)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 1)
   {
     Network = network;
   }

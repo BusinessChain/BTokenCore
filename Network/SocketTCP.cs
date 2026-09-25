@@ -101,6 +101,11 @@ internal class SocketTCP : ISocketCommunication
 
     byte[] bufferPayloadMessage = message.GetPayloadBuffer();
 
+    if (message.LengthDataPayload < 0 || message.LengthDataPayload > bufferPayloadMessage.Length)
+      throw new ProtocolException(
+        $"Payload length {message.LengthDataPayload} of message '{message.GetCommand()}' " +
+        $"exceeds buffer size {bufferPayloadMessage.Length}.");
+
     await ReadBytes(bufferPayloadMessage, message.LengthDataPayload);
   }
 
