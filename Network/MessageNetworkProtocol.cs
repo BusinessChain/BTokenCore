@@ -309,8 +309,6 @@ class HeadersMessage : MessageNetworkProtocol
 
   Network Network;
 
-  byte[] HashBlockNextDownload;
-
   SHA256 SHA256 = SHA256.Create();
 
 
@@ -322,42 +320,36 @@ class HeadersMessage : MessageNetworkProtocol
 
   internal override async Task Run(Peer peer)
   {
+    BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
+    if (blockMessage.BlockDownload.Header != null)
+      return;
+
+    List<Header> headers = new();
     int startIndex = 0;
     int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
     if (countHeaders > MAX_COUNT_HEADERS)
       throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
-    else if (countHeaders > 0)
+
+    for (int i = 0; i < countHeaders; i++)
     {
-      List<Header> headers = ParseHeaders(Network.Token, countHeaders, startIndex);
-
-      (byte[] headerTipChainHash, byte[] hashBlockNextDownload) = 
-        await Network.TryExtendHeaderchain(headers);
-
-      HashBlockNextDownload = hashBlockNextDownload;
-
-      if (headerTipChainHash != null)
-      {
-        DOSMonitor.Decrement(1);
-        GetHeadersMessage.SendGetHeaders(peer, [headerTipChainHash]);
-      }
-    }
-    else if (HashBlockNextDownload != null)
-      GetDataMessage.SendBlockRequest(peer, HashBlockNextDownload);
-  }
-
-  List<Header> ParseHeaders(Token token, int countHeaders, int startIndex)
-  {
-    List<Header> headers = new();
-
-    while (countHeaders > 0)
-    {
-      headers.Add(token.ParseHeader(Payload, ref startIndex, SHA256));
+      headers.Add(Network.Token.ParseHeader(Payload, ref startIndex, SHA256));
       VarInt.GetInt(Payload, ref startIndex);
-      countHeaders -= 1;
     }
 
-    return headers;
+    (byte[] headerTipHash, Header headerBlockDownlad) =
+      await Network.TryExtendHeaderchain(headers);
+
+    if (headerBlockDownlad != null)
+    {
+      blockMessage.BlockDownload.Header = headerBlockDownlad;
+      GetDataMessage.SendBlockRequest(peer, headerBlockDownlad.Hash);
+    }
+    else if (headerTipHash != null)
+    {
+      DOSMonitor.Decrement(1);
+      GetHeadersMessage.SendGetHeaders(peer, [headerTipHash]);
+    }
   }
 
   internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)

@@ -3,7 +3,7 @@
 
 namespace BTokenCore;
 
-internal partial class Peer
+internal class Peer
 {
   internal Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
 
@@ -89,10 +89,9 @@ internal partial class Peer
 
   async Task StartMessageReceiver()
   {
-    int numberOfExceptionsUntilDispose = 3;
-
-    while (numberOfExceptionsUntilDispose != 0)
-      try
+    try
+    {
+      while (true)
       {
         string commandMessage = await SocketCommunication.ReceiveCommandMessageNext();
 
@@ -102,14 +101,14 @@ internal partial class Peer
 
         message.DOSMonitor.Increment(1);
 
-        message.Run(this);
+        await message.Run(this);
       }
-      catch
-      {
-        numberOfExceptionsUntilDispose--;
-      }
-
-    SocketCommunication.Dispose();
+    }
+    finally
+    {
+      StateCurrent = StateProtocol.Disposed;
+      SocketCommunication.Dispose();
+    }
   }
 
   async Task SendMessage(MessageNetworkProtocol message)

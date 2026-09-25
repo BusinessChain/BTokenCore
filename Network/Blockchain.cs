@@ -20,21 +20,21 @@ internal class Blockchain
     : this(null, headerGenesis)
   { }
 
-  internal (byte[] headerTipChainHash, byte[] hashBlockNextDownload)
-    TryExtendHeaderchain(List<Header> headers)
+  internal bool TryExtendHeaderchain(List<Header> headers, out Blockchain chainHeaderExtendedLast)
   {
     Blockchain chain = this;
     Header headerAncestor;
+    chainHeaderExtendedLast = null;
 
-    if(!TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
-      return (null, null); 
+    if (!TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
+      return false; 
     
     while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
     {
       headers.RemoveAt(0);
 
       if (headers.Count == 0)
-        return (null, null);
+        return false;
 
       headerAncestor = headerAncestor.HeaderNext;
     }
@@ -55,7 +55,8 @@ internal class Blockchain
       && chain.BlockchainParent.HeaderTip.Height < chain.HeaderTip.Height)
       chain.Promote();
 
-    return (chain.HeaderTip.Hash, chain.HeaderTipBlockchain.HeaderNext.Hash);
+    chainHeaderExtendedLast = chain;
+    return true;
   }
 
   internal static bool TrySearchHeaderAncestor(

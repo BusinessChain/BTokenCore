@@ -109,14 +109,26 @@ internal partial class Network
       }
   }
 
-  internal async Task<(byte[] headerTipChainHash, byte[] hashBlockNextDownload)>
+  Blockchain ChainHeaderExtendedLast;
+
+  internal async Task<(byte[] headerTipHash, Header HeaderBlockDownload)>
     TryExtendHeaderchain(List<Header> headers)
   {
     try
     {
-      await LockBlockchain(); // evt. mit LOCK_Node arbeiten
+      await LockBlockchain();
 
-      return BlockchainRoot.TryExtendHeaderchain(headers);
+      if (headers.Count > 0)
+      {
+        if (!BlockchainRoot.TryExtendHeaderchain(headers, out Blockchain chainHeaderExtendedLast))
+          return (null, null);
+
+        ChainHeaderExtendedLast = chainHeaderExtendedLast;
+
+        return (ChainHeaderExtendedLast.HeaderTip.Hash, null);
+      }
+
+      return (null, ChainHeaderExtendedLast?.FetchHeaderDownload());
     }
     finally
     {
@@ -131,6 +143,7 @@ internal partial class Network
       await LockBlockchain();
 
       InsertBlock(ref block);
+
       return block;
     }
     finally
