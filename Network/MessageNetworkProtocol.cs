@@ -38,7 +38,6 @@ class AddressMessage : MessageNetworkProtocol
 
   internal List<NetworkAddress> NetworkAddresses = new();
 
-  // up to 1000 addresses of 30 bytes each, plus count
   const int SIZE_BUFFER_PAYLOAD = 30_003;
 
 
@@ -86,7 +85,6 @@ class PingMessage : MessageNetworkProtocol
   internal UInt64 Nonce;
 
 
-  // nonce
   const int SIZE_BUFFER_PAYLOAD = 8;
 
 
@@ -118,7 +116,6 @@ class BlockMessage : MessageNetworkProtocol
   Network Network;
 
 
-  // The payload is read into BlockDownload.Buffer, see GetPayloadBuffer().
   internal BlockMessage(Network network, Block blockDownload)
     : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 5)
   {
@@ -168,7 +165,6 @@ class GetDataMessage : MessageNetworkProtocol
 
   internal int HeightBlockDownloadedLast;
 
-  // up to 1000 inventories of 36 bytes each, plus count
   const int SIZE_BUFFER_PAYLOAD = 36_003;
 
 
@@ -243,7 +239,6 @@ class GetHeadersMessage : MessageNetworkProtocol
 
   internal int HeightAncestorSentLast;
 
-  // version, count, up to 101 locator hashes and the stop hash
   const int SIZE_BUFFER_PAYLOAD = 3_300;
 
 
@@ -319,8 +314,6 @@ class HeadersMessage : MessageNetworkProtocol
 
   Network Network;
 
-  // count plus MAX_COUNT_HEADERS headers of the largest header size (BToken, 100 bytes),
-  // each followed by its transaction count (1 byte)
   const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
 
   SHA256 SHA256 = SHA256.Create();
@@ -395,7 +388,6 @@ class InvMessage : MessageNetworkProtocol
 
   internal List<Inventory> Inventories = new();
 
-  // up to 1000 inventories of 36 bytes each, plus count
   const int SIZE_BUFFER_PAYLOAD = 36_003;
 
 
@@ -449,7 +441,6 @@ class PongMessage : MessageNetworkProtocol
 {
   internal const string Command = "pong";
 
-  // nonce
   const int SIZE_BUFFER_PAYLOAD = 8;
 
 
@@ -491,11 +482,10 @@ class TXMessage : MessageNetworkProtocol
 {
   internal const string Command = "tx";
 
-  // standard maximum transaction size
   const int SIZE_BUFFER_PAYLOAD = 100_000;
 
 
-  // maxLevel is meant as amount of bytes per 10 minutes
+  // amount bytes per 10 minutes
   internal TXMessage()
     : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5_000_000)
   { }
@@ -556,7 +546,6 @@ class VersionMessage : MessageNetworkProtocol
 
   Network Network;
 
-  // about 90 bytes of fixed fields plus a user agent of up to 256 bytes
   const int SIZE_BUFFER_PAYLOAD = 1_000;
 
 
