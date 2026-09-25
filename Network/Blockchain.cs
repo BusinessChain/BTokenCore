@@ -186,10 +186,6 @@ internal class Blockchain
       if (branch.InsertBlockInChain(block) is Blockchain chain)
         return chain;
 
-    if (BlockchainParent == null)
-      throw new ProtocolException(
-        $"Received block {block} but header in blockchain not found.");
-
     return null;
   }
 
@@ -198,7 +194,7 @@ internal class Blockchain
     Blockchain blockchainRoot = GetRootChain();
     isDirectionForward = true;
 
-    while(QueueBlocks.TryGetValue(HeaderTipBlockchain.Height + 1, out block))
+    while(QueueBlocks.Remove(HeaderTipBlockchain.Height + 1, out block))
     {
       HeaderTipBlockchain = block.Header;
 

@@ -142,7 +142,54 @@ internal partial class Network
     {
       await LockBlockchain();
 
-      InsertBlock(ref block);
+      Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
+
+      if (chain == null)
+      {
+        block.Header = null;
+        return block;
+      }
+
+      while (chain.TryGetBlockNext(out block, out bool isDirectionForward))
+      {
+        if (isDirectionForward)
+        {
+          Token.InsertBlock(block);
+
+          DatabaseHeaderCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["headerBytes"] = block.Header.Serialize()
+          });
+          DatabaseBlockCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["blockBytes"] = block.Buffer
+          });
+
+          NotifyChildNetworksOnAnchorTokens(
+            block,
+            (networkChild, tokenAnchor) => networkChild.InsertBlock(tokenAnchor));
+        }
+        else
+        {
+          Token.RollBack(block);
+
+          DatabaseHeaderCollection.Delete(block.Header.Height);
+          DatabaseBlockCollection.Delete(block.Header.Height);
+
+          NotifyChildNetworksOnAnchorTokens(
+            block,
+            (networkChild, tokenAnchor) => networkChild.Rollback(tokenAnchor));
+        }
+
+        BlockchainRoot = chain;
+
+        Token.ReturnBlock(block);
+      }
+
+      block = Token.GetBlock();
+      block.Header = chain.FetchHeaderDownload();
 
       return block;
     }
@@ -152,51 +199,6 @@ internal partial class Network
     }
   }
 
-  internal void InsertBlock(ref Block block)
-  {
-    Blockchain chain = BlockchainRoot.InsertBlockInChain(block);
-
-    while (chain.TryGetBlockNext(out block, out bool isDirectionForward))
-    {
-      if (isDirectionForward)
-      {
-        Token.InsertBlock(block);
-
-        DatabaseHeaderCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["headerBytes"] = block.Header.Serialize()
-        });
-        DatabaseBlockCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["blockBytes"] = block.Buffer
-        });
-
-        NotifyChildNetworksOnAnchorTokens(
-          block,
-          (networkChild, tokenAnchor) => networkChild.InsertBlock(tokenAnchor));
-      }
-      else
-      {
-        Token.RollBack(block);
-
-        DatabaseHeaderCollection.Delete(block.Header.Height);
-        DatabaseBlockCollection.Delete(block.Header.Height);
-
-        NotifyChildNetworksOnAnchorTokens(
-          block,
-          (networkChild, tokenAnchor) => networkChild.Rollback(tokenAnchor));
-      }
-
-      BlockchainRoot = chain;
-
-      Token.ReturnBlock(block);
-    }
-
-    block = Token.GetBlock();
-    block.Header = chain.FetchHeaderDownload();
-  }
 
   void NotifyChildNetworksOnAnchorTokens(
     Block block,
@@ -224,7 +226,7 @@ internal partial class Network
     {
       if (TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
       {
-        BlockchainRoot.TryExtendHeaderchain(block.Header);
+        //BlockchainRoot.TryExtendHeaderchain(block.Header);
 
         // Hier ein sendBlock machen und intern zuerst header und dann wenn
         // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
@@ -233,7 +235,7 @@ internal partial class Network
             p,
             new List<byte[]> { block.Header.Hash }));
 
-        InsertBlock(ref block);
+        //InsertBlock(ref block);
       }
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.

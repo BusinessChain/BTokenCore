@@ -133,10 +133,10 @@ class BlockMessage : MessageNetworkProtocol
     if (BlockDownload?.Header == null)
       throw new ProtocolException($"Received unrequested block message.");
 
-    DOSMonitor.Decrement(1);
-
     BlockDownload.LengthDataPayload = LengthDataPayload;
     BlockDownload.Parse();
+
+    DOSMonitor.Decrement(1);
 
     BlockDownload = await Network.InsertBlockReturnNextBlock(BlockDownload);
 
