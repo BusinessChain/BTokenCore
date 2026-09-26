@@ -98,7 +98,7 @@ class PingMessage : MessageNetworkProtocol
 
   internal override async Task Run(Peer peer)
   {
-    PongMessage.SendPong(peer, LengthDataPayload, Payload);
+    await PongMessage.SendPong(peer, LengthDataPayload, Payload);
   }
 
   internal override string GetCommand()
@@ -389,12 +389,16 @@ class InvMessage : MessageNetworkProtocol
 
   internal List<Inventory> Inventories = new();
 
+  Network Network;
+
   const int SIZE_BUFFER_PAYLOAD = 36_003;
 
 
-  internal InvMessage()
+  internal InvMessage(Network network)
     : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 50)
-  { }
+  {
+    Network = network;
+  }
 
   internal InvMessage(List<Inventory> inventories)
     : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 0)
@@ -429,7 +433,16 @@ class InvMessage : MessageNetworkProtocol
 
   internal override async Task Run(Peer peer)
   {
+    int startIndex = 0;
 
+    int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
+
+    for (int i = 0; i < inventoryCount; i++)
+      if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
+      {
+        await GetHeadersMessage.SendGetHeaders(peer, await Network.GetLocator());
+        return;
+      }
   }
 
   internal override string GetCommand()
@@ -545,7 +558,7 @@ class UnknownMessage : MessageNetworkProtocol
 {
   internal const string Command = "commandUnknown";
 
-  const int SIZE_BUFFER_PAYLOAD = 4_000_000;
+  const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
 
 
   internal UnknownMessage()

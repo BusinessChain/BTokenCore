@@ -22,7 +22,7 @@ internal partial class Network
       await LockBlockchain();
 
       if (NetworkParent.BlockchainRoot.HeaderTip.Height > BlockchainRoot.HeaderTip.Height)
-        GetHeadersMessage.SendGetHeaders(peer, GetLocator());
+        GetHeadersMessage.SendGetHeaders(peer, BlockchainRoot.GetLocator());
     }
     finally
     {
@@ -356,10 +356,17 @@ internal partial class Network
     }
   }
 
-  List<byte[]> GetLocator()
+  internal async Task<List<byte[]>> GetLocator()
   {
-    lock (BlockchainRoot)
+    try
+    {
+      await LockBlockchain();
       return BlockchainRoot.GetLocator();
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
   }
 
   internal async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
