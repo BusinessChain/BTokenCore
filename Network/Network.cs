@@ -65,6 +65,8 @@ internal partial class Network
 
     if (EnableInboundConnections)
       StartPeerConnectorInbound();
+
+    StartBlockDownloadDispatcher();
   }
 
   async Task StartPeerConnectorOutbound()

@@ -32,6 +32,8 @@ internal class Peer
 
   internal StateProtocol StateCurrent = StateProtocol.Handshake;
 
+  internal SemaphoreSlim SemaphorePeer = new(1);
+
 
   internal Peer(
     Network network,
@@ -94,14 +96,23 @@ internal class Peer
       while (true)
       {
         string commandMessage = await SocketCommunication.ReceiveCommandMessageNext();
+        
+        await SemaphorePeer.WaitAsync().ConfigureAwait(false);
 
-        MessageNetworkProtocol message = ProtocolStateMachine[commandMessage];
+        try
+        {
+          MessageNetworkProtocol message = ProtocolStateMachine[commandMessage];
 
-        await SocketCommunication.LoadMessageNext(message);
+          await SocketCommunication.LoadMessageNext(message);
 
-        message.DOSMonitor.Increment(1);
+          message.DOSMonitor.Increment(1);
 
-        await message.Run(this);
+          await message.Run(this);
+        }
+        finally
+        {
+          SemaphorePeer.Release();
+        }
       }
     }
     finally

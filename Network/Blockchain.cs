@@ -20,24 +20,16 @@ internal class Blockchain
     : this(null, headerGenesis)
   { }
 
-  internal bool TryExtendHeaderchain(List<Header> headers, out Blockchain chainHeaderExtendedLast)
+  internal Header TryExtendHeaderchain(List<Header> headers)
   {
     Blockchain chain = this;
     Header headerAncestor;
-    chainHeaderExtendedLast = null;
 
     if (!TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
-      return false; 
-    
-    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
-    {
-      headers.RemoveAt(0);
+      return null;
 
-      if (headers.Count == 0)
-        return false;
-
-      headerAncestor = headerAncestor.HeaderNext;
-    }
+    if (headers.Count == 0)
+      return headerAncestor;
 
     if (headerAncestor != chain.HeaderTip)
     {
@@ -55,8 +47,7 @@ internal class Blockchain
       && chain.BlockchainParent.HeaderTip.Height < chain.HeaderTip.Height)
       chain.Promote();
 
-    chainHeaderExtendedLast = chain;
-    return true;
+    return headers[^1];
   }
 
   internal static bool TrySearchHeaderAncestor(
@@ -82,6 +73,15 @@ internal class Blockchain
       }
 
       headerAncestor = headerAncestor.HeaderPrevious;
+    }
+
+    while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
+    {
+      headerAncestor = headerAncestor.HeaderNext;
+      headers.RemoveAt(0);
+
+      if (headers.Count == 0)
+        break;
     }
 
     return true;
@@ -157,21 +157,58 @@ internal class Blockchain
     HeaderTip = header;
   }
 
-  internal Header FetchHeaderDownload()
+  internal Blockchain FindChain(Header header)
   {
-    if ((QueueBlocks.Count > CAPACITY_MAX_QueueBlocksInsertion || HeaderDownloadNext == null)
-        && HeadersAwaitingBlock.Any())
-      return HeadersAwaitingBlock.Values.MinBy(h => h.Height);
-
-    if (HeaderDownloadNext != null)
+    if (HeaderRoot.Height <= header.Height && header.Height <= HeaderTip.Height)
     {
-      Header headerDownload = HeaderDownloadNext;
-      HeadersAwaitingBlock.Add(headerDownload.Hash, headerDownload);
-      HeaderDownloadNext = HeaderDownloadNext.HeaderNext;
-      return headerDownload;
+      Header headerInChain = HeaderTip;
+
+      while (headerInChain.Height > header.Height)
+        headerInChain = headerInChain.HeaderPrevious;
+
+      if (headerInChain == header)
+        return this;
     }
 
+    foreach (Blockchain branch in BlockchainBranches)
+      if (branch.FindChain(header) is Blockchain chain)
+        return chain;
+
     return null;
+  }
+
+  internal Header FetchHeaderDownloadAlongPath(int heightMax)
+  {
+    return FetchAlongPath(heightMax, (chain, height) => chain.FetchHeaderDownload(height))
+      ?? FetchAlongPath(heightMax, (chain, height) => chain.GetHeaderAwaitingBlockLowest(height));
+  }
+
+  Header FetchAlongPath(int heightMax, Func<Blockchain, int, Header> fetch)
+  {
+    if (BlockchainParent?.FetchAlongPath(HeaderRoot.Height - 1, fetch) is Header header)
+      return header;
+
+    return fetch(this, heightMax);
+  }
+
+  Header FetchHeaderDownload(int heightMax)
+  {
+    if (QueueBlocks.Count > CAPACITY_MAX_QueueBlocksInsertion
+      || HeaderDownloadNext == null
+      || HeaderDownloadNext.Height > heightMax)
+      return null;
+
+    Header headerDownload = HeaderDownloadNext;
+    HeadersAwaitingBlock.Add(headerDownload.Hash, headerDownload);
+    HeaderDownloadNext = HeaderDownloadNext.HeaderNext;
+    return headerDownload;
+  }
+
+  Header GetHeaderAwaitingBlockLowest(int heightMax)
+  {
+    return HeadersAwaitingBlock.Values
+      .Where(h => h.Height <= heightMax)
+      .MinBy(h => h.Height);
   }
 
   internal Blockchain InsertBlockInChain(Block block)

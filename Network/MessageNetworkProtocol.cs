@@ -112,6 +112,7 @@ class BlockMessage : MessageNetworkProtocol
   internal const string Command = "block";
 
   internal Block BlockDownload;
+  internal DateTime TimeRequestBlock;
 
   Network Network;
 
@@ -138,10 +139,15 @@ class BlockMessage : MessageNetworkProtocol
 
     DOSMonitor.Decrement(1);
 
-    BlockDownload = await Network.InsertBlockReturnNextBlock(BlockDownload);
+    HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
+
+    BlockDownload = await Network.InsertBlockReturnNextBlock(BlockDownload, headersMessage.HeaderTipReceivedLast);
 
     if (BlockDownload.Header != null)
+    {
+      TimeRequestBlock = DateTime.UtcNow;
       GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
+    }
   }
 
   internal static async Task SendBlock(Peer peer, Block block)
@@ -312,6 +318,8 @@ class HeadersMessage : MessageNetworkProtocol
   internal const int MAX_COUNT_HEADERS = 2000;
   internal const string Command = "headers";
 
+  internal Header HeaderTipReceivedLast;
+
   Network Network;
 
   const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
@@ -327,10 +335,6 @@ class HeadersMessage : MessageNetworkProtocol
 
   internal override async Task Run(Peer peer)
   {
-    BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
-    if (blockMessage.BlockDownload.Header != null)
-      return;
-
     List<Header> headers = new();
     int startIndex = 0;
     int countHeaders = VarInt.GetInt(Payload, ref startIndex);
@@ -338,24 +342,21 @@ class HeadersMessage : MessageNetworkProtocol
     if (countHeaders > MAX_COUNT_HEADERS)
       throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
 
+    if (countHeaders == 0)
+      return;
+
     for (int i = 0; i < countHeaders; i++)
     {
       headers.Add(Network.Token.ParseHeader(Payload, ref startIndex, SHA256));
       VarInt.GetInt(Payload, ref startIndex);
     }
 
-    (byte[] headerTipHash, Header headerBlockDownlad) =
-      await Network.TryExtendHeaderchain(headers);
+    HeaderTipReceivedLast = await Network.TryExtendHeaderchain(headers);
 
-    if (headerBlockDownlad != null)
-    {
-      blockMessage.BlockDownload.Header = headerBlockDownlad;
-      GetDataMessage.SendBlockRequest(peer, headerBlockDownlad.Hash);
-    }
-    else if (headerTipHash != null)
+    if (HeaderTipReceivedLast != null)
     {
       DOSMonitor.Decrement(1);
-      GetHeadersMessage.SendGetHeaders(peer, [headerTipHash]);
+      GetHeadersMessage.SendGetHeaders(peer, [HeaderTipReceivedLast.Hash]);
     }
   }
 

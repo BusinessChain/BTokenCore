@@ -109,26 +109,82 @@ internal partial class Network
       }
   }
 
-  Blockchain ChainHeaderExtendedLast;
+  const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
+  const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
 
-  internal async Task<(byte[] headerTipHash, Header HeaderBlockDownload)>
-    TryExtendHeaderchain(List<Header> headers)
+  async Task StartBlockDownloadDispatcher()
+  {
+    while (true)
+    {
+      await Task.Delay(TIMESPAN_LOOP_DISPATCHER_MILLISECONDS).ConfigureAwait(false);
+
+      List<Peer> peers;
+
+      lock (LOCK_Peers)
+        peers = Peers.ToList();
+
+      foreach (Peer peer in peers)
+      {
+        if (peer.IsDisposed() || !peer.SemaphorePeer.Wait(0))
+          continue;
+
+        try
+        {
+          BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
+          HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
+
+          if (blockMessage.BlockDownload.Header == null)
+          {
+            Header headerDownload;
+
+            try
+            {
+              await LockBlockchain();
+              headerDownload = FetchHeaderDownload(headersMessage.HeaderTipReceivedLast);
+            }
+            finally
+            {
+              ReleaseLockBlockchain();
+            }
+
+            if (headerDownload != null)
+            {
+              blockMessage.BlockDownload.Header = headerDownload;
+              blockMessage.TimeRequestBlock = DateTime.UtcNow;
+              await GetDataMessage.SendBlockRequest(peer, headerDownload.Hash);
+            }
+          }
+          else if (DateTime.UtcNow - blockMessage.TimeRequestBlock > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
+            peer.SocketCommunication.Dispose();
+        }
+        catch
+        {
+          peer.SocketCommunication.Dispose();
+        }
+        finally
+        {
+          peer.SemaphorePeer.Release();
+        }
+      }
+    }
+  }
+
+  Header FetchHeaderDownload(Header headerTipPeer)
+  {
+    if (headerTipPeer == null
+      || headerTipPeer.Height <= BlockchainRoot.HeaderTipBlockchain.Height)
+      return null;
+
+    return BlockchainRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
+  }
+
+  internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
   {
     try
     {
       await LockBlockchain();
 
-      if (headers.Count > 0)
-      {
-        if (!BlockchainRoot.TryExtendHeaderchain(headers, out Blockchain chainHeaderExtendedLast))
-          return (null, null);
-
-        ChainHeaderExtendedLast = chainHeaderExtendedLast;
-
-        return (ChainHeaderExtendedLast.HeaderTip.Hash, null);
-      }
-
-      return (null, ChainHeaderExtendedLast?.FetchHeaderDownload());
+      return BlockchainRoot.TryExtendHeaderchain(headers);
     }
     finally
     {
@@ -136,7 +192,7 @@ internal partial class Network
     }
   }
 
-  internal async Task<Block> InsertBlockReturnNextBlock(Block block)
+  internal async Task<Block> InsertBlockReturnNextBlock(Block block, Header headerTipPeer)
   {
     try
     {
@@ -189,7 +245,7 @@ internal partial class Network
       }
 
       block = Token.GetBlock();
-      block.Header = chain.FetchHeaderDownload();
+      block.Header = FetchHeaderDownload(headerTipPeer);
 
       return block;
     }
