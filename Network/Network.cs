@@ -25,7 +25,7 @@ internal partial class Network
   const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
 
   bool EnableInboundConnections;
-  bool EnableRelay;
+  internal bool EnableRelay;
 
   object LOCK_Peers = new();
   internal List<Peer> Peers = new();

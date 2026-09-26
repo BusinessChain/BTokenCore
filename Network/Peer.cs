@@ -45,7 +45,7 @@ internal class Peer
     NetworkServicesLocal = network.Token.NetworkServicesLocal;
     NetworkServicesRemote = network.Token.NetworkServicesRemote;
     UserAgent = network.Token.UserAgent;
-    RelayOption = network.Token.RelayOption;
+    RelayOption = network.EnableRelay ? (byte)0x01 : (byte)0x00;
 
     ProtocolStateMachine = network.CreateStateMachineProtocol();
     SocketCommunication = socketCommunication;

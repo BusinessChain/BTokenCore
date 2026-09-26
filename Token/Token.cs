@@ -25,7 +25,6 @@ public abstract partial class Token : IToken
   internal ulong NetworkServicesLocal = 0;
   internal ulong NetworkServicesRemote = 0;
   internal string UserAgent = "/BTokenCore:0.0.0/";
-  internal byte RelayOption = 0x01;
 
 
   protected Token()
