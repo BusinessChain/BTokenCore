@@ -1,7 +1,4 @@
-﻿using System;
-using System.Text;
-using System.Net;
-using System.Threading.Tasks;
+﻿using System.Net;
 using System.Security.Cryptography;
 
 
@@ -39,14 +36,15 @@ class AddressMessage : MessageNetworkProtocol
   internal List<NetworkAddress> NetworkAddresses = new();
 
   const int SIZE_BUFFER_PAYLOAD = 30_003;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
 
 
   internal AddressMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 10)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal AddressMessage(byte[] messagePayload)
-    : base(messagePayload, maxLevelDoSPer10Minutes: 0)
+    : base(messagePayload, MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     int startIndex = 0;
 
@@ -86,14 +84,15 @@ class PingMessage : MessageNetworkProtocol
 
 
   const int SIZE_BUFFER_PAYLOAD = 8;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
 
 
   internal PingMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 10)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal PingMessage(byte[] payload)
-    : base(payload, maxLevelDoSPer10Minutes: 0)
+    : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal override async Task Run(Peer peer)
@@ -116,9 +115,11 @@ class BlockMessage : MessageNetworkProtocol
 
   Network Network;
 
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+
 
   internal BlockMessage(Network network, Block blockDownload)
-    : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 5)
+    : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
     BlockDownload = blockDownload;
@@ -172,10 +173,11 @@ class GetDataMessage : MessageNetworkProtocol
   internal int HeightBlockDownloadedLast;
 
   const int SIZE_BUFFER_PAYLOAD = 36_003;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
   internal GetDataMessage(Network network, Block blockUpload)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
     BlockUpload = blockUpload;
@@ -246,10 +248,11 @@ class GetHeadersMessage : MessageNetworkProtocol
   internal int HeightAncestorSentLast;
 
   const int SIZE_BUFFER_PAYLOAD = 3_300;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
   internal GetHeadersMessage(Network network)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
   }
@@ -323,12 +326,13 @@ class HeadersMessage : MessageNetworkProtocol
   Network Network;
 
   const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
   SHA256 SHA256 = SHA256.Create();
 
 
   internal HeadersMessage(Network network)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
   }
@@ -392,16 +396,17 @@ class InvMessage : MessageNetworkProtocol
   Network Network;
 
   const int SIZE_BUFFER_PAYLOAD = 36_003;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 200;
 
 
   internal InvMessage(Network network)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 200)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
   }
 
   internal InvMessage(List<Inventory> inventories)
-    : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 0)
+    : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Inventories = inventories;
 
@@ -417,7 +422,7 @@ class InvMessage : MessageNetworkProtocol
   }
 
   internal InvMessage(byte[] buffer)
-    : base(buffer, maxLevelDoSPer10Minutes: 0)
+    : base(buffer, MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     int startIndex = 0;
 
@@ -456,14 +461,15 @@ class PongMessage : MessageNetworkProtocol
   internal const string Command = "pong";
 
   const int SIZE_BUFFER_PAYLOAD = 8;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
 
 
   internal PongMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 10)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal PongMessage(byte[] payload, int lengthDataPayload)
-    : base(payload, maxLevelDoSPer10Minutes: 0)
+    : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     LengthDataPayload = lengthDataPayload;
   }
@@ -498,14 +504,16 @@ class TXMessage : MessageNetworkProtocol
 
   const int SIZE_BUFFER_PAYLOAD = 100_000;
 
-
   // amount bytes per 10 minutes
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5_000_000;
+
+
   internal TXMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 5_000_000)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal TXMessage(byte[] tXRaw)
-    : base(tXRaw, maxLevelDoSPer10Minutes: 0)
+    : base(tXRaw, MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal override async Task Run(Peer peer)
@@ -530,9 +538,11 @@ class VerAckMessage : MessageNetworkProtocol
 
   Network Network;
 
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
+
 
   internal VerAckMessage(Network network)
-    : base(Array.Empty<byte>(), maxLevelDoSPer10Minutes: 1)
+    : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
   }
@@ -561,10 +571,11 @@ class VersionMessage : MessageNetworkProtocol
   Network Network;
 
   const int SIZE_BUFFER_PAYLOAD = 1_000;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
 
 
   internal VersionMessage(Network network)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 1)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
     Network = network;
   }
@@ -618,10 +629,11 @@ class UnknownMessage : MessageNetworkProtocol
   internal const string Command = "commandUnknown";
 
   const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 100;
 
 
   internal UnknownMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 100)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
 
   internal override async Task Run(Peer peer)
