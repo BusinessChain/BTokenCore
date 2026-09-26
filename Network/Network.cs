@@ -152,6 +152,7 @@ internal partial class Network
     AddMessageNetworkProtocol(protocol, new BlockMessage(this, blockDownload));
     AddMessageNetworkProtocol(protocol, new VerAckMessage(this));
     AddMessageNetworkProtocol(protocol, new VersionMessage(this));
+    AddMessageNetworkProtocol(protocol, new UnknownMessage());
 
     return protocol;
   }

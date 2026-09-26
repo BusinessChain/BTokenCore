@@ -541,6 +541,28 @@ class VerAckMessage : MessageNetworkProtocol
   }
 }
 
+class UnknownMessage : MessageNetworkProtocol
+{
+  internal const string Command = "commandUnknown";
+
+  const int SIZE_BUFFER_PAYLOAD = 4_000_000;
+
+
+  internal UnknownMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 100)
+  { }
+
+  internal override async Task Run(Peer peer)
+  {
+
+  }
+
+  internal override string GetCommand()
+  {
+    return Command;
+  }
+}
+
 class VersionMessage : MessageNetworkProtocol
 {
   internal const string Command = "version";

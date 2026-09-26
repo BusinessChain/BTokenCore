@@ -101,7 +101,9 @@ internal class Peer
 
         try
         {
-          MessageNetworkProtocol message = ProtocolStateMachine[commandMessage];
+          MessageNetworkProtocol message = ProtocolStateMachine.GetValueOrDefault(
+            commandMessage,
+            ProtocolStateMachine[UnknownMessage.Command]);
 
           await SocketCommunication.LoadMessageNext(message);
 
