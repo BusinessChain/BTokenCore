@@ -1,14 +1,14 @@
-﻿using System;
+using System;
 
 
 namespace BTokenCore;
 
 internal class DOSMonitorPer10Minutes
 {
-  int Counter;
+  double Level;
   int MaxLevel;
 
-  DateTime TimestampLastIncrement = DateTime.Now;
+  DateTime TimestampLastDrain = DateTime.UtcNow;
 
 
   internal DOSMonitorPer10Minutes(int maxLevel)
@@ -18,18 +18,26 @@ internal class DOSMonitorPer10Minutes
 
   internal void Increment(int amount)
   {
-    if (DateTime.Now - TimestampLastIncrement > TimeSpan.FromMinutes(10))
-      Counter = 0;
+    Drain();
 
-    Counter += amount;
-    TimestampLastIncrement = DateTime.Now;
+    Level += amount;
 
-    if (Counter > MaxLevel)
+    if (Level > MaxLevel)
       throw new ProtocolException($"Exceed MaxLevel in DoS counter {GetType()}");
   }
 
   internal void Decrement(int amount)
   {
-    Counter -= amount;
+    Drain();
+
+    Level = Math.Max(0, Level - amount);
+  }
+
+  void Drain()
+  {
+    DateTime now = DateTime.UtcNow;
+
+    Level = Math.Max(0, Level - MaxLevel * (now - TimestampLastDrain) / TimeSpan.FromMinutes(10));
+    TimestampLastDrain = now;
   }
 }

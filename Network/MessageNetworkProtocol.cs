@@ -395,7 +395,7 @@ class InvMessage : MessageNetworkProtocol
 
 
   internal InvMessage(Network network)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 50)
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 200)
   {
     Network = network;
   }
@@ -554,28 +554,6 @@ class VerAckMessage : MessageNetworkProtocol
   }
 }
 
-class UnknownMessage : MessageNetworkProtocol
-{
-  internal const string Command = "commandUnknown";
-
-  const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
-
-
-  internal UnknownMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 100)
-  { }
-
-  internal override async Task Run(Peer peer)
-  {
-
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
 class VersionMessage : MessageNetworkProtocol
 {
   internal const string Command = "version";
@@ -627,6 +605,28 @@ class VersionMessage : MessageNetworkProtocol
 
     if (peer.Connection == Network.ConnectionType.INBOUND)
       SendVersion(peer, Network.BlockchainRoot.HeaderTip.Height);
+  }
+
+  internal override string GetCommand()
+  {
+    return Command;
+  }
+}
+
+class UnknownMessage : MessageNetworkProtocol
+{
+  internal const string Command = "commandUnknown";
+
+  const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
+
+
+  internal UnknownMessage()
+    : base(new byte[SIZE_BUFFER_PAYLOAD], maxLevelDoSPer10Minutes: 100)
+  { }
+
+  internal override async Task Run(Peer peer)
+  {
+
   }
 
   internal override string GetCommand()
