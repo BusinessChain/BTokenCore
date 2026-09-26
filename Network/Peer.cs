@@ -107,7 +107,7 @@ internal class Peer
 
           await SocketCommunication.LoadMessageNext(message);
 
-          message.DOSMonitor.Increment(1);
+          message.IncrementDOSMonitor();
 
           await message.Run(this);
         }

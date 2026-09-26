@@ -9,7 +9,7 @@ internal abstract class MessageNetworkProtocol
   internal byte[] Payload;
   internal int LengthDataPayload;
 
-  internal DOSMonitorPer10Minutes DOSMonitor;
+  protected DOSMonitorPer10Minutes DOSMonitor;
 
 
   internal MessageNetworkProtocol(byte[] payload, int maxLevelDoSPer10Minutes)
@@ -22,6 +22,11 @@ internal abstract class MessageNetworkProtocol
   internal virtual byte[] GetPayloadBuffer()
   {
     return Payload;
+  }
+
+  internal virtual void IncrementDOSMonitor()
+  {
+    DOSMonitor.Increment(1);
   }
 
   internal abstract Task Run(Peer peer);
@@ -396,7 +401,7 @@ class InvMessage : MessageNetworkProtocol
   Network Network;
 
   const int SIZE_BUFFER_PAYLOAD = 36_003;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 200;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
   internal InvMessage(Network network)
@@ -503,9 +508,7 @@ class TXMessage : MessageNetworkProtocol
   internal const string Command = "tx";
 
   const int SIZE_BUFFER_PAYLOAD = 100_000;
-
-  // amount bytes per 10 minutes
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5_000_000;
+  const int MAX_LEVEL_DOS_PER_10_MINUTES = 1_000_000;
 
 
   internal TXMessage()
@@ -515,6 +518,11 @@ class TXMessage : MessageNetworkProtocol
   internal TXMessage(byte[] tXRaw)
     : base(tXRaw, MAX_LEVEL_DOS_PER_10_MINUTES)
   { }
+
+  internal override void IncrementDOSMonitor()
+  {
+    DOSMonitor.Increment(LengthDataPayload);
+  }
 
   internal override async Task Run(Peer peer)
   {
