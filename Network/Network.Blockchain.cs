@@ -255,10 +255,7 @@ internal partial class Network
     }
   }
 
-
-  void NotifyChildNetworksOnAnchorTokens(
-    Block block,
-    Action<Network, TXOutputTokenAnchor> action)
+  void NotifyChildNetworksOnAnchorTokens( Block block, Action<Network, TXOutputTokenAnchor> action)
   {
     Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
         new(new EqualityComparerByteArray());
@@ -266,7 +263,7 @@ internal partial class Network
     foreach (TX tX in block.TXs)
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput is TXOutputTokenAnchor tokenAnchor &&
-            cacheAnchorTokens.TryAdd(tokenAnchor.HashBlockReferenced, tokenAnchor))
+            cacheAnchorTokens.TryAdd(tokenAnchor.IDToken, tokenAnchor))
           if (NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken)) is Network network)
             action(network, tokenAnchor);
   }
@@ -282,7 +279,7 @@ internal partial class Network
     {
       if (TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
       {
-        //BlockchainRoot.TryExtendHeaderchain(block.Header);
+        BlockchainRoot.TryExtendHeaderchain(block.Header);
 
         // Hier ein sendBlock machen und intern zuerst header und dann wenn
         // getdata kommt blcok aus peer cache laden, statt wieder node anfragen.
@@ -291,7 +288,7 @@ internal partial class Network
             p,
             new List<byte[]> { block.Header.Hash }));
 
-        //InsertBlock(ref block);
+        // Insert block in blockchain
       }
 
       // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.

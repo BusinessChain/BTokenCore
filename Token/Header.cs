@@ -13,7 +13,7 @@ public abstract class Header
   internal Header HeaderPrevious;
   internal Header HeaderNext;
 
-  internal Header HeaderParent; // wo wird in die Childs geschrieben?
+  internal Header HeaderParent;
   internal Dictionary<byte[], byte[]> HashesChild = new(new EqualityComparerByteArray());
 
   internal int Height;
