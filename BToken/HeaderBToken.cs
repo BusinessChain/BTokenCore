@@ -57,23 +57,20 @@ public partial class TokenBToken : Token
 
     internal override void AppendToHeader(Header headerPrevious)
     {
-      if (headerPrevious.HeaderParent != null)
+      Header headerParent = headerPrevious.HeaderParent.HeaderNext;
+
+      while (true)
       {
-        Header headerParent = headerPrevious.HeaderParent.HeaderNext;
+        if (headerParent == null)
+          throw new ProtocolException($"Cannot append header {this} to header {headerPrevious} because it is not anchored in parent chain.");
 
-        while (true)
+        if (headerParent.HashesChild.Any(h => h.Value.IsAllBytesEqual(Hash)))
         {
-          if (headerParent == null)
-            throw new ProtocolException($"Cannot append header {this} to header {headerPrevious} because it is not anchored in parent chain.");
-
-          if (headerParent.HashesChild.Any(h => h.Value.IsAllBytesEqual(Hash)))
-          {
-            HeaderParent = headerParent;
-            break;
-          }
-
-          headerParent = headerParent.HeaderNext;
+          HeaderParent = headerParent;
+          break;
         }
+
+        headerParent = headerParent.HeaderNext;
       }
 
       base.AppendToHeader(headerPrevious);

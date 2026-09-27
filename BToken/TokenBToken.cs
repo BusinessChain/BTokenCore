@@ -105,10 +105,7 @@ public partial class TokenBToken : Token
     return block;
   }
 
-  internal override bool TryCreateTXAnchor(
-    TXOutputTokenAnchor tokenAnchor,
-    long feePerByte,
-    out TX tXAnchor)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
   {
     tXAnchor = null;
     byte[] dataAnchorToken = tokenAnchor.Serialize();
@@ -190,8 +187,6 @@ public partial class TokenBToken : Token
       AccountsStaged.Clear();
     }
   }
-
-  int SerialNumberTX;
 
   void StageInsertTXOutput(TXOutput tXOutput, int blockHeight)
   {

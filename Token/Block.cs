@@ -60,6 +60,11 @@ public class Block
     Header.Fee = TXs.Sum(t => t.Fee);
 
     Header.VerifyCoinbase(TXs[0].GetValueOutputs());
+
+    foreach (TX tX in TXs)
+      foreach (TXOutput tXOutput in tX.TXOutputs)
+        if (tXOutput is TXOutputTokenAnchor tokenAnchor)
+          Header.HashesChild.TryAdd(tokenAnchor.IDToken, tokenAnchor.HashBlockReferenced);
   }
 
   internal byte[] ComputeMerkleRoot()

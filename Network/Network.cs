@@ -44,6 +44,7 @@ internal partial class Network
     Communication = communication;
 
     NetworkParent = tokenParent?.Network;
+    NetworkParent?.NetworksChild.Add(this);
     Token = token;
 
     BlockchainRoot = new(Token.CreateHeaderGenesis());

@@ -98,6 +98,10 @@ internal partial class Network
           blockLoad.Parse();
 
           Token.InsertBlock(blockLoad);
+
+          NotifyChildNetworksOnAnchorTokens(
+            blockLoad,
+            (networkChild, headerParent, hashBlock) => networkChild.InsertBlock(headerParent, hashBlock));
         }
 
         height++;
@@ -225,7 +229,7 @@ internal partial class Network
 
           NotifyChildNetworksOnAnchorTokens(
             block,
-            (networkChild, tokenAnchor) => networkChild.InsertBlock(tokenAnchor));
+            (networkChild, headerParent, hashBlock) => networkChild.InsertBlock(headerParent, hashBlock));
         }
         else
         {
@@ -236,7 +240,7 @@ internal partial class Network
 
           NotifyChildNetworksOnAnchorTokens(
             block,
-            (networkChild, tokenAnchor) => networkChild.Rollback(tokenAnchor));
+            (networkChild, headerParent, hashBlock) => networkChild.Rollback(headerParent, hashBlock));
         }
 
         BlockchainRoot = chain;
@@ -255,29 +259,28 @@ internal partial class Network
     }
   }
 
-  void NotifyChildNetworksOnAnchorTokens( Block block, Action<Network, TXOutputTokenAnchor> action)
+  void NotifyChildNetworksOnAnchorTokens(Block block, Action<Network, Header, byte[]> action)
   {
-    Dictionary<byte[], TXOutputTokenAnchor> cacheAnchorTokens =
-        new(new EqualityComparerByteArray());
-
-    foreach (TX tX in block.TXs)
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput is TXOutputTokenAnchor tokenAnchor &&
-            cacheAnchorTokens.TryAdd(tokenAnchor.IDToken, tokenAnchor))
-          if (NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(tokenAnchor.IDToken)) is Network network)
-            action(network, tokenAnchor);
-  }
-    
-  void Rollback(TXOutputTokenAnchor tokenAnchor)
-  {
-    
+    foreach (KeyValuePair<byte[], byte[]> hashChild in block.Header.HashesChild)
+      if (NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(hashChild.Key)) is Network network)
+        action(network, block.Header, hashChild.Value);
   }
 
-  void InsertBlock(TXOutputTokenAnchor tokenAnchor)
+  void Rollback(Header headerParent, byte[] hashBlock)
   {
+
+  }
+
+  void InsertBlock(Header headerParent, byte[] hashBlock)
+  {
+    Header headerGenesis = BlockchainRoot.HeaderRoot;
+
+    if (headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(hashBlock))
+      headerGenesis.HeaderParent = headerParent;
+
     try
     {
-      if (TryGetBlockMined(out Block block, tokenAnchor.HashBlockReferenced))
+      if (TryGetBlockMined(out Block block, hashBlock))
       {
         BlockchainRoot.TryExtendHeaderchain(block.Header);
 
