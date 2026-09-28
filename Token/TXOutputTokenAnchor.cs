@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 public class TXOutputTokenAnchor : TXOutput
 {
@@ -15,15 +11,14 @@ public class TXOutputTokenAnchor : TXOutput
     new byte[] { OP_RETURN, LengthDataAnchorToken }.Concat(IDENTIFIER_BTOKEN_PROTOCOL).ToArray();
 
   internal readonly static int LENGTH_SCRIPT_ANCHOR_TOKEN =
-    PREFIX_ANCHOR_TOKEN.Length + LENGTH_IDTOKEN + 32 + 32;
+    PREFIX_ANCHOR_TOKEN.Length + Token.LENGTH_ID_TOKEN + 32 + 32;
 
-  internal const int LENGTH_IDTOKEN = 4;
-  internal byte[] IDToken = new byte[LENGTH_IDTOKEN];
+  internal byte[] IDToken = new byte[Token.LENGTH_ID_TOKEN];
 
   internal byte[] HashBlockReferenced = new byte[32];
   internal byte[] HashBlockPreviousReferenced = new byte[32];
 
-  byte[] TXOutputTokenAnchorRaw = new byte[IDENTIFIER_BTOKEN_PROTOCOL.Length + LENGTH_IDTOKEN + 32 + 32];
+  byte[] TXOutputTokenAnchorRaw = new byte[IDENTIFIER_BTOKEN_PROTOCOL.Length + Token.LENGTH_ID_TOKEN + 32 + 32];
 
 
   internal TXOutputTokenAnchor()
@@ -34,8 +29,8 @@ public class TXOutputTokenAnchor : TXOutput
   {
     startIndex += PREFIX_ANCHOR_TOKEN.Length;
 
-    Array.Copy(buffer, startIndex, IDToken, 0, LENGTH_IDTOKEN);
-    startIndex += LENGTH_IDTOKEN;
+    Array.Copy(buffer, startIndex, IDToken, 0, Token.LENGTH_ID_TOKEN);
+    startIndex += Token.LENGTH_ID_TOKEN;
 
     Array.Copy(buffer, startIndex, HashBlockReferenced, 0, HashBlockReferenced.Length);
     startIndex += HashBlockReferenced.Length;
@@ -54,7 +49,7 @@ public class TXOutputTokenAnchor : TXOutput
 
     IDToken.CopyTo(TXOutputTokenAnchorRaw, startIndex);
 
-    startIndex += LENGTH_IDTOKEN;
+    startIndex += Token.LENGTH_ID_TOKEN;
 
     HashBlockReferenced.CopyTo(TXOutputTokenAnchorRaw, startIndex);
 

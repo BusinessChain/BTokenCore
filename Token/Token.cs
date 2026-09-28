@@ -10,7 +10,8 @@ public abstract partial class Token : IToken
   internal static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
   internal static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
 
-  internal byte[] IDToken;
+  internal const int LENGTH_ID_TOKEN = 4;
+  internal byte[] IDToken = new byte [LENGTH_ID_TOKEN];
   internal Network Network;
   internal Wallet Wallet;
 
