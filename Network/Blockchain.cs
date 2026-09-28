@@ -211,7 +211,7 @@ internal class Blockchain
       .MinBy(h => h.Height);
   }
 
-  internal Blockchain InsertBlockInChain(Block block)
+  internal Blockchain QueueBlock(Block block)
   {
     if (HeadersAwaitingBlock.Remove(block.Header.Hash))
     {
@@ -220,10 +220,25 @@ internal class Blockchain
     }
 
     foreach (Blockchain branch in BlockchainBranches)
-      if (branch.InsertBlockInChain(block) is Blockchain chain)
+      if (branch.QueueBlock(block) is Blockchain chain)
         return chain;
 
     return null;
+  }
+
+  internal Blockchain QueueBlockMined(Block block)
+  {
+    TryExtendHeaderchain(new List<Header> { block.Header });
+
+    if (FindChain(block.Header) is not Blockchain chain)
+      return null;
+
+    if (chain.HeaderDownloadNext == block.Header)
+      chain.HeaderDownloadNext = block.Header.HeaderNext;
+
+    chain.QueueBlocks.Add(block.Header.Height, block);
+
+    return chain;
   }
 
   internal bool TryGetBlockNext( out Block block, out bool isDirectionForward)
