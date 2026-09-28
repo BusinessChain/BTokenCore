@@ -9,7 +9,6 @@ internal partial class Network
   SemaphoreSlim SemaphoreBlockchainRoot = new(1);
   internal Blockchain BlockchainRoot;
 
-  string PathBlocksMined = "blocksMined";
   bool IsMining;
   long FeePerByte;
   List<Block> BlocksMinedCache = new();
@@ -236,6 +235,7 @@ internal partial class Network
           ["_id"] = block.Header.Height,
           ["headerBytes"] = block.Header.Serialize()
         });
+
         DatabaseBlockCollection.Insert(new BsonDocument
         {
           ["_id"] = block.Header.Height,
@@ -291,8 +291,6 @@ internal partial class Network
 
       if (anchorWinner != null && TryGetBlockMined(out block, anchorWinner.HashBlockReferenced))
       {
-        BlocksMinedCache.Remove(block);
-
         Header header = block.Header;
 
         if (BlockchainRoot.QueueBlockMined(block) is Blockchain chain)
@@ -304,12 +302,14 @@ internal partial class Network
               p,
               new List<byte[]> { header.Serialize() }));
         }
+
+        BlocksMinedCache.Remove(block);
+        DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
       }
 
-      // Der User muss jeweils definieren, mit welcher fee Rate er die Verankerung bezahlen will.
-      // Dem user kann im GUI auch ein Tool zur verfügung gestellt werden welches ihm 
-      // erlaubt, die Fee Rate automatisiert zu steuern. z.B. anhand vergangener Fee Raten
-      // oder Marktpreis Arbitrierung.
+      // The user has to define the fee rate at which they want to pay for the anchoring.
+      // The GUI could also offer a tool that controls the fee rate automatically,
+      // e.g. based on past fee rates or market price arbitrage.
 
       if (IsMining)
       {
@@ -317,11 +317,15 @@ internal partial class Network
           BlockchainRoot.HeaderTipBlockchain,
           out TXOutputTokenAnchor anchorToken);
 
-         block.Serialize();
+        block.Serialize();
 
         BlocksMinedCache.Add(block);
 
-        block.WriteToDisk(PathBlocksMined); // write to LiteDB
+        DatabaseBlocksMinedCollection.Insert(new BsonDocument
+        {
+          ["_id"] = block.Header.Hash,
+          ["blockBytes"] = block.Buffer
+        });
 
         NetworkParent.MineTokenAnchor(anchorToken);
       }
@@ -339,13 +343,12 @@ internal partial class Network
 
     if (block == null)
     {
-      // get from LiteDB instead.
-      string pathFileBlock = Path.Combine(PathBlocksMined, block.Header.Hash.ToHexString());
+      BsonDocument bsonDocumentBlock = DatabaseBlocksMinedCollection.FindById(hash);
 
-      if (!File.Exists(pathFileBlock))
+      if (bsonDocumentBlock == null)
         return false;
 
-      block = new(Token, File.ReadAllBytes(pathFileBlock));
+      block = new(Token, bsonDocumentBlock["blockBytes"].AsBinary);
       block.Parse();
     }
 

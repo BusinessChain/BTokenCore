@@ -131,26 +131,4 @@ public class Block
 
     LengthDataPayload = startIndex;
   }
-
-  internal void WriteToDisk(string pathDirectory)
-  {
-    string pathFileBlock = Path.Combine(pathDirectory, Header.Height.ToString());
-    string pathTemp = pathFileBlock + ".tmp";
-
-    using (FileStream fileStream = new(pathTemp, FileMode.Create, FileAccess.Write))
-    {
-      byte[] bufferHeader = Header.Serialize();
-      fileStream.Write(bufferHeader, 0, bufferHeader.Length);
-
-      byte[] countTXs = VarInt.GetBytes(TXs.Count);
-      fileStream.Write(countTXs, 0, countTXs.Length);
-
-      for (int i = 0; i < TXs.Count; i++)
-        fileStream.Write(TXs[i].TXRaw, 0, TXs[i].TXRaw.Length);
-
-      fileStream.Flush(true);
-    }
-
-    File.Move(pathTemp, pathFileBlock, overwrite: true);
-  }
 }
