@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Text;
+using System.Security.Cryptography;
 using System.Collections.Concurrent;
 
 
@@ -28,8 +29,13 @@ public abstract partial class Token : IToken
   internal string UserAgent = "/BTokenCore:0.0.0/";
 
 
-  protected Token()
+  protected Token(string id, int port)
   {
+    byte[] bytes = Encoding.ASCII.GetBytes(id);
+    Array.Copy(bytes, IDToken, bytes.Length);
+
+    Port = port;
+
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));

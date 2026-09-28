@@ -32,7 +32,7 @@ public partial class TokenBToken : Token
 
 
   public TokenBToken(ICommunication communication, Token tokenParent)
-    : base()
+    : base(id: "BTK", port: 8777)
   {
     TXPool = new PoolTXBToken(this);
 
@@ -43,9 +43,6 @@ public partial class TokenBToken : Token
     DatabaseMetaCollection = Database.GetCollection<BsonDocument>("meta");
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database?.Dispose(); };
-
-    IDToken = [(byte)'B', (byte)'T', (byte)'K'];
-    Port = 8777;
 
     Network = new Network(
       communication,

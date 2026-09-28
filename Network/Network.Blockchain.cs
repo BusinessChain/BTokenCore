@@ -99,7 +99,7 @@ internal partial class Network
 
           Token.InsertBlock(blockLoad);
 
-          NotifyChildNetworksOnAnchorTokens(
+          NotifyChildNetworks(
             blockLoad,
             (networkChild, headerParent, hashBlock) => networkChild.InsertBlock(headerParent, hashBlock));
         }
@@ -227,7 +227,7 @@ internal partial class Network
             ["blockBytes"] = block.Buffer
           });
 
-          NotifyChildNetworksOnAnchorTokens(
+          NotifyChildNetworks(
             block,
             (networkChild, headerParent, hashBlock) => networkChild.InsertBlock(headerParent, hashBlock));
         }
@@ -238,7 +238,7 @@ internal partial class Network
           DatabaseHeaderCollection.Delete(block.Header.Height);
           DatabaseBlockCollection.Delete(block.Header.Height);
 
-          NotifyChildNetworksOnAnchorTokens(
+          NotifyChildNetworks(
             block,
             (networkChild, headerParent, hashBlock) => networkChild.Rollback(headerParent, hashBlock));
         }
@@ -259,11 +259,13 @@ internal partial class Network
     }
   }
 
-  void NotifyChildNetworksOnAnchorTokens(Block block, Action<Network, Header, byte[]> action)
+  void NotifyChildNetworks(Block block, Action<Network, Header, byte[]> action)
   {
-    foreach (KeyValuePair<byte[], byte[]> hashChild in block.Header.HashesChild)
-      if (NetworksChild.Find(n => n.Token.IDToken.IsAllBytesEqual(hashChild.Key)) is Network network)
-        action(network, block.Header, hashChild.Value);
+    foreach (Network networkChild in NetworksChild)
+    {
+      block.Header.HashesChild.TryGetValue(networkChild.Token.IDToken, out byte[] hashBlock);
+      action(networkChild, block.Header, hashBlock);
+    }
   }
 
   void Rollback(Header headerParent, byte[] hashBlock)
@@ -275,12 +277,14 @@ internal partial class Network
   {
     Header headerGenesis = BlockchainRoot.HeaderRoot;
 
-    if (headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(hashBlock))
+    if (hashBlock != null && headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(hashBlock))
       headerGenesis.HeaderParent = headerParent;
 
     try
     {
-      if (TryGetBlockMined(out Block block, hashBlock))
+      Block block;
+
+      if (hashBlock != null && TryGetBlockMined(out block, hashBlock))
       {
         BlockchainRoot.TryExtendHeaderchain(block.Header);
 

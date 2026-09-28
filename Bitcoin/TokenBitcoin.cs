@@ -33,12 +33,9 @@ public partial class TokenBitcoin : Token
 
 
   public TokenBitcoin(ICommunication communication)
-    : base()
+    : base(id: "BTC", port: 8333)
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
-
-    IDToken = [(byte)'B', (byte)'T', (byte)'C'];
-    Port = 8333;
 
     Network = new Network(
       communication,
