@@ -14,7 +14,7 @@ public abstract class Header
   internal Header HeaderNext;
 
   internal Header HeaderParent;
-  internal Dictionary<byte[], byte[]> HashesChild = new(new EqualityComparerByteArray());
+  internal Dictionary<byte[], TXOutputTokenAnchor> AnchorsWinner = new(new EqualityComparerByteArray());
 
   internal int Height;
   internal int CountTXs;

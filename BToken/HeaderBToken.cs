@@ -64,7 +64,7 @@ public partial class TokenBToken : Token
         if (headerParent == null)
           throw new ProtocolException($"Cannot append header {this} to header {headerPrevious} because it is not anchored in parent chain.");
 
-        if (headerParent.HashesChild.Any(h => h.Value.IsAllBytesEqual(Hash)))
+        if (headerParent.AnchorsWinner.Any(a => a.Value.HashBlockReferenced.IsAllBytesEqual(Hash)))
         {
           HeaderParent = headerParent;
           break;

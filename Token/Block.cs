@@ -64,7 +64,7 @@ public class Block
     foreach (TX tX in TXs)
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-          Header.HashesChild.TryAdd(tokenAnchor.IDToken, tokenAnchor.HashBlockReferenced);
+          Header.AnchorsWinner.TryAdd(tokenAnchor.IDToken, tokenAnchor);
   }
 
   internal byte[] ComputeMerkleRoot()

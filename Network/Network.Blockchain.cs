@@ -101,7 +101,7 @@ internal partial class Network
 
           NotifyChildNetworks(
             blockLoad,
-            (networkChild, headerParent, hashBlock) => networkChild.InsertBlock(headerParent, hashBlock));
+            (networkChild, headerParent, anchorWinner) => networkChild.InsertBlock(headerParent, anchorWinner));
         }
 
         height++;
@@ -244,7 +244,7 @@ internal partial class Network
 
         NotifyChildNetworks(
           block,
-          (networkChild, headerParent, hashBlock) => networkChild.InsertBlock(headerParent, hashBlock));
+          (networkChild, headerParent, anchorWinner) => networkChild.InsertBlock(headerParent, anchorWinner));
       }
       else
       {
@@ -255,7 +255,7 @@ internal partial class Network
 
         NotifyChildNetworks(
           block,
-          (networkChild, headerParent, hashBlock) => networkChild.Rollback(headerParent, hashBlock));
+          (networkChild, headerParent, anchorWinner) => networkChild.Rollback(headerParent, anchorWinner));
       }
 
       BlockchainRoot = chain;
@@ -264,32 +264,32 @@ internal partial class Network
     }
   }
 
-  void NotifyChildNetworks(Block block, Action<Network, Header, byte[]> action)
+  void NotifyChildNetworks(Block block, Action<Network, Header, TXOutputTokenAnchor> action)
   {
     foreach (Network networkChild in NetworksChild)
     {
-      block.Header.HashesChild.TryGetValue(networkChild.Token.IDToken, out byte[] hashBlock);
-      action(networkChild, block.Header, hashBlock);
+      block.Header.AnchorsWinner.TryGetValue(networkChild.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
+      action(networkChild, block.Header, anchorWinner);
     }
   }
 
-  void Rollback(Header headerParent, byte[] hashBlock)
+  void Rollback(Header headerParent, TXOutputTokenAnchor anchorWinner)
   {
 
   }
 
-  void InsertBlock(Header headerParent, byte[] hashBlock)
+  void InsertBlock(Header headerParent, TXOutputTokenAnchor anchorWinner)
   {
     Header headerGenesis = BlockchainRoot.HeaderRoot;
 
-    if (hashBlock != null && headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(hashBlock))
+    if (anchorWinner != null && headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced))
       headerGenesis.HeaderParent = headerParent;
 
     try
     {
       Block block;
 
-      if (hashBlock != null && TryGetBlockMined(out block, hashBlock))
+      if (anchorWinner != null && TryGetBlockMined(out block, anchorWinner.HashBlockReferenced))
       {
         BlocksMinedCache.Remove(block);
 
