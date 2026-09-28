@@ -102,7 +102,7 @@ public abstract partial class Token : IToken
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
-  public virtual Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  public virtual Block MineBlock(Header headerPrevious, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
   internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)

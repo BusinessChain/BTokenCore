@@ -69,8 +69,10 @@ public partial class TokenBToken : Token
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  public override Block MineBlock(int height, out TXOutputTokenAnchor anchorToken)
+  public override Block MineBlock(Header headerPrevious, out TXOutputTokenAnchor anchorToken)
   {
+    int height = headerPrevious.Height + 1;
+
     Block block = GetBlock();
 
     block.TXs = TXPool.GetTXs(block.Buffer.Length);
@@ -88,13 +90,17 @@ public partial class TokenBToken : Token
     block.Header = new HeaderBToken()
     {
       Height = height,
+      HashPrevious = headerPrevious.Hash,
       MerkleRoot = block.ComputeMerkleRoot(),
       CountTXs = block.TXs.Count,
       Fee = feeTXs
     };
 
+    block.Header.ComputeHash();
+
     anchorToken = new TXOutputTokenAnchor()
     {
+      IDToken = IDToken,
       HashBlockPreviousReferenced = block.Header.HashPrevious,
       HashBlockReferenced = block.Header.Hash
     };

@@ -306,14 +306,10 @@ internal partial class Network
       if (IsMining)
       {
         block = Token.MineBlock(
-          BlockchainRoot.HeaderTip.Height + 1,
+          BlockchainRoot.HeaderTipBlockchain,
           out TXOutputTokenAnchor anchorToken);
 
-        block.Header.HashPrevious = BlockchainRoot.HeaderTip.Hash;
-
-        block.Header.ComputeHash();
-
-        block.Serialize();
+         block.Serialize();
 
         BlocksMinedCache.Add(block);
 
