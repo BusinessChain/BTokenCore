@@ -77,7 +77,7 @@ internal partial class Network
     SHA256 sHA256 = SHA256.Create();
     Block blockLoad = new(Token);
 
-    int height = 1;
+    int height = BlockchainRoot.HeaderRoot.Height + 1;
     BsonDocument bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
 
     while (bsonDocumentHeader != null)

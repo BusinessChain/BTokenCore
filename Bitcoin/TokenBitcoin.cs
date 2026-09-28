@@ -51,15 +51,15 @@ public partial class TokenBitcoin : Token
   public override Header CreateHeaderGenesis()
   {
     HeaderBitcoin header = new(
-       headerHash: "0000000000000000000230d9bb1db81e56916b0c2c7363231e75b82b24714482".ToBinary(),
-       version: 0x20000000,
-       hashPrevious: "00000000000000000008b5ffa0ae1b604dd27bf4af84602ea53f7920320a3c96".ToBinary(),
-       merkleRootHash: "ef303d1cf8090e1bcea36432eceea2bbc156e81108deff1616d9c6dee64ba7c7".ToBinary(),
-       unixTimeSeconds: 1653490985,
-       nBits: 386492960,
-       nonce: 578608666);
+       headerHash: "000000000000000000010538edbfd2d5b809a33dd83f284aeea41c6d0d96968a".ToBinary(),
+       version: 0x20aba000,
+       hashPrevious: "0000000000000000000196400396be46d0816dc462df4c3450972f589f4d7d24".ToBinary(),
+       merkleRootHash: "0cfb54e522b07bd1a381adc774ec1851590ef4c3add83958135106534569f970".ToBinary(),
+       unixTimeSeconds: 1749188499,
+       nBits: 386021236,
+       nonce: 2455752826);
 
-    header.Height = 737856;
+    header.Height = 900000;
 
     return header;
   }
