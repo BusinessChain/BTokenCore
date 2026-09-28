@@ -39,6 +39,8 @@ internal class Blockchain
       chain.BlockchainBranches.Add(branch);
       chain = branch;
     }
+    else
+      chain.AppendHeader(headers[0]);
 
     for (int i = 1; i < headers.Count; i++)
       chain.AppendHeader(headers[i]);
