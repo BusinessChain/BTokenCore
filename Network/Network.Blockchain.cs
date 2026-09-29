@@ -100,7 +100,7 @@ internal partial class Network
 
           NotifyChildNetworks(
             blockLoad,
-            (networkChild, headerParent, anchorWinner) => networkChild.InsertBlock(headerParent, anchorWinner));
+            (networkChild, headerParent, anchorWinner) => networkChild.OnBlockParentInserted(headerParent, anchorWinner));
         }
 
         height++;
@@ -209,6 +209,7 @@ internal partial class Network
         return block;
       }
 
+      //Aber sollte das nicht nur bei BlockchainRoot passieren?
       FlushBlocksToDatabase(branch);
 
       block = Token.GetBlock();
@@ -244,7 +245,7 @@ internal partial class Network
 
         NotifyChildNetworks(
           block,
-          (networkChild, headerParent, anchorWinner) => networkChild.InsertBlock(headerParent, anchorWinner));
+          (networkChild, headerParent, anchorWinner) => networkChild.OnBlockParentInserted(headerParent, anchorWinner));
       }
       else
       {
@@ -255,10 +256,10 @@ internal partial class Network
 
         NotifyChildNetworks(
           block,
-          (networkChild, headerParent, anchorWinner) => networkChild.Rollback(headerParent, anchorWinner));
+          (networkChild, headerParent, anchorWinner) => networkChild.OnBlockParentRolledBack(headerParent, anchorWinner));
       }
 
-      BlockchainRoot = chain;
+      BlockchainRoot = chain; // is this necessary?
 
       Token.ReturnBlock(block);
     }
@@ -273,67 +274,80 @@ internal partial class Network
     }
   }
 
-  void Rollback(Header headerParent, TXOutputTokenAnchor anchorWinner)
+  void OnBlockParentRolledBack(Header headerParent, TXOutputTokenAnchor anchorWinner)
   {
 
   }
 
-  void InsertBlock(Header headerParent, TXOutputTokenAnchor anchorWinner)
+  void OnBlockParentInserted(Header headerParent, TXOutputTokenAnchor anchorWinner)
   {
-    Header headerGenesis = BlockchainRoot.HeaderRoot;
-
-    if (anchorWinner != null && headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced))
-      headerGenesis.HeaderParent = headerParent;
+    if (anchorWinner != null)
+      LinkHeaderGenesis(headerParent, anchorWinner);
 
     try
     {
-      Block block;
-
-      if (anchorWinner != null && TryGetBlockMined(out block, anchorWinner.HashBlockReferenced))
-      {
-        Header header = block.Header;
-
-        if (BlockchainRoot.QueueBlockMined(block) is Blockchain chain)
-        {
-          FlushBlocksToDatabase(chain);
-
-          lock (LOCK_Peers)
-            Peers.ForEach(p => HeadersMessage.SendHeaders(
-              p,
-              new List<byte[]> { header.Serialize() }));
-        }
-
-        BlocksMinedCache.Remove(block);
-        DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
-      }
-
-      // The user has to define the fee rate at which they want to pay for the anchoring.
-      // The GUI could also offer a tool that controls the fee rate automatically,
-      // e.g. based on past fee rates or market price arbitrage.
+      if (anchorWinner != null)
+        InsertBlockMined(anchorWinner);
 
       if (IsMining)
-      {
-        block = Token.MineBlock(
-          BlockchainRoot.HeaderTipBlockchain,
-          out TXOutputTokenAnchor anchorToken);
-
-        block.Serialize();
-
-        BlocksMinedCache.Add(block);
-
-        DatabaseBlocksMinedCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Hash,
-          ["blockBytes"] = block.Buffer
-        });
-
-        NetworkParent.MineTokenAnchor(anchorToken);
-      }
+        MineBlockNext();
     }
     catch
     {
       return;
     }
+  }
+
+  void LinkHeaderGenesis(Header headerParent, TXOutputTokenAnchor anchorWinner)
+  {
+    Header headerGenesis = BlockchainRoot.HeaderRoot;
+
+    if (headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced))
+      headerGenesis.HeaderParent = headerParent;
+  }
+
+  void InsertBlockMined(TXOutputTokenAnchor anchorWinner)
+  {
+    if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
+      return;
+
+    Header header = block.Header;
+
+    if (BlockchainRoot.QueueBlockMined(block) is Blockchain chain)
+    {
+      FlushBlocksToDatabase(chain);
+
+      lock (LOCK_Peers)
+        Peers.ForEach(p => HeadersMessage.SendHeaders(
+          p,
+          new List<byte[]> { header.Serialize() }));
+    }
+
+    BlocksMinedCache.Remove(block);
+    DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
+  }
+
+  void MineBlockNext()
+  {
+    // The user has to define the fee rate at which they want to pay for the anchoring.
+    // The GUI could also offer a tool that controls the fee rate automatically,
+    // e.g. based on past fee rates or market price arbitrage.
+
+    Block block = Token.MineBlock(
+      BlockchainRoot.HeaderTipBlockchain,
+      out TXOutputTokenAnchor anchorToken);
+
+    block.Serialize();
+
+    BlocksMinedCache.Add(block);
+
+    DatabaseBlocksMinedCollection.Insert(new BsonDocument
+    {
+      ["_id"] = block.Header.Hash,
+      ["blockBytes"] = block.Buffer
+    });
+
+    NetworkParent.MineTokenAnchor(anchorToken);
   }
 
   bool TryGetBlockMined(out Block block, byte[] hash)
