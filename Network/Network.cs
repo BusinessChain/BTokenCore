@@ -49,6 +49,9 @@ internal partial class Network
 
     BlockchainRoot = new(Token.CreateHeaderGenesis());
 
+    if (NetworkParent != null)
+      BlockchainRoot.HeaderRoot.HeaderParent = NetworkParent.BlockchainRoot.HeaderRoot;
+
     EnableInboundConnections = flagEnableInboundConnections;
     EnableRelay = flagEnableRelay;
 

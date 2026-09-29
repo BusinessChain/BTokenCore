@@ -281,9 +281,6 @@ internal partial class Network
 
   void OnBlockParentInserted(Header headerParent, TXOutputTokenAnchor anchorWinner)
   {
-    if (anchorWinner != null)
-      LinkHeaderGenesis(headerParent, anchorWinner);
-
     try
     {
       if (anchorWinner != null)
@@ -296,14 +293,6 @@ internal partial class Network
     {
       return;
     }
-  }
-
-  void LinkHeaderGenesis(Header headerParent, TXOutputTokenAnchor anchorWinner)
-  {
-    Header headerGenesis = BlockchainRoot.HeaderRoot;
-
-    if (headerGenesis.HeaderParent == null && headerGenesis.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced))
-      headerGenesis.HeaderParent = headerParent;
   }
 
   void InsertBlockMined(TXOutputTokenAnchor anchorWinner)
