@@ -1,8 +1,9 @@
 ﻿namespace BTokenCore;
 
+
 public class TXOutputTokenAnchor : TXOutput
 {
-  internal static byte[] IDENTIFIER_BTOKEN_PROTOCOL = new byte[] { (byte)'B', (byte)'T', (byte)'K' };
+  internal static byte[] IDENTIFIER_BTOKEN_PROTOCOL = [(byte)'B', (byte)'T', (byte)'K'];
 
   internal const byte OP_RETURN = 0x6A;
   internal const byte LengthDataAnchorToken = 70;

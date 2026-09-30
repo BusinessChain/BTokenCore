@@ -68,9 +68,10 @@ public partial class TokenBitcoin : Token
     {
       List<byte> tXRaw = new();
 
-      tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // version
+      tXRaw.AddRange([0x01, 0x00, 0x00, 0x00]); // version
 
       tXRaw.Add((byte)Inputs.Count);
+
       foreach (TXInputBitcoin input in Inputs)
       {
         tXRaw.AddRange(input.TXIDOutput);
@@ -87,8 +88,8 @@ public partial class TokenBitcoin : Token
         tXRaw.AddRange(output.Script);
       }
 
-      tXRaw.AddRange(new byte[] { 0x00, 0x00, 0x00, 0x00 }); // locktime
-      tXRaw.AddRange(new byte[] { 0x01, 0x00, 0x00, 0x00 }); // sighash
+      tXRaw.AddRange([0x00, 0x00, 0x00, 0x00]); // locktime
+      tXRaw.AddRange([0x01, 0x00, 0x00, 0x00]); // sighash
 
       SignTX(tXRaw, wallet);
 
