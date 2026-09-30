@@ -253,8 +253,10 @@ internal partial class Network
     }
   }
 
-  internal void OnBlockParentInserted(TXOutputTokenAnchor anchorWinner)
+  internal void OnBlockParentInserted(Block blockParent)
   {
+    blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner);
+
     try
     {
       if (anchorWinner != null)

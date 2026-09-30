@@ -13,7 +13,7 @@ public class Node
     NetworkBitcoin = new(
       communication,
       new TokenBitcoin(),
-      null,
+      headerRootParent: null,
       semaphoreBlockchain,
       flagEnableInboundConnections: false,
       flagEnableRelay: false);
@@ -21,16 +21,12 @@ public class Node
     NetworkBToken = new(
       communication,
       new TokenBToken(),
-      NetworkBitcoin.BlockchainRoot.HeaderRoot,
+      headerRootParent: NetworkBitcoin.BlockchainRoot.HeaderRoot,
       semaphoreBlockchain,
       flagEnableInboundConnections: true,
       flagEnableRelay: true);
 
-    NetworkBitcoin.OnBlockInserted = block =>
-    {
-      block.Header.AnchorsWinner.TryGetValue(NetworkBToken.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
-      NetworkBToken.OnBlockParentInserted(anchorWinner);
-    };
+    NetworkBitcoin.OnBlockInserted = NetworkBToken.OnBlockParentInserted;
 
     NetworkBToken.OnTokenAnchorMined = NetworkBitcoin.MineTokenAnchor;
   }
