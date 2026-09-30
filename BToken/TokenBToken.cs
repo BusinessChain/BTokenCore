@@ -31,7 +31,7 @@ public partial class TokenBToken : Token
   const int LENGTH_TX_P2PKH = 120;
 
 
-  public TokenBToken(ICommunication communication, Token tokenParent)
+  public TokenBToken()
     : base(id: "BTK", port: 8777)
   {
     TXPool = new PoolTXBToken(this);
@@ -43,13 +43,6 @@ public partial class TokenBToken : Token
     DatabaseMetaCollection = Database.GetCollection<BsonDocument>("meta");
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database?.Dispose(); };
-
-    Network = new Network(
-      communication,
-      tokenParent,
-      this,
-      flagEnableInboundConnections: true,
-      flagEnableRelay: true);
   }
 
   public override Header CreateHeaderGenesis()

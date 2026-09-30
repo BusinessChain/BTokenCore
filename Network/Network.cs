@@ -8,9 +8,6 @@ namespace BTokenCore;
 
 internal partial class Network
 {
-  internal Network NetworkParent;
-  internal List<Network> NetworksChild = new();
-
   internal Token Token;
 
   internal ICommunication Communication;
@@ -36,21 +33,19 @@ internal partial class Network
 
   internal Network(
     ICommunication communication,
-    Token tokenParent,
     Token token,
+    Header headerRootParent,
+    SemaphoreSlim semaphoreBlockchain,
     bool flagEnableInboundConnections,
     bool flagEnableRelay)
   {
     Communication = communication;
 
-    NetworkParent = tokenParent?.Network;
-    NetworkParent?.NetworksChild.Add(this);
     Token = token;
+    SemaphoreBlockchain = semaphoreBlockchain;
 
     BlockchainRoot = new(Token.CreateHeaderGenesis());
-
-    if (NetworkParent != null)
-      BlockchainRoot.HeaderRoot.HeaderParent = NetworkParent.BlockchainRoot.HeaderRoot;
+    BlockchainRoot.HeaderRoot.HeaderParent = headerRootParent;
 
     EnableInboundConnections = flagEnableInboundConnections;
     EnableRelay = flagEnableRelay;

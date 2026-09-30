@@ -6,8 +6,11 @@ namespace BTokenCore;
 
 internal partial class Network
 {
-  SemaphoreSlim SemaphoreBlockchainRoot = new(1);
+  SemaphoreSlim SemaphoreBlockchain;
   internal Blockchain BlockchainRoot;
+
+  internal Action<Block> OnBlockInserted;
+  internal Action<TXOutputTokenAnchor> OnTokenAnchorMined;
 
   bool IsMining;
   long FeePerByte;
@@ -20,8 +23,7 @@ internal partial class Network
     {
       await LockBlockchain();
 
-      if (NetworkParent.BlockchainRoot.HeaderTip.Height > BlockchainRoot.HeaderTip.Height)
-        GetHeadersMessage.SendGetHeaders(peer, BlockchainRoot.GetLocator());
+      GetHeadersMessage.SendGetHeaders(peer, BlockchainRoot.GetLocator());
     }
     finally
     {
@@ -31,18 +33,12 @@ internal partial class Network
 
   internal async Task LockBlockchain()
   {
-    if (NetworkParent != null)
-      await NetworkParent.LockBlockchain();
-
-    await SemaphoreBlockchainRoot.WaitAsync().ConfigureAwait(false);
+    await SemaphoreBlockchain.WaitAsync().ConfigureAwait(false);
   }
 
   internal void ReleaseLockBlockchain()
   {
-    if (NetworkParent != null)
-      NetworkParent.ReleaseLockBlockchain();
-    else
-      SemaphoreBlockchainRoot.Release();
+    SemaphoreBlockchain.Release();
   }
 
   internal async Task GetBlock(byte[] hash, Block blockLoad)
@@ -98,9 +94,7 @@ internal partial class Network
 
           Token.InsertBlock(blockLoad);
 
-          NotifyChildNetworks(
-            blockLoad,
-            (networkChild, headerParent, anchorWinner) => networkChild.OnBlockParentInserted(headerParent, anchorWinner));
+          OnBlockInserted?.Invoke(blockLoad);
         }
 
         height++;
@@ -243,9 +237,7 @@ internal partial class Network
           ["blockBytes"] = block.Buffer
         });
 
-        NotifyChildNetworks(
-          block,
-          (networkChild, headerParent, anchorWinner) => networkChild.OnBlockParentInserted(headerParent, anchorWinner));
+        OnBlockInserted?.Invoke(block);
       }
       else
       {
@@ -253,10 +245,6 @@ internal partial class Network
 
         DatabaseHeaderCollection.Delete(block.Header.Height);
         DatabaseBlockCollection.Delete(block.Header.Height);
-
-        NotifyChildNetworks(
-          block,
-          (networkChild, headerParent, anchorWinner) => networkChild.OnBlockParentRolledBack(headerParent, anchorWinner));
       }
 
       BlockchainRoot = chain; // is this necessary?
@@ -265,21 +253,7 @@ internal partial class Network
     }
   }
 
-  void NotifyChildNetworks(Block block, Action<Network, Header, TXOutputTokenAnchor> action)
-  {
-    foreach (Network networkChild in NetworksChild)
-    {
-      block.Header.AnchorsWinner.TryGetValue(networkChild.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
-      action(networkChild, block.Header, anchorWinner);
-    }
-  }
-
-  void OnBlockParentRolledBack(Header headerParent, TXOutputTokenAnchor anchorWinner)
-  {
-
-  }
-
-  void OnBlockParentInserted(Header headerParent, TXOutputTokenAnchor anchorWinner)
+  internal void OnBlockParentInserted(TXOutputTokenAnchor anchorWinner)
   {
     try
     {
@@ -336,7 +310,7 @@ internal partial class Network
       ["blockBytes"] = block.Buffer
     });
 
-    NetworkParent.MineTokenAnchor(anchorToken);
+    OnTokenAnchorMined(anchorToken);
   }
 
   bool TryGetBlockMined(out Block block, byte[] hash)
@@ -358,7 +332,7 @@ internal partial class Network
     return true;
   }
 
-  void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
+  internal void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
   {
     if (Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
       lock (LOCK_Peers)

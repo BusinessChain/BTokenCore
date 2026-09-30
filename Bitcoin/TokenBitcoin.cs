@@ -32,17 +32,10 @@ public partial class TokenBitcoin : Token
   List<TXOutputWallet> OutputsSpendableConfirmed = new();
 
 
-  public TokenBitcoin(ICommunication communication)
+  public TokenBitcoin()
     : base(id: "BTC", port: 8333)
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
-
-    Network = new Network(
-      communication,
-      null,
-      this,
-      flagEnableInboundConnections: false,
-      flagEnableRelay: false);
   }
 
   public override Header CreateHeaderGenesis()

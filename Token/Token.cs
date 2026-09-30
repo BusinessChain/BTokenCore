@@ -13,7 +13,6 @@ public abstract partial class Token : IToken
 
   internal const int LENGTH_ID_TOKEN = 4;
   internal byte[] IDToken = new byte [LENGTH_ID_TOKEN];
-  internal Network Network;
   internal Wallet Wallet;
 
   internal ConcurrentBag<Block> PoolBlocks = new();
@@ -39,11 +38,6 @@ public abstract partial class Token : IToken
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));
-  }
-
-  public void Start()
-  {
-    Network.Start();
   }
 
   internal abstract string[] GetSeedAddresses();
