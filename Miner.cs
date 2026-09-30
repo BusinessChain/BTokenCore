@@ -7,6 +7,8 @@ internal class Miner
 {
   Blockchain BlockchainBitcoin;
   Blockchain BlockchainBToken;
+  Network NetworkBitcoin;
+  Network NetworkBToken;
 
   bool IsMining;
   long FeePerByte;
@@ -16,10 +18,16 @@ internal class Miner
   ILiteCollection<BsonDocument> DatabaseBlocksMinedCollection;
 
 
-  internal Miner(Blockchain blockchainBitcoin, Blockchain blockchainBToken)
+  internal Miner(
+    Blockchain blockchainBitcoin,
+    Blockchain blockchainBToken,
+    Network networkBitcoin,
+    Network networkBToken)
   {
     BlockchainBitcoin = blockchainBitcoin;
     BlockchainBToken = blockchainBToken;
+    NetworkBitcoin = networkBitcoin;
+    NetworkBToken = networkBToken;
 
     LiteDatabase = new LiteDatabase("Filename=Miner.db;Mode=Exclusive");
     DatabaseBlocksMinedCollection = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
@@ -48,7 +56,8 @@ internal class Miner
     if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
       return;
 
-    BlockchainBToken.InsertBlockMined(block);
+    if (BlockchainBToken.InsertBlockMined(block))
+      NetworkBToken.AnnounceHeader(block.Header);
 
     BlocksMinedCache.Remove(block);
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
@@ -99,7 +108,7 @@ internal class Miner
   void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
   {
     if (BlockchainBitcoin.Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
-      BlockchainBitcoin.Broadcast(tX);
+      NetworkBitcoin.Broadcast(tX);
     else
     {
       IsMining = false;

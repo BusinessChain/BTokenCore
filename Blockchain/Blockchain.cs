@@ -8,20 +8,21 @@ internal partial class Blockchain
 {
   internal Token Token;
 
-  internal Network Network;
+  internal Branch BlockchainRoot;
+
+  internal Action<Block> OnBlockInserted;
 
   internal LiteDatabase LiteDatabase;
   internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
   internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
+  SemaphoreSlim SemaphoreBlockchain;
+
 
   internal Blockchain(
-    ICommunication communication,
     Token token,
     Header headerRootParent,
-    SemaphoreSlim semaphoreBlockchain,
-    bool flagEnableInboundConnections,
-    bool flagEnableRelay)
+    SemaphoreSlim semaphoreBlockchain)
   {
     Token = token;
     SemaphoreBlockchain = semaphoreBlockchain;
@@ -29,31 +30,10 @@ internal partial class Blockchain
     BlockchainRoot = new(Token.CreateHeaderGenesis());
     BlockchainRoot.HeaderRoot.HeaderParent = headerRootParent;
 
-    Network = new(
-      this,
-      communication,
-      token,
-      flagEnableInboundConnections,
-      flagEnableRelay);
-
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
     DatabaseBlockCollection = LiteDatabase.GetCollection<BsonDocument>("blocks");
   }
-
-  internal void Start()
-  {
-    LoadBlockchain();
-
-    Network.Start();
-  }
-
-
-  SemaphoreSlim SemaphoreBlockchain;
-  internal Branch BlockchainRoot;
-
-  internal Action<Block> OnBlockInserted;
-
 
   internal async Task LockBlockchain()
   {
@@ -91,7 +71,7 @@ internal partial class Blockchain
     }
   }
 
-  void LoadBlockchain()
+  internal void LoadBlockchain()
   {
     SHA256 sHA256 = SHA256.Create();
     Block blockLoad = new(Token);
@@ -230,21 +210,13 @@ internal partial class Blockchain
     }
   }
 
-  internal void InsertBlockMined(Block block)
+  internal bool InsertBlockMined(Block block)
   {
-    Header header = block.Header;
+    if (BlockchainRoot.QueueBlockMined(block) is not Branch chain)
+      return false;
 
-    if (BlockchainRoot.QueueBlockMined(block) is Branch chain)
-    {
-      FlushBlocksToDatabase(chain);
-
-      Network.AnnounceHeader(header);
-    }
-  }
-
-  internal void Broadcast(TX tX)
-  {
-    Network.Broadcast(tX);
+    FlushBlocksToDatabase(chain);
+    return true;
   }
 
   internal async Task<List<byte[]>> GetLocator()

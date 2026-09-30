@@ -4,6 +4,8 @@ public class Node
 {
   internal Blockchain BlockchainBitcoin;
   internal Blockchain BlockchainBToken;
+  internal Network NetworkBitcoin;
+  internal Network NetworkBToken;
   internal Miner Miner;
 
 
@@ -12,29 +14,40 @@ public class Node
     SemaphoreSlim semaphoreBlockchain = new(1);
 
     BlockchainBitcoin = new(
-      communication,
       new TokenBitcoin(),
       headerRootParent: null,
-      semaphoreBlockchain,
+      semaphoreBlockchain);
+
+    BlockchainBToken = new(
+      new TokenBToken(),
+      headerRootParent: BlockchainBitcoin.BlockchainRoot.HeaderRoot,
+      semaphoreBlockchain);
+
+    NetworkBitcoin = new(
+      BlockchainBitcoin,
+      communication,
+      BlockchainBitcoin.Token,
       flagEnableInboundConnections: false,
       flagEnableRelay: false);
 
-    BlockchainBToken = new(
+    NetworkBToken = new(
+      BlockchainBToken,
       communication,
-      new TokenBToken(),
-      headerRootParent: BlockchainBitcoin.BlockchainRoot.HeaderRoot,
-      semaphoreBlockchain,
+      BlockchainBToken.Token,
       flagEnableInboundConnections: true,
       flagEnableRelay: true);
 
-    Miner = new(BlockchainBitcoin, BlockchainBToken);
+    Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin, NetworkBToken);
 
     BlockchainBitcoin.OnBlockInserted = Miner.OnBlockBitcoinInserted;
   }
 
   public void Start()
   {
-    BlockchainBitcoin.Start();
-    BlockchainBToken.Start();
+    BlockchainBitcoin.LoadBlockchain();
+    BlockchainBToken.LoadBlockchain();
+
+    NetworkBitcoin.Start();
+    NetworkBToken.Start();
   }
 }
