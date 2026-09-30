@@ -8,7 +8,7 @@ internal partial class Blockchain
 {
   internal Token Token;
 
-  internal Branch BlockchainRoot;
+  Branch BlockchainRoot;
 
   internal Action<Block> OnBlockInserted;
 
@@ -21,14 +21,14 @@ internal partial class Blockchain
 
   internal Blockchain(
     Token token,
-    Header headerRootParent,
+    Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
     Token = token;
     SemaphoreBlockchain = semaphoreBlockchain;
 
     BlockchainRoot = new(Token.CreateHeaderGenesis());
-    BlockchainRoot.HeaderRoot.HeaderParent = headerRootParent;
+    BlockchainRoot.HeaderRoot.HeaderParent = blockchainParent?.BlockchainRoot.HeaderRoot;
 
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
@@ -69,6 +69,16 @@ internal partial class Blockchain
       blockLoad.Header = header;
       blockLoad.Parse();
     }
+  }
+
+  internal int GetHeight()
+  {
+    return BlockchainRoot.HeaderTipBlockchain.Height;
+  }
+
+  internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
+  {
+    return Token.MineBlock(BlockchainRoot.HeaderTipBlockchain, out anchorToken);
   }
 
   internal void LoadBlockchain()

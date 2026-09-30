@@ -15,12 +15,12 @@ public class Node
 
     BlockchainBitcoin = new(
       new TokenBitcoin(),
-      headerRootParent: null,
+      blockchainParent: null,
       semaphoreBlockchain);
 
     BlockchainBToken = new(
       new TokenBToken(),
-      headerRootParent: BlockchainBitcoin.BlockchainRoot.HeaderRoot,
+      blockchainParent: BlockchainBitcoin,
       semaphoreBlockchain);
 
     NetworkBitcoin = new(

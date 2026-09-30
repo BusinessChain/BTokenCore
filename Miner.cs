@@ -69,9 +69,7 @@ internal class Miner
     // The GUI could also offer a tool that controls the fee rate automatically,
     // e.g. based on past fee rates or market price arbitrage.
 
-    Block block = BlockchainBToken.Token.MineBlock(
-      BlockchainBToken.BlockchainRoot.HeaderTipBlockchain,
-      out TXOutputTokenAnchor anchorToken);
+    Block block = BlockchainBToken.MineBlock(out TXOutputTokenAnchor anchorToken);
 
     block.Serialize();
 

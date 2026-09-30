@@ -623,7 +623,7 @@ class VersionMessage : MessageNetworkProtocol
     VerAckMessage.Send(peer);
 
     if (peer.Connection == Peer.ConnectionType.INBOUND)
-      SendVersion(peer, Blockchain.BlockchainRoot.HeaderTip.Height);
+      SendVersion(peer, Blockchain.GetHeight());
   }
 
   internal override string GetCommand()

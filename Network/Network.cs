@@ -105,7 +105,7 @@ internal class Network
 
         Peer peer = new(this, socketCommunication, Peer.ConnectionType.OUTBOUND);
 
-        await peer.Start(Blockchain.BlockchainRoot.HeaderTipBlockchain.Height);
+        await peer.Start(Blockchain.GetHeight());
 
         return peer;
       }
@@ -169,7 +169,7 @@ internal class Network
 
         Peer peer = new(this, socketCommunication, Peer.ConnectionType.INBOUND);
 
-        await peer.Start(Blockchain.BlockchainRoot.HeaderTipBlockchain.Height);
+        await peer.Start(Blockchain.GetHeight());
 
         lock (LOCK_Peers)
           Peers.Add(peer);
