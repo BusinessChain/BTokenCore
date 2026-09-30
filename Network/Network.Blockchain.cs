@@ -10,11 +10,6 @@ internal partial class Network
   internal Blockchain BlockchainRoot;
 
   internal Action<Block> OnBlockInserted;
-  internal Action<TXOutputTokenAnchor> OnTokenAnchorMined;
-
-  bool IsMining;
-  long FeePerByte;
-  List<Block> BlocksMinedCache = new();
 
 
   internal async Task StartHeaderSync(Peer peer)
@@ -253,29 +248,8 @@ internal partial class Network
     }
   }
 
-  internal void OnBlockParentInserted(Block blockParent)
+  internal void InsertBlockMined(Block block)
   {
-    blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner);
-
-    try
-    {
-      if (anchorWinner != null)
-        InsertBlockMined(anchorWinner);
-
-      if (IsMining)
-        MineBlockNext();
-    }
-    catch
-    {
-      return;
-    }
-  }
-
-  void InsertBlockMined(TXOutputTokenAnchor anchorWinner)
-  {
-    if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
-      return;
-
     Header header = block.Header;
 
     if (BlockchainRoot.QueueBlockMined(block) is Blockchain chain)
@@ -287,63 +261,13 @@ internal partial class Network
           p,
           new List<byte[]> { header.Serialize() }));
     }
-
-    BlocksMinedCache.Remove(block);
-    DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
   }
 
-  void MineBlockNext()
+  internal void Broadcast(TX tX)
   {
-    // The user has to define the fee rate at which they want to pay for the anchoring.
-    // The GUI could also offer a tool that controls the fee rate automatically,
-    // e.g. based on past fee rates or market price arbitrage.
-
-    Block block = Token.MineBlock(
-      BlockchainRoot.HeaderTipBlockchain,
-      out TXOutputTokenAnchor anchorToken);
-
-    block.Serialize();
-
-    BlocksMinedCache.Add(block);
-
-    DatabaseBlocksMinedCollection.Insert(new BsonDocument
-    {
-      ["_id"] = block.Header.Hash,
-      ["blockBytes"] = block.Buffer
-    });
-
-    OnTokenAnchorMined(anchorToken);
-  }
-
-  bool TryGetBlockMined(out Block block, byte[] hash)
-  {
-    block = BlocksMinedCache
-      .Find(b => b.Header.Hash.IsAllBytesEqual(hash));
-
-    if (block == null)
-    {
-      BsonDocument bsonDocumentBlock = DatabaseBlocksMinedCollection.FindById(hash);
-
-      if (bsonDocumentBlock == null)
-        return false;
-
-      block = new(Token, bsonDocumentBlock["blockBytes"].AsBinary);
-      block.Parse();
-    }
-
-    return true;
-  }
-
-  internal void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
-  {
-    if (Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
-      lock (LOCK_Peers)
-        foreach (Peer peer in Peers)
-          peer.BroadcastTX(tX);
-    else
-    {
-      IsMining = false;
-    }
+    lock (LOCK_Peers)
+      foreach (Peer peer in Peers)
+        peer.BroadcastTX(tX);
   }
 
   internal async Task<List<byte[]>> GetLocator()

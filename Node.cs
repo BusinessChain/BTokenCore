@@ -4,6 +4,7 @@ public class Node
 {
   internal Network NetworkBitcoin;
   internal Network NetworkBToken;
+  internal Miner Miner;
 
 
   public Node(ICommunication communication)
@@ -26,9 +27,9 @@ public class Node
       flagEnableInboundConnections: true,
       flagEnableRelay: true);
 
-    NetworkBitcoin.OnBlockInserted = NetworkBToken.OnBlockParentInserted;
+    Miner = new(NetworkBitcoin, NetworkBToken);
 
-    NetworkBToken.OnTokenAnchorMined = NetworkBitcoin.MineTokenAnchor;
+    NetworkBitcoin.OnBlockInserted = Miner.OnBlockBitcoinInserted;
   }
 
   public void Start()
