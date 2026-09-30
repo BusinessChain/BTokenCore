@@ -12,20 +12,6 @@ internal partial class Network
   internal Action<Block> OnBlockInserted;
 
 
-  internal async Task StartHeaderSync(Peer peer)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      GetHeadersMessage.SendGetHeaders(peer, BlockchainRoot.GetLocator());
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
   internal async Task LockBlockchain()
   {
     await SemaphoreBlockchain.WaitAsync().ConfigureAwait(false);
@@ -101,63 +87,16 @@ internal partial class Network
       }
   }
 
-  const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
-  const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
-
-  async Task StartBlockDownloadDispatcher()
+  internal async Task<Header> GetHeaderDownload(Header headerTipPeer)
   {
-    while (true)
+    try
     {
-      await Task.Delay(TIMESPAN_LOOP_DISPATCHER_MILLISECONDS).ConfigureAwait(false);
-
-      List<Peer> peers;
-
-      lock (LOCK_Peers)
-        peers = Peers.ToList();
-
-      foreach (Peer peer in peers)
-      {
-        if (peer.IsDisposed() || !peer.SemaphorePeer.Wait(0))
-          continue;
-
-        try
-        {
-          BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
-          HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
-
-          if (blockMessage.BlockDownload.Header == null)
-          {
-            Header headerDownload;
-
-            try
-            {
-              await LockBlockchain();
-              headerDownload = FetchHeaderDownload(headersMessage.HeaderTipReceivedLast);
-            }
-            finally
-            {
-              ReleaseLockBlockchain();
-            }
-
-            if (headerDownload != null)
-            {
-              blockMessage.BlockDownload.Header = headerDownload;
-              blockMessage.TimeRequestBlock = DateTime.UtcNow;
-              await GetDataMessage.SendBlockRequest(peer, headerDownload.Hash);
-            }
-          }
-          else if (DateTime.UtcNow - blockMessage.TimeRequestBlock > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
-            peer.SocketCommunication.Dispose();
-        }
-        catch
-        {
-          peer.SocketCommunication.Dispose();
-        }
-        finally
-        {
-          peer.SemaphorePeer.Release();
-        }
-      }
+      await LockBlockchain();
+      return FetchHeaderDownload(headerTipPeer);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
     }
   }
 
@@ -256,18 +195,13 @@ internal partial class Network
     {
       FlushBlocksToDatabase(chain);
 
-      lock (LOCK_Peers)
-        Peers.ForEach(p => HeadersMessage.SendHeaders(
-          p,
-          new List<byte[]> { header.Serialize() }));
+      PeerConnector.AnnounceHeader(header);
     }
   }
 
   internal void Broadcast(TX tX)
   {
-    lock (LOCK_Peers)
-      foreach (Peer peer in Peers)
-        peer.BroadcastTX(tX);
+    PeerConnector.Broadcast(tX);
   }
 
   internal async Task<List<byte[]>> GetLocator()

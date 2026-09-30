@@ -562,8 +562,8 @@ class VerAckMessage : MessageNetworkProtocol
 
   internal override async Task Run(Peer peer)
   {
-    if (peer.Connection == Network.ConnectionType.OUTBOUND)
-      Network.StartHeaderSync(peer);
+    if (peer.Connection == Peer.ConnectionType.OUTBOUND)
+      await GetHeadersMessage.SendGetHeaders(peer, await Network.GetLocator());
   }
 
   internal override string GetCommand()
@@ -622,7 +622,7 @@ class VersionMessage : MessageNetworkProtocol
   {
     VerAckMessage.Send(peer);
 
-    if (peer.Connection == Network.ConnectionType.INBOUND)
+    if (peer.Connection == Peer.ConnectionType.INBOUND)
       SendVersion(peer, Network.BlockchainRoot.HeaderTip.Height);
   }
 

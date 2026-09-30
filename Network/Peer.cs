@@ -15,7 +15,9 @@ internal class Peer
   internal byte RelayOption;
 
   internal ISocketCommunication SocketCommunication;
-  internal Network.ConnectionType Connection;
+
+  internal enum ConnectionType { OUTBOUND, INBOUND };
+  internal ConnectionType Connection;
 
   internal enum StateProtocol
   {
@@ -36,18 +38,18 @@ internal class Peer
 
 
   internal Peer(
-    Network network,
+    PeerConnector peerConnector,
     ISocketCommunication socketCommunication,
-    Network.ConnectionType connection)
+    ConnectionType connection)
   {
-    Port = network.Token.Port;
-    ProtocolVersion = network.Token.ProtocolVersion;
-    NetworkServicesLocal = network.Token.NetworkServicesLocal;
-    NetworkServicesRemote = network.Token.NetworkServicesRemote;
-    UserAgent = network.Token.UserAgent;
-    RelayOption = network.EnableRelay ? (byte)0x01 : (byte)0x00;
+    Port = peerConnector.Token.Port;
+    ProtocolVersion = peerConnector.Token.ProtocolVersion;
+    NetworkServicesLocal = peerConnector.Token.NetworkServicesLocal;
+    NetworkServicesRemote = peerConnector.Token.NetworkServicesRemote;
+    UserAgent = peerConnector.Token.UserAgent;
+    RelayOption = peerConnector.EnableRelay ? (byte)0x01 : (byte)0x00;
 
-    ProtocolStateMachine = network.CreateStateMachineProtocol();
+    ProtocolStateMachine = peerConnector.CreateStateMachineProtocol();
     SocketCommunication = socketCommunication;
     Connection = connection;
   }
@@ -63,7 +65,7 @@ internal class Peer
 
     StartMessageReceiver();
 
-    if (Connection == Network.ConnectionType.OUTBOUND)
+    if (Connection == ConnectionType.OUTBOUND)
       VersionMessage.SendVersion(this, heightBlockchainTip);
   }
 
