@@ -1,277 +1,252 @@
-using LiteDB;
-using System.Security.Cryptography;
+using System.Net;
+using System.Net.Sockets;
 
 
 namespace BTokenCore;
 
-internal partial class Network
+internal class Network
 {
+  Blockchain Blockchain;
   internal Token Token;
 
-  internal PeerConnector PeerConnector;
+  ICommunication Communication;
 
-  internal LiteDatabase LiteDatabase;
-  internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
-  internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
+  const int COUNT_MAX_OUTBOUND_CONNECTIONS = 1;
+  const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
+  const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
+
+  const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
+  const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
+
+  bool EnableInboundConnections;
+  internal bool EnableRelay;
+
+  object LOCK_Peers = new();
+  List<Peer> Peers = new();
+
+  List<string> IPAddresses = new();
 
 
   internal Network(
+    Blockchain blockchain,
     ICommunication communication,
     Token token,
-    Header headerRootParent,
-    SemaphoreSlim semaphoreBlockchain,
     bool flagEnableInboundConnections,
     bool flagEnableRelay)
   {
+    Blockchain = blockchain;
+    Communication = communication;
     Token = token;
-    SemaphoreBlockchain = semaphoreBlockchain;
 
-    BlockchainRoot = new(Token.CreateHeaderGenesis());
-    BlockchainRoot.HeaderRoot.HeaderParent = headerRootParent;
-
-    PeerConnector = new(
-      this,
-      communication,
-      token,
-      flagEnableInboundConnections,
-      flagEnableRelay);
-
-    LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
-    DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
-    DatabaseBlockCollection = LiteDatabase.GetCollection<BsonDocument>("blocks");
+    EnableInboundConnections = flagEnableInboundConnections;
+    EnableRelay = flagEnableRelay;
   }
 
   internal void Start()
   {
-    LoadBlockchain();
+    StartPeerConnectorOutbound();
 
-    PeerConnector.Start();
-  }
+    if (EnableInboundConnections)
+      StartPeerConnectorInbound();
 
-
-  SemaphoreSlim SemaphoreBlockchain;
-  internal Branch BlockchainRoot;
-
-  internal Action<Block> OnBlockInserted;
-
-
-  internal async Task LockBlockchain()
-  {
-    await SemaphoreBlockchain.WaitAsync().ConfigureAwait(false);
-  }
-
-  internal void ReleaseLockBlockchain()
-  {
-    SemaphoreBlockchain.Release();
-  }
-
-  internal async Task GetBlock(byte[] hash, Block blockLoad)
-  {
-    Header header;
-    BsonDocument bsonDocumentBlock;
-
-    try
-    {
-      await LockBlockchain();
-
-      header = BlockchainRoot.GetHeader(hash);
-
-      bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-
-    if (bsonDocumentBlock != null)
-    {
-      blockLoad.Buffer = bsonDocumentBlock["blockBytes"].AsBinary;
-      blockLoad.Header = header;
-      blockLoad.Parse();
-    }
-  }
-
-  void LoadBlockchain()
-  {
-    SHA256 sHA256 = SHA256.Create();
-    Block blockLoad = new(Token);
-
-    int height = BlockchainRoot.HeaderRoot.Height + 1;
-    BsonDocument bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
-
-    while (bsonDocumentHeader != null)
-      try
-      {
-        byte[] headerBytes = bsonDocumentHeader["headerBytes"].AsBinary;
-        int startIndex = 0;
-
-        Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
-
-        BlockchainRoot.AppendHeader(header);
-
-        BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
-        if (bsonDocumentBlock != null)
-        {
-          blockLoad.Buffer = bsonDocumentHeader["blockBytes"].AsBinary;
-          blockLoad.Header = header;
-          blockLoad.Parse();
-
-          Token.InsertBlock(blockLoad);
-
-          OnBlockInserted?.Invoke(blockLoad);
-        }
-
-        height++;
-        bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
-      }
-      catch
-      {
-        break;
-      }
-  }
-
-  internal async Task<Header> GetHeaderDownload(Header headerTipPeer)
-  {
-    try
-    {
-      await LockBlockchain();
-      return FetchHeaderDownload(headerTipPeer);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
-  Header FetchHeaderDownload(Header headerTipPeer)
-  {
-    if (headerTipPeer == null
-      || headerTipPeer.Height <= BlockchainRoot.HeaderTipBlockchain.Height)
-      return null;
-
-    return BlockchainRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
-  }
-
-  internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      return BlockchainRoot.TryExtendHeaderchain(headers);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
-  internal async Task<Block> InsertBlockReturnNextBlock(Block block, Header headerTipPeer)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      Branch branch = BlockchainRoot.QueueBlock(block);
-
-      if (branch == null)
-      {
-        block.Header = null;
-        return block;
-      }
-
-      //Aber sollte das nicht nur bei BlockchainRoot passieren?
-      FlushBlocksToDatabase(branch);
-
-      block = Token.GetBlock();
-      block.Header = FetchHeaderDownload(headerTipPeer);
-
-      return block;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
-  void FlushBlocksToDatabase(Branch chain)
-  {
-    while (chain.TryGetBlockNext(out Block block, out bool isDirectionForward))
-    {
-      if (isDirectionForward)
-      {
-        Token.InsertBlock(block);
-
-        DatabaseHeaderCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["headerBytes"] = block.Header.Serialize()
-        });
-
-        DatabaseBlockCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["blockBytes"] = block.Buffer
-        });
-
-        OnBlockInserted?.Invoke(block);
-      }
-      else
-      {
-        Token.RollBack(block);
-
-        DatabaseHeaderCollection.Delete(block.Header.Height);
-        DatabaseBlockCollection.Delete(block.Header.Height);
-      }
-
-      BlockchainRoot = chain; // is this necessary?
-
-      Token.ReturnBlock(block);
-    }
-  }
-
-  internal void InsertBlockMined(Block block)
-  {
-    Header header = block.Header;
-
-    if (BlockchainRoot.QueueBlockMined(block) is Branch chain)
-    {
-      FlushBlocksToDatabase(chain);
-
-      PeerConnector.AnnounceHeader(header);
-    }
+    StartBlockDownloadDispatcher();
   }
 
   internal void Broadcast(TX tX)
   {
-    PeerConnector.Broadcast(tX);
+    lock (LOCK_Peers)
+      foreach (Peer peer in Peers)
+        peer.BroadcastTX(tX);
   }
 
-  internal async Task<List<byte[]>> GetLocator()
+  internal void AnnounceHeader(Header header)
   {
-    try
+    lock (LOCK_Peers)
+      Peers.ForEach(p => HeadersMessage.SendHeaders(
+        p,
+        new List<byte[]> { header.Serialize() }));
+  }
+
+  async Task StartPeerConnectorOutbound()
+  {
+    while (true)
     {
-      await LockBlockchain();
-      return BlockchainRoot.GetLocator();
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
+      int countPeers;
+
+      lock (LOCK_Peers)
+      {
+        Peers.RemoveAll(p => p.IsDisposed());
+        countPeers = Peers.Count;
+      }
+
+      if (countPeers < COUNT_MAX_OUTBOUND_CONNECTIONS)
+      {
+        Peer peer = await GetPeer();
+
+        lock (LOCK_Peers)
+          Peers.Add(peer);
+      }
+      else
+        await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
     }
   }
 
-  internal async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
-    List<byte[]> hashesLocator,
-    int maxCountHeaders)
+  async Task<Peer> GetPeer()
   {
-    try
+    while (true)
     {
-      await LockBlockchain();
-      return BlockchainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
+      try
+      {
+        //string iP = GetIPAddress();
+
+        string iP = "83.229.86.158"; // 84.74.69.100
+
+        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(Token, iP);
+
+        Peer peer = new(this, socketCommunication, Peer.ConnectionType.OUTBOUND);
+
+        await peer.Start(Blockchain.BlockchainRoot.HeaderTipBlockchain.Height);
+
+        return peer;
+      }
+      catch
+      {
+        await Task.Delay(1000);
+      }
     }
-    finally
+  }
+
+  string GetIPAddress()
+  {
+    while (IPAddresses.Count == 0)
     {
-      ReleaseLockBlockchain();
+      foreach (string dnsSeed in Token.GetSeedAddresses())
+      {
+        try
+        {
+          IPAddress[] addresses = Dns.GetHostAddresses(dnsSeed);
+
+          IPAddresses.AddRange(addresses
+            .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
+            .Select(x => x.ToString()));
+        }
+        catch
+        { }
+      }
+
+      IPAddresses = IPAddresses.Distinct().ToList();
+
+      if (IPAddresses.Count == 0)
+        Thread.Sleep(1000);
+    }
+
+    int index = Random.Shared.Next(IPAddresses.Count);
+
+    string ip = IPAddresses[index];
+    IPAddresses.RemoveAt(index);
+
+    return ip;
+  }
+
+  async Task StartPeerConnectorInbound()
+  {
+    Communication.StartListenerCommunicationInbound(Token.Port);
+
+    while (true)
+    {
+      ISocketCommunication socketCommunication = null;
+
+      try
+      {
+        socketCommunication = await Communication.AcceptSocketCommunicationInbound();
+
+        lock (LOCK_Peers)
+          if (Peers.Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
+            || Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + 1 > COUNT_MAX_INBOUND_CONNECTIONS)
+          {
+            throw new ProtocolException("Inbound request rejected.");
+          }
+
+        Peer peer = new(this, socketCommunication, Peer.ConnectionType.INBOUND);
+
+        await peer.Start(Blockchain.BlockchainRoot.HeaderTipBlockchain.Height);
+
+        lock (LOCK_Peers)
+          Peers.Add(peer);
+      }
+      catch
+      {
+        socketCommunication?.Dispose();
+
+        await Task.Delay(30_000).ConfigureAwait(false);
+      }
+    }
+  }
+
+  internal Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
+  {
+    Dictionary<string, MessageNetworkProtocol> protocol = new();
+
+    Block blockDownload = new(Token);
+    Block blockUpload = new(Token);
+
+    protocol.Add(GetDataMessage.Command, new GetDataMessage(Blockchain, blockUpload));
+    protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
+    protocol.Add(HeadersMessage.Command, new HeadersMessage(Blockchain));
+    protocol.Add(BlockMessage.Command, new BlockMessage(Blockchain, blockUpload));
+    protocol.Add(VerAckMessage.Command, new VerAckMessage(Blockchain));
+    protocol.Add(VersionMessage.Command, new VersionMessage(Blockchain));
+    protocol.Add(PingMessage.Command, new PingMessage());
+    protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
+    protocol.Add(UnknownMessage.Command, new UnknownMessage());
+
+    return protocol;
+  }
+
+  async Task StartBlockDownloadDispatcher()
+  {
+    while (true)
+    {
+      await Task.Delay(TIMESPAN_LOOP_DISPATCHER_MILLISECONDS).ConfigureAwait(false);
+
+      List<Peer> peers;
+
+      lock (LOCK_Peers)
+        peers = Peers.ToList();
+
+      foreach (Peer peer in peers)
+      {
+        if (peer.IsDisposed() || !peer.SemaphorePeer.Wait(0))
+          continue;
+
+        try
+        {
+          BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
+          HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
+
+          if (blockMessage.BlockDownload.Header == null)
+          {
+            Header headerDownload = await Blockchain.GetHeaderDownload(headersMessage.HeaderTipReceivedLast);
+
+            if (headerDownload != null)
+            {
+              blockMessage.BlockDownload.Header = headerDownload;
+              blockMessage.TimeRequestBlock = DateTime.UtcNow;
+              await GetDataMessage.SendBlockRequest(peer, headerDownload.Hash);
+            }
+          }
+          else if (DateTime.UtcNow - blockMessage.TimeRequestBlock > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
+            peer.SocketCommunication.Dispose();
+        }
+        catch
+        {
+          peer.SocketCommunication.Dispose();
+        }
+        finally
+        {
+          peer.SemaphorePeer.Release();
+        }
+      }
     }
   }
 }

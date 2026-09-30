@@ -38,18 +38,18 @@ internal class Peer
 
 
   internal Peer(
-    PeerConnector peerConnector,
+    Network network,
     ISocketCommunication socketCommunication,
     ConnectionType connection)
   {
-    Port = peerConnector.Token.Port;
-    ProtocolVersion = peerConnector.Token.ProtocolVersion;
-    NetworkServicesLocal = peerConnector.Token.NetworkServicesLocal;
-    NetworkServicesRemote = peerConnector.Token.NetworkServicesRemote;
-    UserAgent = peerConnector.Token.UserAgent;
-    RelayOption = peerConnector.EnableRelay ? (byte)0x01 : (byte)0x00;
+    Port = network.Token.Port;
+    ProtocolVersion = network.Token.ProtocolVersion;
+    NetworkServicesLocal = network.Token.NetworkServicesLocal;
+    NetworkServicesRemote = network.Token.NetworkServicesRemote;
+    UserAgent = network.Token.UserAgent;
+    RelayOption = network.EnableRelay ? (byte)0x01 : (byte)0x00;
 
-    ProtocolStateMachine = peerConnector.CreateStateMachineProtocol();
+    ProtocolStateMachine = network.CreateStateMachineProtocol();
     SocketCommunication = socketCommunication;
     Connection = connection;
   }

@@ -118,15 +118,15 @@ class BlockMessage : MessageNetworkProtocol
   internal Block BlockDownload;
   internal DateTime TimeRequestBlock;
 
-  Network Network;
+  Blockchain Blockchain;
 
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
-  internal BlockMessage(Network network, Block blockDownload)
+  internal BlockMessage(Blockchain blockchain, Block blockDownload)
     : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
     BlockDownload = blockDownload;
   }
 
@@ -147,7 +147,7 @@ class BlockMessage : MessageNetworkProtocol
 
     HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
-    BlockDownload = await Network.InsertBlockReturnNextBlock(BlockDownload, headersMessage.HeaderTipReceivedLast);
+    BlockDownload = await Blockchain.InsertBlockReturnNextBlock(BlockDownload, headersMessage.HeaderTipReceivedLast);
 
     if (BlockDownload.Header != null)
     {
@@ -171,7 +171,7 @@ class GetDataMessage : MessageNetworkProtocol
 {
   internal const string Command = "getdata";
 
-  Network Network;
+  Blockchain Blockchain;
 
   internal Block BlockUpload;
 
@@ -181,10 +181,10 @@ class GetDataMessage : MessageNetworkProtocol
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
-  internal GetDataMessage(Network network, Block blockUpload)
+  internal GetDataMessage(Blockchain blockchain, Block blockUpload)
     : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
     BlockUpload = blockUpload;
   }
 
@@ -200,14 +200,14 @@ class GetDataMessage : MessageNetworkProtocol
 
       if (inventory.Type == Inventory.InventoryType.MSG_TX)
       {
-        if (Network.Token.TryGetTX(inventory.Hash, out TX tXInPool))
+        if (Blockchain.Token.TryGetTX(inventory.Hash, out TX tXInPool))
           TXMessage.Send(peer, tXInPool.TXRaw);
       }
       else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
       {
         BlockUpload.Header = null;
 
-        await Network.GetBlock(inventory.Hash, BlockUpload);
+        await Blockchain.GetBlock(inventory.Hash, BlockUpload);
 
         if (BlockUpload.Header != null)
         {
@@ -248,7 +248,7 @@ class GetHeadersMessage : MessageNetworkProtocol
 {
   internal const string Command = "getheaders";
 
-  Network Network;
+  Blockchain Blockchain;
 
   internal int HeightAncestorSentLast;
 
@@ -256,10 +256,10 @@ class GetHeadersMessage : MessageNetworkProtocol
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
-  internal GetHeadersMessage(Network network)
+  internal GetHeadersMessage(Blockchain blockchain)
     : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
   }
 
   internal override async Task Run(Peer peer)
@@ -287,7 +287,7 @@ class GetHeadersMessage : MessageNetworkProtocol
     }
 
     (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-      await Network.GetHeadersSerialized( hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
+      await Blockchain.GetHeadersSerialized( hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
 
     HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
 
@@ -328,7 +328,7 @@ class HeadersMessage : MessageNetworkProtocol
 
   internal Header HeaderTipReceivedLast;
 
-  Network Network;
+  Blockchain Blockchain;
 
   const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
@@ -336,10 +336,10 @@ class HeadersMessage : MessageNetworkProtocol
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal HeadersMessage(Network network)
+  internal HeadersMessage(Blockchain blockchain)
     : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
   }
 
   internal override async Task Run(Peer peer)
@@ -356,11 +356,11 @@ class HeadersMessage : MessageNetworkProtocol
 
     for (int i = 0; i < countHeaders; i++)
     {
-      headers.Add(Network.Token.ParseHeader(Payload, ref startIndex, SHA256));
+      headers.Add(Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256));
       VarInt.GetInt(Payload, ref startIndex);
     }
 
-    HeaderTipReceivedLast = await Network.TryExtendHeaderchain(headers);
+    HeaderTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
 
     if (HeaderTipReceivedLast != null)
     {
@@ -398,16 +398,16 @@ class InvMessage : MessageNetworkProtocol
 
   internal List<Inventory> Inventories = new();
 
-  Network Network;
+  Blockchain Blockchain;
 
   const int SIZE_BUFFER_PAYLOAD = 36_003;
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
-  internal InvMessage(Network network)
+  internal InvMessage(Blockchain blockchain)
     : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
   }
 
   internal InvMessage(List<Inventory> inventories)
@@ -450,7 +450,7 @@ class InvMessage : MessageNetworkProtocol
     for (int i = 0; i < inventoryCount; i++)
       if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
       {
-        await GetHeadersMessage.SendGetHeaders(peer, await Network.GetLocator());
+        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
         return;
       }
   }
@@ -544,15 +544,15 @@ class VerAckMessage : MessageNetworkProtocol
 {
   internal const string Command = "verack";
 
-  Network Network;
+  Blockchain Blockchain;
 
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
 
 
-  internal VerAckMessage(Network network)
+  internal VerAckMessage(Blockchain blockchain)
     : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
   }
 
   internal static async Task Send(Peer peer)
@@ -563,7 +563,7 @@ class VerAckMessage : MessageNetworkProtocol
   internal override async Task Run(Peer peer)
   {
     if (peer.Connection == Peer.ConnectionType.OUTBOUND)
-      await GetHeadersMessage.SendGetHeaders(peer, await Network.GetLocator());
+      await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
   }
 
   internal override string GetCommand()
@@ -576,16 +576,16 @@ class VersionMessage : MessageNetworkProtocol
 {
   internal const string Command = "version";
 
-  Network Network;
+  Blockchain Blockchain;
 
   const int SIZE_BUFFER_PAYLOAD = 1_000;
   const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
 
 
-  internal VersionMessage(Network network)
+  internal VersionMessage(Blockchain blockchain)
     : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
   {
-    Network = network;
+    Blockchain = blockchain;
   }
 
   internal static byte[] GetBytes(UInt16 uint16)
@@ -623,7 +623,7 @@ class VersionMessage : MessageNetworkProtocol
     VerAckMessage.Send(peer);
 
     if (peer.Connection == Peer.ConnectionType.INBOUND)
-      SendVersion(peer, Network.BlockchainRoot.HeaderTip.Height);
+      SendVersion(peer, Blockchain.BlockchainRoot.HeaderTip.Height);
   }
 
   internal override string GetCommand()

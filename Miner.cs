@@ -5,8 +5,8 @@ namespace BTokenCore;
 
 internal class Miner
 {
-  Network NetworkBitcoin;
-  Network NetworkBToken;
+  Blockchain BlockchainBitcoin;
+  Blockchain BlockchainBToken;
 
   bool IsMining;
   long FeePerByte;
@@ -16,10 +16,10 @@ internal class Miner
   ILiteCollection<BsonDocument> DatabaseBlocksMinedCollection;
 
 
-  internal Miner(Network networkBitcoin, Network networkBToken)
+  internal Miner(Blockchain blockchainBitcoin, Blockchain blockchainBToken)
   {
-    NetworkBitcoin = networkBitcoin;
-    NetworkBToken = networkBToken;
+    BlockchainBitcoin = blockchainBitcoin;
+    BlockchainBToken = blockchainBToken;
 
     LiteDatabase = new LiteDatabase("Filename=Miner.db;Mode=Exclusive");
     DatabaseBlocksMinedCollection = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
@@ -27,7 +27,7 @@ internal class Miner
 
   internal void OnBlockBitcoinInserted(Block blockBitcoin)
   {
-    blockBitcoin.Header.AnchorsWinner.TryGetValue(NetworkBToken.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
+    blockBitcoin.Header.AnchorsWinner.TryGetValue(BlockchainBToken.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
 
     try
     {
@@ -48,7 +48,7 @@ internal class Miner
     if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
       return;
 
-    NetworkBToken.InsertBlockMined(block);
+    BlockchainBToken.InsertBlockMined(block);
 
     BlocksMinedCache.Remove(block);
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
@@ -60,8 +60,8 @@ internal class Miner
     // The GUI could also offer a tool that controls the fee rate automatically,
     // e.g. based on past fee rates or market price arbitrage.
 
-    Block block = NetworkBToken.Token.MineBlock(
-      NetworkBToken.BlockchainRoot.HeaderTipBlockchain,
+    Block block = BlockchainBToken.Token.MineBlock(
+      BlockchainBToken.BlockchainRoot.HeaderTipBlockchain,
       out TXOutputTokenAnchor anchorToken);
 
     block.Serialize();
@@ -89,7 +89,7 @@ internal class Miner
       if (bsonDocumentBlock == null)
         return false;
 
-      block = new(NetworkBToken.Token, bsonDocumentBlock["blockBytes"].AsBinary);
+      block = new(BlockchainBToken.Token, bsonDocumentBlock["blockBytes"].AsBinary);
       block.Parse();
     }
 
@@ -98,8 +98,8 @@ internal class Miner
 
   void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
   {
-    if (NetworkBitcoin.Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
-      NetworkBitcoin.Broadcast(tX);
+    if (BlockchainBitcoin.Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
+      BlockchainBitcoin.Broadcast(tX);
     else
     {
       IsMining = false;
