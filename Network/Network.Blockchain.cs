@@ -7,7 +7,7 @@ namespace BTokenCore;
 internal partial class Network
 {
   SemaphoreSlim SemaphoreBlockchain;
-  internal Blockchain BlockchainRoot;
+  internal Branch BlockchainRoot;
 
   internal Action<Block> OnBlockInserted;
 
@@ -190,7 +190,7 @@ internal partial class Network
     {
       await LockBlockchain();
 
-      Blockchain branch = BlockchainRoot.QueueBlock(block);
+      Branch branch = BlockchainRoot.QueueBlock(block);
 
       if (branch == null)
       {
@@ -212,7 +212,7 @@ internal partial class Network
     }
   }
 
-  void FlushBlocksToDatabase(Blockchain chain)
+  void FlushBlocksToDatabase(Branch chain)
   {
     while (chain.TryGetBlockNext(out Block block, out bool isDirectionForward))
     {
@@ -252,7 +252,7 @@ internal partial class Network
   {
     Header header = block.Header;
 
-    if (BlockchainRoot.QueueBlockMined(block) is Blockchain chain)
+    if (BlockchainRoot.QueueBlockMined(block) is Branch chain)
     {
       FlushBlocksToDatabase(chain);
 

@@ -1,13 +1,13 @@
 ﻿namespace BTokenCore;
 
-internal class Blockchain
+internal class Branch
 {
   internal Header HeaderTip;
   internal Header HeaderRoot;
   internal Header HeaderTipBlockchain;
 
-  Blockchain BlockchainParent;
-  List<Blockchain> BlockchainBranches = new();
+  Branch BlockchainParent;
+  List<Branch> BlockchainBranches = new();
 
   Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
   Header HeaderDownloadNext;
@@ -16,13 +16,13 @@ internal class Blockchain
   Dictionary<int, Block> QueueBlocks = new();
 
 
-  internal Blockchain(Header headerGenesis)
+  internal Branch(Header headerGenesis)
     : this(null, headerGenesis)
   { }
 
   internal Header TryExtendHeaderchain(List<Header> headers)
   {
-    Blockchain chain = this;
+    Branch chain = this;
     Header headerAncestor;
 
     if (!TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
@@ -35,7 +35,7 @@ internal class Blockchain
     {
       headers[0].AppendToHeader(headerAncestor);
 
-      Blockchain branch = new(chain, headers[0]);
+      Branch branch = new(chain, headers[0]);
       chain.BlockchainBranches.Add(branch);
       chain = branch;
     }
@@ -55,7 +55,7 @@ internal class Blockchain
   internal static bool TrySearchHeaderAncestor(
     List<Header> headers,
     out Header headerAncestor,
-    ref Blockchain chain)
+    ref Branch chain)
   {
     headerAncestor = chain.HeaderTip;
 
@@ -63,7 +63,7 @@ internal class Blockchain
     {
       if (headerAncestor == chain.HeaderRoot)
       {
-        foreach (Blockchain branch in chain.BlockchainBranches)
+        foreach (Branch branch in chain.BlockchainBranches)
         {
           chain = branch;
 
@@ -91,7 +91,7 @@ internal class Blockchain
    
   internal void Promote()
   {
-    Blockchain chainParent = BlockchainParent;
+    Branch chainParent = BlockchainParent;
     Header headerAncestor = HeaderRoot.HeaderPrevious;
     Header headerRootParentNew = headerAncestor.HeaderNext;
 
@@ -99,14 +99,14 @@ internal class Blockchain
     HeaderRoot = chainParent.HeaderRoot;
     chainParent.HeaderRoot = headerRootParentNew;
 
-    List<Blockchain> branchesGrandparent = chainParent.BlockchainParent.BlockchainBranches;
+    List<Branch> branchesGrandparent = chainParent.BlockchainParent.BlockchainBranches;
     branchesGrandparent[branchesGrandparent.IndexOf(chainParent)] = this;
     BlockchainParent = chainParent.BlockchainParent;
 
     chainParent.BlockchainBranches.Remove(this);
     chainParent.BlockchainParent = this;
 
-    foreach (Blockchain branch in chainParent.BlockchainBranches
+    foreach (Branch branch in chainParent.BlockchainBranches
       .Where(b => b.HeaderRoot.HeaderPrevious.Height <= headerAncestor.Height).ToList())
     {
       chainParent.BlockchainBranches.Remove(branch);
@@ -159,7 +159,7 @@ internal class Blockchain
     HeaderTip = header;
   }
 
-  internal Blockchain FindChain(Header header)
+  internal Branch FindChain(Header header)
   {
     if (HeaderRoot.Height <= header.Height && header.Height <= HeaderTip.Height)
     {
@@ -172,8 +172,8 @@ internal class Blockchain
         return this;
     }
 
-    foreach (Blockchain branch in BlockchainBranches)
-      if (branch.FindChain(header) is Blockchain chain)
+    foreach (Branch branch in BlockchainBranches)
+      if (branch.FindChain(header) is Branch chain)
         return chain;
 
     return null;
@@ -185,7 +185,7 @@ internal class Blockchain
       ?? FetchAlongPath(heightMax, (chain, height) => chain.GetHeaderAwaitingBlockLowest(height));
   }
 
-  Header FetchAlongPath(int heightMax, Func<Blockchain, int, Header> fetch)
+  Header FetchAlongPath(int heightMax, Func<Branch, int, Header> fetch)
   {
     if (BlockchainParent?.FetchAlongPath(HeaderRoot.Height - 1, fetch) is Header header)
       return header;
@@ -213,7 +213,7 @@ internal class Blockchain
       .MinBy(h => h.Height);
   }
 
-  internal Blockchain QueueBlock(Block block)
+  internal Branch QueueBlock(Block block)
   {
     if (HeadersAwaitingBlock.Remove(block.Header.Hash))
     {
@@ -221,18 +221,18 @@ internal class Blockchain
       return this;
     }
 
-    foreach (Blockchain branch in BlockchainBranches)
-      if (branch.QueueBlock(block) is Blockchain chain)
+    foreach (Branch branch in BlockchainBranches)
+      if (branch.QueueBlock(block) is Branch chain)
         return chain;
 
     return null;
   }
 
-  internal Blockchain QueueBlockMined(Block block)
+  internal Branch QueueBlockMined(Block block)
   {
     TryExtendHeaderchain(new List<Header> { block.Header });
 
-    if (FindChain(block.Header) is not Blockchain chain)
+    if (FindChain(block.Header) is not Branch chain)
       return null;
 
     if (chain.HeaderDownloadNext == block.Header)
@@ -245,7 +245,7 @@ internal class Blockchain
 
   internal bool TryGetBlockNext( out Block block, out bool isDirectionForward)
   {
-    Blockchain blockchainRoot = GetRootChain();
+    Branch blockchainRoot = GetRootChain();
     isDirectionForward = true;
 
     while(QueueBlocks.Remove(HeaderTipBlockchain.Height + 1, out block))
@@ -326,7 +326,7 @@ internal class Blockchain
   }
 
 
-  Blockchain(Blockchain blockchainParent, Header headerRoot)
+  Branch(Branch blockchainParent, Header headerRoot)
   {
     BlockchainParent = blockchainParent;
     HeaderRoot = headerRoot;
@@ -334,7 +334,7 @@ internal class Blockchain
     HeaderDownloadNext = headerRoot;
   }
 
-  Blockchain GetRootChain()
+  Branch GetRootChain()
   {
     if (BlockchainParent != null)
       return BlockchainParent.GetRootChain();
@@ -351,7 +351,7 @@ internal class Blockchain
     return block;
   }
 
-  void SwitchWithRootBranch(Blockchain blockchainRootOld)
+  void SwitchWithRootBranch(Branch blockchainRootOld)
   {
     HeaderRoot = blockchainRootOld.HeaderRoot;
     blockchainRootOld.HeaderRoot = blockchainRootOld.HeaderTipBlockchain.HeaderNext;
@@ -363,7 +363,7 @@ internal class Blockchain
     BlockchainParent = null;
   }
 
-  bool IsStrongerThan(Blockchain blockchain)
+  bool IsStrongerThan(Branch blockchain)
   {
     return HeaderTipBlockchain.Height >
       blockchain.HeaderTipBlockchain.Height;
