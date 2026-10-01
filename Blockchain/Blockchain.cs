@@ -164,9 +164,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      Branch branch = BlockchainRoot.QueueBlock(block);
-
-      if (branch == null)
+      if (!BlockchainRoot.TryQueueBlock(block, out Branch branch))
       {
         block.Header = null;
         return block;

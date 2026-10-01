@@ -214,19 +214,21 @@ internal partial class Blockchain
         .MinBy(h => h.Height);
     }
 
-    internal Branch QueueBlock(Block block)
+    internal bool TryQueueBlock(Block block, out Branch branchQueued)
     {
       if (HeadersAwaitingBlock.Remove(block.Header.Hash))
       {
         QueueBlocks.Add(block.Header.Height, block);
-        return this;
+        branchQueued = this;
+        return true;
       }
 
       foreach (Branch branch in BlockchainBranches)
-        if (branch.QueueBlock(block) is Branch chain)
-          return chain;
+        if (branch.TryQueueBlock(block, out branchQueued))
+          return true;
 
-      return null;
+      branchQueued = null;
+      return false;
     }
 
     internal Branch QueueBlockMined(Block block)
