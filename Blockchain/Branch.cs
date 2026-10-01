@@ -48,10 +48,6 @@ internal partial class Blockchain
       for (int i = 1; i < headers.Count; i++)
         chain.AppendHeader(headers[i]);
 
-      while (chain.BranchParent?.BranchParent != null
-        && chain.BranchParent.HeaderTip.Height < chain.HeaderTip.Height)
-        chain.Promote();
-
       return headers[^1];
     }
 
@@ -90,64 +86,6 @@ internal partial class Blockchain
       }
 
       return true;
-    }
-
-    internal void Promote()
-    {
-      Branch chainParent = BranchParent;
-      Header headerAncestor = HeaderRoot.HeaderPrevious;
-      Header headerRootParentNew = headerAncestor.HeaderNext;
-
-      headerAncestor.HeaderNext = HeaderRoot;
-      HeaderRoot = chainParent.HeaderRoot;
-      chainParent.HeaderRoot = headerRootParentNew;
-
-      List<Branch> branchesGrandparent = chainParent.BranchParent.Branches;
-      branchesGrandparent[branchesGrandparent.IndexOf(chainParent)] = this;
-      BranchParent = chainParent.BranchParent;
-
-      chainParent.Branches.Remove(this);
-      chainParent.BranchParent = this;
-
-      foreach (Branch branch in chainParent.Branches
-        .Where(b => b.HeaderRoot.HeaderPrevious.Height <= headerAncestor.Height).ToList())
-      {
-        chainParent.Branches.Remove(branch);
-        Branches.Add(branch);
-        branch.BranchParent = this;
-      }
-
-      Branches.Add(chainParent);
-
-      foreach (Header header in chainParent.HeadersAwaitingBlock.Values
-        .Where(h => h.Height <= headerAncestor.Height).ToList())
-      {
-        chainParent.HeadersAwaitingBlock.Remove(header.Hash);
-        HeadersAwaitingBlock.Add(header.Hash, header);
-      }
-
-      foreach (int height in chainParent.QueueBlocks.Keys
-        .Where(h => h <= headerAncestor.Height).ToList())
-      {
-        QueueBlocks.Add(height, chainParent.QueueBlocks[height]);
-        chainParent.QueueBlocks.Remove(height);
-      }
-
-      foreach (int height in chainParent.BlocksBranch.Keys
-        .Where(h => h <= headerAncestor.Height).ToList())
-      {
-        BlocksBranch.Add(height, chainParent.BlocksBranch[height]);
-        chainParent.BlocksBranch.Remove(height);
-      }
-
-      if (chainParent.HeaderTipBlockchain?.Height < headerAncestor.Height)
-        HeaderTipBlockchain = chainParent.HeaderTipBlockchain;
-
-      if (chainParent.HeaderDownloadNext?.Height <= headerAncestor.Height)
-      {
-        HeaderDownloadNext = chainParent.HeaderDownloadNext;
-        chainParent.HeaderDownloadNext = chainParent.HeaderRoot;
-      }
     }
 
     internal Header GetHeader(byte[] hash)
