@@ -9,7 +9,7 @@ internal partial class Blockchain
 {
   internal Token Token;
 
-  Branch BlockchainRoot;
+  Branch BranchRoot;
 
   internal Action<Block> OnBlockInserted;
 
@@ -30,8 +30,8 @@ internal partial class Blockchain
     Token = token;
     SemaphoreBlockchain = semaphoreBlockchain;
 
-    BlockchainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
-    BlockchainRoot.HeaderRoot.HeaderParent = blockchainParent?.BlockchainRoot.HeaderRoot;
+    BranchRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
+    BranchRoot.HeaderRoot.HeaderParent = blockchainParent?.BranchRoot.HeaderRoot;
 
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
@@ -57,7 +57,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      header = BlockchainRoot.GetHeader(hash);
+      header = BranchRoot.GetHeader(hash);
 
       bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
     }
@@ -76,12 +76,12 @@ internal partial class Blockchain
 
   internal int GetHeight()
   {
-    return BlockchainRoot.HeaderTipBlockchain.Height;
+    return BranchRoot.HeaderTipBlockchain.Height;
   }
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
-    return Token.MineBlock(BlockchainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
+    return Token.MineBlock(BranchRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
   }
 
   Block TakeBlockFromPool()
@@ -97,7 +97,7 @@ internal partial class Blockchain
     SHA256 sHA256 = SHA256.Create();
     Block blockLoad = new(Token);
 
-    int height = BlockchainRoot.HeaderRoot.Height + 1;
+    int height = BranchRoot.HeaderRoot.Height + 1;
     BsonDocument bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
 
     while (bsonDocumentHeader != null)
@@ -108,7 +108,7 @@ internal partial class Blockchain
 
         Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
 
-        BlockchainRoot.AppendHeader(header);
+        BranchRoot.AppendHeader(header);
 
         BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
         if (bsonDocumentBlock != null)
@@ -119,7 +119,7 @@ internal partial class Blockchain
 
           Token.InsertBlock(blockLoad);
 
-          BlockchainRoot.HeaderTipBlockchain = header;
+          BranchRoot.HeaderTipBlockchain = header;
 
           OnBlockInserted?.Invoke(blockLoad);
         }
@@ -149,10 +149,10 @@ internal partial class Blockchain
   Header FetchHeaderDownload(Header headerTipPeer)
   {
     if (headerTipPeer == null
-      || headerTipPeer.Height <= BlockchainRoot.HeaderTipBlockchain.Height)
+      || headerTipPeer.Height <= BranchRoot.HeaderTipBlockchain.Height)
       return null;
 
-    return BlockchainRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
+    return BranchRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
   }
 
   internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
@@ -161,7 +161,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      return BlockchainRoot.TryExtendHeaderchain(headers);
+      return BranchRoot.TryExtendHeaderchain(headers);
     }
     finally
     {
@@ -175,21 +175,21 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      if (!BlockchainRoot.TryQueueBlock(block, out Branch branch))
+      if (!BranchRoot.TryQueueBlock(block, out Branch branch))
       {
         block.Header = null;
         return block;
       }
 
-      if (branch == BlockchainRoot)
-        while (BlockchainRoot.TryGetBlockNext(out block))
+      if (branch == BranchRoot)
+        while (BranchRoot.TryGetBlockNext(out block))
           InsertBlock(block);
       else
       {
         while (branch.TryGetBlockNext(out block))
           branch.BlocksBranch.Add(block.Header.Height, block);
 
-        if (branch.IsStrongerThan(BlockchainRoot))
+        if (branch.IsStrongerThan(BranchRoot))
           Reorg(branch);
       }
 
@@ -208,9 +208,9 @@ internal partial class Blockchain
   {
     int heightFork = branch.HeaderRoot.Height - 1;
 
-    while (BlockchainRoot.HeaderTipBlockchain.Height > heightFork)
+    while (BranchRoot.HeaderTipBlockchain.Height > heightFork)
     {
-      Header header = BlockchainRoot.HeaderTipBlockchain;
+      Header header = BranchRoot.HeaderTipBlockchain;
       Block block = TakeBlockFromPool();
 
       block.LoadBuffer(DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary);
@@ -222,7 +222,7 @@ internal partial class Blockchain
       DatabaseHeaderCollection.Delete(header.Height);
       DatabaseBlockCollection.Delete(header.Height);
 
-      BlockchainRoot.HeaderTipBlockchain = header.HeaderPrevious;
+      BranchRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
       PoolBlocks.Add(block);
     }
@@ -230,8 +230,8 @@ internal partial class Blockchain
     foreach (Block block in branch.TakeBlocksBranch())
       InsertBlock(block);
 
-    branch.SwitchWithRootBranch(BlockchainRoot);
-    BlockchainRoot = branch;
+    branch.SwitchWithRootBranch(BranchRoot);
+    BranchRoot = branch;
   }
 
   void InsertBlock(Block block)
@@ -260,7 +260,7 @@ internal partial class Blockchain
     try
     {
       await LockBlockchain();
-      return BlockchainRoot.GetLocator();
+      return BranchRoot.GetLocator();
     }
     finally
     {
@@ -275,7 +275,7 @@ internal partial class Blockchain
     try
     {
       await LockBlockchain();
-      return BlockchainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
+      return BranchRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
     }
     finally
     {

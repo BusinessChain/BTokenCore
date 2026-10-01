@@ -8,8 +8,8 @@ internal partial class Blockchain
     internal Header HeaderRoot;
     internal Header HeaderTipBlockchain;
 
-    Branch BlockchainParent;
-    List<Branch> BlockchainBranches = new();
+    Branch BranchParent;
+    List<Branch> Branches = new();
 
     Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
     Header HeaderDownloadNext;
@@ -39,7 +39,7 @@ internal partial class Blockchain
         headers[0].AppendToHeader(headerAncestor);
 
         Branch branch = new(chain, headers[0], isRoot: false);
-        chain.BlockchainBranches.Add(branch);
+        chain.Branches.Add(branch);
         chain = branch;
       }
       else
@@ -48,8 +48,8 @@ internal partial class Blockchain
       for (int i = 1; i < headers.Count; i++)
         chain.AppendHeader(headers[i]);
 
-      while (chain.BlockchainParent?.BlockchainParent != null
-        && chain.BlockchainParent.HeaderTip.Height < chain.HeaderTip.Height)
+      while (chain.BranchParent?.BranchParent != null
+        && chain.BranchParent.HeaderTip.Height < chain.HeaderTip.Height)
         chain.Promote();
 
       return headers[^1];
@@ -66,7 +66,7 @@ internal partial class Blockchain
       {
         if (headerAncestor == chain.HeaderRoot)
         {
-          foreach (Branch branch in chain.BlockchainBranches)
+          foreach (Branch branch in chain.Branches)
           {
             chain = branch;
 
@@ -94,7 +94,7 @@ internal partial class Blockchain
 
     internal void Promote()
     {
-      Branch chainParent = BlockchainParent;
+      Branch chainParent = BranchParent;
       Header headerAncestor = HeaderRoot.HeaderPrevious;
       Header headerRootParentNew = headerAncestor.HeaderNext;
 
@@ -102,22 +102,22 @@ internal partial class Blockchain
       HeaderRoot = chainParent.HeaderRoot;
       chainParent.HeaderRoot = headerRootParentNew;
 
-      List<Branch> branchesGrandparent = chainParent.BlockchainParent.BlockchainBranches;
+      List<Branch> branchesGrandparent = chainParent.BranchParent.Branches;
       branchesGrandparent[branchesGrandparent.IndexOf(chainParent)] = this;
-      BlockchainParent = chainParent.BlockchainParent;
+      BranchParent = chainParent.BranchParent;
 
-      chainParent.BlockchainBranches.Remove(this);
-      chainParent.BlockchainParent = this;
+      chainParent.Branches.Remove(this);
+      chainParent.BranchParent = this;
 
-      foreach (Branch branch in chainParent.BlockchainBranches
+      foreach (Branch branch in chainParent.Branches
         .Where(b => b.HeaderRoot.HeaderPrevious.Height <= headerAncestor.Height).ToList())
       {
-        chainParent.BlockchainBranches.Remove(branch);
-        BlockchainBranches.Add(branch);
-        branch.BlockchainParent = this;
+        chainParent.Branches.Remove(branch);
+        Branches.Add(branch);
+        branch.BranchParent = this;
       }
 
-      BlockchainBranches.Add(chainParent);
+      Branches.Add(chainParent);
 
       foreach (Header header in chainParent.HeadersAwaitingBlock.Values
         .Where(h => h.Height <= headerAncestor.Height).ToList())
@@ -181,7 +181,7 @@ internal partial class Blockchain
           return this;
       }
 
-      foreach (Branch branch in BlockchainBranches)
+      foreach (Branch branch in Branches)
         if (branch.FindChain(header) is Branch chain)
           return chain;
 
@@ -196,7 +196,7 @@ internal partial class Blockchain
 
     Header FetchAlongPath(int heightMax, Func<Branch, int, Header> fetch)
     {
-      if (BlockchainParent?.FetchAlongPath(HeaderRoot.Height - 1, fetch) is Header header)
+      if (BranchParent?.FetchAlongPath(HeaderRoot.Height - 1, fetch) is Header header)
         return header;
 
       return fetch(this, heightMax);
@@ -231,7 +231,7 @@ internal partial class Blockchain
         return true;
       }
 
-      foreach (Branch branch in BlockchainBranches)
+      foreach (Branch branch in Branches)
         if (branch.TryQueueBlock(block, out branchQueued))
           return true;
 
@@ -329,7 +329,7 @@ internal partial class Blockchain
 
     Branch(Branch blockchainParent, Header headerRoot, bool isRoot)
     {
-      BlockchainParent = blockchainParent;
+      BranchParent = blockchainParent;
       HeaderRoot = headerRoot;
       HeaderTip = headerRoot;
 
@@ -339,16 +339,16 @@ internal partial class Blockchain
       HeaderDownloadNext = headerRoot;
     }
 
-    internal void SwitchWithRootBranch(Branch blockchainRootOld)
+    internal void SwitchWithRootBranch(Branch branchRootOld)
     {
-      HeaderRoot = blockchainRootOld.HeaderRoot;
-      blockchainRootOld.HeaderRoot = blockchainRootOld.HeaderTipBlockchain.HeaderNext;
+      HeaderRoot = branchRootOld.HeaderRoot;
+      branchRootOld.HeaderRoot = branchRootOld.HeaderTipBlockchain.HeaderNext;
 
-      BlockchainBranches.Add(blockchainRootOld);
-      BlockchainParent.BlockchainBranches.Remove(this);
+      Branches.Add(branchRootOld);
+      BranchParent.Branches.Remove(this);
 
-      blockchainRootOld.BlockchainParent = this;
-      BlockchainParent = null;
+      branchRootOld.BranchParent = this;
+      BranchParent = null;
     }
 
     internal bool IsStrongerThan(Branch blockchain)
