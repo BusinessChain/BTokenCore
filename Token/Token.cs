@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using System.Security.Cryptography;
-using System.Collections.Concurrent;
 
 
 namespace BTokenCore;
@@ -14,8 +13,6 @@ public abstract partial class Token : IToken
   internal const int LENGTH_ID_TOKEN = 4;
   internal byte[] IDToken = new byte [LENGTH_ID_TOKEN];
   internal Wallet Wallet;
-
-  internal ConcurrentBag<Block> PoolBlocks = new();
 
   internal int SizeBlockMax;
 
@@ -64,19 +61,6 @@ public abstract partial class Token : IToken
     return SizeBlockMax;
   }
 
-  internal Block GetBlock()
-  {
-    if (!PoolBlocks.TryTake(out Block block))
-      block = new Block(this);
-
-    return block;
-  }
-
-  internal void ReturnBlock(Block block)
-  {
-    PoolBlocks.Add(block);
-  }
-
   public abstract Header CreateHeaderGenesis();
 
   internal abstract bool TryGetTX(byte[] hash, out TX tX);
@@ -96,7 +80,7 @@ public abstract partial class Token : IToken
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
-  public virtual Block MineBlock(Header headerPrevious, out TXOutputTokenAnchor anchorToken)
+  public virtual Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
   internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)

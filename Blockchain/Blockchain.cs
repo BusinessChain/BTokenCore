@@ -1,5 +1,6 @@
 using LiteDB;
 using System.Security.Cryptography;
+using System.Collections.Concurrent;
 
 
 namespace BTokenCore;
@@ -17,6 +18,8 @@ internal partial class Blockchain
   internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
   SemaphoreSlim SemaphoreBlockchain;
+
+  ConcurrentBag<Block> PoolBlocks = new();
 
 
   internal Blockchain(
@@ -78,7 +81,15 @@ internal partial class Blockchain
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
-    return Token.MineBlock(BlockchainRoot.HeaderTipBlockchain, out anchorToken);
+    return Token.MineBlock(BlockchainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
+  }
+
+  Block TakeBlockFromPool()
+  {
+    if (!PoolBlocks.TryTake(out Block block))
+      block = new Block(Token);
+
+    return block;
   }
 
   internal void LoadBlockchain()
@@ -182,7 +193,7 @@ internal partial class Blockchain
           Reorg(branch);
       }
 
-      block = Token.GetBlock();
+      block = TakeBlockFromPool();
       block.Header = FetchHeaderDownload(headerTipPeer);
 
       return block;
@@ -200,7 +211,7 @@ internal partial class Blockchain
     while (BlockchainRoot.HeaderTipBlockchain.Height > heightFork)
     {
       Header header = BlockchainRoot.HeaderTipBlockchain;
-      Block block = Token.GetBlock();
+      Block block = TakeBlockFromPool();
 
       block.Buffer = DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary;
       block.Header = header;
@@ -213,7 +224,7 @@ internal partial class Blockchain
 
       BlockchainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
-      Token.ReturnBlock(block);
+      PoolBlocks.Add(block);
     }
 
     foreach (Block block in branch.TakeBlocksBranch())
@@ -241,7 +252,7 @@ internal partial class Blockchain
 
     OnBlockInserted?.Invoke(block);
 
-    Token.ReturnBlock(block);
+    PoolBlocks.Add(block);
   }
 
   internal async Task<List<byte[]>> GetLocator()
