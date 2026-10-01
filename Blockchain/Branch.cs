@@ -18,8 +18,8 @@ internal partial class Blockchain
     Dictionary<int, Block> QueueBlocks = new();
 
 
-    internal Branch(Header headerGenesis)
-      : this(null, headerGenesis)
+    internal Branch(Header headerGenesis, bool isRoot)
+      : this(null, headerGenesis, isRoot)
     { }
 
     internal Header TryExtendHeaderchain(List<Header> headers)
@@ -37,7 +37,7 @@ internal partial class Blockchain
       {
         headers[0].AppendToHeader(headerAncestor);
 
-        Branch branch = new(chain, headers[0]);
+        Branch branch = new(chain, headers[0], isRoot: false);
         chain.BlockchainBranches.Add(branch);
         chain = branch;
       }
@@ -132,8 +132,7 @@ internal partial class Blockchain
         chainParent.QueueBlocks.Remove(height);
       }
 
-      // HeaderTipBlockchain and possibly HeaderTipBlockchain may have to be set to null in the parent.
-      if (chainParent.HeaderTipBlockchain.Height < headerAncestor.Height)
+      if (chainParent.HeaderTipBlockchain?.Height < headerAncestor.Height)
         HeaderTipBlockchain = chainParent.HeaderTipBlockchain;
 
       if (chainParent.HeaderDownloadNext?.Height <= headerAncestor.Height)
@@ -247,27 +246,31 @@ internal partial class Blockchain
 
     internal bool TryGetBlockNext( out Block block, out bool isDirectionForward)
     {
-      Branch blockchainRoot = GetRootChain();
+      Branch blockChainRoot = GetRootChain();
       isDirectionForward = true;
 
-      while(QueueBlocks.Remove(HeaderTipBlockchain.Height + 1, out block))
+      int heightBlockNext = HeaderTipBlockchain != null 
+        ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
+
+      while (QueueBlocks.Remove(heightBlockNext, out block))
       {
         HeaderTipBlockchain = block.Header;
+        heightBlockNext += 1;
 
-        if (this == blockchainRoot)
+        if (this == blockChainRoot)
           return true;
 
-        if (IsStrongerThan(blockchainRoot))
+        if (IsStrongerThan(blockChainRoot))
         {
-          if (blockchainRoot.HeaderTipBlockchain.Height > HeaderRoot.Height - 1)
+          if (blockChainRoot.HeaderTipBlockchain.Height > HeaderRoot.Height - 1)
           {
-            block = blockchainRoot.RollBack();
+            block = blockChainRoot.RollBack();
             isDirectionForward = false;
 
             return true;
           }
 
-          SwitchWithRootBranch(blockchainRoot);
+          SwitchWithRootBranch(blockChainRoot);
         }
       }
 
@@ -328,11 +331,15 @@ internal partial class Blockchain
     }
 
 
-    Branch(Branch blockchainParent, Header headerRoot)
+    Branch(Branch blockchainParent, Header headerRoot, bool isRoot)
     {
       BlockchainParent = blockchainParent;
       HeaderRoot = headerRoot;
       HeaderTip = headerRoot;
+
+      if (isRoot)
+        HeaderTipBlockchain = headerRoot;
+
       HeaderDownloadNext = headerRoot;
     }
 

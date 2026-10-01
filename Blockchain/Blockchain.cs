@@ -27,7 +27,7 @@ internal partial class Blockchain
     Token = token;
     SemaphoreBlockchain = semaphoreBlockchain;
 
-    BlockchainRoot = new(Token.CreateHeaderGenesis());
+    BlockchainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
     BlockchainRoot.HeaderRoot.HeaderParent = blockchainParent?.BlockchainRoot.HeaderRoot;
 
     LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
@@ -107,6 +107,8 @@ internal partial class Blockchain
           blockLoad.Parse();
 
           Token.InsertBlock(blockLoad);
+
+          BlockchainRoot.HeaderTipBlockchain = header;
 
           OnBlockInserted?.Invoke(blockLoad);
         }
