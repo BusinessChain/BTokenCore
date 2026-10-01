@@ -56,8 +56,11 @@ internal class Miner
     if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
       return;
 
-    if (BlockchainBToken.InsertBlockMined(block))
-      NetworkBToken.AnnounceHeader(block.Header);
+    // We will deal with self mined blocks only when we correctly implemented the typical case where we get 
+    // a block from a peer.
+
+    //if (BlockchainBToken.InsertBlockMined(block))
+    //  NetworkBToken.AnnounceHeader(block.Header);
 
     BlocksMinedCache.Remove(block);
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);

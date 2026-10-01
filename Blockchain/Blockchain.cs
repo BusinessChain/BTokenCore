@@ -170,8 +170,38 @@ internal partial class Blockchain
         return block;
       }
 
-      //Aber sollte das nicht nur bei BlockchainRoot passieren?
-      FlushBlocksToDatabase(branch);
+      while (branch.TryGetBlockNext(out block, out bool isDirectionForward))
+      {
+        if (isDirectionForward)
+        {
+          Token.InsertBlock(block);
+
+          DatabaseHeaderCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["headerBytes"] = block.Header.Serialize()
+          });
+
+          DatabaseBlockCollection.Insert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["blockBytes"] = block.Buffer
+          });
+
+          OnBlockInserted?.Invoke(block);
+        }
+        else
+        {
+          Token.RollBack(block);
+
+          DatabaseHeaderCollection.Delete(block.Header.Height);
+          DatabaseBlockCollection.Delete(block.Header.Height);
+        }
+
+        BlockchainRoot = branch; // is this necessary?
+
+        Token.ReturnBlock(block);
+      }
 
       block = Token.GetBlock();
       block.Header = FetchHeaderDownload(headerTipPeer);
@@ -182,51 +212,6 @@ internal partial class Blockchain
     {
       ReleaseLockBlockchain();
     }
-  }
-
-  void FlushBlocksToDatabase(Branch chain)
-  {
-    while (chain.TryGetBlockNext(out Block block, out bool isDirectionForward))
-    {
-      if (isDirectionForward)
-      {
-        Token.InsertBlock(block);
-
-        DatabaseHeaderCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["headerBytes"] = block.Header.Serialize()
-        });
-
-        DatabaseBlockCollection.Insert(new BsonDocument
-        {
-          ["_id"] = block.Header.Height,
-          ["blockBytes"] = block.Buffer
-        });
-
-        OnBlockInserted?.Invoke(block);
-      }
-      else
-      {
-        Token.RollBack(block);
-
-        DatabaseHeaderCollection.Delete(block.Header.Height);
-        DatabaseBlockCollection.Delete(block.Header.Height);
-      }
-
-      BlockchainRoot = chain; // is this necessary?
-
-      Token.ReturnBlock(block);
-    }
-  }
-
-  internal bool InsertBlockMined(Block block)
-  {
-    if (BlockchainRoot.QueueBlockMined(block) is not Branch chain)
-      return false;
-
-    FlushBlocksToDatabase(chain);
-    return true;
   }
 
   internal async Task<List<byte[]>> GetLocator()
