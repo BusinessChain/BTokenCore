@@ -18,17 +18,17 @@ public class Node
       blockchainParent: null,
       semaphoreBlockchain);
 
-    BlockchainBToken = new(
-      new TokenBToken(),
-      blockchainParent: BlockchainBitcoin,
-      semaphoreBlockchain);
-
     NetworkBitcoin = new(
       BlockchainBitcoin,
       communication,
       BlockchainBitcoin.Token,
       flagEnableInboundConnections: false,
       flagEnableRelay: false);
+
+    BlockchainBToken = new(
+      new TokenBToken(),
+      blockchainParent: BlockchainBitcoin,
+      semaphoreBlockchain);
 
     NetworkBToken = new(
       BlockchainBToken,
@@ -45,9 +45,9 @@ public class Node
   public void Start()
   {
     BlockchainBitcoin.LoadBlockchain();
-    BlockchainBToken.LoadBlockchain();
-
     NetworkBitcoin.Start();
+
+    BlockchainBToken.LoadBlockchain();
     NetworkBToken.Start();
   }
 }
