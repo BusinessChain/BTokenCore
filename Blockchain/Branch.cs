@@ -16,6 +16,7 @@ internal partial class Blockchain
 
     const int CAPACITY_MAX_QueueBlocksInsertion = 20;
     Dictionary<int, Block> QueueBlocks = new();
+    Dictionary<int, Block> BlocksBranch = new();
 
 
     internal Branch(Header headerGenesis, bool isRoot)
@@ -130,6 +131,13 @@ internal partial class Blockchain
       {
         QueueBlocks.Add(height, chainParent.QueueBlocks[height]);
         chainParent.QueueBlocks.Remove(height);
+      }
+
+      foreach (int height in chainParent.BlocksBranch.Keys
+        .Where(h => h <= headerAncestor.Height).ToList())
+      {
+        BlocksBranch.Add(height, chainParent.BlocksBranch[height]);
+        chainParent.BlocksBranch.Remove(height);
       }
 
       if (chainParent.HeaderTipBlockchain?.Height < headerAncestor.Height)
@@ -261,6 +269,8 @@ internal partial class Blockchain
 
         if (this == blockChainRoot)
           return true;
+
+        BlocksBranch.Add(block.Header.Height, block);
 
         if (IsStrongerThan(blockChainRoot))
         {
