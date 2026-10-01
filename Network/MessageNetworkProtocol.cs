@@ -147,7 +147,9 @@ class BlockMessage : MessageNetworkProtocol
 
     HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
-    BlockDownload = await Blockchain.InsertBlockReturnNextBlock(BlockDownload, headersMessage.HeaderTipReceivedLast);
+    BlockDownload = await Blockchain.InsertBlockReturnNextBlock(
+      BlockDownload,
+      headersMessage.HeaderTipReceivedLast);
 
     if (BlockDownload.Header != null)
     {

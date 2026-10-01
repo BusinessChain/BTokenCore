@@ -133,6 +133,20 @@ internal partial class Blockchain
       }
   }
 
+  internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      return BranchRoot.TryExtendHeaderchain(headers);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal async Task<Header> GetHeaderDownload(Header headerTipPeer)
   {
     try
@@ -148,25 +162,10 @@ internal partial class Blockchain
 
   Header FetchHeaderDownload(Header headerTipPeer)
   {
-    if (headerTipPeer == null
-      || headerTipPeer.Height <= BranchRoot.HeaderTipBlockchain.Height)
+    if (headerTipPeer == null || headerTipPeer.Height <= BranchRoot.HeaderTipBlockchain.Height)
       return null;
 
     return BranchRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
-  }
-
-  internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      return BranchRoot.TryExtendHeaderchain(headers);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
   }
 
   internal async Task<Block> InsertBlockReturnNextBlock(Block block, Header headerTipPeer)
