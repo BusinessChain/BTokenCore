@@ -170,37 +170,16 @@ internal partial class Blockchain
         return block;
       }
 
-      while (branch.TryGetBlockNext(out block, out bool isDirectionForward))
+      if (branch == BlockchainRoot)
+        while (BlockchainRoot.TryGetBlockNext(out block))
+          InsertBlock(block);
+      else
       {
-        if (isDirectionForward)
-        {
-          Token.InsertBlock(block);
+        while (branch.TryGetBlockNext(out block))
+          branch.BlocksBranch.Add(block.Header.Height, block);
 
-          DatabaseHeaderCollection.Insert(new BsonDocument
-          {
-            ["_id"] = block.Header.Height,
-            ["headerBytes"] = block.Header.Serialize()
-          });
-
-          DatabaseBlockCollection.Insert(new BsonDocument
-          {
-            ["_id"] = block.Header.Height,
-            ["blockBytes"] = block.Buffer
-          });
-
-          OnBlockInserted?.Invoke(block);
-        }
-        else
-        {
-          Token.RollBack(block);
-
-          DatabaseHeaderCollection.Delete(block.Header.Height);
-          DatabaseBlockCollection.Delete(block.Header.Height);
-        }
-
-        BlockchainRoot = branch; // is this necessary?
-
-        Token.ReturnBlock(block);
+        if (branch.IsStrongerThan(BlockchainRoot))
+          Reorg(branch);
       }
 
       block = Token.GetBlock();
@@ -212,6 +191,57 @@ internal partial class Blockchain
     {
       ReleaseLockBlockchain();
     }
+  }
+
+  void Reorg(Branch branch)
+  {
+    int heightFork = branch.HeaderRoot.Height - 1;
+
+    while (BlockchainRoot.HeaderTipBlockchain.Height > heightFork)
+    {
+      Header header = BlockchainRoot.HeaderTipBlockchain;
+      Block block = Token.GetBlock();
+
+      block.Buffer = DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary;
+      block.Header = header;
+      block.Parse();
+
+      Token.RollBack(block);
+
+      DatabaseHeaderCollection.Delete(header.Height);
+      DatabaseBlockCollection.Delete(header.Height);
+
+      BlockchainRoot.HeaderTipBlockchain = header.HeaderPrevious;
+
+      Token.ReturnBlock(block);
+    }
+
+    foreach (Block block in branch.TakeBlocksBranch())
+      InsertBlock(block);
+
+    branch.SwitchWithRootBranch(BlockchainRoot);
+    BlockchainRoot = branch;
+  }
+
+  void InsertBlock(Block block)
+  {
+    Token.InsertBlock(block);
+
+    DatabaseHeaderCollection.Insert(new BsonDocument
+    {
+      ["_id"] = block.Header.Height,
+      ["headerBytes"] = block.Header.Serialize()
+    });
+
+    DatabaseBlockCollection.Insert(new BsonDocument
+    {
+      ["_id"] = block.Header.Height,
+      ["blockBytes"] = block.Buffer
+    });
+
+    OnBlockInserted?.Invoke(block);
+
+    Token.ReturnBlock(block);
   }
 
   internal async Task<List<byte[]>> GetLocator()

@@ -16,7 +16,7 @@ internal partial class Blockchain
 
     const int CAPACITY_MAX_QueueBlocksInsertion = 20;
     Dictionary<int, Block> QueueBlocks = new();
-    Dictionary<int, Block> BlocksBranch = new();
+    internal Dictionary<int, Block> BlocksBranch = new();
 
 
     internal Branch(Header headerGenesis, bool isRoot)
@@ -254,39 +254,23 @@ internal partial class Blockchain
       return chain;
     }
 
-    internal bool TryGetBlockNext( out Block block, out bool isDirectionForward)
+    internal bool TryGetBlockNext(out Block block)
     {
-      Branch blockChainRoot = GetRootChain();
-      isDirectionForward = true;
-
-      int heightBlockNext = HeaderTipBlockchain != null 
+      int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      while (QueueBlocks.Remove(heightBlockNext, out block))
-      {
-        HeaderTipBlockchain = block.Header;
-        heightBlockNext += 1;
+      if (!QueueBlocks.Remove(heightBlockNext, out block))
+        return false;
 
-        if (this == blockChainRoot)
-          return true;
+      HeaderTipBlockchain = block.Header;
+      return true;
+    }
 
-        BlocksBranch.Add(block.Header.Height, block);
-
-        if (IsStrongerThan(blockChainRoot))
-        {
-          if (blockChainRoot.HeaderTipBlockchain.Height > HeaderRoot.Height - 1)
-          {
-            block = blockChainRoot.RollBack();
-            isDirectionForward = false;
-
-            return true;
-          }
-
-          SwitchWithRootBranch(blockChainRoot);
-        }
-      }
-
-      return false;
+    internal List<Block> TakeBlocksBranch()
+    {
+      List<Block> blocks = BlocksBranch.OrderBy(b => b.Key).Select(b => b.Value).ToList();
+      BlocksBranch.Clear();
+      return blocks;
     }
 
     internal List<byte[]> GetLocator()
@@ -355,24 +339,7 @@ internal partial class Blockchain
       HeaderDownloadNext = headerRoot;
     }
 
-    Branch GetRootChain()
-    {
-      if (BlockchainParent != null)
-        return BlockchainParent.GetRootChain();
-
-      return this;
-    }
-
-    Block RollBack()
-    {
-      QueueBlocks.TryGetValue(HeaderTipBlockchain.Height, out Block block);
-
-      HeaderTipBlockchain = HeaderTipBlockchain.HeaderPrevious;
-
-      return block;
-    }
-
-    void SwitchWithRootBranch(Branch blockchainRootOld)
+    internal void SwitchWithRootBranch(Branch blockchainRootOld)
     {
       HeaderRoot = blockchainRootOld.HeaderRoot;
       blockchainRootOld.HeaderRoot = blockchainRootOld.HeaderTipBlockchain.HeaderNext;
@@ -384,10 +351,10 @@ internal partial class Blockchain
       BlockchainParent = null;
     }
 
-    bool IsStrongerThan(Branch blockchain)
+    internal bool IsStrongerThan(Branch blockchain)
     {
-      return HeaderTipBlockchain.Height >
-        blockchain.HeaderTipBlockchain.Height;
+      return HeaderTipBlockchain != null
+        && HeaderTipBlockchain.Height > blockchain.HeaderTipBlockchain.Height;
     }
   }
 }
