@@ -68,7 +68,7 @@ internal partial class Blockchain
 
     if (bsonDocumentBlock != null)
     {
-      blockLoad.Buffer = bsonDocumentBlock["blockBytes"].AsBinary;
+      blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
       blockLoad.Header = header;
       blockLoad.Parse();
     }
@@ -113,7 +113,7 @@ internal partial class Blockchain
         BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
         if (bsonDocumentBlock != null)
         {
-          blockLoad.Buffer = bsonDocumentHeader["blockBytes"].AsBinary;
+          blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
           blockLoad.Header = header;
           blockLoad.Parse();
 
@@ -213,7 +213,7 @@ internal partial class Blockchain
       Header header = BlockchainRoot.HeaderTipBlockchain;
       Block block = TakeBlockFromPool();
 
-      block.Buffer = DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary;
+      block.LoadBuffer(DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary);
       block.Header = header;
       block.Parse();
 
@@ -247,7 +247,7 @@ internal partial class Blockchain
     DatabaseBlockCollection.Insert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
-      ["blockBytes"] = block.Buffer
+      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
 
     OnBlockInserted?.Invoke(block);

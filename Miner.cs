@@ -81,7 +81,7 @@ internal class Miner
     DatabaseBlocksMinedCollection.Insert(new BsonDocument
     {
       ["_id"] = block.Header.Hash,
-      ["blockBytes"] = block.Buffer
+      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
 
     MineTokenAnchor(anchorToken);
@@ -99,7 +99,8 @@ internal class Miner
       if (bsonDocumentBlock == null)
         return false;
 
-      block = new(BlockchainBToken.Token, bsonDocumentBlock["blockBytes"].AsBinary);
+      block = new(BlockchainBToken.Token);
+      block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
       block.Parse();
     }
 

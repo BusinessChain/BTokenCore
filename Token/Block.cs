@@ -22,15 +22,15 @@ public class Block
 
 
   internal Block(IToken token)
-    : this(
-        token,
-        new byte[token.GetSizeBlockBuffer()])
-  { }
-
-  internal Block(IToken token, byte[] buffer)
   {
     Token = token;
-    Buffer = buffer;
+    Buffer = new byte[token.GetSizeBlockBuffer()];
+  }
+
+  internal void LoadBuffer(byte[] bytes)
+  {
+    bytes.CopyTo(Buffer, 0);
+    LengthDataPayload = bytes.Length;
   }
 
   internal void Parse()
