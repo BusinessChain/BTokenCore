@@ -1,133 +1,133 @@
-﻿using System;
+﻿namespace BTokenCore;
 
-
-namespace BTokenCore;
-
-internal class Peer
+internal partial class Network
 {
-  internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
-
-  internal int Port;
-  internal UInt32 ProtocolVersion;
-  internal ulong NetworkServicesLocal;
-  internal ulong NetworkServicesRemote;
-  internal string UserAgent;
-  internal byte RelayOption;
-
-  internal ISocketCommunication SocketCommunication;
-
-  internal enum ConnectionType { OUTBOUND, INBOUND };
-  internal ConnectionType Connection;
-
-  internal enum StateProtocol
+  class Peer
   {
-    Handshake,
-    AwaitVersion,
-    Idle,
-    HeaderDownload,
-    DBDownload,
-    GetData,
-    AdvertizingTX,
-    Disposed,
-    Busy
-  }
+    internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
 
-  internal StateProtocol StateCurrent = StateProtocol.Handshake;
+    internal int Port;
+    internal UInt32 ProtocolVersion;
+    internal ulong NetworkServicesLocal;
+    internal ulong NetworkServicesRemote;
+    internal string UserAgent;
+    internal byte RelayOption;
 
-  internal SemaphoreSlim SemaphorePeer = new(1);
+    internal ISocketCommunication SocketCommunication;
+
+    internal enum ConnectionType { OUTBOUND, INBOUND };
+    internal ConnectionType Connection;
+
+    internal enum StateProtocol
+    {
+      Handshake,
+      AwaitVersion,
+      Idle,
+      HeaderDownload,
+      DBDownload,
+      GetData,
+      AdvertizingTX,
+      Disposed,
+      Busy
+    }
+
+    internal StateProtocol StateCurrent = StateProtocol.Handshake;
+
+    internal SemaphoreSlim SemaphorePeer = new(1);
 
 
-  internal Peer(
-    Network network,
-    ISocketCommunication socketCommunication,
-    ConnectionType connection)
-  {
-    Port = network.Token.Port;
-    ProtocolVersion = network.Token.ProtocolVersion;
-    NetworkServicesLocal = network.Token.NetworkServicesLocal;
-    NetworkServicesRemote = network.Token.NetworkServicesRemote;
-    UserAgent = network.Token.UserAgent;
-    RelayOption = network.EnableRelay ? (byte)0x01 : (byte)0x00;
+    internal Peer(
+      Network network,
+      ISocketCommunication socketCommunication,
+      ConnectionType connection)
+    {
+      Port = network.Token.Port;
+      ProtocolVersion = network.Token.ProtocolVersion;
+      NetworkServicesLocal = network.Token.NetworkServicesLocal;
+      NetworkServicesRemote = network.Token.NetworkServicesRemote;
+      UserAgent = network.Token.UserAgent;
+      RelayOption = network.EnableRelay ? (byte)0x01 : (byte)0x00;
 
-    ProtocolStateMachine = network.CreateStateMachineProtocol();
-    SocketCommunication = socketCommunication;
-    Connection = connection;
-  }
+      ProtocolStateMachine = network.CreateStateMachineProtocol();
+      SocketCommunication = socketCommunication;
+      Connection = connection;
+    }
 
-  internal bool IsDisposed()
-  {
-    return StateCurrent == StateProtocol.Disposed;
-  }
+    internal bool IsDisposed()
+    {
+      return StateCurrent == StateProtocol.Disposed;
+    }
 
-  internal async Task Start(int heightBlockchainTip)
-  {
-    await SocketCommunication.Start();
+    internal async Task Start(int heightBlockchainTip)
+    {
+      await SocketCommunication.Start();
 
-    StartMessageReceiver();
+      StartMessageReceiver();
 
-    if (Connection == ConnectionType.OUTBOUND)
-      VersionMessage.SendVersion(this, heightBlockchainTip);
-  }
+      if (Connection == ConnectionType.OUTBOUND)
+        VersionMessage.SendVersion(this, heightBlockchainTip);
+    }
 
-  internal void BroadcastTX(TX tX)
-  {
-    InvMessage invMessage = new(new List<Inventory> {
+    internal void BroadcastTX(TX tX)
+    {
+      InvMessage invMessage = new(new List<Inventory> {
             new(Inventory.InventoryType.MSG_TX, tX.Hash)});
 
-    SendMessage(invMessage);
-  }
+      SendMessage(invMessage);
+    }
 
-  internal async Task AdvertizeTX(TX tX)
-  {
-    InvMessage invMessage = new(new List<Inventory> {
+    internal async Task AdvertizeTX(TX tX)
+    {
+      InvMessage invMessage = new(new List<Inventory> {
           new(Inventory.InventoryType.MSG_TX, tX.Hash)
         });
 
-    await SendMessage(invMessage);
-  }
+      await SendMessage(invMessage);
+    }
 
-  internal string GetIP()
-  {
-    return SocketCommunication.GetIP();
-  }
-
-  async Task StartMessageReceiver()
-  {
-    try
+    internal string GetIP()
     {
-      while (true)
+      return SocketCommunication.GetIP();
+    }
+
+    async Task StartMessageReceiver()
+    {
+      try
       {
-        string commandMessage = await SocketCommunication.ReceiveCommandMessageNext();
-        
-        await SemaphorePeer.WaitAsync().ConfigureAwait(false);
-
-        try
+        while (true)
         {
-          NetworkMessage message = ProtocolStateMachine.GetValueOrDefault(
-            commandMessage,
-            ProtocolStateMachine[UnknownMessage.Command]);
+          string commandMessage = await SocketCommunication.ReceiveCommandMessageNext();
 
-          message.LengthDataPayload = await SocketCommunication.ReceivePayloadNext(message.GetPayloadBuffer());
+          await SemaphorePeer.WaitAsync().ConfigureAwait(false);
 
-          message.IncrementDOSMonitor();
+          try
+          {
+            NetworkMessage message = ProtocolStateMachine.GetValueOrDefault(
+              commandMessage,
+              ProtocolStateMachine[UnknownMessage.Command]);
 
-          await message.Run(this);
-        }
-        finally
-        {
-          SemaphorePeer.Release();
+            message.LengthDataPayload = await SocketCommunication.ReceivePayloadNext(message.GetPayloadBuffer());
+
+            message.IncrementDOSMonitor();
+
+            await message.Run(this);
+          }
+          finally
+          {
+            SemaphorePeer.Release();
+          }
         }
       }
+      finally
+      {
+        StateCurrent = StateProtocol.Disposed;
+        SocketCommunication.Dispose();
+      }
     }
-    finally
-    {
-      StateCurrent = StateProtocol.Disposed;
-      SocketCommunication.Dispose();
-    }
-  }
 
-  async Task SendMessage(NetworkMessage message)
-  {
-    await SocketCommunication.SendMessage(message.GetCommand(), message.LengthDataPayload, message.Payload);
+    async Task SendMessage(NetworkMessage message)
+    {
+      await SocketCommunication.SendMessage(message.GetCommand(), message.LengthDataPayload, message.Payload);
+    }
   }
 }

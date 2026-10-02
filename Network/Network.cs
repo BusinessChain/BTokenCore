@@ -4,10 +4,10 @@ using System.Net.Sockets;
 
 namespace BTokenCore;
 
-internal class Network
+internal partial class Network
 {
   Blockchain Blockchain;
-  internal Token Token;
+  Token Token;
 
   ICommunication Communication;
 
@@ -19,7 +19,7 @@ internal class Network
   const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
 
   bool EnableInboundConnections;
-  internal bool EnableRelay;
+  bool EnableRelay;
 
   object LOCK_Peers = new();
   List<Peer> Peers = new();
@@ -183,7 +183,7 @@ internal class Network
     }
   }
 
-  internal Dictionary<string, NetworkMessage> CreateStateMachineProtocol()
+  Dictionary<string, NetworkMessage> CreateStateMachineProtocol()
   {
     Dictionary<string, NetworkMessage> protocol = new();
 

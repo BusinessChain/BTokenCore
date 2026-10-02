@@ -4,655 +4,658 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-internal abstract class NetworkMessage
+internal partial class Network
 {
-  internal byte[] Payload;
-  internal int LengthDataPayload;
-
-  protected DOSMonitorPer10Minutes DOSMonitor;
-
-
-  internal NetworkMessage(byte[] payload, int maxLevelDoSPer10Minutes)
+  abstract class NetworkMessage
   {
-    Payload = payload;
-    LengthDataPayload = payload.Length;
-    DOSMonitor = new DOSMonitorPer10Minutes(maxLevelDoSPer10Minutes);
-  }
+    internal byte[] Payload;
+    internal int LengthDataPayload;
 
-  internal virtual byte[] GetPayloadBuffer()
-  {
-    return Payload;
-  }
-
-  internal virtual void IncrementDOSMonitor()
-  {
-    DOSMonitor.Increment(1);
-  }
-
-  internal abstract Task Run(Peer peer);
-
-  internal abstract string GetCommand();
-}
-
-class AddressMessage : NetworkMessage
-{
-  internal const string Command = "addr";
-
-  internal List<NetworkAddress> NetworkAddresses = new();
-
-  const int SIZE_BUFFER_PAYLOAD = 30_003;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+    protected DOSMonitorPer10Minutes DOSMonitor;
 
 
-  internal AddressMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
-
-  internal AddressMessage(byte[] messagePayload)
-    : base(messagePayload, MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    int startIndex = 0;
-
-    int addressesCount = VarInt.GetInt(
-      Payload,
-      ref startIndex);
-
-    for (int i = 0; i < addressesCount; i++)
+    internal NetworkMessage(byte[] payload, int maxLevelDoSPer10Minutes)
     {
-      NetworkAddress address = NetworkAddress.ParseAddress(
-          Payload, ref startIndex);
-
-      if (NetworkAddresses.Any(
-        a => a.IPAddress.ToString() == address.IPAddress.ToString()))
-        throw new ProtocolException("Duplicate network address advertized.");
-
-      NetworkAddresses.Add(address);
+      Payload = payload;
+      LengthDataPayload = payload.Length;
+      DOSMonitor = new DOSMonitorPer10Minutes(maxLevelDoSPer10Minutes);
     }
-  }
 
-  internal override async Task Run(Peer peer)
-  {
-
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class PingMessage : NetworkMessage
-{
-  internal const string Command = "ping";
-
-  internal UInt64 Nonce;
-
-
-  const int SIZE_BUFFER_PAYLOAD = 8;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
-
-
-  internal PingMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
-
-  internal PingMessage(byte[] payload)
-    : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
-
-  internal override async Task Run(Peer peer)
-  {
-    await PongMessage.SendPong(peer, LengthDataPayload, Payload);
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class BlockMessage : NetworkMessage
-{
-  internal const string Command = "block";
-
-  internal Block BlockDownload;
-  internal DateTime TimeRequestBlock;
-
-  Blockchain Blockchain;
-
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
-
-
-  internal BlockMessage(Blockchain blockchain, Block blockDownload)
-    : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
-    BlockDownload = blockDownload;
-  }
-
-  internal override byte[] GetPayloadBuffer()
-  {
-    return BlockDownload.Buffer;
-  }
-
-  internal override async Task Run(Peer peer)
-  {
-    if (BlockDownload?.Header == null)
-      throw new ProtocolException($"Received unrequested block message.");
-
-    BlockDownload.LengthDataPayload = LengthDataPayload;
-    BlockDownload.Parse();
-
-    DOSMonitor.Decrement(1);
-
-    HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
-
-    BlockDownload = await Blockchain.InsertBlockReturnNextBlock(
-      BlockDownload,
-      headersMessage.HeaderTipReceivedLast);
-
-    if (BlockDownload.Header != null)
+    internal virtual byte[] GetPayloadBuffer()
     {
-      TimeRequestBlock = DateTime.UtcNow;
-      GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
+      return Payload;
     }
-  }
 
-  internal static async Task SendBlock(Peer peer, Block block)
-  {
-    await peer.SocketCommunication.SendMessage(Command, block.LengthDataPayload, block.Buffer);
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class GetDataMessage : NetworkMessage
-{
-  internal const string Command = "getdata";
-
-  Blockchain Blockchain;
-
-  internal Block BlockUpload;
-
-  internal int HeightBlockDownloadedLast;
-
-  const int SIZE_BUFFER_PAYLOAD = 36_003;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
-
-
-  internal GetDataMessage(Blockchain blockchain, Block blockUpload)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
-    BlockUpload = blockUpload;
-  }
-
-  internal override async Task Run(Peer peer)
-  {
-    int startIndex = 0;
-
-    int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
-
-    for (int i = 0; i < inventoryCount; i++)
+    internal virtual void IncrementDOSMonitor()
     {
-      Inventory inventory = Inventory.Parse(Payload, ref startIndex);
+      DOSMonitor.Increment(1);
+    }
 
-      if (inventory.Type == Inventory.InventoryType.MSG_TX)
+    internal abstract Task Run(Peer peer);
+
+    internal abstract string GetCommand();
+  }
+
+  class AddressMessage : NetworkMessage
+  {
+    internal const string Command = "addr";
+
+    internal List<NetworkAddress> NetworkAddresses = new();
+
+    const int SIZE_BUFFER_PAYLOAD = 30_003;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+
+
+    internal AddressMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
+
+    internal AddressMessage(byte[] messagePayload)
+      : base(messagePayload, MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      int startIndex = 0;
+
+      int addressesCount = VarInt.GetInt(
+        Payload,
+        ref startIndex);
+
+      for (int i = 0; i < addressesCount; i++)
       {
-        if (Blockchain.Token.TryGetTX(inventory.Hash, out TX tXInPool))
-          TXMessage.Send(peer, tXInPool.TXRaw);
+        NetworkAddress address = NetworkAddress.ParseAddress(
+            Payload, ref startIndex);
+
+        if (NetworkAddresses.Any(
+          a => a.IPAddress.ToString() == address.IPAddress.ToString()))
+          throw new ProtocolException("Duplicate network address advertized.");
+
+        NetworkAddresses.Add(address);
       }
-      else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
+  }
+
+  class PingMessage : NetworkMessage
+  {
+    internal const string Command = "ping";
+
+    internal UInt64 Nonce;
+
+
+    const int SIZE_BUFFER_PAYLOAD = 8;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+
+
+    internal PingMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
+
+    internal PingMessage(byte[] payload)
+      : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
+
+    internal override async Task Run(Peer peer)
+    {
+      await PongMessage.SendPong(peer, LengthDataPayload, Payload);
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
+  }
+
+  class BlockMessage : NetworkMessage
+  {
+    internal const string Command = "block";
+
+    internal Block BlockDownload;
+    internal DateTime TimeRequestBlock;
+
+    Blockchain Blockchain;
+
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+
+
+    internal BlockMessage(Blockchain blockchain, Block blockDownload)
+      : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Blockchain = blockchain;
+      BlockDownload = blockDownload;
+    }
+
+    internal override byte[] GetPayloadBuffer()
+    {
+      return BlockDownload.Buffer;
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      if (BlockDownload?.Header == null)
+        throw new ProtocolException($"Received unrequested block message.");
+
+      BlockDownload.LengthDataPayload = LengthDataPayload;
+      BlockDownload.Parse();
+
+      DOSMonitor.Decrement(1);
+
+      HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
+
+      BlockDownload = await Blockchain.InsertBlockReturnNextBlock(
+        BlockDownload,
+        headersMessage.HeaderTipReceivedLast);
+
+      if (BlockDownload.Header != null)
       {
-        BlockUpload.Header = null;
+        TimeRequestBlock = DateTime.UtcNow;
+        GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
+      }
+    }
 
-        await Blockchain.GetBlock(inventory.Hash, BlockUpload);
+    internal static async Task SendBlock(Peer peer, Block block)
+    {
+      await peer.SocketCommunication.SendMessage(Command, block.LengthDataPayload, block.Buffer);
+    }
 
-        if (BlockUpload.Header != null)
+    internal override string GetCommand()
+    {
+      return Command;
+    }
+  }
+
+  class GetDataMessage : NetworkMessage
+  {
+    internal const string Command = "getdata";
+
+    Blockchain Blockchain;
+
+    internal Block BlockUpload;
+
+    internal int HeightBlockDownloadedLast;
+
+    const int SIZE_BUFFER_PAYLOAD = 36_003;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+
+
+    internal GetDataMessage(Blockchain blockchain, Block blockUpload)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Blockchain = blockchain;
+      BlockUpload = blockUpload;
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      int startIndex = 0;
+
+      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
+
+      for (int i = 0; i < inventoryCount; i++)
+      {
+        Inventory inventory = Inventory.Parse(Payload, ref startIndex);
+
+        if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
-          BlockMessage.SendBlock(peer, BlockUpload);
+          if (Blockchain.Token.TryGetTX(inventory.Hash, out TX tXInPool))
+            TXMessage.Send(peer, tXInPool.TXRaw);
+        }
+        else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
+        {
+          BlockUpload.Header = null;
 
-          if (BlockUpload.Header.Height > HeightBlockDownloadedLast)
-            DOSMonitor.Decrement(1);
+          await Blockchain.GetBlock(inventory.Hash, BlockUpload);
 
-          HeightBlockDownloadedLast = BlockUpload.Header.Height;
+          if (BlockUpload.Header != null)
+          {
+            BlockMessage.SendBlock(peer, BlockUpload);
+
+            if (BlockUpload.Header.Height > HeightBlockDownloadedLast)
+              DOSMonitor.Decrement(1);
+
+            HeightBlockDownloadedLast = BlockUpload.Header.Height;
+          }
+        }
+        else if (inventory.Type == Inventory.InventoryType.MSG_DB)
+        {
         }
       }
-      else if (inventory.Type == Inventory.InventoryType.MSG_DB)
+    }
+
+    internal static async Task SendBlockRequest(Peer peer, byte[] hash)
+    {
+      List<byte> payload = new();
+
+      payload.AddRange(VarInt.GetBytes(1));
+      payload.AddRange(BitConverter.GetBytes((uint)Inventory.InventoryType.MSG_BLOCK));
+      payload.AddRange(hash);
+
+      byte[] buffer = payload.ToArray();
+
+      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
+  }
+
+  class GetHeadersMessage : NetworkMessage
+  {
+    internal const string Command = "getheaders";
+
+    Blockchain Blockchain;
+
+    internal int HeightAncestorSentLast;
+
+    const int SIZE_BUFFER_PAYLOAD = 3_300;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+
+
+    internal GetHeadersMessage(Blockchain blockchain)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Blockchain = blockchain;
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      int startIndex = 0;
+
+      byte[] version = new byte[4];
+      Array.Copy(Payload, startIndex, version, 0, version.Length);
+      startIndex += version.Length;
+
+      int countHeaderLocator = VarInt.GetInt(Payload, ref startIndex);
+
+      if (countHeaderLocator > 101)
+        throw new ProtocolException($"Too many ({countHeaderLocator}) headers in locator.");
+
+      List<byte[]> hashesLocator = new();
+
+      for (int i = 0; i < countHeaderLocator; i += 1)
       {
+        byte[] hashLocator = new byte[32];
+        Array.Copy(Payload, startIndex, hashLocator, 0, hashLocator.Length);
+        startIndex += hashLocator.Length;
+
+        hashesLocator.Add(hashLocator);
+      }
+
+      (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
+        await Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
+
+      HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
+
+      if (tupleHeadersSerialized.heightAncestor > HeightAncestorSentLast)
+      {
+        DOSMonitor.Decrement(1);
+        HeightAncestorSentLast = tupleHeadersSerialized.heightAncestor;
       }
     }
-  }
 
-  internal static async Task SendBlockRequest(Peer peer, byte[] hash)
-  {
-    List<byte> payload = new();
-
-    payload.AddRange(VarInt.GetBytes(1));
-    payload.AddRange(BitConverter.GetBytes((uint)Inventory.InventoryType.MSG_BLOCK));
-    payload.AddRange(hash);
-
-    byte[] buffer = payload.ToArray();
-
-    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class GetHeadersMessage : NetworkMessage
-{
-  internal const string Command = "getheaders";
-
-  Blockchain Blockchain;
-
-  internal int HeightAncestorSentLast;
-
-  const int SIZE_BUFFER_PAYLOAD = 3_300;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
-
-
-  internal GetHeadersMessage(Blockchain blockchain)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
-  }
-
-  internal override async Task Run(Peer peer)
-  {
-    int startIndex = 0;
-
-    byte[] version = new byte[4];
-    Array.Copy(Payload, startIndex, version, 0, version.Length);
-    startIndex += version.Length;
-
-    int countHeaderLocator = VarInt.GetInt(Payload, ref startIndex);
-
-    if (countHeaderLocator > 101)
-      throw new ProtocolException($"Too many ({countHeaderLocator}) headers in locator.");
-
-    List<byte[]> hashesLocator = new();
-
-    for (int i = 0; i < countHeaderLocator; i += 1)
+    internal static async Task SendGetHeaders(Peer peer, List<byte[]> locator)
     {
-      byte[] hashLocator = new byte[32];
-      Array.Copy(Payload, startIndex, hashLocator, 0, hashLocator.Length);
-      startIndex += hashLocator.Length;
+      List<byte> payload = new();
 
-      hashesLocator.Add(hashLocator);
+      payload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
+      payload.AddRange(VarInt.GetBytes(locator.Count()));
+
+      foreach (byte[] locatorHash in locator)
+        payload.AddRange(locatorHash);
+
+      payload.AddRange("0000000000000000000000000000000000000000000000000000000000000000".ToBinary());
+
+      byte[] buffer = payload.ToArray();
+
+      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
     }
 
-    (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-      await Blockchain.GetHeadersSerialized( hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
-
-    HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
-
-    if (tupleHeadersSerialized.heightAncestor > HeightAncestorSentLast)
+    internal override string GetCommand()
     {
-      DOSMonitor.Decrement(1);
-      HeightAncestorSentLast = tupleHeadersSerialized.heightAncestor;
+      return Command;
     }
   }
 
-  internal static async Task SendGetHeaders(Peer peer, List<byte[]> locator)
+  class HeadersMessage : NetworkMessage
   {
-    List<byte> payload = new();
+    internal const int MAX_COUNT_HEADERS = 2000;
+    internal const string Command = "headers";
 
-    payload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
-    payload.AddRange(VarInt.GetBytes(locator.Count()));
+    internal Header HeaderTipReceivedLast;
 
-    foreach (byte[] locatorHash in locator)
-      payload.AddRange(locatorHash);
+    Blockchain Blockchain;
 
-    payload.AddRange("0000000000000000000000000000000000000000000000000000000000000000".ToBinary());
+    const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
-    byte[] buffer = payload.ToArray();
-
-    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class HeadersMessage : NetworkMessage
-{
-  internal const int MAX_COUNT_HEADERS = 2000;
-  internal const string Command = "headers";
-
-  internal Header HeaderTipReceivedLast;
-
-  Blockchain Blockchain;
-
-  const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
-
-  SHA256 SHA256 = SHA256.Create();
+    SHA256 SHA256 = SHA256.Create();
 
 
-  internal HeadersMessage(Blockchain blockchain)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
-  }
-
-  internal override async Task Run(Peer peer)
-  {
-    List<Header> headers = new();
-    int startIndex = 0;
-    int countHeaders = VarInt.GetInt(Payload, ref startIndex);
-
-    if (countHeaders > MAX_COUNT_HEADERS)
-      throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
-
-    if (countHeaders == 0)
-      return;
-
-    for (int i = 0; i < countHeaders; i++)
+    internal HeadersMessage(Blockchain blockchain)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
     {
-      headers.Add(Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256));
-      VarInt.GetInt(Payload, ref startIndex);
+      Blockchain = blockchain;
     }
 
-    HeaderTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
-
-    if (HeaderTipReceivedLast != null)
+    internal override async Task Run(Peer peer)
     {
-      DOSMonitor.Decrement(1);
-      GetHeadersMessage.SendGetHeaders(peer, [HeaderTipReceivedLast.Hash]);
-    }
-  }
+      List<Header> headers = new();
+      int startIndex = 0;
+      int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
-  internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
-  {
-    List<byte> bufferList = new();
+      if (countHeaders > MAX_COUNT_HEADERS)
+        throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
 
-    foreach (byte[] headerSerialized in headersSerialized)
-    {
-      bufferList.AddRange(headerSerialized);
-      bufferList.Add(0x00);
-    }
-
-    bufferList.InsertRange(0, VarInt.GetBytes(bufferList.Count));
-
-    byte[] buffer = bufferList.ToArray();
-
-    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class InvMessage : NetworkMessage
-{
-  internal const string Command = "inv";
-
-  internal List<Inventory> Inventories = new();
-
-  Blockchain Blockchain;
-
-  const int SIZE_BUFFER_PAYLOAD = 36_003;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
-
-
-  internal InvMessage(Blockchain blockchain)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
-  }
-
-  internal InvMessage(List<Inventory> inventories)
-    : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Inventories = inventories;
-
-    List<byte> payload = new();
-
-    payload.AddRange(VarInt.GetBytes(inventories.Count));
-
-    Inventories.ForEach(
-      i => payload.AddRange(i.GetBytes()));
-
-    Payload = payload.ToArray();
-    LengthDataPayload = Payload.Length;
-  }
-
-  internal InvMessage(byte[] buffer)
-    : base(buffer, MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    int startIndex = 0;
-
-    int inventoryCount = VarInt.GetInt(
-      Payload,
-      ref startIndex);
-
-    for (int i = 0; i < inventoryCount; i++)
-      Inventories.Add(Inventory.Parse(
-        Payload,
-        ref startIndex));
-  }
-
-  internal override async Task Run(Peer peer)
-  {
-    int startIndex = 0;
-
-    int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
-
-    for (int i = 0; i < inventoryCount; i++)
-      if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
-      {
-        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+      if (countHeaders == 0)
         return;
+
+      for (int i = 0; i < countHeaders; i++)
+      {
+        headers.Add(Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256));
+        VarInt.GetInt(Payload, ref startIndex);
       }
+
+      HeaderTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
+
+      if (HeaderTipReceivedLast != null)
+      {
+        DOSMonitor.Decrement(1);
+        GetHeadersMessage.SendGetHeaders(peer, [HeaderTipReceivedLast.Hash]);
+      }
+    }
+
+    internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
+    {
+      List<byte> bufferList = new();
+
+      foreach (byte[] headerSerialized in headersSerialized)
+      {
+        bufferList.AddRange(headerSerialized);
+        bufferList.Add(0x00);
+      }
+
+      bufferList.InsertRange(0, VarInt.GetBytes(bufferList.Count));
+
+      byte[] buffer = bufferList.ToArray();
+
+      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 
-  internal override string GetCommand()
+  class InvMessage : NetworkMessage
   {
-    return Command;
-  }
-}
+    internal const string Command = "inv";
 
-class PongMessage : NetworkMessage
-{
-  internal const string Command = "pong";
+    internal List<Inventory> Inventories = new();
 
-  const int SIZE_BUFFER_PAYLOAD = 8;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+    Blockchain Blockchain;
+
+    const int SIZE_BUFFER_PAYLOAD = 36_003;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
 
 
-  internal PongMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
+    internal InvMessage(Blockchain blockchain)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Blockchain = blockchain;
+    }
 
-  internal PongMessage(byte[] payload, int lengthDataPayload)
-    : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    LengthDataPayload = lengthDataPayload;
-  }
+    internal InvMessage(List<Inventory> inventories)
+      : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Inventories = inventories;
 
-  internal override async Task Run(Peer peer)
-  {
-    PingMessage messagePing = peer.ProtocolStateMachine[PingMessage.Command] as PingMessage;
+      List<byte> payload = new();
 
-    if (messagePing == null)
-      throw new ProtocolException("Transistion into state 'pong' from other than state 'ping' is not supported.");
+      payload.AddRange(VarInt.GetBytes(inventories.Count));
 
-    if (messagePing.Payload != Payload)
-      throw new ProtocolException("'Pong' message did not return same nonce as sended in 'ping' message.");
+      Inventories.ForEach(
+        i => payload.AddRange(i.GetBytes()));
 
-    peer.ProtocolStateMachine = null;
-  }
+      Payload = payload.ToArray();
+      LengthDataPayload = Payload.Length;
+    }
 
-  internal static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
-  {
-    await peer.SocketCommunication.SendMessage(Command, payloadLength, payload);
-  }
+    internal InvMessage(byte[] buffer)
+      : base(buffer, MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      int startIndex = 0;
 
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
+      int inventoryCount = VarInt.GetInt(
+        Payload,
+        ref startIndex);
 
-class TXMessage : NetworkMessage
-{
-  internal const string Command = "tx";
+      for (int i = 0; i < inventoryCount; i++)
+        Inventories.Add(Inventory.Parse(
+          Payload,
+          ref startIndex));
+    }
 
-  const int SIZE_BUFFER_PAYLOAD = 100_000;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 1_000_000;
+    internal override async Task Run(Peer peer)
+    {
+      int startIndex = 0;
 
+      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
 
-  internal TXMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
+      for (int i = 0; i < inventoryCount; i++)
+        if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
+        {
+          await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+          return;
+        }
+    }
 
-  internal TXMessage(byte[] tXRaw)
-    : base(tXRaw, MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
-
-  internal override void IncrementDOSMonitor()
-  {
-    DOSMonitor.Increment(LengthDataPayload);
-  }
-
-  internal override async Task Run(Peer peer)
-  {
-
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 
-  internal static async Task Send(Peer peer, byte[] buffer)
+  class PongMessage : NetworkMessage
   {
-    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    internal const string Command = "pong";
+
+    const int SIZE_BUFFER_PAYLOAD = 8;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+
+
+    internal PongMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
+
+    internal PongMessage(byte[] payload, int lengthDataPayload)
+      : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      LengthDataPayload = lengthDataPayload;
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      PingMessage messagePing = peer.ProtocolStateMachine[PingMessage.Command] as PingMessage;
+
+      if (messagePing == null)
+        throw new ProtocolException("Transistion into state 'pong' from other than state 'ping' is not supported.");
+
+      if (messagePing.Payload != Payload)
+        throw new ProtocolException("'Pong' message did not return same nonce as sended in 'ping' message.");
+
+      peer.ProtocolStateMachine = null;
+    }
+
+    internal static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
+    {
+      await peer.SocketCommunication.SendMessage(Command, payloadLength, payload);
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 
-  internal override string GetCommand()
+  class TXMessage : NetworkMessage
   {
-    return Command;
-  }
-}
+    internal const string Command = "tx";
 
-class VerAckMessage : NetworkMessage
-{
-  internal const string Command = "verack";
-
-  Blockchain Blockchain;
-
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
+    const int SIZE_BUFFER_PAYLOAD = 100_000;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 1_000_000;
 
 
-  internal VerAckMessage(Blockchain blockchain)
-    : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
-  }
+    internal TXMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
 
-  internal static async Task Send(Peer peer)
-  {
-    await peer.SocketCommunication.SendMessage(Command, 0, new byte[0]);
-  }
+    internal TXMessage(byte[] tXRaw)
+      : base(tXRaw, MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
 
-  internal override async Task Run(Peer peer)
-  {
-    if (peer.Connection == Peer.ConnectionType.OUTBOUND)
-      await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
-  }
+    internal override void IncrementDOSMonitor()
+    {
+      DOSMonitor.Increment(LengthDataPayload);
+    }
 
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
+    internal override async Task Run(Peer peer)
+    {
 
-class VersionMessage : NetworkMessage
-{
-  internal const string Command = "version";
+    }
 
-  Blockchain Blockchain;
+    internal static async Task Send(Peer peer, byte[] buffer)
+    {
+      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    }
 
-  const int SIZE_BUFFER_PAYLOAD = 1_000;
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
-
-
-  internal VersionMessage(Blockchain blockchain)
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  {
-    Blockchain = blockchain;
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 
-  internal static byte[] GetBytes(UInt16 uint16)
+  class VerAckMessage : NetworkMessage
   {
-    byte[] byteArray = BitConverter.GetBytes(uint16);
-    Array.Reverse(byteArray);
-    return byteArray;
+    internal const string Command = "verack";
+
+    Blockchain Blockchain;
+
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
+
+
+    internal VerAckMessage(Blockchain blockchain)
+      : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Blockchain = blockchain;
+    }
+
+    internal static async Task Send(Peer peer)
+    {
+      await peer.SocketCommunication.SendMessage(Command, 0, new byte[0]);
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      if (peer.Connection == Peer.ConnectionType.OUTBOUND)
+        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 
-  internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
+  class VersionMessage : NetworkMessage
   {
-    List<byte> versionPayload = new();
+    internal const string Command = "version";
 
-    versionPayload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
-    versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesRemote));
-    versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-    versionPayload.AddRange(GetBytes((ushort)peer.Port));
-    versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
-    versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-    versionPayload.AddRange(GetBytes((ushort)peer.Port));
-    versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
-    versionPayload.AddRange(VarString.GetBytes(peer.UserAgent));
-    versionPayload.AddRange(BitConverter.GetBytes(heightBlockchainTip));
-    versionPayload.Add(peer.RelayOption);
+    Blockchain Blockchain;
 
-    byte[] buffer = versionPayload.ToArray();
+    const int SIZE_BUFFER_PAYLOAD = 1_000;
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
 
-    await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+
+    internal VersionMessage(Blockchain blockchain)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    {
+      Blockchain = blockchain;
+    }
+
+    internal static byte[] GetBytes(UInt16 uint16)
+    {
+      byte[] byteArray = BitConverter.GetBytes(uint16);
+      Array.Reverse(byteArray);
+      return byteArray;
+    }
+
+    internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
+    {
+      List<byte> versionPayload = new();
+
+      versionPayload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
+      versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesRemote));
+      versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
+      versionPayload.AddRange(GetBytes((ushort)peer.Port));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
+      versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
+      versionPayload.AddRange(GetBytes((ushort)peer.Port));
+      versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
+      versionPayload.AddRange(VarString.GetBytes(peer.UserAgent));
+      versionPayload.AddRange(BitConverter.GetBytes(heightBlockchainTip));
+      versionPayload.Add(peer.RelayOption);
+
+      byte[] buffer = versionPayload.ToArray();
+
+      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      VerAckMessage.Send(peer);
+
+      if (peer.Connection == Peer.ConnectionType.INBOUND)
+        SendVersion(peer, Blockchain.GetHeight());
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 
-  internal override async Task Run(Peer peer)
+  class UnknownMessage : NetworkMessage
   {
-    VerAckMessage.Send(peer);
+    internal const string Command = "commandUnknown";
 
-    if (peer.Connection == Peer.ConnectionType.INBOUND)
-      SendVersion(peer, Blockchain.GetHeight());
-  }
-
-  internal override string GetCommand()
-  {
-    return Command;
-  }
-}
-
-class UnknownMessage : NetworkMessage
-{
-  internal const string Command = "commandUnknown";
-
-  const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
-  const int MAX_LEVEL_DOS_PER_10_MINUTES = 100;
+    const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
+    const int MAX_LEVEL_DOS_PER_10_MINUTES = 100;
 
 
-  internal UnknownMessage()
-    : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
-  { }
+    internal UnknownMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+    { }
 
-  internal override async Task Run(Peer peer)
-  {
+    internal override async Task Run(Peer peer)
+    {
 
-  }
+    }
 
-  internal override string GetCommand()
-  {
-    return Command;
+    internal override string GetCommand()
+    {
+      return Command;
+    }
   }
 }
