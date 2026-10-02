@@ -183,9 +183,9 @@ internal class Network
     }
   }
 
-  internal Dictionary<string, MessageNetworkProtocol> CreateStateMachineProtocol()
+  internal Dictionary<string, NetworkMessage> CreateStateMachineProtocol()
   {
-    Dictionary<string, MessageNetworkProtocol> protocol = new();
+    Dictionary<string, NetworkMessage> protocol = new();
 
     Block blockDownload = new(Token);
     Block blockUpload = new(Token);

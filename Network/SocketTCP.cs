@@ -92,7 +92,7 @@ internal class SocketTCP : ISocketCommunication
     return Encoding.ASCII.GetString(CommandRead).TrimEnd('\0');
   }
 
-  public async Task LoadMessageNext(MessageNetworkProtocol message)
+  public async Task LoadMessageNext(NetworkMessage message)
   {
     await ReadBytes(LengthRead, LengthRead.Length);
     message.LengthDataPayload = BitConverter.ToInt32(LengthRead);

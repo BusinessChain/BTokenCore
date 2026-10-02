@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-internal abstract class MessageNetworkProtocol
+internal abstract class NetworkMessage
 {
   internal byte[] Payload;
   internal int LengthDataPayload;
@@ -12,7 +12,7 @@ internal abstract class MessageNetworkProtocol
   protected DOSMonitorPer10Minutes DOSMonitor;
 
 
-  internal MessageNetworkProtocol(byte[] payload, int maxLevelDoSPer10Minutes)
+  internal NetworkMessage(byte[] payload, int maxLevelDoSPer10Minutes)
   {
     Payload = payload;
     LengthDataPayload = payload.Length;
@@ -34,7 +34,7 @@ internal abstract class MessageNetworkProtocol
   internal abstract string GetCommand();
 }
 
-class AddressMessage : MessageNetworkProtocol
+class AddressMessage : NetworkMessage
 {
   internal const string Command = "addr";
 
@@ -81,7 +81,7 @@ class AddressMessage : MessageNetworkProtocol
   }
 }
 
-class PingMessage : MessageNetworkProtocol
+class PingMessage : NetworkMessage
 {
   internal const string Command = "ping";
 
@@ -111,7 +111,7 @@ class PingMessage : MessageNetworkProtocol
   }
 }
 
-class BlockMessage : MessageNetworkProtocol
+class BlockMessage : NetworkMessage
 {
   internal const string Command = "block";
 
@@ -169,7 +169,7 @@ class BlockMessage : MessageNetworkProtocol
   }
 }
 
-class GetDataMessage : MessageNetworkProtocol
+class GetDataMessage : NetworkMessage
 {
   internal const string Command = "getdata";
 
@@ -246,7 +246,7 @@ class GetDataMessage : MessageNetworkProtocol
   }
 }
 
-class GetHeadersMessage : MessageNetworkProtocol
+class GetHeadersMessage : NetworkMessage
 {
   internal const string Command = "getheaders";
 
@@ -323,7 +323,7 @@ class GetHeadersMessage : MessageNetworkProtocol
   }
 }
 
-class HeadersMessage : MessageNetworkProtocol
+class HeadersMessage : NetworkMessage
 {
   internal const int MAX_COUNT_HEADERS = 2000;
   internal const string Command = "headers";
@@ -394,7 +394,7 @@ class HeadersMessage : MessageNetworkProtocol
   }
 }
 
-class InvMessage : MessageNetworkProtocol
+class InvMessage : NetworkMessage
 {
   internal const string Command = "inv";
 
@@ -463,7 +463,7 @@ class InvMessage : MessageNetworkProtocol
   }
 }
 
-class PongMessage : MessageNetworkProtocol
+class PongMessage : NetworkMessage
 {
   internal const string Command = "pong";
 
@@ -505,7 +505,7 @@ class PongMessage : MessageNetworkProtocol
   }
 }
 
-class TXMessage : MessageNetworkProtocol
+class TXMessage : NetworkMessage
 {
   internal const string Command = "tx";
 
@@ -542,7 +542,7 @@ class TXMessage : MessageNetworkProtocol
   }
 }
 
-class VerAckMessage : MessageNetworkProtocol
+class VerAckMessage : NetworkMessage
 {
   internal const string Command = "verack";
 
@@ -574,7 +574,7 @@ class VerAckMessage : MessageNetworkProtocol
   }
 }
 
-class VersionMessage : MessageNetworkProtocol
+class VersionMessage : NetworkMessage
 {
   internal const string Command = "version";
 
@@ -634,7 +634,7 @@ class VersionMessage : MessageNetworkProtocol
   }
 }
 
-class UnknownMessage : MessageNetworkProtocol
+class UnknownMessage : NetworkMessage
 {
   internal const string Command = "commandUnknown";
 

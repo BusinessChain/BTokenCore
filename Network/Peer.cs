@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal class Peer
 {
-  internal Dictionary<string, MessageNetworkProtocol> ProtocolStateMachine;
+  internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
 
   internal int Port;
   internal UInt32 ProtocolVersion;
@@ -103,7 +103,7 @@ internal class Peer
 
         try
         {
-          MessageNetworkProtocol message = ProtocolStateMachine.GetValueOrDefault(
+          NetworkMessage message = ProtocolStateMachine.GetValueOrDefault(
             commandMessage,
             ProtocolStateMachine[UnknownMessage.Command]);
 
@@ -126,7 +126,7 @@ internal class Peer
     }
   }
 
-  async Task SendMessage(MessageNetworkProtocol message)
+  async Task SendMessage(NetworkMessage message)
   {
     await SocketCommunication.SendMessage(message.GetCommand(), message.LengthDataPayload, message.Payload);
   }
