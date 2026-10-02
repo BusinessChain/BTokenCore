@@ -9,7 +9,7 @@ internal partial class Blockchain
     internal Header HeaderTipBlockchain;
 
     Branch BranchParent;
-    List<Branch> Branches = new();
+    List<Branch> BranchesChild = new();
 
     Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
     Header HeaderDownloadNext;
@@ -25,48 +25,47 @@ internal partial class Blockchain
 
     internal Header TryExtendHeaderchain(List<Header> headers)
     {
-      Branch chain = this;
-      Header headerAncestor;
+      Branch branch = this;
 
-      if (!TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
+      if (!TrySearchHeaderAncestor(headers, ref branch, out Header headerAncestor))
         return null;
 
       if (headers.Count == 0)
         return headerAncestor;
 
-      if (headerAncestor != chain.HeaderTip)
+      if (headerAncestor != branch.HeaderTip)
       {
         headers[0].AppendToHeader(headerAncestor);
 
-        Branch branch = new(chain, headers[0], isRoot: false);
-        chain.Branches.Add(branch);
-        chain = branch;
+        Branch branchChild = new(branch, headers[0], isRoot: false);
+        branch.BranchesChild.Add(branchChild);
+        branch = branchChild;
       }
       else
-        chain.AppendHeader(headers[0]);
+        branch.AppendHeader(headers[0]);
 
       for (int i = 1; i < headers.Count; i++)
-        chain.AppendHeader(headers[i]);
+        branch.AppendHeader(headers[i]);
 
       return headers[^1];
     }
 
     internal static bool TrySearchHeaderAncestor(
       List<Header> headers,
-      out Header headerAncestor,
-      ref Branch chain)
+      ref Branch branch,
+      out Header headerAncestor)
     {
-      headerAncestor = chain.HeaderTip;
+      headerAncestor = branch.HeaderTip;
 
       while (!headerAncestor.Hash.IsAllBytesEqual(headers[0].HashPrevious))
       {
-        if (headerAncestor == chain.HeaderRoot)
+        if (headerAncestor == branch.HeaderRoot)
         {
-          foreach (Branch branch in chain.Branches)
+          foreach (Branch branchChild in branch.BranchesChild)
           {
-            chain = branch;
+            branch = branchChild;
 
-            if (TrySearchHeaderAncestor(headers, out headerAncestor, ref chain))
+            if (TrySearchHeaderAncestor(headers, ref branch, out headerAncestor))
               return true;
           }
 
@@ -119,7 +118,7 @@ internal partial class Blockchain
           return this;
       }
 
-      foreach (Branch branch in Branches)
+      foreach (Branch branch in BranchesChild)
         if (branch.FindChain(header) is Branch chain)
           return chain;
 
@@ -169,7 +168,7 @@ internal partial class Blockchain
         return true;
       }
 
-      foreach (Branch branch in Branches)
+      foreach (Branch branch in BranchesChild)
         if (branch.TryQueueBlock(block, out branchQueued))
           return true;
 
@@ -282,8 +281,8 @@ internal partial class Blockchain
       HeaderRoot = branchRootOld.HeaderRoot;
       branchRootOld.HeaderRoot = branchRootOld.HeaderTipBlockchain.HeaderNext;
 
-      Branches.Add(branchRootOld);
-      BranchParent.Branches.Remove(this);
+      BranchesChild.Add(branchRootOld);
+      BranchParent.BranchesChild.Remove(this);
 
       branchRootOld.BranchParent = this;
       BranchParent = null;
