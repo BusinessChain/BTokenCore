@@ -21,14 +21,9 @@ internal partial class Network
     internal enum StateProtocol
     {
       Handshake,
-      AwaitVersion,
       Idle,
       HeaderDownload,
-      DBDownload,
-      GetData,
-      AdvertizingTX,
-      Disposed,
-      Busy
+      Disposed
     }
 
     internal StateProtocol StateCurrent = StateProtocol.Handshake;

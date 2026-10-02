@@ -316,6 +316,8 @@ internal partial class Network
 
       byte[] buffer = payload.ToArray();
 
+      peer.StateCurrent = Peer.StateProtocol.HeaderDownload;
+
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
     }
 
@@ -356,7 +358,10 @@ internal partial class Network
         throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
 
       if (countHeaders == 0)
+      {
+        peer.StateCurrent = Peer.StateProtocol.Idle;
         return;
+      }
 
       for (int i = 0; i < countHeaders; i++)
       {
