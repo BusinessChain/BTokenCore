@@ -157,12 +157,18 @@ internal partial class Network
         headersMessage.HeaderTipReceivedLast);
 
       if (BlockDownload.Header != null)
-      {
-        TimeRequestBlock = DateTime.UtcNow;
-        GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
-      }
+        await SendBlockRequest(peer, BlockDownload.Header);
       else
         peer.StateCurrent = Peer.StateProtocol.Idle;
+    }
+
+    internal async Task SendBlockRequest(Peer peer, Header header)
+    {
+      BlockDownload.Header = header;
+      TimeRequestBlock = DateTime.UtcNow;
+      peer.StateCurrent = Peer.StateProtocol.BlockDownload;
+
+      await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_BLOCK, header.Hash)]);
     }
 
     internal static async Task SendBlock(Peer peer, Block block)
@@ -235,13 +241,14 @@ internal partial class Network
       }
     }
 
-    internal static async Task SendBlockRequest(Peer peer, byte[] hash)
+    internal static async Task SendGetData(Peer peer, List<Inventory> inventories)
     {
       List<byte> payload = new();
 
-      payload.AddRange(VarInt.GetBytes(1));
-      payload.AddRange(BitConverter.GetBytes((uint)Inventory.InventoryType.MSG_BLOCK));
-      payload.AddRange(hash);
+      payload.AddRange(VarInt.GetBytes(inventories.Count));
+
+      foreach (Inventory inventory in inventories)
+        payload.AddRange(inventory.GetBytes());
 
       byte[] buffer = payload.ToArray();
 

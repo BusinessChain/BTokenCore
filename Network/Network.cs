@@ -232,12 +232,7 @@ internal partial class Network
             Header headerDownload = await Blockchain.GetHeaderDownload(headersMessage.HeaderTipReceivedLast);
 
             if (headerDownload != null)
-            {
-              peer.StateCurrent = Peer.StateProtocol.BlockDownload;
-              blockMessage.BlockDownload.Header = headerDownload;
-              blockMessage.TimeRequestBlock = DateTime.UtcNow;
-              await GetDataMessage.SendBlockRequest(peer, headerDownload.Hash);
-            }
+              await blockMessage.SendBlockRequest(peer, headerDownload);
           }
           else if (DateTime.UtcNow - blockMessage.TimeRequestBlock > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
             peer.SocketCommunication.Dispose();

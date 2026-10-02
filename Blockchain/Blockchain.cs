@@ -152,6 +152,7 @@ internal partial class Blockchain
     try
     {
       await LockBlockchain();
+
       return FetchHeaderDownload(headerTipPeer);
     }
     finally
