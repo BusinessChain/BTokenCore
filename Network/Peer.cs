@@ -23,6 +23,7 @@ internal partial class Network
       Handshake,
       Idle,
       HeaderDownload,
+      BlockDownload,
       Disposed
     }
 

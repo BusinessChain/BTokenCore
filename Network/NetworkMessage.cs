@@ -158,6 +158,8 @@ internal partial class Network
         TimeRequestBlock = DateTime.UtcNow;
         GetDataMessage.SendBlockRequest(peer, BlockDownload.Header.Hash);
       }
+      else
+        peer.StateCurrent = Peer.StateProtocol.Idle;
     }
 
     internal static async Task SendBlock(Peer peer, Block block)

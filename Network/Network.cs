@@ -233,6 +233,7 @@ internal partial class Network
 
             if (headerDownload != null)
             {
+              peer.StateCurrent = Peer.StateProtocol.BlockDownload;
               blockMessage.BlockDownload.Header = headerDownload;
               blockMessage.TimeRequestBlock = DateTime.UtcNow;
               await GetDataMessage.SendBlockRequest(peer, headerDownload.Hash);
