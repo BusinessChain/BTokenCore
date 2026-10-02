@@ -14,11 +14,11 @@ internal partial class Network
     protected DOSMonitorPer10Minutes DOSMonitor;
 
 
-    internal NetworkMessage(byte[] payload, int maxLevelDoSPer10Minutes)
+    internal NetworkMessage(byte[] payload, int maxLevelDoS, int amountDrainDoSPer10Minutes)
     {
       Payload = payload;
       LengthDataPayload = payload.Length;
-      DOSMonitor = new DOSMonitorPer10Minutes(maxLevelDoSPer10Minutes);
+      DOSMonitor = new DOSMonitorPer10Minutes(maxLevelDoS, amountDrainDoSPer10Minutes);
     }
 
     internal virtual byte[] GetPayloadBuffer()
@@ -43,15 +43,16 @@ internal partial class Network
     internal List<NetworkAddress> NetworkAddresses = new();
 
     const int SIZE_BUFFER_PAYLOAD = 30_003;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+    const int MAX_LEVEL_DOS = 10;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 10;
 
 
     internal AddressMessage()
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal AddressMessage(byte[] messagePayload)
-      : base(messagePayload, MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(messagePayload, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       int startIndex = 0;
 
@@ -91,15 +92,16 @@ internal partial class Network
 
 
     const int SIZE_BUFFER_PAYLOAD = 8;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+    const int MAX_LEVEL_DOS = 10;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 10;
 
 
     internal PingMessage()
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal PingMessage(byte[] payload)
-      : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(payload, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal override async Task Run(Peer peer)
@@ -122,11 +124,12 @@ internal partial class Network
 
     Blockchain Blockchain;
 
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+    const int MAX_LEVEL_DOS = 5;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
 
     internal BlockMessage(Blockchain blockchain, Block blockDownload)
-      : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
       BlockDownload = blockDownload;
@@ -184,11 +187,12 @@ internal partial class Network
     internal int HeightBlockDownloadedLast;
 
     const int SIZE_BUFFER_PAYLOAD = 36_003;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+    const int MAX_LEVEL_DOS = 5;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
 
     internal GetDataMessage(Blockchain blockchain, Block blockUpload)
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
       BlockUpload = blockUpload;
@@ -259,11 +263,12 @@ internal partial class Network
     internal int HeightAncestorSentLast;
 
     const int SIZE_BUFFER_PAYLOAD = 3_300;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+    const int MAX_LEVEL_DOS = 5;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
 
     internal GetHeadersMessage(Blockchain blockchain)
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
     }
@@ -339,13 +344,14 @@ internal partial class Network
     Blockchain Blockchain;
 
     const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+    const int MAX_LEVEL_DOS = 20;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 2;
 
     SHA256 SHA256 = SHA256.Create();
 
 
     internal HeadersMessage(Blockchain blockchain)
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
     }
@@ -373,10 +379,15 @@ internal partial class Network
 
       HeaderTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
 
-      if (HeaderTipReceivedLast != null)
+      if (peer.StateCurrent == Peer.StateProtocol.HeaderDownload)
       {
-        DOSMonitor.Decrement(1);
-        GetHeadersMessage.SendGetHeaders(peer, [HeaderTipReceivedLast.Hash]);
+        if (HeaderTipReceivedLast != null)
+        {
+          DOSMonitor.Decrement(1);
+          GetHeadersMessage.SendGetHeaders(peer, [HeaderTipReceivedLast.Hash]);
+        }
+        else
+          peer.StateCurrent = Peer.StateProtocol.Idle;
       }
     }
 
@@ -412,17 +423,18 @@ internal partial class Network
     Blockchain Blockchain;
 
     const int SIZE_BUFFER_PAYLOAD = 36_003;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 5;
+    const int MAX_LEVEL_DOS = 5;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
 
     internal InvMessage(Blockchain blockchain)
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
     }
 
     internal InvMessage(List<Inventory> inventories)
-      : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Inventories = inventories;
 
@@ -438,7 +450,7 @@ internal partial class Network
     }
 
     internal InvMessage(byte[] buffer)
-      : base(buffer, MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(buffer, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       int startIndex = 0;
 
@@ -477,15 +489,16 @@ internal partial class Network
     internal const string Command = "pong";
 
     const int SIZE_BUFFER_PAYLOAD = 8;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 10;
+    const int MAX_LEVEL_DOS = 10;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 10;
 
 
     internal PongMessage()
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal PongMessage(byte[] payload, int lengthDataPayload)
-      : base(payload, MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(payload, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       LengthDataPayload = lengthDataPayload;
     }
@@ -519,15 +532,16 @@ internal partial class Network
     internal const string Command = "tx";
 
     const int SIZE_BUFFER_PAYLOAD = 100_000;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 1_000_000;
+    const int MAX_LEVEL_DOS = 1_000_000;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
 
 
     internal TXMessage()
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal TXMessage(byte[] tXRaw)
-      : base(tXRaw, MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(tXRaw, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal override void IncrementDOSMonitor()
@@ -557,11 +571,12 @@ internal partial class Network
 
     Blockchain Blockchain;
 
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
+    const int MAX_LEVEL_DOS = 1;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
     internal VerAckMessage(Blockchain blockchain)
-      : base(Array.Empty<byte>(), MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
     }
@@ -573,6 +588,8 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
+      peer.StateCurrent = Peer.StateProtocol.Idle;
+
       if (peer.Connection == Peer.ConnectionType.OUTBOUND)
         await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
     }
@@ -590,11 +607,12 @@ internal partial class Network
     Blockchain Blockchain;
 
     const int SIZE_BUFFER_PAYLOAD = 1_000;
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 1;
+    const int MAX_LEVEL_DOS = 1;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
     internal VersionMessage(Blockchain blockchain)
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
     }
@@ -648,11 +666,12 @@ internal partial class Network
     internal const string Command = "commandUnknown";
 
     const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
-    const int MAX_LEVEL_DOS_PER_10_MINUTES = 100;
+    const int MAX_LEVEL_DOS = 100;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 100;
 
 
     internal UnknownMessage()
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS_PER_10_MINUTES)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal override async Task Run(Peer peer)
