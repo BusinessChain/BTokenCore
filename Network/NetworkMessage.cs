@@ -374,7 +374,9 @@ internal partial class Network
 
       if (countHeaders == 0)
       {
-        peer.StateCurrent = Peer.StateProtocol.Idle;
+        if (peer.StateCurrent == Peer.StateProtocol.HeaderDownload)
+          peer.StateCurrent = Peer.StateProtocol.Idle;
+
         return;
       }
 
