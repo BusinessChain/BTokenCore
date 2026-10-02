@@ -5,7 +5,7 @@ internal interface ISocketCommunication
   internal Task Start();
   internal Task SendMessage(string commandString, int lengthDataPayload, byte[] payload);
   internal Task<string> ReceiveCommandMessageNext();
-  internal Task LoadMessageNext(NetworkMessage message);
+  internal Task<int> ReceivePayloadNext(byte[] buffer);
   internal void Dispose();
   internal string GetIP();
 }

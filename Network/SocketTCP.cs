@@ -92,21 +92,20 @@ internal class SocketTCP : ISocketCommunication
     return Encoding.ASCII.GetString(CommandRead).TrimEnd('\0');
   }
 
-  public async Task LoadMessageNext(NetworkMessage message)
+  public async Task<int> ReceivePayloadNext(byte[] buffer)
   {
     await ReadBytes(LengthRead, LengthRead.Length);
-    message.LengthDataPayload = BitConverter.ToInt32(LengthRead);
+    int lengthDataPayload = BitConverter.ToInt32(LengthRead);
 
     await ReadBytes(ChecksumRead, 4);
 
-    byte[] bufferPayloadMessage = message.GetPayloadBuffer();
-
-    if (message.LengthDataPayload < 0 || message.LengthDataPayload > bufferPayloadMessage.Length)
+    if (lengthDataPayload < 0 || lengthDataPayload > buffer.Length)
       throw new ProtocolException(
-        $"Payload length {message.LengthDataPayload} of message '{message.GetCommand()}' " +
-        $"exceeds buffer size {bufferPayloadMessage.Length}.");
+        $"Payload length {lengthDataPayload} exceeds buffer size {buffer.Length}.");
 
-    await ReadBytes(bufferPayloadMessage, message.LengthDataPayload);
+    await ReadBytes(buffer, lengthDataPayload);
+
+    return lengthDataPayload;
   }
 
   public void Dispose()

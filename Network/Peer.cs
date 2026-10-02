@@ -107,7 +107,7 @@ internal class Peer
             commandMessage,
             ProtocolStateMachine[UnknownMessage.Command]);
 
-          await SocketCommunication.LoadMessageNext(message);
+          message.LengthDataPayload = await SocketCommunication.ReceivePayloadNext(message.GetPayloadBuffer());
 
           message.IncrementDOSMonitor();
 
