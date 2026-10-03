@@ -162,10 +162,10 @@ internal partial class Blockchain
 
   Header FetchHeaderDownload(Header headerTipPeer)
   {
-    if (headerTipPeer == null || headerTipPeer.Height <= BranchRoot.HeaderTipBlockchain.Height)
-      return null;
+    if (headerTipPeer?.Height > BranchRoot.HeaderTipBlockchain.Height)
+      return BranchRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
 
-    return BranchRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
+    return null;
   }
 
   internal async Task<Block> InsertBlockReturnNextDownload(Block block, Header headerTipPeer)

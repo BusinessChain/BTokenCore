@@ -22,6 +22,18 @@ internal partial class Blockchain
       : this(null, headerGenesis, isRoot)
     { }
 
+    Branch(Branch blockchainParent, Header headerRoot, bool isRoot)
+    {
+      BranchParent = blockchainParent;
+      HeaderRoot = headerRoot;
+      HeaderTip = headerRoot;
+
+      if (isRoot)
+        HeaderTipBlockchain = headerRoot;
+
+      HeaderDownloadNext = headerRoot;
+    }
+
     internal Header TryExtendHeaderchain(List<Header> headers)
     {
       Branch branch = this;
@@ -256,19 +268,6 @@ internal partial class Blockchain
       }
 
       return (headers, heightAncestor);
-    }
-
-
-    Branch(Branch blockchainParent, Header headerRoot, bool isRoot)
-    {
-      BranchParent = blockchainParent;
-      HeaderRoot = headerRoot;
-      HeaderTip = headerRoot;
-
-      if (isRoot)
-        HeaderTipBlockchain = headerRoot;
-
-      HeaderDownloadNext = headerRoot;
     }
 
     internal void SwitchWithRootBranch(Branch branchRootOld)
