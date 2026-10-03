@@ -18,13 +18,10 @@ public class Node
       blockchainParent: null,
       semaphoreBlockchain);
 
-    NetworkBitcoin = new(
-      BlockchainBitcoin,
-      communication,
-      new ConfigNetwork
-      {
-        Port = 8333,
-        SeedAddresses =
+    ConfigNetwork ConfigNetworkBitcoin = new()
+    {
+      Port = 8333,
+      SeedAddresses =
         [
           "seed.bitcoin.sipa.be",
           "dnsseed.bluematt.me",
@@ -32,7 +29,20 @@ public class Node
           "seed.bitcoinstats.com",
           "seed.bitnodes.io"
         ]
-      });
+    };
+
+    NetworkBitcoin = new(
+      BlockchainBitcoin,
+      communication, 
+      ConfigNetworkBitcoin);
+
+
+    ConfigNetwork ConfigNetworkBToken = new()
+    {
+      Port = 8777,
+      EnableInboundConnections = true,
+      EnableRelay = true
+    };
 
     BlockchainBToken = new(
       new TokenBToken(),
@@ -42,12 +52,7 @@ public class Node
     NetworkBToken = new(
       BlockchainBToken,
       communication,
-      new ConfigNetwork
-      {
-        Port = 8777,
-        EnableInboundConnections = true,
-        EnableRelay = true
-      });
+      ConfigNetworkBToken);
 
     Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin, NetworkBToken);
 
