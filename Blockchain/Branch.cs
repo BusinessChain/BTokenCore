@@ -191,7 +191,7 @@ internal partial class Blockchain
       return chain;
     }
 
-    internal bool TryGetBlockNext(out Block block)
+    internal bool TryDequeueBlock(out Block block)
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;

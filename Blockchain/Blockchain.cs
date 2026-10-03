@@ -182,11 +182,11 @@ internal partial class Blockchain
       }
 
       if (branch == BranchRoot)
-        while (BranchRoot.TryGetBlockNext(out block))
+        while (BranchRoot.TryDequeueBlock(out block))
           InsertBlock(block);
       else
       {
-        while (branch.TryGetBlockNext(out block))
+        while (branch.TryDequeueBlock(out block))
           branch.BlocksBranch.Add(block);
 
         if (branch.IsStrongerThan(BranchRoot))
