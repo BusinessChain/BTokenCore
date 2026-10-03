@@ -152,7 +152,7 @@ internal partial class Network
 
       HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
-      BlockDownload = await Blockchain.InsertBlockReturnNextBlock(
+      BlockDownload = await Blockchain.InsertBlockReturnNextDownload(
         BlockDownload,
         headersMessage.HeaderTipReceivedLast);
 

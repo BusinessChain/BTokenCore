@@ -169,7 +169,7 @@ internal partial class Blockchain
     return BranchRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
   }
 
-  internal async Task<Block> InsertBlockReturnNextBlock(Block block, Header headerTipPeer)
+  internal async Task<Block> InsertBlockReturnNextDownload(Block block, Header headerTipPeer)
   {
     try
     {
@@ -204,6 +204,27 @@ internal partial class Blockchain
     }
   }
 
+  void InsertBlock(Block block)
+  {
+    Token.InsertBlock(block);
+
+    DatabaseHeaderCollection.Insert(new BsonDocument
+    {
+      ["_id"] = block.Header.Height,
+      ["headerBytes"] = block.Header.Serialize()
+    });
+
+    DatabaseBlockCollection.Insert(new BsonDocument
+    {
+      ["_id"] = block.Header.Height,
+      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
+    });
+
+    OnBlockInserted?.Invoke(block);
+
+    PoolBlocks.Add(block);
+  }
+
   void Reorg(Branch branch)
   {
     int heightFork = branch.HeaderRoot.Height - 1;
@@ -232,27 +253,6 @@ internal partial class Blockchain
 
     branch.SwitchWithRootBranch(BranchRoot);
     BranchRoot = branch;
-  }
-
-  void InsertBlock(Block block)
-  {
-    Token.InsertBlock(block);
-
-    DatabaseHeaderCollection.Insert(new BsonDocument
-    {
-      ["_id"] = block.Header.Height,
-      ["headerBytes"] = block.Header.Serialize()
-    });
-
-    DatabaseBlockCollection.Insert(new BsonDocument
-    {
-      ["_id"] = block.Header.Height,
-      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
-    });
-
-    OnBlockInserted?.Invoke(block);
-
-    PoolBlocks.Add(block);
   }
 
   internal async Task<List<byte[]>> GetLocator()
