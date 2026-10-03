@@ -16,8 +16,6 @@ public abstract partial class Token : IToken
 
   internal int SizeBlockMax;
 
-  bool IsLocked;
-
 
   protected Token(string id)
   {
@@ -27,23 +25,6 @@ public abstract partial class Token : IToken
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));
-  }
-
-  internal bool TryLock()
-  {
-    lock (this)
-    {
-      if (IsLocked)
-        return false;
-
-      IsLocked = true;
-      return true;
-    }
-  }
-
-  internal void ReleaseLock()
-  {
-    IsLocked = false;
   }
 
   public int GetSizeBlockBuffer()

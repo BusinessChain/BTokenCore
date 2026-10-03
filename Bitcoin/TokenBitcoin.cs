@@ -1,27 +1,10 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 
 namespace BTokenCore;
 
 public partial class TokenBitcoin : Token
 {
-  class EqualityComparerTXOutputWallet : IEqualityComparer<TXOutputWallet>
-  {
-    public bool Equals(TXOutputWallet x, TXOutputWallet y)
-    {
-      return x.Index == y.Index && x.TXID.IsAllBytesEqual(y.TXID);
-    }
-
-    public int GetHashCode(TXOutputWallet x)
-    {
-      return BitConverter.ToInt32(x.TXID, 0) + x.Index;
-    }
-  }
-
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
   const int LENGTH_P2PKH_INPUT = 148;
