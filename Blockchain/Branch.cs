@@ -214,21 +214,6 @@ internal partial class Blockchain
       return false;
     }
 
-    internal Branch QueueBlockMined(Block block)
-    {
-      TryExtendHeaderchain(new List<Header> { block.Header });
-
-      if (FindBranch(block.Header) is not Branch chain)
-        return null;
-
-      if (chain.HeaderDownloadNext == block.Header)
-        chain.HeaderDownloadNext = block.Header.HeaderNext;
-
-      chain.Blocks.Add(block.Header.Height, block);
-
-      return chain;
-    }
-
     internal void AdvanceTipBlockchain()
     {
       int heightBlockNext = HeaderTipBlockchain != null
