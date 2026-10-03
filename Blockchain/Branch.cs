@@ -16,7 +16,7 @@ internal partial class Blockchain
 
     const int CAPACITY_MAX_QueueBlocksInsertion = 20;
     Dictionary<int, Block> QueueBlocks = new();
-    internal Dictionary<int, Block> BlocksBranch = new();
+    internal List<Block> BlocksBranch = new();
 
 
     internal Branch(Header headerGenesis, bool isRoot)
@@ -201,13 +201,6 @@ internal partial class Blockchain
 
       HeaderTipBlockchain = block.Header;
       return true;
-    }
-
-    internal List<Block> TakeBlocksBranch()
-    {
-      List<Block> blocks = BlocksBranch.OrderBy(b => b.Key).Select(b => b.Value).ToList();
-      BlocksBranch.Clear();
-      return blocks;
     }
 
     internal List<byte[]> GetLocator()

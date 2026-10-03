@@ -187,7 +187,7 @@ internal partial class Blockchain
       else
       {
         while (branch.TryGetBlockNext(out block))
-          branch.BlocksBranch.Add(block.Header.Height, block);
+          branch.BlocksBranch.Add(block);
 
         if (branch.IsStrongerThan(BranchRoot))
           Reorg(branch);
@@ -248,8 +248,10 @@ internal partial class Blockchain
       PoolBlocks.Add(block);
     }
 
-    foreach (Block block in branch.TakeBlocksBranch())
+    foreach (Block block in branch.BlocksBranch)
       InsertBlock(block);
+
+    branch.BlocksBranch.Clear();
 
     branch.SwitchWithRootBranch(BranchRoot);
     BranchRoot = branch;
