@@ -181,16 +181,18 @@ internal partial class Blockchain
         return block;
       }
 
-      if (branch == BranchRoot)
-        while (BranchRoot.TryDequeueBlock(out block))
-          InsertBlock(block);
-      else
+      if (branch != BranchRoot)
       {
-        while (branch.TryDequeueBlock(out block))
-          branch.BlocksBranch.Add(block);
+        branch.AdvanceTipBlockchain();
 
         if (branch.IsStrongerThan(BranchRoot))
           Reorg(branch);
+      }
+
+      while (BranchRoot.Blocks.Remove(BranchRoot.HeaderTipBlockchain.Height + 1, out block))
+      {
+        InsertBlock(block);
+        BranchRoot.HeaderTipBlockchain = block.Header;
       }
 
       block = TakeBlockFromPool();
@@ -248,10 +250,7 @@ internal partial class Blockchain
       PoolBlocks.Add(block);
     }
 
-    foreach (Block block in branch.BlocksBranch)
-      InsertBlock(block);
-
-    branch.BlocksBranch.Clear();
+    branch.HeaderTipBlockchain = BranchRoot.HeaderTipBlockchain;
 
     branch.SwitchWithRootBranch(BranchRoot);
     BranchRoot = branch;

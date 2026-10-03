@@ -14,9 +14,8 @@ internal partial class Blockchain
     Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
     Header HeaderDownloadNext;
 
-    const int CAPACITY_MAX_QueueBlocksInsertion = 20;
-    Dictionary<int, Block> QueueBlocks = new();
-    internal List<Block> BlocksBranch = new();
+    const int DEPTH_MAX_BlockMissing = 20;
+    internal Dictionary<int, Block> Blocks = new();
 
 
     internal Branch(Header headerGenesis, bool isRoot)
@@ -141,9 +140,12 @@ internal partial class Blockchain
 
     Header FetchHeaderDownload(int heightMax)
     {
-      if (QueueBlocks.Count > CAPACITY_MAX_QueueBlocksInsertion
-        || HeaderDownloadNext == null
-        || HeaderDownloadNext.Height > heightMax)
+      int heightBlockNext = HeaderTipBlockchain != null
+        ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
+
+      if (HeaderDownloadNext == null
+        || HeaderDownloadNext.Height > heightMax
+        || HeaderDownloadNext.Height - heightBlockNext > DEPTH_MAX_BlockMissing)
         return null;
 
       Header headerDownload = HeaderDownloadNext;
@@ -163,7 +165,7 @@ internal partial class Blockchain
     {
       if (HeadersAwaitingBlock.Remove(block.Header.Hash))
       {
-        QueueBlocks.Add(block.Header.Height, block);
+        Blocks.Add(block.Header.Height, block);
         branchQueued = this;
         return true;
       }
@@ -186,21 +188,21 @@ internal partial class Blockchain
       if (chain.HeaderDownloadNext == block.Header)
         chain.HeaderDownloadNext = block.Header.HeaderNext;
 
-      chain.QueueBlocks.Add(block.Header.Height, block);
+      chain.Blocks.Add(block.Header.Height, block);
 
       return chain;
     }
 
-    internal bool TryDequeueBlock(out Block block)
+    internal void AdvanceTipBlockchain()
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      if (!QueueBlocks.Remove(heightBlockNext, out block))
-        return false;
-
-      HeaderTipBlockchain = block.Header;
-      return true;
+      while (Blocks.TryGetValue(heightBlockNext, out Block block))
+      {
+        HeaderTipBlockchain = block.Header;
+        heightBlockNext += 1;
+      }
     }
 
     internal List<byte[]> GetLocator()
