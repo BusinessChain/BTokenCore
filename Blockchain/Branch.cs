@@ -116,7 +116,7 @@ internal partial class Blockchain
       HeaderTip = header;
     }
 
-    internal Branch FindChain(Header header)
+    internal Branch FindBranch(Header header)
     {
       if (HeaderRoot.Height <= header.Height && header.Height <= HeaderTip.Height)
       {
@@ -129,25 +129,49 @@ internal partial class Blockchain
           return this;
       }
 
-      foreach (Branch branch in BranchesChild)
-        if (branch.FindChain(header) is Branch chain)
-          return chain;
+      foreach (Branch branchChild in BranchesChild)
+        if (branchChild.FindBranch(header) is Branch branch)
+          return branch;
 
       return null;
     }
 
     internal Header FetchHeaderDownloadAlongPath(int heightMax)
     {
-      return FetchAlongPath(heightMax, (chain, height) => chain.FetchHeaderDownload(height))
-        ?? FetchAlongPath(heightMax, (chain, height) => chain.GetHeaderAwaitingBlockLowest(height));
+      List<(Branch branch, int heightMax)> path = GetPathFromRoot(heightMax);
+
+      foreach ((Branch branch, int heightMaxBranch) in path)
+      {
+        Header headerDownload = branch.FetchHeaderDownload(heightMaxBranch);
+
+        if (headerDownload != null)
+          return headerDownload;
+      }
+
+      foreach ((Branch branch, int heightMaxBranch) in path)
+      {
+        Header headerAwaitingBlock = branch.GetHeaderAwaitingBlockLowest(heightMaxBranch);
+
+        if (headerAwaitingBlock != null)
+          return headerAwaitingBlock;
+      }
+
+      return null;
     }
 
-    Header FetchAlongPath(int heightMax, Func<Branch, int, Header> fetch)
+    List<(Branch branch, int heightMax)> GetPathFromRoot(int heightMax)
     {
-      if (BranchParent?.FetchAlongPath(HeaderRoot.Height - 1, fetch) is Header header)
-        return header;
+      List<(Branch branch, int heightMax)> path = new();
+      Branch branch = this;
 
-      return fetch(this, heightMax);
+      while (branch != null)
+      {
+        path.Insert(0, (branch, heightMax));
+        heightMax = branch.HeaderRoot.Height - 1;
+        branch = branch.BranchParent;
+      }
+
+      return path;
     }
 
     Header FetchHeaderDownload(int heightMax)
@@ -194,7 +218,7 @@ internal partial class Blockchain
     {
       TryExtendHeaderchain(new List<Header> { block.Header });
 
-      if (FindChain(block.Header) is not Branch chain)
+      if (FindBranch(block.Header) is not Branch chain)
         return null;
 
       if (chain.HeaderDownloadNext == block.Header)

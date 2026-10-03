@@ -162,8 +162,10 @@ internal partial class Blockchain
 
   Header FetchHeaderDownload(Header headerTipPeer)
   {
-    if (headerTipPeer?.Height > BranchRoot.HeaderTipBlockchain.Height)
-      return BranchRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
+    headerTipPeer ??= BranchRoot.HeaderTip;
+
+    if (headerTipPeer.Height > BranchRoot.HeaderTipBlockchain.Height)
+      return BranchRoot.FindBranch(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
 
     return null;
   }
