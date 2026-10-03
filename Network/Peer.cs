@@ -6,12 +6,7 @@ internal partial class Network
   {
     internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
 
-    internal int Port;
-    internal UInt32 ProtocolVersion;
-    internal ulong NetworkServicesLocal;
-    internal ulong NetworkServicesRemote;
-    internal string UserAgent;
-    internal byte RelayOption;
+    internal ConfigNetwork ConfigNetwork;
 
     internal ISocketCommunication SocketCommunication;
 
@@ -37,12 +32,7 @@ internal partial class Network
       ISocketCommunication socketCommunication,
       ConnectionType connection)
     {
-      Port = network.Token.Port;
-      ProtocolVersion = network.Token.ProtocolVersion;
-      NetworkServicesLocal = network.Token.NetworkServicesLocal;
-      NetworkServicesRemote = network.Token.NetworkServicesRemote;
-      UserAgent = network.Token.UserAgent;
-      RelayOption = network.EnableRelay ? (byte)0x01 : (byte)0x00;
+      ConfigNetwork = network.ConfigNetwork;
 
       ProtocolStateMachine = network.CreateStateMachineProtocol();
       SocketCommunication = socketCommunication;

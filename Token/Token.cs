@@ -18,26 +18,16 @@ public abstract partial class Token : IToken
 
   bool IsLocked;
 
-  internal int Port;
-  internal UInt32 ProtocolVersion = 70015;
-  internal ulong NetworkServicesLocal = 0;
-  internal ulong NetworkServicesRemote = 0;
-  internal string UserAgent = "/BTokenCore:0.0.0/";
 
-
-  protected Token(string id, int port)
+  protected Token(string id)
   {
     byte[] bytes = Encoding.ASCII.GetBytes(id);
     Array.Copy(bytes, IDToken, bytes.Length);
-
-    Port = port;
 
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));
   }
-
-  internal abstract string[] GetSeedAddresses();
 
   internal bool TryLock()
   {

@@ -16,5 +16,5 @@ public interface ICommunication
 
   internal Task<ISocketCommunication> AcceptSocketCommunicationInbound();
 
-  internal ISocketCommunication GetSocketCommunication(Token token, string address);
+  internal ISocketCommunication GetSocketCommunication(int port, string address);
 }

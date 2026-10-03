@@ -320,7 +320,7 @@ internal partial class Network
     {
       List<byte> payload = new();
 
-      payload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
+      payload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.ProtocolVersion));
       payload.AddRange(VarInt.GetBytes(locator.Count()));
 
       foreach (byte[] locatorHash in locator)
@@ -637,19 +637,19 @@ internal partial class Network
     {
       List<byte> versionPayload = new();
 
-      versionPayload.AddRange(BitConverter.GetBytes(peer.ProtocolVersion));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.ProtocolVersion));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.NetworkServicesLocal));
       versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesRemote));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.NetworkServicesRemote));
       versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.Port));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.NetworkServicesLocal));
+      versionPayload.AddRange(GetBytes((ushort)peer.ConfigNetwork.Port));
+      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.NetworkServicesLocal));
       versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.Port));
+      versionPayload.AddRange(GetBytes((ushort)peer.ConfigNetwork.Port));
       versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
-      versionPayload.AddRange(VarString.GetBytes(peer.UserAgent));
+      versionPayload.AddRange(VarString.GetBytes(peer.ConfigNetwork.UserAgent));
       versionPayload.AddRange(BitConverter.GetBytes(heightBlockchainTip));
-      versionPayload.Add(peer.RelayOption);
+      versionPayload.Add(peer.ConfigNetwork.EnableRelay ? (byte)0x01 : (byte)0x00);
 
       byte[] buffer = versionPayload.ToArray();
 

@@ -7,7 +7,7 @@ namespace BTokenCore;
 internal partial class Network
 {
   Blockchain Blockchain;
-  Token Token;
+  ConfigNetwork ConfigNetwork;
 
   ICommunication Communication;
 
@@ -18,9 +18,6 @@ internal partial class Network
   const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
   const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
 
-  bool EnableInboundConnections;
-  bool EnableRelay;
-
   object LOCK_Peers = new();
   List<Peer> Peers = new();
 
@@ -30,23 +27,18 @@ internal partial class Network
   internal Network(
     Blockchain blockchain,
     ICommunication communication,
-    Token token,
-    bool flagEnableInboundConnections,
-    bool flagEnableRelay)
+    ConfigNetwork configNetwork)
   {
     Blockchain = blockchain;
     Communication = communication;
-    Token = token;
-
-    EnableInboundConnections = flagEnableInboundConnections;
-    EnableRelay = flagEnableRelay;
+    ConfigNetwork = configNetwork;
   }
 
   internal void Start()
   {
     StartPeerConnectorOutbound();
 
-    if (EnableInboundConnections)
+    if (ConfigNetwork.EnableInboundConnections)
       StartPeerConnectorInbound();
 
     StartBlockDownloadDispatcher();
@@ -101,7 +93,7 @@ internal partial class Network
 
         string iP = "83.229.86.158"; // 84.74.69.100
 
-        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(Token, iP);
+        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(ConfigNetwork.Port, iP);
 
         Peer peer = new(this, socketCommunication, Peer.ConnectionType.OUTBOUND);
 
@@ -120,7 +112,7 @@ internal partial class Network
   {
     while (IPAddresses.Count == 0)
     {
-      foreach (string dnsSeed in Token.GetSeedAddresses())
+      foreach (string dnsSeed in ConfigNetwork.SeedAddresses)
       {
         try
         {
@@ -150,7 +142,7 @@ internal partial class Network
 
   async Task StartPeerConnectorInbound()
   {
-    Communication.StartListenerCommunicationInbound(Token.Port);
+    Communication.StartListenerCommunicationInbound(ConfigNetwork.Port);
 
     while (true)
     {
@@ -187,8 +179,8 @@ internal partial class Network
   {
     Dictionary<string, NetworkMessage> protocol = new();
 
-    Block blockDownload = new(Token);
-    Block blockUpload = new(Token);
+    Block blockDownload = new(Blockchain.Token);
+    Block blockUpload = new(Blockchain.Token);
 
     protocol.Add(GetDataMessage.Command, new GetDataMessage(Blockchain, blockUpload));
     protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));

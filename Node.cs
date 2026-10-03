@@ -21,9 +21,18 @@ public class Node
     NetworkBitcoin = new(
       BlockchainBitcoin,
       communication,
-      BlockchainBitcoin.Token,
-      flagEnableInboundConnections: false,
-      flagEnableRelay: false);
+      new ConfigNetwork
+      {
+        Port = 8333,
+        SeedAddresses =
+        [
+          "seed.bitcoin.sipa.be",
+          "dnsseed.bluematt.me",
+          "dnsseed.bitcoin.dashjr.org",
+          "seed.bitcoinstats.com",
+          "seed.bitnodes.io"
+        ]
+      });
 
     BlockchainBToken = new(
       new TokenBToken(),
@@ -33,9 +42,12 @@ public class Node
     NetworkBToken = new(
       BlockchainBToken,
       communication,
-      BlockchainBToken.Token,
-      flagEnableInboundConnections: true,
-      flagEnableRelay: true);
+      new ConfigNetwork
+      {
+        Port = 8777,
+        EnableInboundConnections = true,
+        EnableRelay = true
+      });
 
     Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin, NetworkBToken);
 

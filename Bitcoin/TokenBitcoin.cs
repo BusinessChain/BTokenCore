@@ -33,7 +33,7 @@ public partial class TokenBitcoin : Token
 
 
   public TokenBitcoin()
-    : base(id: "BTC", port: 8333)
+    : base(id: "BTC")
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
@@ -171,18 +171,6 @@ public partial class TokenBitcoin : Token
     tXAnchor.Serialize(Wallet);
 
     return true;
-  }
-
-  internal override string[] GetSeedAddresses()
-  {
-    return
-      [
-        "seed.bitcoin.sipa.be",
-        "dnsseed.bluematt.me",
-        "dnsseed.bitcoin.dashjr.org",
-        "seed.bitcoinstats.com",
-        "seed.bitnodes.io"
-      ];
   }
 
   public override void InsertBlock(Block block)
