@@ -635,23 +635,24 @@ internal partial class Network
 
     internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
     {
-      List<byte> versionPayload = new();
+      ConfigNetwork c = peer.ConfigNetwork;
 
-      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.ProtocolVersion));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.NetworkServicesLocal));
-      versionPayload.AddRange(BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.NetworkServicesRemote));
-      versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.ConfigNetwork.Port));
-      versionPayload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.NetworkServicesLocal));
-      versionPayload.AddRange(IPAddress.Loopback.GetAddressBytes());
-      versionPayload.AddRange(GetBytes((ushort)peer.ConfigNetwork.Port));
-      versionPayload.AddRange(BitConverter.GetBytes((ulong)0));
-      versionPayload.AddRange(VarString.GetBytes(peer.ConfigNetwork.UserAgent));
-      versionPayload.AddRange(BitConverter.GetBytes(heightBlockchainTip));
-      versionPayload.Add(peer.ConfigNetwork.EnableRelay ? (byte)0x01 : (byte)0x00);
-
-      byte[] buffer = versionPayload.ToArray();
+      byte[] buffer =
+      [
+        .. BitConverter.GetBytes(c.ProtocolVersion),
+        .. BitConverter.GetBytes(c.NetworkServicesLocal),
+        .. BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+        .. BitConverter.GetBytes(c.NetworkServicesRemote),
+        .. IPAddress.Loopback.GetAddressBytes(),
+        .. GetBytes((ushort)c.Port),
+        .. BitConverter.GetBytes(c.NetworkServicesLocal),
+        .. IPAddress.Loopback.GetAddressBytes(),
+        .. GetBytes((ushort)c.Port),
+        .. BitConverter.GetBytes((ulong)0),
+        .. VarString.GetBytes(c.UserAgent),
+        .. BitConverter.GetBytes(heightBlockchainTip),
+        c.EnableRelay ? (byte)0x01 : (byte)0x00,
+      ];
 
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
     }
