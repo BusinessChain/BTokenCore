@@ -11,13 +11,12 @@ internal partial class Blockchain
 
   Branch BranchRoot;
 
-  internal Action<Block> OnBlockInserted;
-
-  internal LiteDatabase LiteDatabase;
-  internal ILiteCollection<BsonDocument> DatabaseHeaderCollection;
-  internal ILiteCollection<BsonDocument> DatabaseBlockCollection;
+  ILiteCollection<BsonDocument> DatabaseHeaderCollection;
+  ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
   SemaphoreSlim SemaphoreBlockchain;
+
+  internal Action<Block> OnBlockInserted;
 
   ConcurrentBag<Block> PoolBlocks = new();
 
@@ -33,9 +32,9 @@ internal partial class Blockchain
     BranchRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
     BranchRoot.HeaderRoot.HeaderParent = blockchainParent?.BranchRoot.HeaderRoot;
 
-    LiteDatabase = new LiteDatabase($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
-    DatabaseHeaderCollection = LiteDatabase.GetCollection<BsonDocument>("headers");
-    DatabaseBlockCollection = LiteDatabase.GetCollection<BsonDocument>("blocks");
+    LiteDatabase liteDatabase = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
+    DatabaseHeaderCollection = liteDatabase.GetCollection<BsonDocument>("headers");
+    DatabaseBlockCollection = liteDatabase.GetCollection<BsonDocument>("blocks");
   }
 
   internal async Task LockBlockchain()
