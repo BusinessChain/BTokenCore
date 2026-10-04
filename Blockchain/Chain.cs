@@ -2,14 +2,14 @@
 
 internal partial class Blockchain
 {
-  class Branch
+  class Chain
   {
     internal Header HeaderTip;
     internal Header HeaderRoot;
     internal Header HeaderTipBlockchain;
 
-    Branch BranchParent;
-    List<Branch> BranchesChild = new();
+    Chain ChainParent;
+    List<Chain> ChainsChild = new();
 
     Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
     Header HeaderDownloadNext;
@@ -18,13 +18,13 @@ internal partial class Blockchain
     internal Dictionary<int, Block> Blocks = new();
 
 
-    internal Branch(Header headerGenesis, bool isRoot)
+    internal Chain(Header headerGenesis, bool isRoot)
       : this(null, headerGenesis, isRoot)
     { }
 
-    Branch(Branch blockchainParent, Header headerRoot, bool isRoot)
+    Chain(Chain blockchainParent, Header headerRoot, bool isRoot)
     {
-      BranchParent = blockchainParent;
+      ChainParent = blockchainParent;
       HeaderRoot = headerRoot;
       HeaderTip = headerRoot;
 
@@ -36,47 +36,47 @@ internal partial class Blockchain
 
     internal Header TryExtendHeaderchain(List<Header> headers)
     {
-      Branch branch = this;
+      Chain chain = this;
 
-      if (!TrySearchHeaderAncestor(headers, ref branch, out Header headerAncestor))
+      if (!TrySearchHeaderAncestor(headers, ref chain, out Header headerAncestor))
         return null;
 
       if (headers.Count == 0)
         return headerAncestor;
 
-      if (headerAncestor != branch.HeaderTip)
+      if (headerAncestor != chain.HeaderTip)
       {
         headers[0].AppendToHeader(headerAncestor);
 
-        Branch branchChild = new(branch, headers[0], isRoot: false);
-        branch.BranchesChild.Add(branchChild);
-        branch = branchChild;
+        Chain chainChild = new(chain, headers[0], isRoot: false);
+        chain.ChainsChild.Add(chainChild);
+        chain = chainChild;
       }
       else
-        branch.AppendHeader(headers[0]);
+        chain.AppendHeader(headers[0]);
 
       for (int i = 1; i < headers.Count; i++)
-        branch.AppendHeader(headers[i]);
+        chain.AppendHeader(headers[i]);
 
       return headers[^1];
     }
 
     internal static bool TrySearchHeaderAncestor(
       List<Header> headers,
-      ref Branch branch,
+      ref Chain chain,
       out Header headerAncestor)
     {
-      headerAncestor = branch.HeaderTip;
+      headerAncestor = chain.HeaderTip;
 
       while (!headerAncestor.Hash.IsAllBytesEqual(headers[0].HashPrevious))
       {
-        if (headerAncestor == branch.HeaderRoot)
+        if (headerAncestor == chain.HeaderRoot)
         {
-          foreach (Branch branchChild in branch.BranchesChild)
+          foreach (Chain chainChild in chain.ChainsChild)
           {
-            branch = branchChild;
+            chain = chainChild;
 
-            if (TrySearchHeaderAncestor(headers, ref branch, out headerAncestor))
+            if (TrySearchHeaderAncestor(headers, ref chain, out headerAncestor))
               return true;
           }
 
@@ -116,7 +116,7 @@ internal partial class Blockchain
       HeaderTip = header;
     }
 
-    internal Branch FindBranch(Header header)
+    internal Chain FindChain(Header header)
     {
       if (HeaderRoot.Height <= header.Height && header.Height <= HeaderTip.Height)
       {
@@ -129,28 +129,28 @@ internal partial class Blockchain
           return this;
       }
 
-      foreach (Branch branchChild in BranchesChild)
-        if (branchChild.FindBranch(header) is Branch branch)
-          return branch;
+      foreach (Chain chainChild in ChainsChild)
+        if (chainChild.FindChain(header) is Chain chain)
+          return chain;
 
       return null;
     }
 
     internal Header FetchHeaderDownloadAlongPath(int heightMax)
     {
-      List<(Branch branch, int heightMax)> path = GetPathFromRoot(heightMax);
+      List<(Chain chain, int heightMax)> path = GetPathFromRoot(heightMax);
 
-      foreach ((Branch branch, int heightMaxBranch) in path)
+      foreach ((Chain chain, int heightMaxChain) in path)
       {
-        Header headerDownload = branch.FetchHeaderDownload(heightMaxBranch);
+        Header headerDownload = chain.FetchHeaderDownload(heightMaxChain);
 
         if (headerDownload != null)
           return headerDownload;
       }
 
-      foreach ((Branch branch, int heightMaxBranch) in path)
+      foreach ((Chain chain, int heightMaxChain) in path)
       {
-        Header headerAwaitingBlock = branch.GetHeaderAwaitingBlockLowest(heightMaxBranch);
+        Header headerAwaitingBlock = chain.GetHeaderAwaitingBlockLowest(heightMaxChain);
 
         if (headerAwaitingBlock != null)
           return headerAwaitingBlock;
@@ -159,16 +159,16 @@ internal partial class Blockchain
       return null;
     }
 
-    List<(Branch branch, int heightMax)> GetPathFromRoot(int heightMax)
+    List<(Chain chain, int heightMax)> GetPathFromRoot(int heightMax)
     {
-      List<(Branch branch, int heightMax)> path = new();
-      Branch branch = this;
+      List<(Chain chain, int heightMax)> path = new();
+      Chain chain = this;
 
-      while (branch != null)
+      while (chain != null)
       {
-        path.Insert(0, (branch, heightMax));
-        heightMax = branch.HeaderRoot.Height - 1;
-        branch = branch.BranchParent;
+        path.Insert(0, (chain, heightMax));
+        heightMax = chain.HeaderRoot.Height - 1;
+        chain = chain.ChainParent;
       }
 
       return path;
@@ -197,20 +197,20 @@ internal partial class Blockchain
         .MinBy(h => h.Height);
     }
 
-    internal bool TryQueueBlock(Block block, out Branch branchQueued)
+    internal bool TryQueueBlock(Block block, out Chain chainQueued)
     {
       if (HeadersAwaitingBlock.Remove(block.Header.Hash))
       {
         Blocks.Add(block.Header.Height, block);
-        branchQueued = this;
+        chainQueued = this;
         return true;
       }
 
-      foreach (Branch branch in BranchesChild)
-        if (branch.TryQueueBlock(block, out branchQueued))
+      foreach (Chain chain in ChainsChild)
+        if (chain.TryQueueBlock(block, out chainQueued))
           return true;
 
-      branchQueued = null;
+      chainQueued = null;
       return false;
     }
 
@@ -279,19 +279,19 @@ internal partial class Blockchain
       return (headers, heightAncestor);
     }
 
-    internal void SwitchWithRootBranch(Branch branchRootOld)
+    internal void SwitchWithRootChain(Chain chainRootOld)
     {
-      HeaderRoot = branchRootOld.HeaderRoot;
-      branchRootOld.HeaderRoot = branchRootOld.HeaderTipBlockchain.HeaderNext;
+      HeaderRoot = chainRootOld.HeaderRoot;
+      chainRootOld.HeaderRoot = chainRootOld.HeaderTipBlockchain.HeaderNext;
 
-      BranchesChild.Add(branchRootOld);
-      BranchParent.BranchesChild.Remove(this);
+      ChainsChild.Add(chainRootOld);
+      ChainParent.ChainsChild.Remove(this);
 
-      branchRootOld.BranchParent = this;
-      BranchParent = null;
+      chainRootOld.ChainParent = this;
+      ChainParent = null;
     }
 
-    internal bool IsStrongerThan(Branch blockchain)
+    internal bool IsStrongerThan(Chain blockchain)
     {
       return HeaderTipBlockchain != null
         && HeaderTipBlockchain.Height > blockchain.HeaderTipBlockchain.Height;

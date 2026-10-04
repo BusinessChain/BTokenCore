@@ -9,7 +9,7 @@ internal partial class Blockchain
 {
   internal Token Token;
 
-  Branch BranchRoot;
+  Chain ChainRoot;
 
   ILiteCollection<BsonDocument> DatabaseHeaderCollection;
   ILiteCollection<BsonDocument> DatabaseBlockCollection;
@@ -29,8 +29,8 @@ internal partial class Blockchain
     Token = token;
     SemaphoreBlockchain = semaphoreBlockchain;
 
-    BranchRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
-    BranchRoot.HeaderRoot.HeaderParent = blockchainParent?.BranchRoot.HeaderRoot;
+    ChainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
+    ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     LiteDatabase liteDatabase = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseHeaderCollection = liteDatabase.GetCollection<BsonDocument>("headers");
@@ -56,7 +56,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      header = BranchRoot.GetHeader(hash);
+      header = ChainRoot.GetHeader(hash);
 
       bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
     }
@@ -75,12 +75,12 @@ internal partial class Blockchain
 
   internal int GetHeight()
   {
-    return BranchRoot.HeaderTipBlockchain.Height;
+    return ChainRoot.HeaderTipBlockchain.Height;
   }
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
-    return Token.MineBlock(BranchRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
+    return Token.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
   }
 
   Block TakeBlockFromPool()
@@ -96,7 +96,7 @@ internal partial class Blockchain
     SHA256 sHA256 = SHA256.Create();
     Block blockLoad = new(Token);
 
-    int height = BranchRoot.HeaderRoot.Height + 1;
+    int height = ChainRoot.HeaderRoot.Height + 1;
     BsonDocument bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
 
     while (bsonDocumentHeader != null)
@@ -107,7 +107,7 @@ internal partial class Blockchain
 
         Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
 
-        BranchRoot.AppendHeader(header);
+        ChainRoot.AppendHeader(header);
 
         BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
         if (bsonDocumentBlock != null)
@@ -118,7 +118,7 @@ internal partial class Blockchain
 
           Token.InsertBlock(blockLoad);
 
-          BranchRoot.HeaderTipBlockchain = header;
+          ChainRoot.HeaderTipBlockchain = header;
 
           OnBlockInserted?.Invoke(blockLoad);
         }
@@ -138,7 +138,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      return BranchRoot.TryExtendHeaderchain(headers);
+      return ChainRoot.TryExtendHeaderchain(headers);
     }
     finally
     {
@@ -162,10 +162,10 @@ internal partial class Blockchain
 
   Header FetchHeaderDownload(Header headerTipPeer)
   {
-    headerTipPeer ??= BranchRoot.HeaderTip;
+    headerTipPeer ??= ChainRoot.HeaderTip;
 
-    if (headerTipPeer.Height > BranchRoot.HeaderTipBlockchain.Height)
-      return BranchRoot.FindBranch(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
+    if (headerTipPeer.Height > ChainRoot.HeaderTipBlockchain.Height)
+      return ChainRoot.FindChain(headerTipPeer)?.FetchHeaderDownloadAlongPath(headerTipPeer.Height);
 
     return null;
   }
@@ -176,24 +176,24 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      if (!BranchRoot.TryQueueBlock(block, out Branch branch))
+      if (!ChainRoot.TryQueueBlock(block, out Chain chain))
       {
         block.Header = null;
         return block;
       }
 
-      if (branch != BranchRoot)
+      if (chain != ChainRoot)
       {
-        branch.AdvanceTipBlockchain();
+        chain.AdvanceTipBlockchain();
 
-        if (branch.IsStrongerThan(BranchRoot))
-          Reorg(branch);
+        if (chain.IsStrongerThan(ChainRoot))
+          Reorg(chain);
       }
 
-      while (BranchRoot.Blocks.Remove(BranchRoot.HeaderTipBlockchain.Height + 1, out block))
+      while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out block))
       {
         InsertBlock(block);
-        BranchRoot.HeaderTipBlockchain = block.Header;
+        ChainRoot.HeaderTipBlockchain = block.Header;
       }
 
       block = TakeBlockFromPool();
@@ -228,13 +228,13 @@ internal partial class Blockchain
     PoolBlocks.Add(block);
   }
 
-  void Reorg(Branch branch)
+  void Reorg(Chain chain)
   {
-    int heightFork = branch.HeaderRoot.Height - 1;
+    int heightFork = chain.HeaderRoot.Height - 1;
 
-    while (BranchRoot.HeaderTipBlockchain.Height > heightFork)
+    while (ChainRoot.HeaderTipBlockchain.Height > heightFork)
     {
-      Header header = BranchRoot.HeaderTipBlockchain;
+      Header header = ChainRoot.HeaderTipBlockchain;
       Block block = TakeBlockFromPool();
 
       block.LoadBuffer(DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary);
@@ -246,15 +246,15 @@ internal partial class Blockchain
       DatabaseHeaderCollection.Delete(header.Height);
       DatabaseBlockCollection.Delete(header.Height);
 
-      BranchRoot.HeaderTipBlockchain = header.HeaderPrevious;
+      ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
       PoolBlocks.Add(block);
     }
 
-    branch.HeaderTipBlockchain = BranchRoot.HeaderTipBlockchain;
+    chain.HeaderTipBlockchain = ChainRoot.HeaderTipBlockchain;
 
-    branch.SwitchWithRootBranch(BranchRoot);
-    BranchRoot = branch;
+    chain.SwitchWithRootChain(ChainRoot);
+    ChainRoot = chain;
   }
 
   internal async Task<List<byte[]>> GetLocator()
@@ -262,7 +262,7 @@ internal partial class Blockchain
     try
     {
       await LockBlockchain();
-      return BranchRoot.GetLocator();
+      return ChainRoot.GetLocator();
     }
     finally
     {
@@ -277,7 +277,7 @@ internal partial class Blockchain
     try
     {
       await LockBlockchain();
-      return BranchRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
+      return ChainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
     }
     finally
     {
