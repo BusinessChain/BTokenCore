@@ -12,7 +12,6 @@ internal partial class Blockchain
     List<Chain> ChainsChild = new();
 
     Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
-    Header HeaderDownloadNext;
 
     const int DEPTH_MAX_BlockMissing = 20;
     internal Dictionary<int, Block> Blocks = new();
@@ -30,8 +29,6 @@ internal partial class Blockchain
 
       if (isRoot)
         HeaderTipBlockchain = headerRoot;
-
-      HeaderDownloadNext = headerRoot;
     }
 
     internal Header TryExtendHeaderchain(List<Header> headers)
@@ -146,17 +143,23 @@ internal partial class Blockchain
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      if (HeaderDownloadNext == null
-        || HeaderDownloadNext.Height > heightMax
-        || HeaderDownloadNext.Height - heightBlockNext > DEPTH_MAX_BlockMissing)
-        return HeadersAwaitingBlock.Values
-          .Where(h => h.Height <= heightMax)
-          .MinBy(h => h.Height);
+      Header header = heightBlockNext == HeaderRoot.Height
+        ? HeaderRoot : HeaderTipBlockchain.HeaderNext;
 
-      Header headerDownload = HeaderDownloadNext;
-      HeadersAwaitingBlock.Add(headerDownload.Hash, headerDownload);
-      HeaderDownloadNext = headerDownload.HeaderNext;
-      return headerDownload;
+      while (header != null
+        && header.Height <= heightMax
+        && header.Height - heightBlockNext <= DEPTH_MAX_BlockMissing)
+      {
+        if (!Blocks.ContainsKey(header.Height)
+          && HeadersAwaitingBlock.TryAdd(header.Hash, header))
+          return header;
+
+        header = header.HeaderNext;
+      }
+
+      return HeadersAwaitingBlock.Values
+        .Where(h => h.Height <= heightMax)
+        .MinBy(h => h.Height);
     }
 
     internal bool TryQueueBlock(Block block, out Chain chainQueued)
