@@ -136,58 +136,27 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderDownloadAlongPath(int heightMax)
+    internal Header FetchHeaderDownload(int heightMax)
     {
-      List<(Chain chain, int heightMax)> path = GetPathFromRoot(heightMax);
+      if (ChainParent != null
+        && (ChainParent.HeaderTipBlockchain == null
+          || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1))
+        return ChainParent.FetchHeaderDownload(HeaderRoot.Height - 1);
 
-      foreach ((Chain chain, int heightMaxChain) in path)
-      {
-        if (chain.HeaderTipBlockchain != null && chain.HeaderTipBlockchain.Height >= heightMaxChain)
-          continue;
-
-        return chain.FetchHeaderDownload(heightMaxChain)
-          ?? chain.GetHeaderAwaitingBlockLowest(heightMaxChain);
-      }
-
-      return null;
-    }
-
-    List<(Chain chain, int heightMax)> GetPathFromRoot(int heightMax)
-    {
-      List<(Chain chain, int heightMax)> path = new();
-      Chain chain = this;
-
-      while (chain != null)
-      {
-        path.Insert(0, (chain, heightMax));
-        heightMax = chain.HeaderRoot.Height - 1;
-        chain = chain.ChainParent;
-      }
-
-      return path;
-    }
-
-    Header FetchHeaderDownload(int heightMax)
-    {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
       if (HeaderDownloadNext == null
         || HeaderDownloadNext.Height > heightMax
         || HeaderDownloadNext.Height - heightBlockNext > DEPTH_MAX_BlockMissing)
-        return null;
+        return HeadersAwaitingBlock.Values
+          .Where(h => h.Height <= heightMax)
+          .MinBy(h => h.Height);
 
       Header headerDownload = HeaderDownloadNext;
       HeadersAwaitingBlock.Add(headerDownload.Hash, headerDownload);
-      HeaderDownloadNext = HeaderDownloadNext.HeaderNext;
+      HeaderDownloadNext = headerDownload.HeaderNext;
       return headerDownload;
-    }
-
-    Header GetHeaderAwaitingBlockLowest(int heightMax)
-    {
-      return HeadersAwaitingBlock.Values
-        .Where(h => h.Height <= heightMax)
-        .MinBy(h => h.Height);
     }
 
     internal bool TryQueueBlock(Block block, out Chain chainQueued)
