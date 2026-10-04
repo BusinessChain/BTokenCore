@@ -142,18 +142,11 @@ internal partial class Blockchain
 
       foreach ((Chain chain, int heightMaxChain) in path)
       {
-        Header headerDownload = chain.FetchHeaderDownload(heightMaxChain);
+        if (chain.HeaderTipBlockchain != null && chain.HeaderTipBlockchain.Height >= heightMaxChain)
+          continue;
 
-        if (headerDownload != null)
-          return headerDownload;
-      }
-
-      foreach ((Chain chain, int heightMaxChain) in path)
-      {
-        Header headerAwaitingBlock = chain.GetHeaderAwaitingBlockLowest(heightMaxChain);
-
-        if (headerAwaitingBlock != null)
-          return headerAwaitingBlock;
+        return chain.FetchHeaderDownload(heightMaxChain)
+          ?? chain.GetHeaderAwaitingBlockLowest(heightMaxChain);
       }
 
       return null;
