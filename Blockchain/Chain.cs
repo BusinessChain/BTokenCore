@@ -8,7 +8,7 @@ internal partial class Blockchain
     internal Header HeaderRoot;
     internal Header HeaderTipBlockchain;
 
-    Chain ChainParent;
+    internal Chain ChainParent;
     List<Chain> ChainsChild = new();
 
     Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
@@ -244,16 +244,48 @@ internal partial class Blockchain
       return (headers, heightAncestor);
     }
 
-    internal void SwitchWithRootChain(Chain chainRootOld)
+    internal void SwitchWithParent()
     {
-      HeaderRoot = chainRootOld.HeaderRoot;
-      chainRootOld.HeaderRoot = chainRootOld.HeaderTipBlockchain.HeaderNext;
+      Chain chainParent = ChainParent;
+      Header headerFork = HeaderRoot.HeaderPrevious;
+      int heightFork = headerFork.Height;
 
-      ChainsChild.Add(chainRootOld);
-      ChainParent.ChainsChild.Remove(this);
+      (Blocks, chainParent.Blocks) = (chainParent.Blocks, Blocks);
+      (HeadersAwaitingBlock, chainParent.HeadersAwaitingBlock) = (chainParent.HeadersAwaitingBlock, HeadersAwaitingBlock);
+      (ChainsChild, chainParent.ChainsChild) = (chainParent.ChainsChild, ChainsChild);
 
-      chainRootOld.ChainParent = this;
-      ChainParent = null;
+      MoveItems(Blocks, chainParent.Blocks, b => b.Key <= heightFork);
+      MoveItems(HeadersAwaitingBlock, chainParent.HeadersAwaitingBlock, h => h.Value.Height <= heightFork);
+      MoveItems(ChainsChild, chainParent.ChainsChild, c => c.HeaderRoot.HeaderPrevious.Height <= heightFork);
+
+      foreach (Chain chainChild in chainParent.ChainsChild)
+        chainChild.ChainParent = chainParent;
+
+      foreach (Chain chainChild in ChainsChild)
+        chainChild.ChainParent = this;
+
+      Header headerRootChild = headerFork.HeaderNext;
+      headerFork.HeaderNext = HeaderRoot;
+      HeaderRoot = headerRootChild;
+      (HeaderTip, chainParent.HeaderTip) = (chainParent.HeaderTip, HeaderTip);
+
+      if (chainParent.ChainParent != null)
+      {
+        chainParent.HeaderTipBlockchain = null;
+        chainParent.AdvanceTipBlockchain();
+      }
+
+      HeaderTipBlockchain = null;
+      AdvanceTipBlockchain();
+    }
+
+    static void MoveItems<T>(ICollection<T> source, ICollection<T> target, Func<T, bool> predicate)
+    {
+      foreach (T item in source.Where(predicate).ToList())
+      {
+        source.Remove(item);
+        target.Add(item);
+      }
     }
 
     internal bool IsStrongerThan(Chain blockchain)

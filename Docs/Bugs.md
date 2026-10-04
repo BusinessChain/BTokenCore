@@ -25,6 +25,8 @@ Class names as of 2026-10-01: `Blockchain` (chain + persistence, `Blockchain\Blo
 42. `HeaderBToken.AppendToHeader` throws if the anchoring Bitcoin block hasn't been downloaded yet (`AnchorsWinner` only filled in `Block.Parse`) → BToken peers get disconnected during initial sync until Bitcoin catches up; the two syncs aren't coordinated.
 43. `TXBitcoin` ctor throws `NotSupportedException` on segwit txs (countInputs == 0) → every modern Bitcoin block fails (on top of #32).
 
+**FIXED 2026-10-04 (builds, untested): reorg by recursive promotion** — `Chain.SwitchWithParent()` swaps contents with the parent object (`ChainRoot` reference stays fixed): parent keeps its part up to the fork + the child's headers/`Blocks`/awaiting/children; the child object takes the parent's part above the fork; fork header's `HeaderNext` relinked; non-root tips recomputed from scratch, root's tip (= applied) untouched. `Blockchain.Reorg` promotes the winner level by level up to and including root, then rolls the state back using the demoted old-root segment (`chain.HeaderRoot` = fork + 1; rolled-back blocks go into its `Blocks`), then recomputes its tip. `SwitchWithRootChain` removed. Fixes #9, #34, #35g, #38.
+
 **Block download / branch tree**
 6. Awaiting fallback (`GetHeaderAwaitingBlockLowest`) hands the same lowest header to every idle peer → duplicate block requests each dispatcher round. (It is also what re-assigns the header of a peer that disconnects mid-download — verified 2026-09-26 that such headers are NOT orphaned, keep that property when fixing.)
 7. `HeadersMessage.Run`: non-connecting headers set `HeaderTipReceivedLast = null` → peer drops out of downloading; should send getheaders with locator instead. `SendGetHeaders` there not awaited.
