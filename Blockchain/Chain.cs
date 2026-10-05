@@ -31,20 +31,24 @@ internal partial class Blockchain
         HeaderTipBlockchain = headerRoot;
     }
 
-    internal Header TryExtendHeaderchain(List<Header> headers)
+    internal void ExtendHeaderchain(List<Header> headers, out Header headerTipReceivedLast)
     {
       Chain chain = this;
+      headerTipReceivedLast = null;
 
       if (!TrySearchHeaderAncestor(headers, ref chain, out Header headerAncestor))
-        return null;
+        return;
 
       if (headers.Count == 0)
-        return headerAncestor;
+      {
+        headerTipReceivedLast = headerAncestor;
+        return;
+      }
 
       if (headerAncestor != chain.HeaderTip)
       {
         if (!headers[0].TryAppendToHeader(headerAncestor))
-          return null;
+          return;
 
         Chain chainChild = new(chain, headers[0], isRoot: false);
         chain.ChainsChild.Add(chainChild);
@@ -52,13 +56,13 @@ internal partial class Blockchain
       }
       else
         if (!chain.TryAppendHeader(headers[0]))
-          return null;
+          return;
 
       for (int i = 1; i < headers.Count; i++)
         if (!chain.TryAppendHeader(headers[i]))
-          return null;
+          return;
 
-      return headers[^1];
+      headerTipReceivedLast = headers[^1];
     }
 
     internal static bool TrySearchHeaderAncestor(

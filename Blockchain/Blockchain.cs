@@ -140,7 +140,7 @@ internal partial class Blockchain
 
     Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
 
-    ChainRoot.TryExtendHeaderchain([headerPlaceholder]);
+    ChainRoot.ExtendHeaderchain([headerPlaceholder], out Header headerTipReceivedLast);
   }
 
   internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
@@ -149,7 +149,9 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      return ChainRoot.TryExtendHeaderchain(headers);
+      ChainRoot.ExtendHeaderchain(headers, out Header headerTipReceivedLast);
+
+      return headerTipReceivedLast;
     }
     finally
     {
