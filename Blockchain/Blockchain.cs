@@ -133,6 +133,16 @@ internal partial class Blockchain
       }
   }
 
+  internal void InsertHeaderPlaceholder(Block blockParent)
+  {
+    if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
+      return;
+
+    Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
+
+    ChainRoot.TryExtendHeaderchain([headerPlaceholder]);
+  }
+
   internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
   {
     try

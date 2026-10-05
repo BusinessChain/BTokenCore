@@ -1,8 +1,4 @@
-﻿using System;
-using System.Linq;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {

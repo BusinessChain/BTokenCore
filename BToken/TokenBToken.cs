@@ -52,6 +52,19 @@ public partial class TokenBToken : Token
     return header;
   }
 
+  public override Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
+  {
+    return new HeaderBToken(
+      headerHash: anchor.HashBlockReferenced,
+      hashPrevious: anchor.HashBlockPreviousReferenced,
+      merkleRootHash: new byte[32],
+      hashDatabase: new byte[32],
+      nonce: 0)
+    {
+      HeaderParent = headerParent
+    };
+  }
+
   public override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);

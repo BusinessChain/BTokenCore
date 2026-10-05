@@ -54,6 +54,9 @@ public abstract partial class Token : IToken
   public virtual Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
 
+  public virtual Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
+  { throw new NotSupportedException(); }
+
   internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)
   { throw new NotSupportedException(); }
 }
