@@ -195,19 +195,7 @@ internal partial class Blockchain
         return block;
       }
 
-      if (chain != ChainRoot)
-      {
-        chain.AdvanceTipBlockchain();
-
-        if (chain.IsStrongerThan(ChainRoot))
-          Reorg(chain);
-      }
-
-      while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out block))
-      {
-        InsertBlock(block);
-        ChainRoot.HeaderTipBlockchain = block.Header;
-      }
+      InsertBlocksQueued(chain);
 
       block = TakeBlockFromPool();
       block.Header = FetchHeaderDownload(headerTipPeer);
@@ -217,6 +205,23 @@ internal partial class Blockchain
     finally
     {
       ReleaseLockBlockchain();
+    }
+  }
+
+  void InsertBlocksQueued(Chain chain)
+  {
+    if (chain != ChainRoot)
+    {
+      chain.AdvanceTipBlockchain();
+
+      if (chain.IsStrongerThan(ChainRoot))
+        Reorg(chain);
+    }
+
+    while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
+    {
+      InsertBlock(block);
+      ChainRoot.HeaderTipBlockchain = block.Header;
     }
   }
 
