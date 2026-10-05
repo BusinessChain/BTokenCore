@@ -224,13 +224,13 @@ internal partial class Blockchain
   {
     Token.InsertBlock(block);
 
-    DatabaseHeaderCollection.Insert(new BsonDocument
+    DatabaseHeaderCollection.Upsert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
       ["headerBytes"] = block.Header.Serialize()
     });
 
-    DatabaseBlockCollection.Insert(new BsonDocument
+    DatabaseBlockCollection.Upsert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
