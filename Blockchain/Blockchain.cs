@@ -230,15 +230,19 @@ internal partial class Blockchain
 
   void Reorg(Chain chain)
   {
-    chain.SwitchWithParent();
-
-    while (chain.ChainParent != ChainRoot)
+    while (chain != ChainRoot)
     {
-      chain = chain.ChainParent;
-      chain.SwitchWithParent();
-    }
+      if(chain.ChainParent == ChainRoot)
+        RollBack(heightAfterRollBack: chain.HeaderRoot.Height - 1);
 
-    while (ChainRoot.HeaderTipBlockchain.Height >= chain.HeaderRoot.Height)
+      chain.SwitchWithParent();
+      chain = chain.ChainParent;
+    }
+  }
+
+  void RollBack(int heightAfterRollBack)
+  {
+    while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {
       Header header = ChainRoot.HeaderTipBlockchain;
       Block block = TakeBlockFromPool();
@@ -254,10 +258,8 @@ internal partial class Blockchain
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
-      chain.Blocks.Add(header.Height, block);
+      ChainRoot.Blocks.Add(header.Height, block); 
     }
-
-    chain.AdvanceTipBlockchain();
   }
 
   internal async Task<List<byte[]>> GetLocator()
