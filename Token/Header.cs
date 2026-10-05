@@ -59,6 +59,12 @@ public abstract class Header
     return true;
   }
 
+  internal virtual void CopyTo(Header header)
+  {
+     header.MerkleRoot = MerkleRoot;
+     header.Nonce = Nonce;
+  }
+
   internal virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }
 
   internal void ComputeHash()

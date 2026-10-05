@@ -72,6 +72,12 @@ public partial class TokenBToken : Token
       return base.TryAppendToHeader(headerPrevious);
     }
 
+    internal override void CopyTo(Header header)
+    {
+      base.CopyTo(header);
+      ((HeaderBToken)header).HashDatabase = HashDatabase;
+    }
+
     internal override void VerifyCoinbase(long valueOutputsTXCoinbase)
     {
       long blockReward = BlockRewardInitial >> Height / PeriodHalveningBlockReward;

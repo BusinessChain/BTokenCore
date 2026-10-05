@@ -40,11 +40,12 @@ public class Block
 
     Header header = Token.ParseHeader(Buffer, ref startIndex, SHA256);
 
-    if (Header != null && !Header.Hash.IsAllBytesEqual(header.Hash))
-      throw new ProtocolException($"Received unexpected block {header} expected was {Header}.");
-
     if (Header == null)
       Header = header;
+    else if (Header.Hash.IsAllBytesEqual(header.Hash) && Header.HashPrevious.IsAllBytesEqual(header.HashPrevious))
+      header.CopyTo(Header);
+    else
+      throw new ProtocolException($"Received unexpected block {header} expected was {Header}.");
 
     Header.CountTXs = VarInt.GetInt(Buffer, ref startIndex);
 
