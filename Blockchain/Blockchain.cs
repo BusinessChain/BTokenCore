@@ -107,7 +107,8 @@ internal partial class Blockchain
 
         Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
 
-        ChainRoot.AppendHeader(header);
+        if (!ChainRoot.TryAppendHeader(header))
+          break;
 
         BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
         if (bsonDocumentBlock != null)

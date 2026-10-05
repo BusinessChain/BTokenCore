@@ -48,13 +48,15 @@ public abstract class Header
 
   internal abstract byte[] Serialize();
 
-  internal virtual void AppendToHeader(Header headerPrevious)
+  internal virtual bool TryAppendToHeader(Header headerPrevious)
   {
     if (!HashPrevious.IsAllBytesEqual(headerPrevious.Hash))
       throw new ProtocolException($"Header {this} references header previous {HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
 
     Height = headerPrevious.Height + 1;
     HeaderPrevious = headerPrevious;
+
+    return true;
   }
 
   internal virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }

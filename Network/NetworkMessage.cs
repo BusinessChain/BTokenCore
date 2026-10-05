@@ -346,13 +346,12 @@ internal partial class Network
     internal const int MAX_COUNT_HEADERS = 2000;
     internal const string Command = "headers";
 
-    internal Header HeaderTipReceivedLast;
-
-    Blockchain Blockchain;
-
     const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
     const int MAX_LEVEL_DOS = 20;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 2;
+
+    Blockchain Blockchain;
+    internal Header HeaderTipReceivedLast;
 
     SHA256 SHA256 = SHA256.Create();
 
@@ -365,7 +364,6 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
-      List<Header> headers = new();
       int startIndex = 0;
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
@@ -380,20 +378,25 @@ internal partial class Network
         return;
       }
 
+      List<Header> headers = new();
+
       for (int i = 0; i < countHeaders; i++)
       {
         headers.Add(Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256));
         VarInt.GetInt(Payload, ref startIndex);
       }
 
-      HeaderTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
+      Header headerTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
+
+      if (headerTipReceivedLast != null)
+        HeaderTipReceivedLast = headerTipReceivedLast;
 
       if (peer.StateCurrent == Peer.StateProtocol.HeaderDownload)
       {
-        if (HeaderTipReceivedLast != null)
+        if (headerTipReceivedLast != null)
         {
           DOSMonitor.Decrement(1);
-          GetHeadersMessage.SendGetHeaders(peer, [HeaderTipReceivedLast.Hash]);
+          GetHeadersMessage.SendGetHeaders(peer, [headerTipReceivedLast.Hash]);
         }
         else
           peer.StateCurrent = Peer.StateProtocol.Idle;

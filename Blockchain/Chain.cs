@@ -43,17 +43,20 @@ internal partial class Blockchain
 
       if (headerAncestor != chain.HeaderTip)
       {
-        headers[0].AppendToHeader(headerAncestor);
+        if (!headers[0].TryAppendToHeader(headerAncestor))
+          return null;
 
         Chain chainChild = new(chain, headers[0], isRoot: false);
         chain.ChainsChild.Add(chainChild);
         chain = chainChild;
       }
       else
-        chain.AppendHeader(headers[0]);
+        if (!chain.TryAppendHeader(headers[0]))
+          return null;
 
       for (int i = 1; i < headers.Count; i++)
-        chain.AppendHeader(headers[i]);
+        if (!chain.TryAppendHeader(headers[i]))
+          return null;
 
       return headers[^1];
     }
@@ -105,12 +108,14 @@ internal partial class Blockchain
       return header;
     }
 
-    internal void AppendHeader(Header header)
+    internal bool TryAppendHeader(Header header)
     {
-      header.AppendToHeader(HeaderTip);
+      if (!header.TryAppendToHeader(HeaderTip))
+        return false;
 
       HeaderTip.HeaderNext = header;
       HeaderTip = header;
+      return true;
     }
 
     internal Chain FindChain(Header header)

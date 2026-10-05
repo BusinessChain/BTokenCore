@@ -55,14 +55,14 @@ public partial class TokenBToken : Token
       return buffer;
     }
 
-    internal override void AppendToHeader(Header headerPrevious)
+    internal override bool TryAppendToHeader(Header headerPrevious)
     {
       Header headerParent = headerPrevious.HeaderParent.HeaderNext;
 
       while (true)
       {
         if (headerParent == null)
-          throw new ProtocolException($"Cannot append header {this} to header {headerPrevious} because it is not anchored in parent chain.");
+          return false;
 
         if (headerParent.AnchorsWinner.Any(a => a.Value.HashBlockReferenced.IsAllBytesEqual(Hash)))
         {
@@ -73,7 +73,7 @@ public partial class TokenBToken : Token
         headerParent = headerParent.HeaderNext;
       }
 
-      base.AppendToHeader(headerPrevious);
+      return base.TryAppendToHeader(headerPrevious);
     }
 
     internal override void VerifyCoinbase(long valueOutputsTXCoinbase)
