@@ -194,9 +194,8 @@ public partial class TokenBitcoin : Token
 
   bool TryAddTXOutputWallet(List<TXOutputWallet> listOutputs, TXBitcoin tX, int indexOutput)
   {
-    TXOutputBitcoin tXOutputReferenced = (TXOutputBitcoin)tX.TXOutputs[indexOutput];
-
-    if (tXOutputReferenced.Type == TXOutput.TypesToken.P2PKH &&
+    if (tX.TXOutputs[indexOutput] is TXOutputBitcoin tXOutputReferenced &&
+      tXOutputReferenced.Type == TXOutput.TypesToken.P2PKH &&
       tXOutputReferenced.PublicKeyHash160.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
     {
       listOutputs.Add(

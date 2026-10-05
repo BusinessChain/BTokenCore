@@ -16,18 +16,15 @@ public partial class TokenBitcoin : Token
 
     internal TXOutputBitcoin() { }
 
-    internal TXOutputBitcoin(byte[] buffer, ref int startIndex)
+    internal TXOutputBitcoin(byte[] buffer, int indexScript)
     {
-      startIndex += PREFIX_P2PKH.Length;
+      indexScript += PREFIX_P2PKH.Length;
 
-      Array.Copy(buffer, startIndex, PublicKeyHash160, 0, PublicKeyHash160.Length);
-      startIndex += PublicKeyHash160.Length;
+      Array.Copy(buffer, indexScript, PublicKeyHash160, 0, PublicKeyHash160.Length);
+      indexScript += PublicKeyHash160.Length;
 
-      if (POSTFIX_P2PKH.IsAllBytesEqual(buffer, startIndex))
-      {
-        startIndex += POSTFIX_P2PKH.Length;
+      if (POSTFIX_P2PKH.IsAllBytesEqual(buffer, indexScript))
         Type = TypesToken.P2PKH;
-      }
     }
   }
 }

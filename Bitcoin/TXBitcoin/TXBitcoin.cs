@@ -44,23 +44,31 @@ public partial class TokenBitcoin : Token
 
     TXOutput ParseTXOutputBitcoin(byte[] buffer, ref int startIndex)
     {
-      double value = BitConverter.ToInt64(buffer, startIndex);
+      long value = BitConverter.ToInt64(buffer, startIndex);
       startIndex += 8;
 
       int lengthScript = VarInt.GetInt(buffer, ref startIndex);
+      int indexScript = startIndex;
+      startIndex += lengthScript;
+
+      TXOutput tXOutput;
 
       if (lengthScript == LENGTH_SCRIPT_P2PKH &&
-        PREFIX_P2PKH.IsAllBytesEqual(buffer, startIndex))
+        PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript))
       {
-        return new TXOutputBitcoin(buffer, ref startIndex);
+        tXOutput = new TXOutputBitcoin(buffer, indexScript);
       }
       else if (lengthScript == TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN &&
-        TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, startIndex))
+        TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, indexScript))
       {
-        return new TXOutputTokenAnchor(buffer, ref startIndex);
+        tXOutput = new TXOutputTokenAnchor(buffer, ref indexScript);
       }
       else
-        return null;
+        tXOutput = new TXOutputBitcoin();
+
+      tXOutput.Value = value;
+
+      return tXOutput;
     }
 
 
