@@ -141,6 +141,40 @@ internal partial class Blockchain
     Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
 
     ChainRoot.ExtendHeaderchain([headerPlaceholder], out Header headerTipReceivedLast);
+
+    if (headerTipReceivedLast != headerPlaceholder 
+      || !TryLoadBlock(headerPlaceholder.Height, out Block block))
+      return;
+
+    try
+    {
+      block.Header = headerPlaceholder;
+      block.Parse();
+    }
+    catch (ProtocolException)
+    {
+      PoolBlocks.Add(block);
+      return;
+    }
+
+    Chain chain = ChainRoot.FindChain(headerPlaceholder);
+    chain.Blocks.Add(headerPlaceholder.Height, block);
+
+    InsertBlocksQueued(chain);
+  }
+
+  bool TryLoadBlock(int height, out Block block)
+  {
+    block = null;
+
+    BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
+    if (bsonDocumentBlock == null)
+      return false;
+
+    block = TakeBlockFromPool();
+    block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+
+    return true;
   }
 
   internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
@@ -263,9 +297,7 @@ internal partial class Blockchain
     while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {
       Header header = ChainRoot.HeaderTipBlockchain;
-      Block block = TakeBlockFromPool();
-
-      block.LoadBuffer(DatabaseBlockCollection.FindById(header.Height)["blockBytes"].AsBinary);
+      TryLoadBlock(header.Height, out Block block);
       block.Header = header;
       block.Parse();
 
