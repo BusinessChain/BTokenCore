@@ -10,4 +10,5 @@ internal class ConfigNetwork
   internal string[] SeedAddresses = [];
   internal bool EnableInboundConnections;
   internal bool EnableRelay;
+  internal bool IsProtocolBitcoin;
 }

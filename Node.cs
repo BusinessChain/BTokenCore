@@ -21,6 +21,7 @@ public class Node
     ConfigNetwork ConfigNetworkBitcoin = new()
     {
       Port = 8333,
+      IsProtocolBitcoin = true,
       SeedAddresses =
         [
           "seed.bitcoin.sipa.be",
