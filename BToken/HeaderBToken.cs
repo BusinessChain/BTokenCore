@@ -51,27 +51,6 @@ public partial class TokenBToken : Token
       return buffer;
     }
 
-    internal override bool TryAppendToHeader(Header headerPrevious)
-    {
-      Header headerParent = headerPrevious.HeaderParent.HeaderNext;
-
-      while (true)
-      {
-        if (headerParent == null)
-          return false;
-
-        if (headerParent.AnchorsWinner.Any(a => a.Value.HashBlockReferenced.IsAllBytesEqual(Hash)))
-        {
-          HeaderParent = headerParent;
-          break;
-        }
-
-        headerParent = headerParent.HeaderNext;
-      }
-
-      return base.TryAppendToHeader(headerPrevious);
-    }
-
     internal override void CopyTo(Header header)
     {
       base.CopyTo(header);
