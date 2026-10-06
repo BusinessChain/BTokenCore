@@ -364,6 +364,9 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
+      if (!peer.ConfigNetwork.IsProtocolBitcoin)
+        return;
+
       int startIndex = 0;
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
