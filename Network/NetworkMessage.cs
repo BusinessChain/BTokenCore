@@ -602,7 +602,7 @@ internal partial class Network
     {
       peer.StateCurrent = Peer.StateProtocol.Idle;
 
-      if (peer.Connection == Peer.ConnectionType.OUTBOUND)
+      if (peer.ConfigNetwork.IsProtocolBitcoin && peer.Connection == Peer.ConnectionType.OUTBOUND)
         await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
     }
 

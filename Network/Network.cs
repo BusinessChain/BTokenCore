@@ -183,14 +183,18 @@ internal partial class Network
     Block blockUpload = new(Blockchain.Token);
 
     protocol.Add(GetDataMessage.Command, new GetDataMessage(Blockchain, blockUpload));
-    protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
     protocol.Add(HeadersMessage.Command, new HeadersMessage(Blockchain));
     protocol.Add(BlockMessage.Command, new BlockMessage(Blockchain, blockDownload));
     protocol.Add(VerAckMessage.Command, new VerAckMessage(Blockchain));
     protocol.Add(VersionMessage.Command, new VersionMessage(Blockchain));
     protocol.Add(PingMessage.Command, new PingMessage());
-    protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
     protocol.Add(UnknownMessage.Command, new UnknownMessage());
+
+    if (ConfigNetwork.IsProtocolBitcoin)
+    {
+      protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
+      protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
+    }
 
     return protocol;
   }
