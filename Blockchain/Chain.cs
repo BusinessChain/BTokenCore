@@ -90,13 +90,24 @@ internal partial class Blockchain
         headerAncestor = headerAncestor.HeaderPrevious;
       }
 
-      while (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
+      while (headers.Count > 0)
       {
-        headerAncestor = headerAncestor.HeaderNext;
-        headers.RemoveAt(0);
+        if (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
+          headerAncestor = headerAncestor.HeaderNext;
+        else
+          foreach (Chain chainChild in chain.ChainsChild)
+            if (chainChild.HeaderRoot.HeaderPrevious == headerAncestor
+              && chainChild.HeaderRoot.Hash.IsAllBytesEqual(headers[0].Hash))
+            {
+              chain = chainChild;
+              headerAncestor = chainChild.HeaderRoot;
+              break;
+            }
 
-        if (headers.Count == 0)
+        if (!headerAncestor.Hash.IsAllBytesEqual(headers[0].Hash))
           break;
+
+        headers.RemoveAt(0);
       }
 
       return true;
