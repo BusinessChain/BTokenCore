@@ -59,6 +59,11 @@ public abstract class Header
     return true;
   }
 
+  internal bool IsPlaceholderNewest()
+  {
+    return HeaderParent != null && HeaderParent.HeaderNext == null;
+  }
+
   internal virtual void CopyTo(Header header)
   {
      header.MerkleRoot = MerkleRoot;
