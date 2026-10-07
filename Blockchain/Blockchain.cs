@@ -33,7 +33,9 @@ internal partial class Blockchain
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     LiteDatabase liteDatabase = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
-    DatabaseHeaderCollection = liteDatabase.GetCollection<BsonDocument>("headers");
+    if (blockchainParent == null)
+      DatabaseHeaderCollection = liteDatabase.GetCollection<BsonDocument>("headers");
+
     DatabaseBlockCollection = liteDatabase.GetCollection<BsonDocument>("blocks");
   }
 
@@ -263,7 +265,7 @@ internal partial class Blockchain
   {
     Token.InsertBlock(block);
 
-    DatabaseHeaderCollection.Upsert(new BsonDocument
+    DatabaseHeaderCollection?.Upsert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
       ["headerBytes"] = block.Header.Serialize()
@@ -303,7 +305,7 @@ internal partial class Blockchain
 
       Token.RollBack(block);
 
-      DatabaseHeaderCollection.Delete(header.Height);
+      DatabaseHeaderCollection?.Delete(header.Height);
       DatabaseBlockCollection.Delete(header.Height);
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
