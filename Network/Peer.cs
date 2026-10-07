@@ -26,6 +26,8 @@ internal partial class Network
 
     internal SemaphoreSlim SemaphorePeer = new(1);
 
+    internal HashSet<byte[]> HashesBlockRefused = new(new EqualityComparerByteArray());
+
 
     internal Peer(
       Network network,

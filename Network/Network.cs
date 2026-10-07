@@ -188,6 +188,7 @@ internal partial class Network
     protocol.Add(VerAckMessage.Command, new VerAckMessage(Blockchain));
     protocol.Add(VersionMessage.Command, new VersionMessage(Blockchain));
     protocol.Add(PingMessage.Command, new PingMessage());
+    protocol.Add(NotFoundMessage.Command, new NotFoundMessage());
     protocol.Add(UnknownMessage.Command, new UnknownMessage());
 
     if (ConfigNetwork.IsProtocolBitcoin)

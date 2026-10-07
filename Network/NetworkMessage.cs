@@ -281,7 +281,21 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
+      int startIndex = 0;
 
+      VarInt.GetInt(Payload, ref startIndex);
+      Inventory inventory = Inventory.Parse(Payload, ref startIndex);
+
+      BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
+
+      if (blockMessage.BlockDownload.Header?.Hash.IsAllBytesEqual(inventory.Hash) != true)
+        return;
+
+      DOSMonitor.Decrement(1);
+
+      peer.HashesBlockRefused.Add(inventory.Hash);
+      blockMessage.BlockDownload.Header = null;
+      peer.StateCurrent = Peer.StateProtocol.Idle;
     }
 
     internal override string GetCommand()
