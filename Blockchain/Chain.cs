@@ -153,12 +153,12 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderDownload(int heightMax)
+    internal Header FetchHeaderDownload(int heightMax, HashSet<byte[]> hashesBlockRefused)
     {
       if (ChainParent != null
         && (ChainParent.HeaderTipBlockchain == null
           || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1))
-        return ChainParent.FetchHeaderDownload(HeaderRoot.Height - 1);
+        return ChainParent.FetchHeaderDownload(HeaderRoot.Height - 1, hashesBlockRefused);
 
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -178,7 +178,7 @@ internal partial class Blockchain
       }
 
       return HeadersAwaitingBlock.Values
-        .Where(h => h.Height <= heightMax)
+        .Where(h => h.Height <= heightMax && !hashesBlockRefused.Contains(h.Hash))
         .MinBy(h => h.Height);
     }
 

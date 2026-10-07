@@ -226,7 +226,9 @@ internal partial class Network
             if (peer.StateCurrent != Peer.StateProtocol.Idle)
               continue;
 
-            Header headerDownload = await Blockchain.GetHeaderDownload(headersMessage.HeaderTipReceivedLast);
+            Header headerDownload = await Blockchain.GetHeaderDownload(
+              headersMessage.HeaderTipReceivedLast,
+              peer.HashesBlockRefused);
 
             if (headerDownload != null)
               await blockMessage.SendBlockRequest(peer, headerDownload);

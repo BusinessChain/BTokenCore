@@ -196,13 +196,13 @@ internal partial class Blockchain
     }
   }
 
-  internal async Task<Header> GetHeaderDownload(Header headerTipPeer)
+  internal async Task<Header> GetHeaderDownload(Header headerTipPeer, HashSet<byte[]> hashesBlockRefused)
   {
     try
     {
       await LockBlockchain();
 
-      return FetchHeaderDownload(headerTipPeer);
+      return FetchHeaderDownload(headerTipPeer, hashesBlockRefused);
     }
     finally
     {
@@ -210,17 +210,20 @@ internal partial class Blockchain
     }
   }
 
-  Header FetchHeaderDownload(Header headerTipPeer)
+  Header FetchHeaderDownload(Header headerTipPeer, HashSet<byte[]> hashesBlockRefused)
   {
     headerTipPeer ??= ChainRoot.HeaderTip;
 
     if (headerTipPeer.Height > ChainRoot.HeaderTipBlockchain.Height)
-      return ChainRoot.FindChain(headerTipPeer)?.FetchHeaderDownload(headerTipPeer.Height);
+      return ChainRoot.FindChain(headerTipPeer)?.FetchHeaderDownload(headerTipPeer.Height, hashesBlockRefused);
 
     return null;
   }
 
-  internal async Task<Block> InsertBlockReturnNextDownload(Block block, Header headerTipPeer)
+  internal async Task<Block> InsertBlockReturnNextDownload(
+    Block block,
+    Header headerTipPeer,
+    HashSet<byte[]> hashesBlockRefused)
   {
     try
     {
@@ -235,7 +238,7 @@ internal partial class Blockchain
       InsertBlocksQueued(chain);
 
       block = TakeBlockFromPool();
-      block.Header = FetchHeaderDownload(headerTipPeer);
+      block.Header = FetchHeaderDownload(headerTipPeer, hashesBlockRefused);
 
       return block;
     }

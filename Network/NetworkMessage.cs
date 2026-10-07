@@ -154,7 +154,8 @@ internal partial class Network
 
       BlockDownload = await Blockchain.InsertBlockReturnNextDownload(
         BlockDownload,
-        headersMessage.HeaderTipReceivedLast);
+        headersMessage.HeaderTipReceivedLast,
+        peer.HashesBlockRefused);
 
       if (BlockDownload.Header != null)
         await SendBlockRequest(peer, BlockDownload.Header);
