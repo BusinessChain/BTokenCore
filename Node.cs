@@ -66,7 +66,6 @@ public class Node
     BlockchainBitcoin.LoadBlockchain();
     NetworkBitcoin.Start();
 
-    BlockchainBToken.LoadBlockchain();
     NetworkBToken.Start();
   }
 }
