@@ -408,11 +408,16 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
-      if (!peer.ConfigNetwork.IsProtocolBitcoin)
-        return;
-
       int startIndex = 0;
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
+
+      if (!peer.ConfigNetwork.IsProtocolBitcoin)
+      {
+        if (countHeaders == 1)
+          peer.HashBlockAnnounced = Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256).Hash;
+
+        return;
+      }
 
       if (countHeaders > MAX_COUNT_HEADERS)
         throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
@@ -460,7 +465,7 @@ internal partial class Network
         bufferList.Add(0x00);
       }
 
-      bufferList.InsertRange(0, VarInt.GetBytes(bufferList.Count));
+      bufferList.InsertRange(0, VarInt.GetBytes(headersSerialized.Count));
 
       byte[] buffer = bufferList.ToArray();
 
