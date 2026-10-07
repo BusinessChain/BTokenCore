@@ -133,18 +133,23 @@ internal partial class Blockchain
       return true;
     }
 
+    bool ContainsHeader(Header header)
+    {
+      if (header.Height < HeaderRoot.Height || HeaderTip.Height < header.Height)
+        return false;
+
+      Header headerInChain = HeaderTip;
+
+      while (headerInChain.Height > header.Height)
+        headerInChain = headerInChain.HeaderPrevious;
+
+      return headerInChain == header;
+    }
+
     internal Chain FindChain(Header header)
     {
-      if (HeaderRoot.Height <= header.Height && header.Height <= HeaderTip.Height)
-      {
-        Header headerInChain = HeaderTip;
-
-        while (headerInChain.Height > header.Height)
-          headerInChain = headerInChain.HeaderPrevious;
-
-        if (headerInChain == header)
-          return this;
-      }
+      if (ContainsHeader(header))
+        return this;
 
       foreach (Chain chainChild in ChainsChild)
         if (chainChild.FindChain(header) is Chain chain)
@@ -182,9 +187,44 @@ internal partial class Blockchain
         .MinBy(h => h.Height);
     }
 
+    internal Header FetchHeaderDownloadInTree(
+      Header headerTipPeer,
+      int heightTipBlockchainRoot,
+      HashSet<byte[]> hashesBlockRefused)
+    {
+      bool isTipPeerKnown = headerTipPeer != null;
+      bool isChainQualified;
+      int heightMax;
+
+      if (isTipPeerKnown)
+      {
+        isChainQualified = headerTipPeer.Height > heightTipBlockchainRoot && ContainsHeader(headerTipPeer);
+        heightMax = headerTipPeer.Height;
+      }
+      else
+      {
+        isChainQualified = HeaderTip.Height > heightTipBlockchainRoot;
+        heightMax = HeaderTip.Height;
+      }
+
+      if (isChainQualified && FetchHeaderDownload(heightMax, hashesBlockRefused) is Header header)
+        return header;
+
+      foreach (Chain chainChild in ChainsChild)
+        if (chainChild.FetchHeaderDownloadInTree(
+          headerTipPeer,
+          heightTipBlockchainRoot,
+          hashesBlockRefused) is Header headerChild)
+          return headerChild;
+
+      return null;
+    }
+
     internal bool TryQueueBlock(Block block, out Chain chainQueued)
     {
-      if (HeadersAwaitingBlock.Remove(block.Header.Hash))
+      bool isHeaderOfBlockAwaitedHere = HeadersAwaitingBlock.Remove(block.Header.Hash);
+
+      if (isHeaderOfBlockAwaitedHere)
       {
         Blocks.Add(block.Header.Height, block);
         chainQueued = this;
