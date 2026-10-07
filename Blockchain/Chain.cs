@@ -158,24 +158,33 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderDownloadInChain(int heightMax, HashSet<byte[]> hashesBlockRefused)
+    internal Header FetchHeaderDownloadInChain(
+      int heightMax,
+      HashSet<byte[]> hashesBlockRefused,
+      byte[] hashBlockAnnounced)
     {
       bool isChainParentLagging = ChainParent != null
         && (ChainParent.HeaderTipBlockchain == null
           || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1);
 
       if (isChainParentLagging)
-        return ChainParent.FetchHeaderDownloadInChain(HeaderRoot.Height - 1, hashesBlockRefused);
+        return ChainParent.FetchHeaderDownloadInChain(HeaderRoot.Height - 1, hashesBlockRefused, hashBlockAnnounced);
 
-      return FetchHeaderNotRequestedYet(heightMax)
-        ?? HeadersAwaitingBlock.Values.Where(h => 
+      return FetchHeaderNotRequestedYet(heightMax, hashBlockAnnounced)
+        ?? HeadersAwaitingBlock.Values.Where(h =>
             h.Height <= heightMax
             && !hashesBlockRefused.Contains(h.Hash)
-            && !h.IsPlaceholderNewest())
+            && IsDownloadableFromPeer(h, hashBlockAnnounced))
             .MinBy(h => h.Height);
     }
 
-    Header FetchHeaderNotRequestedYet(int heightMax)
+    static bool IsDownloadableFromPeer(Header header, byte[] hashBlockAnnounced)
+    {
+      bool isAnnouncedByPeer = hashBlockAnnounced != null && header.Hash.IsAllBytesEqual(hashBlockAnnounced);
+      return !header.IsPlaceholderNewest() || isAnnouncedByPeer;
+    }
+
+    Header FetchHeaderNotRequestedYet(int heightMax, byte[] hashBlockAnnounced)
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -191,7 +200,7 @@ internal partial class Blockchain
           return null;
 
         if (!Blocks.ContainsKey(header.Height)
-          && !header.IsPlaceholderNewest()
+          && IsDownloadableFromPeer(header, hashBlockAnnounced)
           && HeadersAwaitingBlock.TryAdd(header.Hash, header))
           return header;
 
@@ -204,7 +213,8 @@ internal partial class Blockchain
     internal Header FetchHeaderDownloadInTree(
       Header headerTipPeer,
       int heightTipBlockchainRoot,
-      HashSet<byte[]> hashesBlockRefused)
+      HashSet<byte[]> hashesBlockRefused,
+      byte[] hashBlockAnnounced)
     {
       bool isTipPeerKnown = headerTipPeer != null;
       bool isChainWorthDownloading;
@@ -221,14 +231,16 @@ internal partial class Blockchain
         heightMax = HeaderTip.Height;
       }
 
-      if (isChainWorthDownloading && FetchHeaderDownloadInChain(heightMax, hashesBlockRefused) is Header header)
+      if (isChainWorthDownloading
+        && FetchHeaderDownloadInChain(heightMax, hashesBlockRefused, hashBlockAnnounced) is Header header)
         return header;
 
       foreach (Chain chainChild in ChainsChild)
         if (chainChild.FetchHeaderDownloadInTree(
           headerTipPeer,
           heightTipBlockchainRoot,
-          hashesBlockRefused) is Header headerChild)
+          hashesBlockRefused,
+          hashBlockAnnounced) is Header headerChild)
           return headerChild;
 
       return null;

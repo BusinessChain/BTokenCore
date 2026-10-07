@@ -231,7 +231,8 @@ internal partial class Network
 
             Header headerDownload = await Blockchain.GetHeaderDownload(
               headersMessage.HeaderTipReceivedLast,
-              peer.HashesBlockRefused);
+              peer.HashesBlockRefused,
+              peer.HashBlockAnnounced);
 
             if (headerDownload != null)
               await blockMessage.SendBlockRequest(peer, headerDownload);
