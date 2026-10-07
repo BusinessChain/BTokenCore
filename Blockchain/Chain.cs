@@ -113,14 +113,14 @@ internal partial class Blockchain
       return true;
     }
 
-    internal Header GetHeader(byte[] hash)
+    internal bool TryGetHeader(byte[] hash, out Header header)
     {
-      Header header = HeaderTip;
+      header = HeaderTip;
 
       while (header != null && !header.Hash.IsAllBytesEqual(hash))
         header = header.HeaderPrevious;
 
-      return header;
+      return header != null;
     }
 
     internal bool TryAppendHeader(Header header)

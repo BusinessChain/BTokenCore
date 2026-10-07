@@ -234,6 +234,11 @@ internal partial class Network
 
             HeightBlockDownloadedLast = BlockUpload.Header.Height;
           }
+          else
+          {
+            byte[] buffer = [.. VarInt.GetBytes(1), .. inventory.GetBytes()];
+            await peer.SocketCommunication.SendMessage(NotFoundMessage.Command, buffer.Length, buffer);
+          }
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_DB)
         {
@@ -253,6 +258,30 @@ internal partial class Network
       byte[] buffer = payload.ToArray();
 
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
+  }
+
+  class NotFoundMessage : NetworkMessage
+  {
+    internal const string Command = "notfound";
+
+    const int SIZE_BUFFER_PAYLOAD = 36_003;
+    const int MAX_LEVEL_DOS = 5;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
+
+
+    internal NotFoundMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
+    { }
+
+    internal override async Task Run(Peer peer)
+    {
+
     }
 
     internal override string GetCommand()

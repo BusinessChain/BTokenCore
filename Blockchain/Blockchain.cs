@@ -58,7 +58,8 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      header = ChainRoot.GetHeader(hash);
+      if (!ChainRoot.TryGetHeader(hash, out header))
+        return;
 
       bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
     }
