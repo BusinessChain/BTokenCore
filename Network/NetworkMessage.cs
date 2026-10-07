@@ -433,7 +433,7 @@ internal partial class Network
         VarInt.GetInt(Payload, ref startIndex);
       }
 
-      Header headerTipReceivedLast = await Blockchain.TryExtendHeaderchain(headers);
+      Header headerTipReceivedLast = await Blockchain.TryInsertHeadersInTree(headers);
 
       if (headerTipReceivedLast != null)
         HeaderTipReceivedLast = headerTipReceivedLast;

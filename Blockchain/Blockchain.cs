@@ -151,10 +151,11 @@ internal partial class Blockchain
 
     Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
 
-    ChainRoot.ExtendHeaderchain([headerPlaceholder], out Header headerTipReceivedLast);
+    ChainRoot.InsertHeadersInTree([headerPlaceholder], out Header headerLastInTree);
 
-    if (headerTipReceivedLast != headerPlaceholder 
-      || !TryLoadBlock(headerPlaceholder.Height, out Block block))
+    bool flagPlaceholderNotInsertedInTree = headerLastInTree != headerPlaceholder;
+    
+    if (flagPlaceholderNotInsertedInTree || !TryLoadBlock(headerPlaceholder.Height, out Block block))
       return;
 
     try
@@ -188,15 +189,15 @@ internal partial class Blockchain
     return true;
   }
 
-  internal async Task<Header> TryExtendHeaderchain(List<Header> headers)
+  internal async Task<Header> TryInsertHeadersInTree(List<Header> headers)
   {
     try
     {
       await LockBlockchain();
 
-      ChainRoot.ExtendHeaderchain(headers, out Header headerTipReceivedLast);
+      ChainRoot.InsertHeadersInTree(headers, out Header headerLastInTree);
 
-      return headerTipReceivedLast;
+      return headerLastInTree;
     }
     finally
     {

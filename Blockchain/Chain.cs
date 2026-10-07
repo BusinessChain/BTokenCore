@@ -31,17 +31,17 @@ internal partial class Blockchain
         HeaderTipBlockchain = headerRoot;
     }
 
-    internal void ExtendHeaderchain(List<Header> headers, out Header headerTipReceivedLast)
+    internal void InsertHeadersInTree(List<Header> headers, out Header headerLastInTree)
     {
       Chain chain = this;
-      headerTipReceivedLast = null;
+      headerLastInTree = null;
 
       if (!TrySearchHeaderAncestor(headers, ref chain, out Header headerAncestor))
         return;
 
       if (headers.Count == 0)
       {
-        headerTipReceivedLast = headerAncestor;
+        headerLastInTree = headerAncestor;
         return;
       }
 
@@ -62,7 +62,7 @@ internal partial class Blockchain
         if (!chain.TryAppendHeader(headers[i]))
           return;
 
-      headerTipReceivedLast = headers[^1];
+      headerLastInTree = headers[^1];
     }
 
     internal static bool TrySearchHeaderAncestor(
