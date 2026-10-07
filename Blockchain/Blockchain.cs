@@ -68,11 +68,19 @@ internal partial class Blockchain
       ReleaseLockBlockchain();
     }
 
-    if (bsonDocumentBlock != null)
+    if (bsonDocumentBlock == null)
+      return;
+
+    blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+    blockLoad.Header = header;
+
+    try
     {
-      blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-      blockLoad.Header = header;
       blockLoad.Parse();
+    }
+    catch (ProtocolException)
+    {
+      blockLoad.Header = null;
     }
   }
 
