@@ -51,12 +51,15 @@ internal partial class Network
         peer.BroadcastTX(tX);
   }
 
-  internal void AnnounceHeader(Header header)
+  internal void AnnounceHeader(Block block)
   {
+    if (!block.Header.IsPlaceholderNewest())
+      return;
+
     lock (LOCK_Peers)
       Peers.ForEach(p => HeadersMessage.SendHeaders(
         p,
-        new List<byte[]> { header.Serialize() }));
+        new List<byte[]> { block.Header.Serialize() }));
   }
 
   async Task StartPeerConnectorOutbound()
