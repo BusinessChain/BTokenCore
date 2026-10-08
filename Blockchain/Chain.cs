@@ -167,36 +167,27 @@ internal partial class Blockchain
       if (isChainParentLagging)
         return ChainParent.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, canSupplierDeliverBlock);
 
-      return FetchHeaderNotAwaitedYet(heightTarget, canSupplierDeliverBlock)
-        ?? HeadersAwaitingBlock.Values
-          .Where(h => h.Height <= heightTarget && canSupplierDeliverBlock(h))
-          .MinBy(h => h.Height);
-    }
-
-    Header FetchHeaderNotAwaitedYet(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)
-    {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      Header header = heightBlockNext == HeaderRoot.Height
+      int heightTopDownloadWindow = Math.Min(heightTarget, heightBlockNext + DEPTH_MAX_BlockMissing);
+
+      Header headerCandidate = heightBlockNext == HeaderRoot.Height
         ? HeaderRoot : HeaderTipBlockchain.HeaderNext;
 
-      while (header != null && header.Height <= heightTarget)
+      while (headerCandidate != null && headerCandidate.Height <= heightTopDownloadWindow)
       {
-        bool isWithinDepthMissingMax = header.Height - heightBlockNext <= DEPTH_MAX_BlockMissing;
+        if (!Blocks.ContainsKey(headerCandidate.Height)
+          && canSupplierDeliverBlock(headerCandidate)
+          && HeadersAwaitingBlock.TryAdd(headerCandidate.Hash, headerCandidate))
+          return headerCandidate;
 
-        if (!isWithinDepthMissingMax)
-          return null;
-
-        if (!Blocks.ContainsKey(header.Height)
-          && canSupplierDeliverBlock(header)
-          && HeadersAwaitingBlock.TryAdd(header.Hash, header))
-          return header;
-
-        header = header.HeaderNext;
+        headerCandidate = headerCandidate.HeaderNext;
       }
 
-      return null;
+      return HeadersAwaitingBlock.Values
+        .Where(h => h.Height <= heightTarget && canSupplierDeliverBlock(h))
+        .MinBy(h => h.Height);
     }
 
     internal Header FetchHeaderBlockMissingNextInTree(int heightTipBlockchainRoot, Func<Header, bool> canSupplierDeliverBlock)
