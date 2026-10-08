@@ -224,19 +224,13 @@ internal partial class Network
         try
         {
           BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
-          HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
           if (blockMessage.BlockDownload.Header == null)
           {
             if (peer.StateCurrent != Peer.StateProtocol.Idle)
               continue;
 
-            Header headerDownload = await Blockchain.GetHeaderBlockMissing(
-              headersMessage.HeaderTipReceivedLast,
-              peer.CanDeliverBlock);
-
-            if (headerDownload != null)
-              await blockMessage.SendBlockRequest(peer, headerDownload);
+            await blockMessage.RequestBlockNext(peer);
           }
           else if (DateTime.UtcNow - blockMessage.TimeRequestBlock > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
             peer.SocketCommunication.Dispose();

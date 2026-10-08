@@ -150,26 +150,32 @@ internal partial class Network
 
       DOSMonitor.Decrement(1);
 
+      bool isBlockInserted = await Blockchain.TryInsertBlock(BlockDownload);
+
+      if (isBlockInserted)
+        BlockDownload = Blockchain.TakeBlockFromPool();
+
+      await RequestBlockNext(peer);
+    }
+
+    internal async Task RequestBlockNext(Peer peer)
+    {
       HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
-      BlockDownload = await Blockchain.InsertBlockReturnBlockMissing(
-        BlockDownload,
+      BlockDownload.Header = await Blockchain.GetHeaderBlockMissing(
         headersMessage.HeaderTipReceivedLast,
         peer.CanDeliverBlock);
 
-      if (BlockDownload.Header != null)
-        await SendBlockRequest(peer, BlockDownload.Header);
-      else
+      if (BlockDownload.Header == null)
+      {
         peer.StateCurrent = Peer.StateProtocol.Idle;
-    }
+        return;
+      }
 
-    internal async Task SendBlockRequest(Peer peer, Header header)
-    {
-      BlockDownload.Header = header;
       TimeRequestBlock = DateTime.UtcNow;
       peer.StateCurrent = Peer.StateProtocol.BlockDownload;
 
-      await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_BLOCK, header.Hash)]);
+      await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
     }
 
     internal static async Task SendBlock(Peer peer, Block block)

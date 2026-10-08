@@ -94,7 +94,7 @@ internal partial class Blockchain
     return Token.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
   }
 
-  Block TakeBlockFromPool()
+  internal Block TakeBlockFromPool()
   {
     if (!PoolBlocks.TryTake(out Block block))
       block = new Block(Token);
@@ -224,31 +224,18 @@ internal partial class Blockchain
     }
   }
 
-  internal async Task<Block> InsertBlockReturnBlockMissing(
-    Block block,
-    Header headerTarget,
-    Func<Header, bool> isHeaderAccepted)
+  internal async Task<bool> TryInsertBlock(Block block)
   {
     try
     {
       await LockBlockchain();
 
       if (!ChainRoot.TryQueueBlock(block, out Chain chain))
-      {
-        block.Header = null;
-        return block;
-      }
+        return false;
 
       InsertBlocksQueued(chain);
 
-      block = TakeBlockFromPool();
-
-      block.Header = ChainRoot.FetchHeaderBlockMissingInTree(
-        headerTarget,
-        ChainRoot.HeaderTipBlockchain.Height,
-        isHeaderAccepted);
-
-      return block;
+      return true;
     }
     finally
     {
