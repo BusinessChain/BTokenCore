@@ -221,7 +221,7 @@ internal partial class Blockchain
       return false;
     }
 
-    internal void AdvanceTipBlockchain()
+    internal void AdvanceTipChain()
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -314,11 +314,11 @@ internal partial class Blockchain
       if (chainParent.ChainParent != null)
       {
         chainParent.HeaderTipBlockchain = null;
-        chainParent.AdvanceTipBlockchain();
+        chainParent.AdvanceTipChain();
       }
 
       HeaderTipBlockchain = null;
-      AdvanceTipBlockchain();
+      AdvanceTipChain();
     }
 
     static void MoveItems<T>(ICollection<T> source, ICollection<T> target, Func<T, bool> predicate)

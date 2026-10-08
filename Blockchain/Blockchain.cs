@@ -256,7 +256,7 @@ internal partial class Blockchain
   {
     if (chain != ChainRoot)
     {
-      chain.AdvanceTipBlockchain();
+      chain.AdvanceTipChain();
 
       if (chain.IsStrongerThan(ChainRoot))
         Reorg(chain);
