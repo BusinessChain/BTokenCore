@@ -65,10 +65,7 @@ internal partial class Blockchain
       headerLastInTree = headers[^1];
     }
 
-    internal static bool TrySearchHeaderAncestor(
-      List<Header> headers,
-      ref Chain chain,
-      out Header headerAncestor)
+    static bool TrySearchHeaderAncestor(List<Header> headers, ref Chain chain, out Header headerAncestor)
     {
       headerAncestor = chain.HeaderTip;
 
@@ -133,6 +130,18 @@ internal partial class Blockchain
       return true;
     }
 
+    internal Chain FindChain(Header header)
+    {
+      if (ContainsHeader(header))
+        return this;
+
+      foreach (Chain chainChild in ChainsChild)
+        if (chainChild.FindChain(header) is Chain chain)
+          return chain;
+
+      return null;
+    }
+
     bool ContainsHeader(Header header)
     {
       if (header.Height < HeaderRoot.Height || HeaderTip.Height < header.Height)
@@ -144,18 +153,6 @@ internal partial class Blockchain
         headerInChain = headerInChain.HeaderPrevious;
 
       return headerInChain == header;
-    }
-
-    internal Chain FindChain(Header header)
-    {
-      if (ContainsHeader(header))
-        return this;
-
-      foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FindChain(header) is Chain chain)
-          return chain;
-
-      return null;
     }
 
     internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)
@@ -170,12 +167,12 @@ internal partial class Blockchain
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      int heightTopDownloadWindow = Math.Min(heightTarget, heightBlockNext + DEPTH_MAX_BlockMissing);
-
       Header headerCandidate = heightBlockNext == HeaderRoot.Height
         ? HeaderRoot : HeaderTipBlockchain.HeaderNext;
 
-      while (headerCandidate != null && headerCandidate.Height <= heightTopDownloadWindow)
+      while (headerCandidate != null
+        && headerCandidate.Height <= heightTarget
+        && headerCandidate.Height <= heightBlockNext + DEPTH_MAX_BlockMissing)
       {
         if (!Blocks.ContainsKey(headerCandidate.Height)
           && canSupplierDeliverBlock(headerCandidate)
