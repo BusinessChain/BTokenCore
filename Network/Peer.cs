@@ -48,6 +48,15 @@ internal partial class Network
       return StateCurrent == StateProtocol.Disposed;
     }
 
+    internal bool CanDeliverBlock(Header header)
+    {
+      bool isRefusedByPeer = HashesBlockRefused.Contains(header.Hash);
+      bool isAnnouncedByPeer = HashBlockAnnounced != null && header.Hash.IsAllBytesEqual(HashBlockAnnounced);
+      bool hasBlockHadTimeToSpread = !header.IsParentNewest();
+
+      return !isRefusedByPeer && (hasBlockHadTimeToSpread || isAnnouncedByPeer);
+    }
+
     internal async Task Start(int heightBlockchainTip)
     {
       await SocketCommunication.Start();

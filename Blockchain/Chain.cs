@@ -158,33 +158,22 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderDownloadInChain(
-      int heightMax,
-      HashSet<byte[]> hashesBlockRefused,
-      byte[] hashBlockAnnounced)
+    internal Header FetchHeaderBlockMissingInChain(int heightTarget, Func<Header, bool> isHeaderAccepted)
     {
       bool isChainParentLagging = ChainParent != null
         && (ChainParent.HeaderTipBlockchain == null
           || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1);
 
       if (isChainParentLagging)
-        return ChainParent.FetchHeaderDownloadInChain(HeaderRoot.Height - 1, hashesBlockRefused, hashBlockAnnounced);
+        return ChainParent.FetchHeaderBlockMissingInChain(HeaderRoot.Height - 1, isHeaderAccepted);
 
-      return FetchHeaderNotRequestedYet(heightMax, hashBlockAnnounced)
-        ?? HeadersAwaitingBlock.Values.Where(h =>
-            h.Height <= heightMax
-            && !hashesBlockRefused.Contains(h.Hash)
-            && IsDownloadableFromPeer(h, hashBlockAnnounced))
-            .MinBy(h => h.Height);
+      return FetchHeaderNotAwaitedYet(heightTarget, isHeaderAccepted)
+        ?? HeadersAwaitingBlock.Values
+          .Where(h => h.Height <= heightTarget && isHeaderAccepted(h))
+          .MinBy(h => h.Height);
     }
 
-    static bool IsDownloadableFromPeer(Header header, byte[] hashBlockAnnounced)
-    {
-      bool isAnnouncedByPeer = hashBlockAnnounced != null && header.Hash.IsAllBytesEqual(hashBlockAnnounced);
-      return !header.IsParentNewest() || isAnnouncedByPeer;
-    }
-
-    Header FetchHeaderNotRequestedYet(int heightMax, byte[] hashBlockAnnounced)
+    Header FetchHeaderNotAwaitedYet(int heightTarget, Func<Header, bool> isHeaderAccepted)
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -192,7 +181,7 @@ internal partial class Blockchain
       Header header = heightBlockNext == HeaderRoot.Height
         ? HeaderRoot : HeaderTipBlockchain.HeaderNext;
 
-      while (header != null && header.Height <= heightMax)
+      while (header != null && header.Height <= heightTarget)
       {
         bool isWithinDepthMissingMax = header.Height - heightBlockNext <= DEPTH_MAX_BlockMissing;
 
@@ -200,7 +189,7 @@ internal partial class Blockchain
           return null;
 
         if (!Blocks.ContainsKey(header.Height)
-          && IsDownloadableFromPeer(header, hashBlockAnnounced)
+          && isHeaderAccepted(header)
           && HeadersAwaitingBlock.TryAdd(header.Hash, header))
           return header;
 
@@ -210,37 +199,35 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderDownloadInTree(
-      Header headerTipPeer,
+    internal Header FetchHeaderBlockMissingInTree(
+      Header headerTarget,
       int heightTipBlockchainRoot,
-      HashSet<byte[]> hashesBlockRefused,
-      byte[] hashBlockAnnounced)
+      Func<Header, bool> isHeaderAccepted)
     {
-      bool isTipPeerKnown = headerTipPeer != null;
-      bool isChainWorthDownloading;
-      int heightMax;
+      bool isTargetKnown = headerTarget != null;
+      bool isChainAhead;
+      int heightTarget;
 
-      if (isTipPeerKnown)
+      if (isTargetKnown)
       {
-        isChainWorthDownloading = headerTipPeer.Height > heightTipBlockchainRoot && ContainsHeader(headerTipPeer);
-        heightMax = headerTipPeer.Height;
+        isChainAhead = headerTarget.Height > heightTipBlockchainRoot && ContainsHeader(headerTarget);
+        heightTarget = headerTarget.Height;
       }
       else
       {
-        isChainWorthDownloading = HeaderTip.Height > heightTipBlockchainRoot;
-        heightMax = HeaderTip.Height;
+        isChainAhead = HeaderTip.Height > heightTipBlockchainRoot;
+        heightTarget = HeaderTip.Height;
       }
 
-      if (isChainWorthDownloading
-        && FetchHeaderDownloadInChain(heightMax, hashesBlockRefused, hashBlockAnnounced) is Header header)
+      if (isChainAhead
+        && FetchHeaderBlockMissingInChain(heightTarget, isHeaderAccepted) is Header header)
         return header;
 
       foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FetchHeaderDownloadInTree(
-          headerTipPeer,
+        if (chainChild.FetchHeaderBlockMissingInTree(
+          headerTarget,
           heightTipBlockchainRoot,
-          hashesBlockRefused,
-          hashBlockAnnounced) is Header headerChild)
+          isHeaderAccepted) is Header headerChild)
           return headerChild;
 
       return null;
