@@ -158,22 +158,22 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> isHeaderAccepted)
+    internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)
     {
       bool isChainParentLagging = ChainParent != null
         && (ChainParent.HeaderTipBlockchain == null
           || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1);
 
       if (isChainParentLagging)
-        return ChainParent.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, isHeaderAccepted);
+        return ChainParent.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, canSupplierDeliverBlock);
 
-      return FetchHeaderNotAwaitedYet(heightTarget, isHeaderAccepted)
+      return FetchHeaderNotAwaitedYet(heightTarget, canSupplierDeliverBlock)
         ?? HeadersAwaitingBlock.Values
-          .Where(h => h.Height <= heightTarget && isHeaderAccepted(h))
+          .Where(h => h.Height <= heightTarget && canSupplierDeliverBlock(h))
           .MinBy(h => h.Height);
     }
 
-    Header FetchHeaderNotAwaitedYet(int heightTarget, Func<Header, bool> isHeaderAccepted)
+    Header FetchHeaderNotAwaitedYet(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -189,7 +189,7 @@ internal partial class Blockchain
           return null;
 
         if (!Blocks.ContainsKey(header.Height)
-          && isHeaderAccepted(header)
+          && canSupplierDeliverBlock(header)
           && HeadersAwaitingBlock.TryAdd(header.Hash, header))
           return header;
 
@@ -199,16 +199,16 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderBlockMissingNextInTree(int heightTipBlockchainRoot, Func<Header, bool> isHeaderAccepted)
+    internal Header FetchHeaderBlockMissingNextInTree(int heightTipBlockchainRoot, Func<Header, bool> canSupplierDeliverBlock)
     {
       bool isChainAhead = HeaderTip.Height > heightTipBlockchainRoot;
 
       if (isChainAhead
-        && FetchHeaderBlockMissingNextInChain(HeaderTip.Height, isHeaderAccepted) is Header header)
+        && FetchHeaderBlockMissingNextInChain(HeaderTip.Height, canSupplierDeliverBlock) is Header header)
         return header;
 
       foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FetchHeaderBlockMissingNextInTree(heightTipBlockchainRoot, isHeaderAccepted) is Header headerChild)
+        if (chainChild.FetchHeaderBlockMissingNextInTree(heightTipBlockchainRoot, canSupplierDeliverBlock) is Header headerChild)
           return headerChild;
 
       return null;

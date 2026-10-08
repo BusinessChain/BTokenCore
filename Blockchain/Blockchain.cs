@@ -206,30 +206,26 @@ internal partial class Blockchain
   }
 
   internal async Task<Header> FetchHeaderBlockMissingNext(
-    Header headerTarget,
-    Func<Header, bool> isHeaderAccepted)
+    Header headerTipSupplier,
+    Func<Header, bool> canSupplierDeliverBlock)
   {
     try
     {
       await LockBlockchain();
 
-      bool isTargetKnown = headerTarget != null;
+      if (headerTipSupplier == null)
+        return ChainRoot.FetchHeaderBlockMissingNextInTree(
+          ChainRoot.HeaderTipBlockchain.Height,
+          canSupplierDeliverBlock);
 
-      if (isTargetKnown)
-      {
-        bool isTargetAhead = headerTarget.Height > ChainRoot.HeaderTipBlockchain.Height;
+      bool isTipSupplierAhead = headerTipSupplier.Height > ChainRoot.HeaderTipBlockchain.Height;
 
-        if (!isTargetAhead)
-          return null;
+      if (!isTipSupplierAhead)
+        return null;
 
-        return ChainRoot.FindChain(headerTarget)?.FetchHeaderBlockMissingNextInChain(
-          headerTarget.Height,
-          isHeaderAccepted);
-      }
-
-      return ChainRoot.FetchHeaderBlockMissingNextInTree(
-        ChainRoot.HeaderTipBlockchain.Height,
-        isHeaderAccepted);
+      return ChainRoot.FindChain(headerTipSupplier)?.FetchHeaderBlockMissingNextInChain(
+        headerTipSupplier.Height,
+        canSupplierDeliverBlock);
     }
     finally
     {
