@@ -205,7 +205,7 @@ internal partial class Blockchain
     }
   }
 
-  internal async Task<Header> GetHeaderBlockMissing(
+  internal async Task<Header> FetchHeaderBlockMissingNext(
     Header headerTarget,
     Func<Header, bool> isHeaderAccepted)
   {
@@ -213,7 +213,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      return ChainRoot.FetchHeaderBlockMissingInTree(
+      return ChainRoot.FetchHeaderBlockMissingNextInTree(
         headerTarget,
         ChainRoot.HeaderTipBlockchain.Height,
         isHeaderAccepted);

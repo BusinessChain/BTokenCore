@@ -158,14 +158,14 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderBlockMissingInChain(int heightTarget, Func<Header, bool> isHeaderAccepted)
+    internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> isHeaderAccepted)
     {
       bool isChainParentLagging = ChainParent != null
         && (ChainParent.HeaderTipBlockchain == null
           || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1);
 
       if (isChainParentLagging)
-        return ChainParent.FetchHeaderBlockMissingInChain(HeaderRoot.Height - 1, isHeaderAccepted);
+        return ChainParent.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, isHeaderAccepted);
 
       return FetchHeaderNotAwaitedYet(heightTarget, isHeaderAccepted)
         ?? HeadersAwaitingBlock.Values
@@ -199,7 +199,7 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderBlockMissingInTree(
+    internal Header FetchHeaderBlockMissingNextInTree(
       Header headerTarget,
       int heightTipBlockchainRoot,
       Func<Header, bool> isHeaderAccepted)
@@ -220,11 +220,11 @@ internal partial class Blockchain
       }
 
       if (isChainAhead
-        && FetchHeaderBlockMissingInChain(heightTarget, isHeaderAccepted) is Header header)
+        && FetchHeaderBlockMissingNextInChain(heightTarget, isHeaderAccepted) is Header header)
         return header;
 
       foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FetchHeaderBlockMissingInTree(
+        if (chainChild.FetchHeaderBlockMissingNextInTree(
           headerTarget,
           heightTipBlockchainRoot,
           isHeaderAccepted) is Header headerChild)

@@ -162,11 +162,13 @@ internal partial class Network
     {
       HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
-      BlockDownload.Header = await Blockchain.GetHeaderBlockMissing(
+      BlockDownload.Header = await Blockchain.FetchHeaderBlockMissingNext(
         headersMessage.HeaderTipReceivedLast,
         peer.CanDeliverBlock);
 
-      if (BlockDownload.Header == null)
+      bool isNoBlockDeliverableByPeer = BlockDownload.Header == null;
+
+      if (isNoBlockDeliverableByPeer)
       {
         peer.StateCurrent = Peer.StateProtocol.Idle;
         return;
