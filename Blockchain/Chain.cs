@@ -199,35 +199,16 @@ internal partial class Blockchain
       return null;
     }
 
-    internal Header FetchHeaderBlockMissingNextInTree(
-      Header headerTarget,
-      int heightTipBlockchainRoot,
-      Func<Header, bool> isHeaderAccepted)
+    internal Header FetchHeaderBlockMissingNextInTree(int heightTipBlockchainRoot, Func<Header, bool> isHeaderAccepted)
     {
-      bool isTargetKnown = headerTarget != null;
-      bool isChainAhead;
-      int heightTarget;
-
-      if (isTargetKnown)
-      {
-        isChainAhead = headerTarget.Height > heightTipBlockchainRoot && ContainsHeader(headerTarget);
-        heightTarget = headerTarget.Height;
-      }
-      else
-      {
-        isChainAhead = HeaderTip.Height > heightTipBlockchainRoot;
-        heightTarget = HeaderTip.Height;
-      }
+      bool isChainAhead = HeaderTip.Height > heightTipBlockchainRoot;
 
       if (isChainAhead
-        && FetchHeaderBlockMissingNextInChain(heightTarget, isHeaderAccepted) is Header header)
+        && FetchHeaderBlockMissingNextInChain(HeaderTip.Height, isHeaderAccepted) is Header header)
         return header;
 
       foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FetchHeaderBlockMissingNextInTree(
-          headerTarget,
-          heightTipBlockchainRoot,
-          isHeaderAccepted) is Header headerChild)
+        if (chainChild.FetchHeaderBlockMissingNextInTree(heightTipBlockchainRoot, isHeaderAccepted) is Header headerChild)
           return headerChild;
 
       return null;

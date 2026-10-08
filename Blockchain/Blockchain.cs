@@ -213,8 +213,21 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
+      bool isTargetKnown = headerTarget != null;
+
+      if (isTargetKnown)
+      {
+        bool isTargetAhead = headerTarget.Height > ChainRoot.HeaderTipBlockchain.Height;
+
+        if (!isTargetAhead)
+          return null;
+
+        return ChainRoot.FindChain(headerTarget)?.FetchHeaderBlockMissingNextInChain(
+          headerTarget.Height,
+          isHeaderAccepted);
+      }
+
       return ChainRoot.FetchHeaderBlockMissingNextInTree(
-        headerTarget,
         ChainRoot.HeaderTipBlockchain.Height,
         isHeaderAccepted);
     }
