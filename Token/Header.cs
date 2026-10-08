@@ -59,7 +59,7 @@ public abstract class Header
     return true;
   }
 
-  internal bool IsPlaceholderNewest()
+  internal bool IsParentNewest()
   {
     return HeaderParent != null && HeaderParent.HeaderNext == null;
   }

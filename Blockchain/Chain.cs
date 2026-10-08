@@ -181,7 +181,7 @@ internal partial class Blockchain
     static bool IsDownloadableFromPeer(Header header, byte[] hashBlockAnnounced)
     {
       bool isAnnouncedByPeer = hashBlockAnnounced != null && header.Hash.IsAllBytesEqual(hashBlockAnnounced);
-      return !header.IsPlaceholderNewest() || isAnnouncedByPeer;
+      return !header.IsParentNewest() || isAnnouncedByPeer;
     }
 
     Header FetchHeaderNotRequestedYet(int heightMax, byte[] hashBlockAnnounced)

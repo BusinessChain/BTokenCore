@@ -59,8 +59,6 @@ public class Node
 
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
     BlockchainBitcoin.OnBlockInserted += Miner.OnBlockBitcoinInserted;
-
-    BlockchainBToken.OnBlockInserted += NetworkBToken.AnnounceHeader;
   }
 
   public void Start()

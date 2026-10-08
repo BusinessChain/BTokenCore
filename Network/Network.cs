@@ -32,6 +32,8 @@ internal partial class Network
     Blockchain = blockchain;
     Communication = communication;
     ConfigNetwork = configNetwork;
+
+    Blockchain.OnBlockInserted += AnnounceHeaderIfParentNewest;
   }
 
   internal void Start()
@@ -51,9 +53,9 @@ internal partial class Network
         peer.BroadcastTX(tX);
   }
 
-  internal void AnnounceHeader(Block block)
+  void AnnounceHeaderIfParentNewest(Block block)
   {
-    if (!block.Header.IsPlaceholderNewest())
+    if (!block.Header.IsParentNewest())
       return;
 
     lock (LOCK_Peers)
