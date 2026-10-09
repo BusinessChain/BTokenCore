@@ -176,6 +176,10 @@ internal partial class Blockchain
     InsertBlocksQueued(chain);
   }
 
+  internal void RemoveHeaderPlaceholder(Block blockParent)
+  {
+  }
+
   bool TryLoadBlock(int height, out Block block)
   {
     block = null;
