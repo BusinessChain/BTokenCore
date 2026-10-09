@@ -178,6 +178,11 @@ internal partial class Blockchain
 
   internal void RemoveHeaderPlaceholder(Block blockParent)
   {
+    if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
+      return;
+
+    if (!ChainRoot.TryGetHeaderInTree(anchorWinner.HashBlockReferenced, out Header headerPlaceholder))
+      return;
   }
 
   bool TryLoadBlock(int height, out Block block)
