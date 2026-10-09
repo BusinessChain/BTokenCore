@@ -77,19 +77,40 @@ public partial class TokenBToken : Token
         throw new ProtocolException($"Value {tXBToken.GetValueOutputs() + tXBToken.Fee} of tX {tXBToken} " +
           $"bigger than unconfirmed balance {accountSource.Balance} of account {accountSource}.");
 
-      TXsByHash.Add(tXBToken.Hash, (tXBToken, SequenceNumberTX++));
+      InsertTX(tXBToken, flagAhead: false);
 
-      if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBToken> tXsInPool))
-        tXsInPool.Add(tXBToken);
+      InsertTXInTXBundlesSortedByFee(tXBToken);
+    }
+
+    internal void ReturnTX(TXBToken tX)
+    {
+      InsertTX(tX, flagAhead: true);
+
+      SortTXBundlesByFee();
+    }
+
+    void InsertTX(TXBToken tX, bool flagAhead)
+    {
+      if (flagAhead)
+        TXsByHash.Add(tX.Hash, (tX, -1));
       else
-        TXsByIDAccountSource.Add(tXBToken.IDAccountSource, new List<TXBToken>() { tXBToken });
+        TXsByHash.Add(tX.Hash, (tX, SequenceNumberTX++));
 
-      foreach (TXOutputP2PKH tXOutputBToken in tXBToken.TXOutputs)
+      if (!TXsByIDAccountSource.TryGetValue(tX.IDAccountSource, out List<TXBToken> tXsInPool))
+      {
+        tXsInPool = new List<TXBToken>();
+        TXsByIDAccountSource.Add(tX.IDAccountSource, tXsInPool);
+      }
+
+      if (flagAhead)
+        tXsInPool.Insert(0, tX);
+      else
+        tXsInPool.Add(tX);
+
+      foreach (TXOutputP2PKH tXOutputBToken in tX.TXOutputs)
         if (tXOutputBToken.Value > 0)
           if (!OutputValuesByIDAccount.TryAdd(tXOutputBToken.IDAccount, tXOutputBToken.Value))
             OutputValuesByIDAccount[tXOutputBToken.IDAccount] += tXOutputBToken.Value;
-
-      InsertTXInTXBundlesSortedByFee(tXBToken);
     }
 
     internal void RemoveTXs(IEnumerable<byte[]> hashesTX)
@@ -119,16 +140,21 @@ public partial class TokenBToken : Token
             OutputValuesByIDAccount.Remove(tXOutput.IDAccount);
         }
 
-        TXBundlesSortedByFee.Clear();
-        SequenceNumberTX = 0;
+        SortTXBundlesByFee();
+      }
+    }
 
-        var orderedItems = TXsByHash.OrderBy(i => i.Value.sequenceNumberTX).ToList();
+    void SortTXBundlesByFee()
+    {
+      TXBundlesSortedByFee.Clear();
+      SequenceNumberTX = 0;
 
-        for (int i = 0; i < orderedItems.Count; i++)
-        {
-          TXsByHash[orderedItems[i].Key] = (orderedItems[i].Value.tX, SequenceNumberTX++);
-          InsertTXInTXBundlesSortedByFee(orderedItems[i].Value.tX);
-        }
+      var orderedItems = TXsByHash.OrderBy(i => i.Value.sequenceNumberTX).ToList();
+
+      for (int i = 0; i < orderedItems.Count; i++)
+      {
+        TXsByHash[orderedItems[i].Key] = (orderedItems[i].Value.tX, SequenceNumberTX++);
+        InsertTXInTXBundlesSortedByFee(orderedItems[i].Value.tX);
       }
     }
 
