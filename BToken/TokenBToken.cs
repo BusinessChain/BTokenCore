@@ -196,31 +196,26 @@ public partial class TokenBToken : Token
       throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
 
     if (tXOutput.Value > 0)
-    {
-      if (AccountsStaged.TryGetValue(tXOutput.IDAccount, out Account accountStaged))
-        accountStaged.Balance += tXOutput.Value;
-      else
-      {
-        if (DatabaseAccountCollection.FindById(tXOutput.IDAccount) is Account accountStored)
-          accountStaged = new()
-          {
-            ID = accountStored.ID,
-            BlockHeightAccountCreated = accountStored.BlockHeightAccountCreated,
-            Nonce = accountStored.Nonce,
-            Balance = accountStored.Balance + tXOutput.Value
-          };
-        else
-          accountStaged = new()
-          {
-            ID = tXOutput.IDAccount,
-            BlockHeightAccountCreated = blockHeight,
-            Nonce = 0,
-            Balance = tXOutput.Value
-          };
+      StageAccount(tXOutput.IDAccount, blockHeight).Balance += tXOutput.Value;
+  }
 
-        AccountsStaged.Add(accountStaged.ID, accountStaged);
-      }
-    }
+  Account StageAccount(byte[] accountID, int blockHeightAccountCreated)
+  {
+    if (AccountsStaged.TryGetValue(accountID, out Account accountStaged))
+      return accountStaged;
+
+    if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
+      accountStaged = new(accountStored);
+    else
+      accountStaged = new()
+      {
+        ID = accountID,
+        BlockHeightAccountCreated = blockHeightAccountCreated
+      };
+
+    AccountsStaged.Add(accountStaged.ID, accountStaged);
+
+    return accountStaged;
   }
 
   Account GetCopyOfAccount(byte[] accountID)
@@ -251,7 +246,7 @@ public partial class TokenBToken : Token
 
         if (i > 0)
         {
-          ReverseSpendInputInDB(tX);
+          StageAccount(tX.IDAccountSource, tX.BlockheightAccountCreated).ReverseSpendTX(tX);
           TXPool.ReturnTX(tX);
         }
 
@@ -265,11 +260,6 @@ public partial class TokenBToken : Token
     {
       AccountsStaged.Clear();
     }
-  }
-
-  void ReverseSpendInputInDB(TXBToken tX)
-  {
-
   }
 
   void ReverseOutputInDB(TXOutput tXOutput)

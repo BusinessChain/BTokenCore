@@ -50,7 +50,7 @@ public partial class TokenBToken : Token
 
     internal void ReverseSpendTX(TXBToken tX)
     {
-      Nonce -= 1;
+      Nonce = tX.Nonce;
       Balance += tX.GetValueOutputs() + tX.Fee;
     }
   }
