@@ -147,7 +147,9 @@ internal partial class Blockchain
       if (HeaderTipBlockchain == HeaderTip)
         HeaderTipBlockchain = headerPrevious;
 
-      if (HeaderTip != HeaderRoot)
+      if (HeaderTip == HeaderRoot)
+        ChainParent.ChainsChild.Remove(this);
+      else
         headerPrevious.HeaderNext = null;
 
       HeaderTip = headerPrevious;
