@@ -188,12 +188,13 @@ public partial class TokenBToken : Token
     void RemoveOutputValues(TXBToken tX)
     {
       foreach (TXOutputP2PKH tXOutput in tX.TXOutputs)
-      {
-        OutputValuesByIDAccount[tXOutput.IDAccount] -= tXOutput.Value;
+        if (tXOutput.Value > 0)
+        {
+          OutputValuesByIDAccount[tXOutput.IDAccount] -= tXOutput.Value;
 
-        if (OutputValuesByIDAccount[tXOutput.IDAccount] == 0)
-          OutputValuesByIDAccount.Remove(tXOutput.IDAccount);
-      }
+          if (OutputValuesByIDAccount[tXOutput.IDAccount] == 0)
+            OutputValuesByIDAccount.Remove(tXOutput.IDAccount);
+        }
     }
 
     void SortTXBundlesByFee()
