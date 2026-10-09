@@ -184,7 +184,12 @@ internal partial class Blockchain
     if (ChainRoot.HeaderTipBlockchain == headerPlaceholder)
       RollBack(heightAfterRollBack: headerPlaceholder.Height - 1);
 
-    ChainRoot.FindChain(headerPlaceholder).RemoveHeaderTip();
+    Chain chain = ChainRoot.FindChain(headerPlaceholder);
+
+    chain.RemoveHeaderTip();
+
+    if (chain.Blocks.Remove(headerPlaceholder.Height, out Block blockQueued))
+      PoolBlocks.Add(blockQueued);
   }
 
   bool TryLoadBlock(int height, out Block block)

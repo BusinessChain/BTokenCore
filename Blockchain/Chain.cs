@@ -142,6 +142,8 @@ internal partial class Blockchain
     {
       Header headerPrevious = HeaderTip.HeaderPrevious;
 
+      HeadersAwaitingBlock.Remove(HeaderTip.Hash);
+
       if (HeaderTipBlockchain == HeaderTip)
         HeaderTipBlockchain = headerPrevious;
 
