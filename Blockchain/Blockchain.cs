@@ -180,6 +180,9 @@ internal partial class Blockchain
   {
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
       return;
+
+    if (ChainRoot.HeaderTipBlockchain == headerPlaceholder)
+      RollBack(heightAfterRollBack: headerPlaceholder.Height - 1);
   }
 
   bool TryLoadBlock(int height, out Block block)
