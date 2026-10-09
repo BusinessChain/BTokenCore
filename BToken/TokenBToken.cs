@@ -250,8 +250,9 @@ public partial class TokenBToken : Token
           TXPool.ReturnTX(tX);
         }
 
-        foreach (TXOutput output in tX.TXOutputs)
-          ReverseOutputInDB(output);
+        foreach (TXOutput tXOutput in tX.TXOutputs)
+          if (tXOutput.Value > 0)
+            StageAccount(tXOutput.IDAccount, block.Header.Height).Balance -= tXOutput.Value;
       }
 
       TXPool.DropTXsNoLongerCoveredByBalance();
@@ -260,11 +261,6 @@ public partial class TokenBToken : Token
     {
       AccountsStaged.Clear();
     }
-  }
-
-  void ReverseOutputInDB(TXOutput tXOutput)
-  {
-
   }
 
   internal List<byte[]> ParseHashesDB(byte[] buffer, int length, Header headerTip)
