@@ -176,11 +176,7 @@ public partial class TokenBToken : Token
           StageSpendTXInput(tX);
       }
 
-      foreach (Account account in AccountsStaged.Values)
-        if (account.Balance > 0)
-          DatabaseAccountCollection.Upsert(account);
-        else
-          DatabaseAccountCollection.Delete(account.ID);
+      WriteAccountsStaged();
 
       TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
     }
@@ -188,6 +184,15 @@ public partial class TokenBToken : Token
     {
       AccountsStaged.Clear();
     }
+  }
+
+  void WriteAccountsStaged()
+  {
+    foreach (Account account in AccountsStaged.Values)
+      if (account.Balance > 0)
+        DatabaseAccountCollection.Upsert(account);
+      else
+        DatabaseAccountCollection.Delete(account.ID);
   }
 
   void StageInsertTXOutput(TXOutput tXOutput, int blockHeight)
@@ -255,9 +260,7 @@ public partial class TokenBToken : Token
             StageAccount(tXOutput.IDAccount, block.Header.Height).Balance -= tXOutput.Value;
       }
 
-      foreach (Account account in AccountsStaged.Values)
-        if (account.Balance == 0)
-          DatabaseAccountCollection.Delete(account.ID);
+      WriteAccountsStaged();
 
       TXPool.DropTXsNoLongerCoveredByBalance();
     }
