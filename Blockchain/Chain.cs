@@ -112,22 +112,27 @@ internal partial class Blockchain
 
     internal bool TryGetHeader(byte[] hash, out Header header)
     {
-      Header headerFork = HeaderRoot.HeaderPrevious;
       header = HeaderTip;
 
-      while (header != headerFork && !header.Hash.IsAllBytesEqual(hash))
+      while (header != null && !header.Hash.IsAllBytesEqual(hash))
         header = header.HeaderPrevious;
 
-      return header != headerFork;
+      return header != null;
     }
 
-    internal bool TryGetHeaderInTree(byte[] hash, out Header header)
+    internal bool TryGetHeaderPlaceholder(Header headerParent, out Header headerPlaceholder)
     {
-      if (TryGetHeader(hash, out header))
+      Header headerFork = HeaderRoot.HeaderPrevious;
+      headerPlaceholder = HeaderTip;
+
+      while (headerPlaceholder != headerFork && headerPlaceholder.HeaderParent != headerParent)
+        headerPlaceholder = headerPlaceholder.HeaderPrevious;
+
+      if (headerPlaceholder != headerFork)
         return true;
 
       foreach (Chain chainChild in ChainsChild)
-        if (chainChild.TryGetHeaderInTree(hash, out header))
+        if (chainChild.TryGetHeaderPlaceholder(headerParent, out headerPlaceholder))
           return true;
 
       return false;
