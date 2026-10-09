@@ -17,6 +17,7 @@ internal partial class Blockchain
   SemaphoreSlim SemaphoreBlockchain;
 
   internal Action<Block> OnBlockInserted;
+  internal Action<Block> OnBlockRolledBack;
 
   ConcurrentBag<Block> PoolBlocks = new();
 
@@ -315,6 +316,8 @@ internal partial class Blockchain
 
       DatabaseHeaderCollection?.Delete(header.Height);
       DatabaseBlockCollection.Delete(header.Height);
+
+      OnBlockRolledBack?.Invoke(block);
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
