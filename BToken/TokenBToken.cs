@@ -255,6 +255,10 @@ public partial class TokenBToken : Token
             StageAccount(tXOutput.IDAccount, block.Header.Height).Balance -= tXOutput.Value;
       }
 
+      foreach (Account account in AccountsStaged.Values)
+        if (account.Balance == 0)
+          DatabaseAccountCollection.Delete(account.ID);
+
       TXPool.DropTXsNoLongerCoveredByBalance();
     }
     finally
