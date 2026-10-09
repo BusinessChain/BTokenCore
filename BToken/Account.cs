@@ -20,9 +20,6 @@ public partial class TokenBToken : Token
     internal int BlockHeightAccountCreated;
 
     [BsonField]
-    internal int BlockHeightLastUpdated;
-
-    [BsonField]
     internal int Nonce;
 
     [BsonField]
