@@ -138,6 +138,19 @@ internal partial class Blockchain
       return false;
     }
 
+    internal void RemoveHeaderTip()
+    {
+      Header headerPrevious = HeaderTip.HeaderPrevious;
+
+      if (HeaderTipBlockchain == HeaderTip)
+        HeaderTipBlockchain = headerPrevious;
+
+      if (HeaderTip != HeaderRoot)
+        headerPrevious.HeaderNext = null;
+
+      HeaderTip = headerPrevious;
+    }
+
     internal bool TryAppendHeader(Header header)
     {
       if (!header.TryAppendToHeader(HeaderTip))
