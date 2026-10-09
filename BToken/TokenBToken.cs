@@ -258,6 +258,8 @@ public partial class TokenBToken : Token
         foreach (TXOutput output in tX.TXOutputs)
           ReverseOutputInDB(output);
       }
+
+      TXPool.DropTXsNoLongerCoveredByBalance();
     }
     finally
     {

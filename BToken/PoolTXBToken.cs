@@ -132,15 +132,67 @@ public partial class TokenBToken : Token
         if (tXsByAccountSource.Count == 0)
           TXsByIDAccountSource.Remove(tX.IDAccountSource);
 
-        foreach (TXOutputP2PKH tXOutput in tX.TXOutputs)
-        {
-          OutputValuesByIDAccount[tXOutput.IDAccount] -= tXOutput.Value;
-
-          if (OutputValuesByIDAccount[tXOutput.IDAccount] == 0)
-            OutputValuesByIDAccount.Remove(tXOutput.IDAccount);
-        }
+        RemoveOutputValues(tX);
 
         SortTXBundlesByFee();
+      }
+    }
+
+    internal void DropTXsNoLongerCoveredByBalance()
+    {
+      bool flagTXDropped;
+
+      do
+      {
+        flagTXDropped = false;
+
+        foreach (byte[] iDAccountSource in TXsByIDAccountSource.Keys.ToList())
+        {
+          List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
+
+          long balance = 0;
+
+          if (Token.DatabaseAccountCollection.FindById(iDAccountSource) is Account accountStored)
+            balance = accountStored.Balance;
+
+          if (OutputValuesByIDAccount.TryGetValue(iDAccountSource, out long valueTotal))
+            balance += valueTotal;
+
+          for (int i = 0; i < tXsInPool.Count; i += 1)
+          {
+            balance -= tXsInPool[i].GetValueOutputs() + tXsInPool[i].Fee;
+
+            if (balance < 0)
+            {
+              foreach (TXBToken tXDropped in tXsInPool.Skip(i))
+              {
+                TXsByHash.Remove(tXDropped.Hash);
+                RemoveOutputValues(tXDropped);
+              }
+
+              tXsInPool.RemoveRange(i, tXsInPool.Count - i);
+
+              if (tXsInPool.Count == 0)
+                TXsByIDAccountSource.Remove(iDAccountSource);
+
+              flagTXDropped = true;
+              break;
+            }
+          }
+        }
+      } while (flagTXDropped);
+
+      SortTXBundlesByFee();
+    }
+
+    void RemoveOutputValues(TXBToken tX)
+    {
+      foreach (TXOutputP2PKH tXOutput in tX.TXOutputs)
+      {
+        OutputValuesByIDAccount[tXOutput.IDAccount] -= tXOutput.Value;
+
+        if (OutputValuesByIDAccount[tXOutput.IDAccount] == 0)
+          OutputValuesByIDAccount.Remove(tXOutput.IDAccount);
       }
     }
 
