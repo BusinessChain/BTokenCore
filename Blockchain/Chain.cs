@@ -1,4 +1,6 @@
-﻿namespace BTokenCore;
+﻿using System.Collections.Concurrent;
+
+namespace BTokenCore;
 
 internal partial class Blockchain
 {
@@ -138,16 +140,29 @@ internal partial class Blockchain
       return false;
     }
 
-    internal void RemoveHeaderTip()
+    internal void RemoveHeaders(Header headerRemove, ConcurrentBag<Block> poolBlocks)
     {
-      Header headerPrevious = HeaderTip.HeaderPrevious;
+      Header headerPrevious = headerRemove.HeaderPrevious;
 
-      HeadersAwaitingBlock.Remove(HeaderTip.Hash);
+      foreach (Chain chainChild in ChainsChild.Where(c => c.HeaderRoot.Height > headerRemove.Height).ToList())
+      {
+        ChainsChild.Remove(chainChild);
+        chainChild.ReturnBlocksToPool(poolBlocks);
+      }
 
-      if (HeaderTipBlockchain == HeaderTip)
+      foreach (int height in Blocks.Keys.Where(h => h >= headerRemove.Height).ToList())
+      {
+        Blocks.Remove(height, out Block block);
+        poolBlocks.Add(block);
+      }
+
+      foreach (Header header in HeadersAwaitingBlock.Values.Where(h => h.Height >= headerRemove.Height).ToList())
+        HeadersAwaitingBlock.Remove(header.Hash);
+
+      if (HeaderTipBlockchain != null && HeaderTipBlockchain.Height >= headerRemove.Height)
         HeaderTipBlockchain = headerPrevious;
 
-      if (HeaderTip == HeaderRoot)
+      if (headerRemove == HeaderRoot)
       {
         ChainParent.ChainsChild.Remove(this);
         return;
@@ -178,6 +193,15 @@ internal partial class Blockchain
 
       if (ChainParent != null)
         AdvanceTipChain();
+    }
+
+    void ReturnBlocksToPool(ConcurrentBag<Block> poolBlocks)
+    {
+      foreach (Block block in Blocks.Values)
+        poolBlocks.Add(block);
+
+      foreach (Chain chainChild in ChainsChild)
+        chainChild.ReturnBlocksToPool(poolBlocks);
     }
 
     internal bool TryAppendHeader(Header header)

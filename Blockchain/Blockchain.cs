@@ -184,12 +184,7 @@ internal partial class Blockchain
     if (ChainRoot.HeaderTipBlockchain == headerPlaceholder)
       RollBack(heightAfterRollBack: headerPlaceholder.Height - 1);
 
-    Chain chain = ChainRoot.FindChain(headerPlaceholder);
-
-    if (chain.Blocks.Remove(headerPlaceholder.Height, out Block blockQueued))
-      PoolBlocks.Add(blockQueued);
-
-    chain.RemoveHeaderTip();
+    ChainRoot.FindChain(headerPlaceholder).RemoveHeaders(headerPlaceholder, PoolBlocks);
 
     InsertBlocksQueued(ChainRoot);
   }
@@ -283,6 +278,17 @@ internal partial class Blockchain
 
     while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
+      try
+      {
+        Token.InsertBlock(block);
+      }
+      catch (ProtocolException)
+      {
+        PoolBlocks.Add(block);
+        ChainRoot.RemoveHeaders(block.Header, PoolBlocks);
+        continue;
+      }
+
       InsertBlock(block);
       ChainRoot.HeaderTipBlockchain = block.Header;
     }
@@ -290,8 +296,6 @@ internal partial class Blockchain
 
   void InsertBlock(Block block)
   {
-    Token.InsertBlock(block);
-
     DatabaseHeaderCollection?.Upsert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
