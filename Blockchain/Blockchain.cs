@@ -190,6 +190,8 @@ internal partial class Blockchain
       PoolBlocks.Add(blockQueued);
 
     chain.RemoveHeaderTip();
+
+    InsertBlocksQueued(ChainRoot);
   }
 
   bool TryLoadBlock(int height, out Block block)
