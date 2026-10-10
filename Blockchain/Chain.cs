@@ -239,10 +239,9 @@ internal partial class Blockchain
 
     internal bool TryQueueBlock(Block block, out Chain chainQueued)
     {
-      bool isHeaderOfBlockAwaitedHere = HeadersAwaitingBlock.Remove(block.Header.Hash);
-
-      if (isHeaderOfBlockAwaitedHere)
+      if (HeadersAwaitingBlock.Remove(block.Header.Hash, out Header headerAwaited))
       {
+        block.Header = headerAwaited;
         Blocks.Add(block.Header.Height, block);
         chainQueued = this;
         return true;
