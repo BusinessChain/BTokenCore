@@ -150,9 +150,7 @@ internal partial class Network
 
       DOSMonitor.Decrement(1);
 
-      bool isBlockInserted = await Blockchain.TryInsertBlock(BlockDownload);
-
-      if (isBlockInserted)
+      if (await Blockchain.TryInsertBlock(BlockDownload))
         BlockDownload = Blockchain.TakeBlockFromPool();
 
       await RequestBlockNext(peer);
