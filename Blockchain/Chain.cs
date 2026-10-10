@@ -419,5 +419,30 @@ internal partial class Blockchain
       return HeaderTipBlockchain != null
         && HeaderTipBlockchain.Height > blockchain.HeaderTipBlockchain.Height;
     }
+
+    internal Chain FindForkStrongest()
+    {
+      Chain chainStrongest = null;
+
+      foreach (Chain chainChild in ChainsChild)
+      {
+        bool isConnected = chainChild.HeaderTipBlockchain != null
+          && chainChild.HeaderRoot.HeaderPrevious.Height <= HeaderTipBlockchain.Height;
+
+        if (!isConnected)
+          continue;
+
+        Chain chainStrongestBelowChild = chainChild.FindForkStrongest();
+
+        Chain chainStrongestOfChild = chainStrongestBelowChild != null
+          && chainStrongestBelowChild.IsStrongerThan(chainChild)
+          ? chainStrongestBelowChild : chainChild;
+
+        if (chainStrongest == null || chainStrongestOfChild.IsStrongerThan(chainStrongest))
+          chainStrongest = chainStrongestOfChild;
+      }
+
+      return chainStrongest;
+    }
   }
 }

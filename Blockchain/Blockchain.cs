@@ -187,6 +187,13 @@ internal partial class Blockchain
     ChainRoot.FindChain(headerPlaceholder).RemoveHeaders(headerPlaceholder, PoolBlocks);
 
     InsertBlocksQueued(ChainRoot);
+
+    while (ChainRoot.FindForkStrongest() is Chain chainForkStrongest
+      && chainForkStrongest.IsStrongerThan(ChainRoot))
+    {
+      Reorg(chainForkStrongest);
+      InsertBlocksQueued(ChainRoot);
+    }
   }
 
   bool TryLoadBlock(int height, out Block block)
