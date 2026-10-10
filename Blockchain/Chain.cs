@@ -242,6 +242,7 @@ internal partial class Blockchain
       if (HeadersAwaitingBlock.Remove(block.Header.Hash, out Header headerAwaited))
       {
         block.Header = headerAwaited;
+        block.Parse();
         Blocks.Add(block.Header.Height, block);
         chainQueued = this;
         return true;

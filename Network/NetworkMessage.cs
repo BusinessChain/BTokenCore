@@ -146,12 +146,11 @@ internal partial class Network
         throw new ProtocolException($"Received unrequested block message.");
 
       BlockDownload.LengthDataPayload = LengthDataPayload;
-      BlockDownload.Parse();
-
-      DOSMonitor.Decrement(1);
 
       if (await Blockchain.TryInsertBlock(BlockDownload))
         BlockDownload = Blockchain.TakeBlockFromPool();
+
+      DOSMonitor.Decrement(1);
 
       await RequestBlockNext(peer);
     }
