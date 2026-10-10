@@ -331,7 +331,6 @@ internal partial class Blockchain
       Token.RollBack(block);
 
       DatabaseHeaderCollection?.Delete(header.Height);
-      DatabaseBlockCollection.Delete(header.Height);
 
       OnBlockRolledBack?.Invoke(block);
 
