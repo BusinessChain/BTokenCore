@@ -158,7 +158,7 @@ internal partial class Network
       await RequestBlockNext(peer);
     }
 
-    internal async Task RequestBlockNext(Peer peer)
+    internal async Task RequestBlockNext(Peer peer) 
     {
       HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
 
@@ -166,11 +166,9 @@ internal partial class Network
         headersMessage.HeaderTipReceivedLast,
         peer.CanDeliverBlock);
 
-      bool isNoBlockDeliverableByPeer = BlockDownload.Header == null;
-
-      if (isNoBlockDeliverableByPeer)
+      if (BlockDownload.Header == null)
       {
-        peer.StateCurrent = Peer.StateProtocol.Idle;
+        peer.StateCurrent = Peer.StateProtocol.Idle; // side effect of function?
         return;
       }
 
