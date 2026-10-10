@@ -186,10 +186,10 @@ internal partial class Blockchain
 
     Chain chain = ChainRoot.FindChain(headerPlaceholder);
 
-    chain.RemoveHeaderTip();
-
     if (chain.Blocks.Remove(headerPlaceholder.Height, out Block blockQueued))
       PoolBlocks.Add(blockQueued);
+
+    chain.RemoveHeaderTip();
   }
 
   bool TryLoadBlock(int height, out Block block)

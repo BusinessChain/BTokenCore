@@ -148,11 +148,36 @@ internal partial class Blockchain
         HeaderTipBlockchain = headerPrevious;
 
       if (HeaderTip == HeaderRoot)
+      {
         ChainParent.ChainsChild.Remove(this);
-      else
-        headerPrevious.HeaderNext = null;
+        return;
+      }
 
+      headerPrevious.HeaderNext = null;
       HeaderTip = headerPrevious;
+
+      Chain chainForkAtTip = ChainsChild
+        .Where(c => c.HeaderRoot.HeaderPrevious == HeaderTip)
+        .MaxBy(c => c.HeaderTipBlockchain != null ? c.HeaderTipBlockchain.Height : HeaderTip.Height);
+
+      if (chainForkAtTip == null)
+        return;
+
+      ChainsChild.Remove(chainForkAtTip);
+
+      HeaderTip.HeaderNext = chainForkAtTip.HeaderRoot;
+      HeaderTip = chainForkAtTip.HeaderTip;
+
+      MoveItems(chainForkAtTip.Blocks, Blocks, b => true);
+      MoveItems(chainForkAtTip.HeadersAwaitingBlock, HeadersAwaitingBlock, h => true);
+
+      foreach (Chain chainChild in chainForkAtTip.ChainsChild)
+        chainChild.ChainParent = this;
+
+      MoveItems(chainForkAtTip.ChainsChild, ChainsChild, c => true);
+
+      if (ChainParent != null)
+        AdvanceTipChain();
     }
 
     internal bool TryAppendHeader(Header header)
