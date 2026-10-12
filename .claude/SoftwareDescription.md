@@ -75,6 +75,7 @@ The miner can build a BToken block on the root chain's applied tip and anchor it
 | Placeholder insertion and removal | `InsertHeaderPlaceholder`, `RemoveHeaderPlaceholder` | `Blockchain/Blockchain.cs` |
 | Next missing block | `FetchHeaderBlockMissingNext` | `Blockchain/Blockchain.cs` |
 | Queueing a block | `TryInsertBlock`, `TryQueueBlock` | `Blockchain/Blockchain.cs`, `Blockchain/Chain.cs` |
+| Updating tips after queueing, fork choice | `UpdateTipBlockchain`, `TryReorgToForkStrongest` | `Blockchain/Blockchain.cs` |
 | Applying queued blocks | `InsertBlocksQueued` | `Blockchain/Blockchain.cs` |
 | Fork strength, reorg, switch | `IsStrongerThan`, `Reorg`, `SwitchWithParent` | `Blockchain/` |
 | Strongest connected fork | `FindForkStrongest` | `Blockchain/Chain.cs` |

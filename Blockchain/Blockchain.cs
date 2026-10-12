@@ -173,7 +173,7 @@ internal partial class Blockchain
     Chain chain = ChainRoot.FindChain(headerPlaceholder);
     chain.Blocks.Add(headerPlaceholder.Height, block);
 
-    InsertBlocksQueued(chain);
+    UpdateTipBlockchain(chain);
   }
 
   internal void RemoveHeaderPlaceholder(Block blockParent)
@@ -186,14 +186,7 @@ internal partial class Blockchain
 
     ChainRoot.FindChain(headerPlaceholder).CutOff(headerPlaceholder, PoolBlocks);
 
-    InsertBlocksQueued(ChainRoot);
-
-    while (ChainRoot.FindForkStrongest() is Chain chainForkStrongest
-      && chainForkStrongest.IsStrongerThan(ChainRoot))
-    {
-      Reorg(chainForkStrongest);
-      InsertBlocksQueued(ChainRoot);
-    }
+    UpdateTipBlockchain(ChainRoot);
   }
 
   bool TryLoadBlock(int height, out Block block)
@@ -263,7 +256,7 @@ internal partial class Blockchain
       if (!ChainRoot.TryQueueBlock(block, out Chain chain))
         return false;
 
-      InsertBlocksQueued(chain);
+      UpdateTipBlockchain(chain);
 
       return true;
     }
@@ -273,16 +266,17 @@ internal partial class Blockchain
     }
   }
 
-  void InsertBlocksQueued(Chain chain)
+  void UpdateTipBlockchain(Chain chain)
   {
     if (chain != ChainRoot)
-    {
       chain.AdvanceTipChain();
 
-      if (chain.IsStrongerThan(ChainRoot))
-        Reorg(chain);
-    }
+    do InsertBlocksQueued();
+    while (TryReorgToForkStrongest());
+  }
 
+  void InsertBlocksQueued()
+  {
     while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
       try
@@ -299,6 +293,16 @@ internal partial class Blockchain
       InsertBlock(block);
       ChainRoot.HeaderTipBlockchain = block.Header;
     }
+  }
+
+  bool TryReorgToForkStrongest()
+  {
+    if (ChainRoot.FindForkStrongest() is not Chain chainForkStrongest
+      || !chainForkStrongest.IsStrongerThan(ChainRoot))
+      return false;
+
+    Reorg(chainForkStrongest);
+    return true;
   }
 
   void InsertBlock(Block block)
