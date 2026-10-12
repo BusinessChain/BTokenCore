@@ -181,10 +181,12 @@ internal partial class Blockchain
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
       return;
 
-    if (ChainRoot.HeaderTipBlockchain == headerPlaceholder)
+    Chain chain = ChainRoot.FindChain(headerPlaceholder);
+
+    if (chain == ChainRoot)
       RollBack(heightAfterRollBack: headerPlaceholder.Height - 1);
 
-    ChainRoot.FindChain(headerPlaceholder).CutOff(headerPlaceholder, PoolBlocks);
+    chain.CutOff(headerPlaceholder, PoolBlocks);
 
     UpdateTipBlockchain(ChainRoot);
   }
