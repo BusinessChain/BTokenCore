@@ -184,7 +184,7 @@ internal partial class Blockchain
     if (ChainRoot.HeaderTipBlockchain == headerPlaceholder)
       RollBack(heightAfterRollBack: headerPlaceholder.Height - 1);
 
-    ChainRoot.FindChain(headerPlaceholder).RemoveHeaders(headerPlaceholder, PoolBlocks);
+    ChainRoot.FindChain(headerPlaceholder).CutOff(headerPlaceholder, PoolBlocks);
 
     InsertBlocksQueued(ChainRoot);
 
@@ -292,7 +292,7 @@ internal partial class Blockchain
       catch (ProtocolException)
       {
         PoolBlocks.Add(block);
-        ChainRoot.RemoveHeaders(block.Header, PoolBlocks);
+        ChainRoot.CutOff(block.Header, PoolBlocks);
         continue;
       }
 

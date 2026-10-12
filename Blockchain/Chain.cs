@@ -140,7 +140,7 @@ internal partial class Blockchain
       return false;
     }
 
-    internal void RemoveHeaders(Header headerRemove, ConcurrentBag<Block> poolBlocks)
+    internal void CutOff(Header headerRemove, ConcurrentBag<Block> poolBlocks)
     {
       Header headerPrevious = headerRemove.HeaderPrevious;
 
