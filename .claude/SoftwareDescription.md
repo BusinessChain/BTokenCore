@@ -14,7 +14,7 @@ Both blockchains share one lock. Bitcoin raises its events while it holds that l
 
 A BToken miner publishes a BToken block's hash and its previous hash in a Bitcoin transaction output, the anchor. In each Bitcoin block, the first anchor per token wins. It wins unconditionally, whatever block it builds on. So BToken's headers can branch even when Bitcoin's chain doesn't, and BToken needs its own fork choice.
 
-BToken headers do not come from peers. Each winning anchor creates a placeholder header, linked to the Bitcoin header that created it. When Bitcoin inserts a block, BToken inserts the placeholder into its header tree, loads its stored block at the placeholder's height if there is one, parses it against the placeholder and applies the queued blocks. When Bitcoin rolls the block back, BToken removes the placeholder and applies the root chain's queued blocks. Then, as long as the strongest connected fork reaches higher than the root chain's applied tip, BToken reorgs to it and applies the root chain's queued blocks again. BToken peers only announce block hashes and deliver block data.
+BToken headers do not come from peers. Each winning anchor creates a placeholder header, linked to the Bitcoin header that created it. When Bitcoin inserts a block, BToken inserts the placeholder into its header tree. Only if the placeholder was added to the tree and a block is stored at its height, BToken loads that block and parses it against the placeholder; a block that fails to parse as invalid goes back to the block pool. Otherwise the chain holding the placeholder queues the block and BToken updates its tips as after a delivered block. When Bitcoin rolls the block back, BToken removes the placeholder, rolling back its block first if it is the root chain's applied tip, and updates its tips. BToken peers only announce block hashes and deliver block data.
 
 ## Header tree
 
@@ -32,9 +32,10 @@ Each chain holds its queued blocks, which are downloaded but not yet applied, an
 
 1. A dispatcher picks the next missing block and requests it from an idle peer. It only picks blocks the peer can deliver: a block whose Bitcoin parent is the newest Bitcoin header is requested only from a peer that announced it, and a peer that answered notfound for a block is not asked for it again. Once every block within a chain's download window has been requested, an idle peer gets the lowest block still awaiting delivery in that chain, even if another peer is downloading it. This redundancy is deliberate: a slow peer must not stall the sync.
    Where the search looks depends on the peer. For a peer that has delivered headers, which in practice means a Bitcoin peer, only the chain holding that peer's last header is searched, and only if that header lies above the root chain's applied tip; the search first walks down to any parent chain whose blocks lag behind the start of its fork. For a peer without delivered headers, which in practice means a BToken peer, the whole tree is searched: the main chain first, the forks only when the main chain has nothing to hand out, so a redundant request for a main-chain block takes precedence over the first request for a fork's block. This never stalls a fork for good, because a peer that does not deliver a requested block within the timeout is disconnected.
-2. The peer delivers the block. The chain awaiting it queues the block and parses it against the awaited header.
-3. If the block lands on a fork, the fork advances its tip of downloaded blocks. If the fork is then stronger than the root chain, the node reorgs to it.
-4. The root chain applies its queued blocks above its applied tip, stores them and announces each inserted block.
+2. The peer delivers the block. The chain awaiting it stops awaiting the header, parses the block against it and queues the block only if parsing succeeds. A block that fails to parse is neither queued nor awaited any more, and the error reaches the handling of the peer's block message.
+3. The node updates its tips. If the block landed on a fork, the fork advances its tip of downloaded blocks.
+4. The root chain applies its queued blocks above its applied tip, stores them and announces each inserted block. A queued block that fails as invalid cuts the root chain off at its header.
+5. Fork choice: as long as the strongest connected fork is stronger than the root chain, meaning its tip of downloaded blocks lies higher than the root chain's applied tip, the node reorgs to it and the root chain applies its queued blocks again. This is the node's only fork choice.
 
 A reorg walks from the fork up to the root: each chain on the path switches places with its parent. Before the root chain's direct child on that path switches, the root chain rolls back to the header that child branches off from. Each rolled-back block is undone in the token's state, its rollback is announced, and the block is queued again. Bitcoin also deletes the block's stored header; BToken stores no headers. Stored blocks are kept.
 
@@ -48,7 +49,7 @@ The Bitcoin token tracks only the wallet's spendable outputs. It does not valida
 
 The BToken token uses accounts. An account has an ID, a balance, a nonce and a creation height. Applying or undoing a block first stages the affected accounts, then writes them; an account without balance is deleted. A transaction pool holds waiting transactions, grouped by sender and ordered by fee.
 
-A protocol exception signals invalid data from a peer or in a block.
+A protocol exception mostly signals invalid data from a peer or in a block. Two other conditions raise it too: the transaction pool rejects removing a transaction that is not its sender's first waiting transaction, which happens while a block is applied after its accounts are written, and the network rejects a surplus inbound connection.
 
 ## Network
 

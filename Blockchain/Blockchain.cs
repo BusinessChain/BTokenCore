@@ -133,7 +133,7 @@ internal partial class Blockchain
 
           ChainRoot.HeaderTipBlockchain = header;
 
-          OnBlockInserted?.Invoke(blockLoad);
+          AnnounceBlock(OnBlockInserted, blockLoad);
         }
 
         height++;
@@ -319,9 +319,22 @@ internal partial class Blockchain
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
 
-    OnBlockInserted?.Invoke(block);
+    AnnounceBlock(OnBlockInserted, block);
 
     PoolBlocks.Add(block);
+  }
+
+  void AnnounceBlock(Action<Block> listeners, Block block)
+  {
+    if (listeners == null)
+      return;
+
+    foreach (Action<Block> listener in listeners.GetInvocationList())
+      try
+      {
+        listener(block);
+      }
+      catch { }
   }
 
   void Reorg(Chain chain)
@@ -349,7 +362,7 @@ internal partial class Blockchain
 
       DatabaseHeaderCollection?.Delete(header.Height);
 
-      OnBlockRolledBack?.Invoke(block);
+      AnnounceBlock(OnBlockRolledBack, block);
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 

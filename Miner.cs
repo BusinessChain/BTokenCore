@@ -37,18 +37,11 @@ internal class Miner
   {
     blockBitcoin.Header.AnchorsWinner.TryGetValue(BlockchainBToken.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
 
-    try
-    {
-      if (anchorWinner != null)
-        InsertBlockMined(anchorWinner);
+    if (anchorWinner != null)
+      InsertBlockMined(anchorWinner);
 
-      if (IsMining)
-        MineBlockNext();
-    }
-    catch
-    {
-      return;
-    }
+    if (IsMining)
+      MineBlockNext();
   }
 
   void InsertBlockMined(TXOutputTokenAnchor anchorWinner)
