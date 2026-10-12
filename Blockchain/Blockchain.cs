@@ -334,7 +334,12 @@ internal partial class Blockchain
       {
         listener(block);
       }
-      catch { }
+      catch (Exception exception)
+      {
+        Console.WriteLine(
+          $"Listener {listener.Method.DeclaringType.Name}.{listener.Method.Name} " +
+          $"failed on block {block.Header}: {exception}");
+      }
   }
 
   void Reorg(Chain chain)
