@@ -1,18 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
   class TXOutputP2PKH : TXOutput
   {
-    internal byte[] IDAccount;
-
-    internal byte[] Script;
-
-
     internal TXOutputP2PKH()
     { }
 

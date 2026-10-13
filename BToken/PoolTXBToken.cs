@@ -107,7 +107,7 @@ public partial class TokenBToken : Token
       else
         tXsInPool.Add(tX);
 
-      foreach (TXOutputP2PKH tXOutputBToken in tX.TXOutputs)
+      foreach (TXOutput tXOutputBToken in tX.TXOutputs)
         if (tXOutputBToken.Value > 0)
           if (!OutputValuesByIDAccount.TryAdd(tXOutputBToken.IDAccount, tXOutputBToken.Value))
             OutputValuesByIDAccount[tXOutputBToken.IDAccount] += tXOutputBToken.Value;
@@ -187,7 +187,7 @@ public partial class TokenBToken : Token
 
     void RemoveOutputValues(TXBToken tX)
     {
-      foreach (TXOutputP2PKH tXOutput in tX.TXOutputs)
+      foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput.Value > 0)
         {
           OutputValuesByIDAccount[tXOutput.IDAccount] -= tXOutput.Value;
