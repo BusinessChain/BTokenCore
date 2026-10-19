@@ -248,10 +248,7 @@ public partial class TokenBToken : Token
         TXBToken tX = block.TXs[i] as TXBToken;
 
         if (i > 0)
-        {
           StageAccount(tX.IDAccountSource, tX.BlockheightAccountCreated).ReverseSpendTX(tX);
-          TXPool.ReturnTX(tX);
-        }
 
         foreach (TXOutput tXOutput in tX.TXOutputs)
           if (tXOutput.Value > 0)
@@ -259,8 +256,6 @@ public partial class TokenBToken : Token
       }
 
       WriteAccountsStaged();
-
-      TXPool.DropTXsNoLongerCoveredByBalance();
     }
     finally
     {

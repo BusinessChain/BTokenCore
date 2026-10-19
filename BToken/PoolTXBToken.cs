@@ -82,11 +82,18 @@ public partial class TokenBToken : Token
       InsertTXInTXBundlesSortedByFee(tXBToken);
     }
 
-    internal void ReturnTX(TXBToken tX)
+    internal void ReturnTXs(Block block)
     {
-      InsertTX(tX, flagAhead: true);
+      for (int i = block.TXs.Count - 1; i > 0; i--)
+      {
+        TXBToken tX = (TXBToken)block.TXs[i];
 
-      SortTXBundlesByFee();
+        InsertTX(tX, flagAhead: true);
+
+        SortTXBundlesByFee();
+      }
+
+      DropTXsNoLongerCoveredByBalance();
     }
 
     void InsertTX(TXBToken tX, bool flagAhead)
@@ -138,7 +145,7 @@ public partial class TokenBToken : Token
       }
     }
 
-    internal void DropTXsNoLongerCoveredByBalance()
+    void DropTXsNoLongerCoveredByBalance()
     {
       bool flagTXDropped;
 
