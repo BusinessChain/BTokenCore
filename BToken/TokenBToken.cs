@@ -21,7 +21,7 @@ public partial class TokenBToken : Token
   ILiteCollection<Account> DatabaseAccountCollection;
   ILiteCollection<BsonDocument> DatabaseMetaCollection;
 
-  PoolTXBToken TXPool;
+  internal PoolTXBToken TXPool;
 
   const int LENGTH_TX_P2PKH = 120;
 
@@ -177,8 +177,6 @@ public partial class TokenBToken : Token
       }
 
       WriteAccountsStaged();
-
-      TXPool.RemoveTXs(block.TXs.Select(tX => tX.Hash));
     }
     finally
     {

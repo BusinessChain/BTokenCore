@@ -38,8 +38,10 @@ public class Node
       ConfigNetworkBitcoin);
 
 
+    TokenBToken tokenBToken = new();
+
     BlockchainBToken = new(
-      new TokenBToken(),
+      tokenBToken,
       blockchainParent: BlockchainBitcoin,
       semaphoreBlockchain);
 
@@ -60,6 +62,7 @@ public class Node
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
     BlockchainBitcoin.OnBlockInserted += Miner.OnBlockBitcoinInserted;
     BlockchainBitcoin.OnBlockRolledBack += BlockchainBToken.RemoveHeaderPlaceholder;
+    BlockchainBToken.OnBlockInserted += tokenBToken.TXPool.RemoveTXs;
   }
 
   public void Start()

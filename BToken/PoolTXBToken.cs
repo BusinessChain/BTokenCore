@@ -113,19 +113,19 @@ public partial class TokenBToken : Token
             OutputValuesByIDAccount[tXOutputBToken.IDAccount] += tXOutputBToken.Value;
     }
 
-    internal void RemoveTXs(IEnumerable<byte[]> hashesTX)
+    internal void RemoveTXs(Block block)
     {
-      foreach (byte[] hashTX in hashesTX)
+      foreach (TX tXConfirmed in block.TXs)
       {
-        if (!TXsByHash.Remove(hashTX, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
+        if (!TXsByHash.Remove(tXConfirmed.Hash,out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
           continue;
 
         TXBToken tX = tXsByHashItem.tX;
 
         List<TXBToken> tXsByAccountSource = TXsByIDAccountSource[tX.IDAccountSource];
 
-        if (!tXsByAccountSource[0].Hash.IsAllBytesEqual(hashTX))
-          throw new ProtocolException($"Removal of tX {hashTX.ToHexString()} from pool not in expected order of nonce.");
+        if (!tXsByAccountSource[0].Hash.IsAllBytesEqual(tXConfirmed.Hash))
+          throw new ProtocolException($"Removal of tX {tXConfirmed.Hash.ToHexString()} from pool not in expected order of nonce.");
 
         tXsByAccountSource.RemoveAt(0);
 
