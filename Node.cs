@@ -38,17 +38,17 @@ public class Node
       ConfigNetworkBitcoin);
 
 
+    BlockchainBToken = new(
+      new TokenBToken(),
+      blockchainParent: BlockchainBitcoin,
+      semaphoreBlockchain);
+
     ConfigNetwork ConfigNetworkBToken = new()
     {
       Port = 8777,
       EnableInboundConnections = true,
       EnableRelay = true
     };
-
-    BlockchainBToken = new(
-      new TokenBToken(),
-      blockchainParent: BlockchainBitcoin,
-      semaphoreBlockchain);
 
     NetworkBToken = new(
       BlockchainBToken,
