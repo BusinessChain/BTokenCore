@@ -52,8 +52,17 @@ public class Block
     if (Header.CountTXs == 0)
       throw new ProtocolException($"Block {this} lacks coinbase transaction.");
 
+    HashSet<byte[]> hashesTX = new(new EqualityComparerByteArray());
+
     for (int t = 0; t < Header.CountTXs; t += 1)
-      TXs.Add(Token.ParseTX(Buffer, ref startIndex, SHA256, flagIsCoinbase: t == 0));
+    {
+      TX tX = Token.ParseTX(Buffer, ref startIndex, SHA256, flagIsCoinbase: t == 0);
+
+      if (!hashesTX.Add(tX.Hash))
+        throw new ProtocolException($"Block {Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");
+
+      TXs.Add(tX);
+    }
 
     if (!Header.MerkleRoot.IsAllBytesEqual(ComputeMerkleRoot()))
       throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
