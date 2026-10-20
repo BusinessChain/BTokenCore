@@ -7,6 +7,8 @@ namespace BTokenCore;
 
 internal partial class Blockchain
 {
+  const int MAX_COUNT_BLOCKS_STORED = 200;
+
   internal Token Token;
 
   Chain ChainRoot;
@@ -309,11 +311,17 @@ internal partial class Blockchain
 
   void InsertBlock(Block block)
   {
-    DatabaseHeaderCollection?.Upsert(new BsonDocument
+    if (DatabaseHeaderCollection != null)
     {
-      ["_id"] = block.Header.Height,
-      ["headerBytes"] = block.Header.Serialize()
-    });
+      DatabaseHeaderCollection.Upsert(new BsonDocument
+      {
+        ["_id"] = block.Header.Height,
+        ["headerBytes"] = block.Header.Serialize()
+      });
+
+      DatabaseBlockCollection.DeleteMany(
+        Query.LT("_id", block.Header.Height - MAX_COUNT_BLOCKS_STORED + 1));
+    }
 
     DatabaseBlockCollection.Upsert(new BsonDocument
     {
