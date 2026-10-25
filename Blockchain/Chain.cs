@@ -38,7 +38,7 @@ internal partial class Blockchain
       Chain chain = this;
       headerLastInTree = null;
 
-      if (!TrySearchHeaderAncestor(headers, ref chain, out Header headerAncestor))
+      if (!TrySearchHeaderAncestor(headers, ref chain, GetHeightBlockStoredOldest(), out Header headerAncestor))
         return;
 
       if (headers.Count == 0)
@@ -67,19 +67,28 @@ internal partial class Blockchain
       headerLastInTree = headers[^1];
     }
 
-    static bool TrySearchHeaderAncestor(List<Header> headers, ref Chain chain, out Header headerAncestor)
+    internal int GetHeightBlockStoredOldest()
+    {
+      return HeaderTipBlockchain.Height - MAX_COUNT_BLOCKS_STORED + 1;
+    }
+
+    static bool TrySearchHeaderAncestor(
+      List<Header> headers,
+      ref Chain chain,
+      int heightBlockStoredOldest,
+      out Header headerAncestor)
     {
       headerAncestor = chain.HeaderTip;
 
       while (!headerAncestor.Hash.IsAllBytesEqual(headers[0].HashPrevious))
       {
-        if (headerAncestor == chain.HeaderRoot)
+        if (headerAncestor == chain.HeaderRoot || headerAncestor.Height <= heightBlockStoredOldest)
         {
           foreach (Chain chainChild in chain.ChainsChild)
           {
             chain = chainChild;
 
-            if (TrySearchHeaderAncestor(headers, ref chain, out headerAncestor))
+            if (TrySearchHeaderAncestor(headers, ref chain, heightBlockStoredOldest, out headerAncestor))
               return true;
           }
 

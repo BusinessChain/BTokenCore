@@ -294,8 +294,8 @@ internal partial class Blockchain
         continue;
       }
 
-      InsertBlock(block);
       ChainRoot.HeaderTipBlockchain = block.Header;
+      InsertBlock(block);
     }
   }
 
@@ -320,7 +320,7 @@ internal partial class Blockchain
       });
 
       DatabaseBlockCollection.DeleteMany(
-        Query.LT("_id", block.Header.Height - MAX_COUNT_BLOCKS_STORED + 1));
+        Query.LT("_id", ChainRoot.GetHeightBlockStoredOldest()));
     }
 
     DatabaseBlockCollection.Upsert(new BsonDocument
