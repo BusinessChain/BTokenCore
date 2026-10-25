@@ -154,29 +154,30 @@ internal partial class Blockchain
 
   internal void LoadHeadersFromBlocks()
   {
-    SHA256 sHA256 = SHA256.Create();
-    bool isHeaderRoot = true;
+    Block blockLoad = new(Token);
 
     foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
       try
       {
-        int startIndex = 0;
-        Header header = Token.ParseHeader(bsonDocumentBlock["blockBytes"].AsBinary, ref startIndex, sHA256);
+        blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+        blockLoad.Header = null;
+        blockLoad.Parse();
 
-        if (isHeaderRoot)
+        Header header = blockLoad.Header;
+
+        if (header.HashPrevious.IsAllBytesEqual(ChainRoot.HeaderTipBlockchain.Hash))
+          ChainRoot.TryAppendHeader(header);
+        else
         {
           header.Height = bsonDocumentBlock["_id"].AsInt32;
           ChainRoot = new(header, isRoot: true);
-          isHeaderRoot = false;
         }
-        else if (!ChainRoot.TryAppendHeader(header))
-          break;
 
         ChainRoot.HeaderTipBlockchain = header;
       }
       catch
       {
-        break;
+        continue;
       }
   }
 
