@@ -275,7 +275,11 @@ internal partial class Blockchain
     if (chain != ChainRoot)
       chain.AdvanceTipChain();
 
-    do InsertBlocksQueued();
+    do
+    {
+      InsertBlocksQueued();
+      ChainRoot.DropForksDeep(PoolBlocks);
+    }
     while (TryReorgToForkStrongest());
   }
 

@@ -204,6 +204,14 @@ internal partial class Blockchain
         AdvanceTipChain();
     }
 
+    internal void DropForksDeep(ConcurrentBag<Block> poolBlocks)
+    {
+      int heightBlockStoredOldest = GetHeightBlockStoredOldest();
+
+      foreach (Chain chainChild in ChainsChild.Where(c => c.HeaderRoot.HeaderPrevious.Height < heightBlockStoredOldest).ToList())
+        chainChild.CutOff(chainChild.HeaderRoot, poolBlocks);
+    }
+
     void ReturnBlocksToPool(ConcurrentBag<Block> poolBlocks)
     {
       foreach (Block block in Blocks.Values)
