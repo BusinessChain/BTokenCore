@@ -189,9 +189,16 @@ internal partial class Blockchain
 
     ChainRoot.InsertHeadersInTree([headerPlaceholder], out Header headerLastInTree);
 
-    bool flagPlaceholderNotInsertedInTree = headerLastInTree != headerPlaceholder;
+    if (headerLastInTree == null)
+      return;
 
-    if (flagPlaceholderNotInsertedInTree || !TryLoadBlock(headerPlaceholder.Height, out Block block))
+    if (headerLastInTree != headerPlaceholder)
+    {
+      headerLastInTree.HeaderParent = blockParent.Header;
+      return;
+    }
+
+    if (!TryLoadBlock(headerPlaceholder.Height, out Block block))
       return;
 
     try
