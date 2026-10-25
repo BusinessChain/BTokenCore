@@ -15,8 +15,6 @@ public partial class TokenBToken : Token
   const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
   const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
-  Dictionary<byte[], Account> AccountsStaged = new(new EqualityComparerByteArray());
-
   ILiteCollection<Account> DatabaseAccountCollection;
 
   internal PoolTXBToken TXPool;
@@ -160,62 +158,52 @@ public partial class TokenBToken : Token
 
   public override void InsertBlock(Block block)
   {
-    try
+    for (int i = 0; i < block.TXs.Count; i += 1)
     {
-      for (int i = 0; i < block.TXs.Count; i += 1)
-      {
-        TXBToken tX = (TXBToken)block.TXs[i];
+      TXBToken tX = (TXBToken)block.TXs[i];
 
-        foreach (TXOutput tXOutput in tX.TXOutputs)
-          StageInsertTXOutput(tXOutput, block.Header.Height);
+      foreach (TXOutput tXOutput in tX.TXOutputs)
+        InsertTXOutput(tXOutput, block.Header.Height);
 
-        if (i > 0)
-          StageSpendTXInput(tX);
-      }
-
-      WriteAccountsStaged();
-    }
-    finally
-    {
-      AccountsStaged.Clear();
+      if (i > 0)
+        SpendTXInput(tX);
     }
   }
 
-  void WriteAccountsStaged()
+  void WriteAccount(Account account)
   {
-    foreach (Account account in AccountsStaged.Values)
-      if (account.Balance > 0)
-        DatabaseAccountCollection.Upsert(account);
-      else
-        DatabaseAccountCollection.Delete(account.ID);
+    if (account.Balance > 0)
+      DatabaseAccountCollection.Upsert(account);
+    else
+      DatabaseAccountCollection.Delete(account.ID);
   }
 
-  void StageInsertTXOutput(TXOutput tXOutput, int blockHeight)
+  void InsertTXOutput(TXOutput tXOutput, int blockHeight)
   {
     if (tXOutput.Value < 0)
       throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
 
     if (tXOutput.Value > 0)
-      StageAccount(tXOutput.IDAccount, blockHeight).Balance += tXOutput.Value;
+      AddToBalance(tXOutput.IDAccount, blockHeight, tXOutput.Value);
   }
 
-  Account StageAccount(byte[] accountID, int blockHeightAccountCreated)
+  void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value)
   {
-    if (AccountsStaged.TryGetValue(accountID, out Account accountStaged))
-      return accountStaged;
+    Account account = LoadAccount(accountID, blockHeightAccountCreated);
+    account.Balance += value;
+    WriteAccount(account);
+  }
 
+  Account LoadAccount(byte[] accountID, int blockHeightAccountCreated)
+  {
     if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
-      accountStaged = new(accountStored);
-    else
-      accountStaged = new()
-      {
-        ID = accountID,
-        BlockHeightAccountCreated = blockHeightAccountCreated
-      };
+      return accountStored;
 
-    AccountsStaged.Add(accountStaged.ID, accountStaged);
-
-    return accountStaged;
+    return new()
+    {
+      ID = accountID,
+      BlockHeightAccountCreated = blockHeightAccountCreated
+    };
   }
 
   Account GetCopyOfAccount(byte[] accountID)
@@ -226,37 +214,29 @@ public partial class TokenBToken : Token
       throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
   }
 
-  void StageSpendTXInput(TX tX)
+  void SpendTXInput(TXBToken tX)
   {
-    var tXBToken = tX as TXBToken;
-
-    Account accountStaged = GetCopyOfAccount(tXBToken.IDAccountSource);
-    AccountsStaged.Add(accountStaged.ID, accountStaged);
-
-    accountStaged.SpendTX(tXBToken);
+    Account account = GetCopyOfAccount(tX.IDAccountSource);
+    account.SpendTX(tX);
+    WriteAccount(account);
   }
 
   public override void RollBack(Block block)
   {
-    try
+    for (int i = block.TXs.Count - 1; i >= 0; i--)
     {
-      for (int i = block.TXs.Count - 1; i >= 0; i--)
+      TXBToken tX = block.TXs[i] as TXBToken;
+
+      if (i > 0)
       {
-        TXBToken tX = block.TXs[i] as TXBToken;
-
-        if (i > 0)
-          StageAccount(tX.IDAccountSource, tX.BlockheightAccountCreated).ReverseSpendTX(tX);
-
-        foreach (TXOutput tXOutput in tX.TXOutputs)
-          if (tXOutput.Value > 0)
-            StageAccount(tXOutput.IDAccount, block.Header.Height).Balance -= tXOutput.Value;
+        Account accountSource = LoadAccount(tX.IDAccountSource, tX.BlockheightAccountCreated);
+        accountSource.ReverseSpendTX(tX);
+        WriteAccount(accountSource);
       }
 
-      WriteAccountsStaged();
-    }
-    finally
-    {
-      AccountsStaged.Clear();
+      foreach (TXOutput tXOutput in tX.TXOutputs)
+        if (tXOutput.Value > 0)
+          AddToBalance(tXOutput.IDAccount, block.Header.Height, -tXOutput.Value);
     }
   }
 
