@@ -387,9 +387,14 @@ internal partial class Blockchain
       block.Header = header;
       block.Parse();
 
+      Database.BeginTrans();
+
       Token.RollBack(block);
 
       DatabaseHeaderCollection?.Delete(header.Height);
+      DatabaseBlockCollection.Delete(header.Height);
+
+      Database.Commit();
 
       AnnounceBlock(OnBlockRolledBack, block);
 
