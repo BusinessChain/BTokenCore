@@ -323,17 +323,14 @@ internal partial class Blockchain
 
   void InsertBlock(Block block)
   {
-    if (DatabaseHeaderCollection != null)
+    DatabaseHeaderCollection?.Upsert(new BsonDocument
     {
-      DatabaseHeaderCollection.Upsert(new BsonDocument
-      {
-        ["_id"] = block.Header.Height,
-        ["headerBytes"] = block.Header.Serialize()
-      });
+      ["_id"] = block.Header.Height,
+      ["headerBytes"] = block.Header.Serialize()
+    });
 
-      DatabaseBlockCollection.DeleteMany(
-        Query.LT("_id", ChainRoot.GetHeightBlockStoredOldest()));
-    }
+    DatabaseBlockCollection.DeleteMany(
+      Query.LT("_id", ChainRoot.GetHeightBlockStoredOldest()));
 
     DatabaseBlockCollection.Upsert(new BsonDocument
     {
