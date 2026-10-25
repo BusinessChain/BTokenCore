@@ -13,6 +13,7 @@ internal partial class Blockchain
 
   Chain ChainRoot;
 
+  LiteDatabase Database;
   ILiteCollection<BsonDocument> DatabaseHeaderCollection;
   ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
@@ -35,15 +36,15 @@ internal partial class Blockchain
     ChainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
-    LiteDatabase liteDatabase = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
+    Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     if (blockchainParent == null)
-      DatabaseHeaderCollection = liteDatabase.GetCollection<BsonDocument>("headers");
+      DatabaseHeaderCollection = Database.GetCollection<BsonDocument>("headers");
 
-    DatabaseBlockCollection = liteDatabase.GetCollection<BsonDocument>("blocks");
+    DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
 
-    Token.LoadDatabase(liteDatabase);
+    Token.LoadDatabase(Database);
 
-    AppDomain.CurrentDomain.ProcessExit += (s, e) => { liteDatabase.Dispose(); };
+    AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }
 
   internal async Task LockBlockchain()
@@ -291,12 +292,15 @@ internal partial class Blockchain
   {
     while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
+      Database.BeginTrans();
+
       try
       {
         Token.InsertBlock(block);
       }
       catch (ProtocolException)
       {
+        Database.Rollback();
         PoolBlocks.Add(block);
         ChainRoot.CutOff(block.Header, PoolBlocks);
         continue;
@@ -336,6 +340,8 @@ internal partial class Blockchain
       ["_id"] = block.Header.Height,
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
+
+    Database.Commit();
 
     AnnounceBlock(OnBlockInserted, block);
 
