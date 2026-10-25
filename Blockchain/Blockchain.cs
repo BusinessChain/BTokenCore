@@ -180,6 +180,20 @@ internal partial class Blockchain
       }
   }
 
+  internal void RollBackUnanchored()
+  {
+    Header header = ChainRoot.HeaderRoot;
+
+    while (header != null && header.HeaderParent == null)
+      header = header.HeaderNext;
+
+    while (header != null && header.HeaderParent != null)
+      header = header.HeaderNext;
+
+    if (header != null)
+      RemoveHeader(ChainRoot, header);
+  }
+
   internal void InsertHeaderPlaceholder(Block blockParent)
   {
     if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
@@ -223,12 +237,15 @@ internal partial class Blockchain
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
       return;
 
-    Chain chain = ChainRoot.FindChain(headerPlaceholder);
+    RemoveHeader(ChainRoot.FindChain(headerPlaceholder), headerPlaceholder);
+  }
 
+  void RemoveHeader(Chain chain, Header header)
+  {
     if (chain == ChainRoot)
-      RollBack(heightAfterRollBack: headerPlaceholder.Height - 1);
+      RollBack(heightAfterRollBack: header.Height - 1);
 
-    chain.CutOff(headerPlaceholder, PoolBlocks);
+    chain.CutOff(header, PoolBlocks);
 
     UpdateTipBlockchain(ChainRoot);
   }

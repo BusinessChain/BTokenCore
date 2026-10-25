@@ -70,6 +70,7 @@ public class Node
   {
     BlockchainBToken.LoadHeadersFromBlocks();
     BlockchainBitcoin.LoadBlockchain();
+    BlockchainBToken.RollBackUnanchored();
     NetworkBitcoin.Start();
 
     NetworkBToken.Start();
