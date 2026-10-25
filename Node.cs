@@ -68,6 +68,7 @@ public class Node
 
   public void Start()
   {
+    BlockchainBToken.LoadHeadersFromBlocks();
     BlockchainBitcoin.LoadBlockchain();
     NetworkBitcoin.Start();
 

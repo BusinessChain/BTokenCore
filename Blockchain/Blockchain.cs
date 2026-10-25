@@ -152,6 +152,34 @@ internal partial class Blockchain
       }
   }
 
+  internal void LoadHeadersFromBlocks()
+  {
+    SHA256 sHA256 = SHA256.Create();
+    bool isHeaderRoot = true;
+
+    foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
+      try
+      {
+        int startIndex = 0;
+        Header header = Token.ParseHeader(bsonDocumentBlock["blockBytes"].AsBinary, ref startIndex, sHA256);
+
+        if (isHeaderRoot)
+        {
+          header.Height = bsonDocumentBlock["_id"].AsInt32;
+          ChainRoot = new(header, isRoot: true);
+          isHeaderRoot = false;
+        }
+        else if (!ChainRoot.TryAppendHeader(header))
+          break;
+
+        ChainRoot.HeaderTipBlockchain = header;
+      }
+      catch
+      {
+        break;
+      }
+  }
+
   internal void InsertHeaderPlaceholder(Block blockParent)
   {
     if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
