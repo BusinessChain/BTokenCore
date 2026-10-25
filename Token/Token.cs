@@ -1,6 +1,8 @@
 ﻿using System.Text;
 using System.Security.Cryptography;
 
+using LiteDB;
+
 
 namespace BTokenCore;
 
@@ -39,6 +41,8 @@ public abstract partial class Token : IToken
   public abstract void InsertBlock(Block block);
 
   public virtual void RollBack(Block block) { }
+
+  internal virtual void LoadDatabase(LiteDatabase database) { }
 
   public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 

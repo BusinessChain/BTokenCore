@@ -40,6 +40,10 @@ internal partial class Blockchain
       DatabaseHeaderCollection = liteDatabase.GetCollection<BsonDocument>("headers");
 
     DatabaseBlockCollection = liteDatabase.GetCollection<BsonDocument>("blocks");
+
+    Token.LoadDatabase(liteDatabase);
+
+    AppDomain.CurrentDomain.ProcessExit += (s, e) => { liteDatabase.Dispose(); };
   }
 
   internal async Task LockBlockchain()

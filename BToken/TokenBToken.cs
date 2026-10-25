@@ -17,9 +17,7 @@ public partial class TokenBToken : Token
 
   Dictionary<byte[], Account> AccountsStaged = new(new EqualityComparerByteArray());
 
-  LiteDatabase Database;
   ILiteCollection<Account> DatabaseAccountCollection;
-  ILiteCollection<BsonDocument> DatabaseMetaCollection;
 
   internal PoolTXBToken TXPool;
 
@@ -32,12 +30,11 @@ public partial class TokenBToken : Token
     TXPool = new PoolTXBToken(this);
 
     SizeBlockMax = SIZE_BLOCK_MAX;
+  }
 
-    Database = new LiteDatabase($"Filename={GetName()}.db;Mode=Exclusive");
-    DatabaseAccountCollection = Database.GetCollection<Account>("accounts");
-    DatabaseMetaCollection = Database.GetCollection<BsonDocument>("meta");
-
-    AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database?.Dispose(); };
+  internal override void LoadDatabase(LiteDatabase database)
+  {
+    DatabaseAccountCollection = database.GetCollection<Account>("accounts");
   }
 
   public override Header CreateHeaderGenesis()
