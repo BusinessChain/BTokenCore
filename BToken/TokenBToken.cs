@@ -22,16 +22,12 @@ public partial class TokenBToken : Token
     internal Dictionary<byte[], Account> Accounts = new(new EqualityComparerByteArray());
   }
 
-  internal PoolTXBToken TXPool;
-
   const int LENGTH_TX_P2PKH = 120;
 
 
   public TokenBToken()
     : base(id: "BTK")
   {
-    TXPool = new PoolTXBToken(this);
-
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
 
@@ -74,7 +70,7 @@ public partial class TokenBToken : Token
   {
     int height = headerPrevious.Height + 1;
 
-    block.TXs = TXPool.GetTXs(block.Buffer.Length);
+    block.TXs = new();
 
     long feeTXs = block.TXs.Sum(t => t.Fee);
 
@@ -107,34 +103,34 @@ public partial class TokenBToken : Token
     return block;
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
-  {
-    tXAnchor = null;
-    byte[] dataAnchorToken = tokenAnchor.Serialize();
+  //internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
+  //{
+  //  tXAnchor = null;
+  //  byte[] dataAnchorToken = tokenAnchor.Serialize();
 
-    long fee = feePerByte * LENGTH_TX_P2PKH;
+  //  long fee = feePerByte * LENGTH_TX_P2PKH;
 
-    Account accountWallet = null; // Aus DB holen hier
+  //  Account accountWallet = FindAccount(Wallet.Hash160PKeyPublic, Blockchain.GetCacheBranchTip());
 
-    if (accountWallet == null || accountWallet.Balance < fee)
-      return false;
+  //  if (accountWallet == null || accountWallet.Balance < fee)
+  //    return false;
 
-    TXBToken tX = new()
-    {
-      KeyPublic = Wallet.KeyPublic,
-      BlockheightAccountCreated = accountWallet.BlockHeightAccountCreated,
-      Nonce = accountWallet.Nonce,
-      Fee = fee
-    };
+  //  TXBToken tX = new()
+  //  {
+  //    KeyPublic = Wallet.KeyPublic,
+  //    BlockheightAccountCreated = accountWallet.BlockHeightAccountCreated,
+  //    Nonce = accountWallet.Nonce,
+  //    Fee = fee
+  //  };
 
-    tX.TXOutputs.Add(tokenAnchor);
+  //  tX.TXOutputs.Add(tokenAnchor);
 
-    tX.Serialize(Wallet);
+  //  tX.Serialize(Wallet);
 
-    TXPool.AddTX(tX);
+  //  TXPool.AddTX(tX);
 
-    return true;
-  }
+  //  return true;
+  //}
 
   TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)
   {
@@ -163,23 +159,24 @@ public partial class TokenBToken : Token
 
   public override CacheBlock InsertBlock(Block block, List<CacheBlock> cacheBranch)
   {
-    List<CacheBlockBToken> cacheBlocks = [new(), .. cacheBranch.Cast<CacheBlockBToken>()];
+    CacheBlockBToken cacheBlock = new();
+    cacheBranch.Insert(0, cacheBlock);
 
     for (int i = 0; i < block.TXs.Count; i += 1)
     {
       TXBToken tX = (TXBToken)block.TXs[i];
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
-        InsertTXOutput(tXOutput, block.Header.Height, cacheBlocks);
+        InsertTXOutput(tXOutput, block.Header.Height, cacheBranch);
 
       if (i > 0)
-        SpendTXInput(tX, cacheBlocks);
+        SpendTXInput(tX, cacheBranch);
     }
 
-    return cacheBlocks[0];
+    return cacheBlock;
   }
 
-  void WriteAccount(Account account, List<CacheBlockBToken> cacheBlocks)
+  void WriteAccount(Account account, List<CacheBlock> cacheBlocks)
   {
     if (account.Balance > 0)
       DatabaseAccountCollection.Upsert(account);
@@ -187,10 +184,10 @@ public partial class TokenBToken : Token
       DatabaseAccountCollection.Delete(account.ID);
 
     if (cacheBlocks.Count > 0)
-      cacheBlocks[0].Accounts[account.ID] = account;
+      ((CacheBlockBToken)cacheBlocks[0]).Accounts[account.ID] = account;
   }
 
-  void InsertTXOutput(TXOutput tXOutput, int blockHeight, List<CacheBlockBToken> cacheBlocks)
+  void InsertTXOutput(TXOutput tXOutput, int blockHeight, List<CacheBlock> cacheBlocks)
   {
     if (tXOutput.Value < 0)
       throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
@@ -199,14 +196,14 @@ public partial class TokenBToken : Token
       AddToBalance(tXOutput.IDAccount, blockHeight, tXOutput.Value, cacheBlocks);
   }
 
-  void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value, List<CacheBlockBToken> cacheBlocks)
+  void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value, List<CacheBlock> cacheBlocks)
   {
     Account account = LoadAccount(accountID, blockHeightAccountCreated, cacheBlocks);
     account.Balance += value;
     WriteAccount(account, cacheBlocks);
   }
 
-  Account FindAccount(byte[] accountID, List<CacheBlockBToken> cacheBlocks)
+  Account FindAccount(byte[] accountID, List<CacheBlock> cacheBlocks)
   {
     foreach (CacheBlockBToken cacheBlock in cacheBlocks)
       if (cacheBlock.Accounts.TryGetValue(accountID, out Account accountCached))
@@ -215,7 +212,7 @@ public partial class TokenBToken : Token
     return DatabaseAccountCollection.FindById(accountID);
   }
 
-  Account LoadAccount(byte[] accountID, int blockHeightAccountCreated, List<CacheBlockBToken> cacheBlocks)
+  Account LoadAccount(byte[] accountID, int blockHeightAccountCreated, List<CacheBlock> cacheBlocks)
   {
     if (FindAccount(accountID, cacheBlocks) is Account accountStored)
       return accountStored;
@@ -227,7 +224,7 @@ public partial class TokenBToken : Token
     };
   }
 
-  Account GetCopyOfAccount(byte[] accountID, List<CacheBlockBToken> cacheBlocks)
+  Account GetCopyOfAccount(byte[] accountID, List<CacheBlock> cacheBlocks)
   {
     if (FindAccount(accountID, cacheBlocks) is Account accountStored)
       return accountStored;
@@ -235,7 +232,7 @@ public partial class TokenBToken : Token
       throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
   }
 
-  void SpendTXInput(TXBToken tX, List<CacheBlockBToken> cacheBlocks)
+  void SpendTXInput(TXBToken tX, List<CacheBlock> cacheBlocks)
   {
     Account account = GetCopyOfAccount(tX.IDAccountSource, cacheBlocks);
     account.SpendTX(tX);

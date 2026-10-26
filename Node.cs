@@ -62,8 +62,6 @@ public class Node
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
     BlockchainBitcoin.OnBlockInserted += Miner.OnBlockBitcoinInserted;
     BlockchainBitcoin.OnBlockRolledBack += BlockchainBToken.RemoveHeaderPlaceholder;
-    BlockchainBToken.OnBlockInserted += tokenBToken.TXPool.RemoveTXs;
-    BlockchainBToken.OnBlockRolledBack += tokenBToken.TXPool.ReturnTXs;
   }
 
   public void Start()
