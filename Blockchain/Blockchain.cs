@@ -1,5 +1,4 @@
 ﻿using LiteDB;
-using System.Security.Cryptography;
 using System.Collections.Concurrent;
 
 
@@ -114,48 +113,6 @@ internal partial class Blockchain
 
   internal void LoadBlockchain()
   {
-    SHA256 sHA256 = SHA256.Create();
-    Block blockLoad = new(Token);
-
-    int height = ChainRoot.HeaderRoot.Height + 1;
-    BsonDocument bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
-
-    while (bsonDocumentHeader != null)
-      try
-      {
-        byte[] headerBytes = bsonDocumentHeader["headerBytes"].AsBinary;
-        int startIndex = 0;
-
-        Header header = Token.ParseHeader(headerBytes, ref startIndex, sHA256);
-
-        if (!ChainRoot.TryAppendHeader(header))
-          break;
-
-        BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
-        if (bsonDocumentBlock != null)
-        {
-          blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-          blockLoad.Header = header;
-          ParseBlockStored(blockLoad);
-
-          Token.InsertBlock(blockLoad);
-
-          ChainRoot.HeaderTipBlockchain = header;
-
-          AnnounceBlock(OnBlockInserted, blockLoad);
-        }
-
-        height++;
-        bsonDocumentHeader = DatabaseHeaderCollection.FindById(height);
-      }
-      catch
-      {
-        break;
-      }
-  }
-
-  internal void LoadHeadersFromBlocks()
-  {
     Block blockLoad = new(Token);
 
     foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
@@ -176,6 +133,9 @@ internal partial class Blockchain
         }
 
         ChainRoot.HeaderTipBlockchain = header;
+
+        if (!IsChild)
+          AnnounceBlock(OnBlockInserted, blockLoad);
       }
       catch
       {
