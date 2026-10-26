@@ -8,7 +8,7 @@ namespace BTokenCore;
 
 public class Block
 {
-  IToken Token;
+  Token Token;
 
   internal Header Header;
   internal List<TX> TXs = new();
@@ -21,7 +21,7 @@ public class Block
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal Block(IToken token)
+  internal Block(Token token)
   {
     Token = token;
     Buffer = new byte[token.GetSizeBlockBuffer()];
@@ -38,14 +38,7 @@ public class Block
     TXs.Clear();
     int startIndex = 0;
 
-    Header header = Token.ParseHeader(Buffer, ref startIndex, SHA256);
-
-    if (Header == null)
-      Header = header;
-    else if (Header.Hash.IsAllBytesEqual(header.Hash) && Header.HashPrevious.IsAllBytesEqual(header.HashPrevious))
-      header.CopyTo(Header);
-    else
-      throw new ProtocolException($"Received unexpected block {header} expected was {Header}.");
+    ParseHeader(ref startIndex);
 
     Header.CountTXs = VarInt.GetInt(Buffer, ref startIndex);
 
@@ -75,6 +68,23 @@ public class Block
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput is TXOutputTokenAnchor tokenAnchor)
           Header.AnchorsWinner.TryAdd(tokenAnchor.IDToken, tokenAnchor);
+  }
+
+  internal void ParseStored()
+  {
+    Token.ParseBlockStored(this);
+  }
+
+  internal void ParseHeader(ref int startIndex)
+  {
+    Header header = Token.ParseHeader(Buffer, ref startIndex, SHA256);
+
+    if (Header == null)
+      Header = header;
+    else if (Header.Hash.IsAllBytesEqual(header.Hash) && Header.HashPrevious.IsAllBytesEqual(header.HashPrevious))
+      header.CopyTo(Header);
+    else
+      throw new ProtocolException($"Received unexpected block {header} expected was {Header}.");
   }
 
   internal byte[] ComputeMerkleRoot()

@@ -1,4 +1,4 @@
-using LiteDB;
+﻿using LiteDB;
 using System.Security.Cryptography;
 using System.Collections.Concurrent;
 
@@ -84,7 +84,7 @@ internal partial class Blockchain
 
     try
     {
-      blockLoad.Parse();
+      blockLoad.ParseStored();
     }
     catch (ProtocolException)
     {
@@ -134,7 +134,7 @@ internal partial class Blockchain
         {
           blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
           blockLoad.Header = header;
-          blockLoad.Parse();
+          blockLoad.ParseStored();
 
           Token.InsertBlock(blockLoad);
 
@@ -161,7 +161,7 @@ internal partial class Blockchain
       {
         blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
         blockLoad.Header = null;
-        blockLoad.Parse();
+        blockLoad.ParseStored();
 
         Header header = blockLoad.Header;
 
@@ -219,7 +219,7 @@ internal partial class Blockchain
     try
     {
       block.Header = headerPlaceholder;
-      block.Parse();
+      block.ParseStored();
     }
     catch (ProtocolException)
     {
@@ -388,7 +388,7 @@ internal partial class Blockchain
     DatabaseBlockCollection.Upsert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
-      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
+      ["blockBytes"] = Token.SerializeBlockStored(block)
     });
 
     Database.Commit();
@@ -435,7 +435,7 @@ internal partial class Blockchain
       Header header = ChainRoot.HeaderTipBlockchain;
       TryLoadBlock(header.Height, out Block block);
       block.Header = header;
-      block.Parse();
+      block.ParseStored();
 
       Database.BeginTrans();
 

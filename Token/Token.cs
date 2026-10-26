@@ -6,7 +6,7 @@ using LiteDB;
 
 namespace BTokenCore;
 
-public abstract partial class Token : IToken
+public abstract partial class Token
 {
   internal const byte LENGTH_SCRIPT_P2PKH = 25;
   internal static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
@@ -47,6 +47,16 @@ public abstract partial class Token : IToken
   public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
   public abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
+
+  internal virtual byte[] SerializeBlockStored(Block block)
+  {
+    return block.Buffer[..block.LengthDataPayload];
+  }
+
+  internal virtual void ParseBlockStored(Block block)
+  {
+    block.Parse();
+  }
 
   internal string GetName()
   {

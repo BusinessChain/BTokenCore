@@ -89,6 +89,42 @@ public partial class TokenBitcoin : Token
     return new TXBitcoin(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
+  internal override byte[] SerializeBlockStored(Block block)
+  {
+    List<byte> bytes = [.. block.Header.Serialize(), .. VarInt.GetBytes(block.Header.AnchorsWinner.Count)];
+
+    foreach (TXOutputTokenAnchor anchor in block.Header.AnchorsWinner.Values)
+      bytes.AddRange([.. anchor.IDToken, .. anchor.HashBlockReferenced, .. anchor.HashBlockPreviousReferenced]);
+
+    return bytes.ToArray();
+  }
+
+  internal override void ParseBlockStored(Block block)
+  {
+    block.TXs.Clear();
+    int startIndex = 0;
+
+    block.ParseHeader(ref startIndex);
+
+    int countAnchors = VarInt.GetInt(block.Buffer, ref startIndex);
+
+    for (int i = 0; i < countAnchors; i++)
+    {
+      TXOutputTokenAnchor anchor = new();
+
+      Array.Copy(block.Buffer, startIndex, anchor.IDToken, 0, LENGTH_ID_TOKEN);
+      startIndex += LENGTH_ID_TOKEN;
+
+      Array.Copy(block.Buffer, startIndex, anchor.HashBlockReferenced, 0, anchor.HashBlockReferenced.Length);
+      startIndex += anchor.HashBlockReferenced.Length;
+
+      Array.Copy(block.Buffer, startIndex, anchor.HashBlockPreviousReferenced, 0, anchor.HashBlockPreviousReferenced.Length);
+      startIndex += anchor.HashBlockPreviousReferenced.Length;
+
+      block.Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
+    }
+  }
+
   internal override bool TryGetTX(byte[] hash, out TX tX)
   {
     tX = null;
