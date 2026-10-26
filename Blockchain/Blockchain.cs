@@ -14,7 +14,6 @@ internal partial class Blockchain
   Chain ChainRoot;
 
   LiteDatabase Database;
-  ILiteCollection<BsonDocument> DatabaseHeaderCollection;
   ILiteCollection<BsonDocument> DatabaseBlockCollection;
 
   SemaphoreSlim SemaphoreBlockchain;
@@ -38,9 +37,6 @@ internal partial class Blockchain
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
-    if (!IsChild)
-      DatabaseHeaderCollection = Database.GetCollection<BsonDocument>("headers");
-
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
 
     Token.LoadDatabase(Database);
@@ -356,12 +352,6 @@ internal partial class Blockchain
 
   void InsertBlock(Block block)
   {
-    DatabaseHeaderCollection?.Upsert(new BsonDocument
-    {
-      ["_id"] = block.Header.Height,
-      ["headerBytes"] = block.Header.Serialize()
-    });
-
     if (IsChild)
       DatabaseBlockCollection.DeleteMany(
         Query.LT("_id", ChainRoot.GetHeightPruning()));
@@ -422,7 +412,6 @@ internal partial class Blockchain
 
       Token.RollBack(block);
 
-      DatabaseHeaderCollection?.Delete(header.Height);
       DatabaseBlockCollection.Delete(header.Height);
 
       Database.Commit();
