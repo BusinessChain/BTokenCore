@@ -160,7 +160,10 @@ internal partial class Blockchain
 
     Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
 
-    ChainRoot.InsertHeadersInTree([headerPlaceholder], GetHeightBlockStoredOldest(), out Header headerLastInTree);
+    Header headerLastInTree = ChainRoot.HeaderRoot;
+
+    if (!headerLastInTree.Hash.IsAllBytesEqual(headerPlaceholder.Hash))
+      ChainRoot.InsertHeadersInTree([headerPlaceholder], GetHeightBlockStoredOldest(), out headerLastInTree);
 
     if (headerLastInTree == null)
       return;
