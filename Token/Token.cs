@@ -18,6 +18,8 @@ public abstract partial class Token
 
   internal int SizeBlockMax;
 
+  public class CacheBlock { }
+
 
   protected Token(string id)
   {
@@ -38,7 +40,7 @@ public abstract partial class Token
 
   internal abstract bool TryGetTX(byte[] hash, out TX tX);
 
-  public abstract void InsertBlock(Block block);
+  public abstract CacheBlock InsertBlock(Block block, List<CacheBlock> cacheBranch);
 
   public virtual void RollBack(Block block) { }
 

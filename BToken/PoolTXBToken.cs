@@ -49,7 +49,7 @@ public partial class TokenBToken : Token
     {
       Account account;
 
-      account = Token.GetCopyOfAccount(accountID);
+      account = Token.GetCopyOfAccount(accountID, []);
 
       if (TXsByIDAccountSource.TryGetValue(accountID, out List<TXBToken> tXsInPool))
       {

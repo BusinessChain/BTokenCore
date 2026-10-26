@@ -156,7 +156,7 @@ public partial class TokenBitcoin : Token
     return true;
   }
 
-  public override void InsertBlock(Block block)
+  public override CacheBlock InsertBlock(Block block, List<CacheBlock> cacheBranch)
   {
     foreach (TXBitcoin tX in block.TXs)
     {
@@ -167,6 +167,8 @@ public partial class TokenBitcoin : Token
         if (TryAddTXOutputWallet(OutputsSpendable, tX, i))
           IndexTXs.Add(tX.Hash, tX);
     }
+
+    return null;
   }
 
   // Das muss eine Datanbank sein!!
