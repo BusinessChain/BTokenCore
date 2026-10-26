@@ -70,12 +70,43 @@ public class Block
           Header.AnchorsWinner.TryAdd(tokenAnchor.IDToken, tokenAnchor);
   }
 
-  internal void ParseStored()
+  internal void ParseCompact()
   {
-    Token.ParseBlockStored(this);
+    TXs.Clear();
+    int startIndex = 0;
+
+    ParseHeader(ref startIndex);
+
+    int countAnchors = VarInt.GetInt(Buffer, ref startIndex);
+
+    for (int i = 0; i < countAnchors; i++)
+    {
+      TXOutputTokenAnchor anchor = new();
+
+      Array.Copy(Buffer, startIndex, anchor.IDToken, 0, anchor.IDToken.Length);
+      startIndex += anchor.IDToken.Length;
+
+      Array.Copy(Buffer, startIndex, anchor.HashBlockReferenced, 0, anchor.HashBlockReferenced.Length);
+      startIndex += anchor.HashBlockReferenced.Length;
+
+      Array.Copy(Buffer, startIndex, anchor.HashBlockPreviousReferenced, 0, anchor.HashBlockPreviousReferenced.Length);
+      startIndex += anchor.HashBlockPreviousReferenced.Length;
+
+      Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
+    }
   }
 
-  internal void ParseHeader(ref int startIndex)
+  internal byte[] SerializeCompact()
+  {
+    List<byte> bytes = [.. Header.Serialize(), .. VarInt.GetBytes(Header.AnchorsWinner.Count)];
+
+    foreach (TXOutputTokenAnchor anchor in Header.AnchorsWinner.Values)
+      bytes.AddRange([.. anchor.IDToken, .. anchor.HashBlockReferenced, .. anchor.HashBlockPreviousReferenced]);
+
+    return bytes.ToArray();
+  }
+
+  void ParseHeader(ref int startIndex)
   {
     Header header = Token.ParseHeader(Buffer, ref startIndex, SHA256);
 

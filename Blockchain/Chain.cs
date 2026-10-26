@@ -38,7 +38,7 @@ internal partial class Blockchain
       Chain chain = this;
       headerLastInTree = null;
 
-      if (!TrySearchHeaderAncestor(headers, ref chain, GetHeightBlockStoredOldest(), out Header headerAncestor))
+      if (!TrySearchHeaderAncestor(headers, ref chain, GetHeightPruning(), out Header headerAncestor))
         return;
 
       if (headers.Count == 0)
@@ -67,7 +67,7 @@ internal partial class Blockchain
       headerLastInTree = headers[^1];
     }
 
-    internal int GetHeightBlockStoredOldest()
+    internal int GetHeightPruning()
     {
       return HeaderTipBlockchain.Height - MAX_COUNT_BLOCKS_STORED + 1;
     }
@@ -206,7 +206,7 @@ internal partial class Blockchain
 
     internal void DropForksDeep(ConcurrentBag<Block> poolBlocks)
     {
-      int heightBlockStoredOldest = GetHeightBlockStoredOldest();
+      int heightBlockStoredOldest = GetHeightPruning();
 
       foreach (Chain chainChild in ChainsChild.Where(c => c.HeaderRoot.HeaderPrevious.Height < heightBlockStoredOldest).ToList())
         chainChild.CutOff(chainChild.HeaderRoot, poolBlocks);

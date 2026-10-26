@@ -10,6 +10,7 @@ internal partial class Blockchain
   const int MAX_COUNT_BLOCKS_STORED = 200;
 
   internal Token Token;
+  bool IsChild;
 
   Chain ChainRoot;
 
@@ -31,13 +32,14 @@ internal partial class Blockchain
     SemaphoreSlim semaphoreBlockchain)
   {
     Token = token;
+    IsChild = blockchainParent != null;
     SemaphoreBlockchain = semaphoreBlockchain;
 
     ChainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
-    if (blockchainParent == null)
+    if (!IsChild)
       DatabaseHeaderCollection = Database.GetCollection<BsonDocument>("headers");
 
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
@@ -84,7 +86,7 @@ internal partial class Blockchain
 
     try
     {
-      blockLoad.ParseStored();
+      ParseBlockStored(blockLoad);
     }
     catch (ProtocolException)
     {
@@ -134,7 +136,7 @@ internal partial class Blockchain
         {
           blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
           blockLoad.Header = header;
-          blockLoad.ParseStored();
+          ParseBlockStored(blockLoad);
 
           Token.InsertBlock(blockLoad);
 
@@ -161,7 +163,7 @@ internal partial class Blockchain
       {
         blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
         blockLoad.Header = null;
-        blockLoad.ParseStored();
+        ParseBlockStored(blockLoad);
 
         Header header = blockLoad.Header;
 
@@ -219,7 +221,7 @@ internal partial class Blockchain
     try
     {
       block.Header = headerPlaceholder;
-      block.ParseStored();
+      ParseBlockStored(block);
     }
     catch (ProtocolException)
     {
@@ -249,6 +251,14 @@ internal partial class Blockchain
     chain.CutOff(header, PoolBlocks);
 
     UpdateTipBlockchain(ChainRoot);
+  }
+
+  void ParseBlockStored(Block block)
+  {
+    if (IsChild)
+      block.Parse();
+    else
+      block.ParseCompact();
   }
 
   bool TryLoadBlock(int height, out Block block)
@@ -382,13 +392,14 @@ internal partial class Blockchain
       ["headerBytes"] = block.Header.Serialize()
     });
 
-    DatabaseBlockCollection.DeleteMany(
-      Query.LT("_id", ChainRoot.GetHeightBlockStoredOldest()));
+    if (IsChild)
+      DatabaseBlockCollection.DeleteMany(
+        Query.LT("_id", ChainRoot.GetHeightPruning()));
 
     DatabaseBlockCollection.Upsert(new BsonDocument
     {
       ["_id"] = block.Header.Height,
-      ["blockBytes"] = Token.SerializeBlockStored(block)
+      ["blockBytes"] = IsChild ? block.Buffer[..block.LengthDataPayload] : block.SerializeCompact()
     });
 
     Database.Commit();
@@ -435,7 +446,7 @@ internal partial class Blockchain
       Header header = ChainRoot.HeaderTipBlockchain;
       TryLoadBlock(header.Height, out Block block);
       block.Header = header;
-      block.ParseStored();
+      ParseBlockStored(block);
 
       Database.BeginTrans();
 

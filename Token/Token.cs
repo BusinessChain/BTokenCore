@@ -48,16 +48,6 @@ public abstract partial class Token
 
   public abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
-  internal virtual byte[] SerializeBlockStored(Block block)
-  {
-    return block.Buffer[..block.LengthDataPayload];
-  }
-
-  internal virtual void ParseBlockStored(Block block)
-  {
-    block.Parse();
-  }
-
   internal string GetName()
   {
     return GetType().Name;
