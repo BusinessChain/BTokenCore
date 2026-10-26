@@ -33,12 +33,12 @@ internal partial class Blockchain
         HeaderTipBlockchain = headerRoot;
     }
 
-    internal void InsertHeadersInTree(List<Header> headers, out Header headerLastInTree)
+    internal void InsertHeadersInTree(List<Header> headers, int heightBlockStoredOldest, out Header headerLastInTree)
     {
       Chain chain = this;
       headerLastInTree = null;
 
-      if (!TrySearchHeaderAncestor(headers, ref chain, GetHeightPruning(), out Header headerAncestor))
+      if (!TrySearchHeaderAncestor(headers, ref chain, heightBlockStoredOldest, out Header headerAncestor))
         return;
 
       if (headers.Count == 0)
@@ -204,10 +204,8 @@ internal partial class Blockchain
         AdvanceTipChain();
     }
 
-    internal void DropForksDeep(ConcurrentBag<Block> poolBlocks)
+    internal void DropForksDeep(int heightBlockStoredOldest, ConcurrentBag<Block> poolBlocks)
     {
-      int heightBlockStoredOldest = GetHeightPruning();
-
       foreach (Chain chainChild in ChainsChild.Where(c => c.HeaderRoot.HeaderPrevious.Height < heightBlockStoredOldest).ToList())
         chainChild.CutOff(chainChild.HeaderRoot, poolBlocks);
     }

@@ -204,7 +204,7 @@ internal partial class Blockchain
 
     Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
 
-    ChainRoot.InsertHeadersInTree([headerPlaceholder], out Header headerLastInTree);
+    ChainRoot.InsertHeadersInTree([headerPlaceholder], GetHeightBlockStoredOldest(), out Header headerLastInTree);
 
     if (headerLastInTree == null)
       return;
@@ -253,6 +253,16 @@ internal partial class Blockchain
     UpdateTipBlockchain(ChainRoot);
   }
 
+  int GetHeightBlockStoredOldest()
+  {
+    BsonDocument bsonDocumentBlockOldest = DatabaseBlockCollection.Query().OrderBy("_id").Select("_id").FirstOrDefault();
+
+    if (bsonDocumentBlockOldest == null)
+      return ChainRoot.HeaderRoot.Height;
+
+    return bsonDocumentBlockOldest["_id"].AsInt32;
+  }
+
   void ParseBlockStored(Block block)
   {
     if (IsChild)
@@ -281,7 +291,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      ChainRoot.InsertHeadersInTree(headers, out Header headerLastInTree);
+      ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
 
       return headerLastInTree;
     }
@@ -346,7 +356,7 @@ internal partial class Blockchain
     do
     {
       InsertBlocksQueued();
-      ChainRoot.DropForksDeep(PoolBlocks);
+      ChainRoot.DropForksDeep(GetHeightBlockStoredOldest(), PoolBlocks);
     }
     while (TryReorgToForkStrongest());
   }
