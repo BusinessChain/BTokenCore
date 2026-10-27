@@ -314,43 +314,50 @@ internal partial class Blockchain
 
     do
     {
-      while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
-        InsertBlock(block);
-
+      InsertBlocksQueued();
       ChainRoot.DropForksDeep(GetHeightBlockStoredOldest(), PoolBlocks);
-    } while (TryReorgToForkStrongest());
+    }
+    while (TryReorgToForkStrongest());
+  }
+
+  void InsertBlocksQueued()
+  {
+    while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
+    {
+      Database.BeginTrans();
+
+      try
+      {
+        Token.InsertBlock(block);
+      }
+      catch (ProtocolException)
+      {
+        Database.Rollback();
+        PoolBlocks.Add(block);
+        ChainRoot.CutOff(block.Header, PoolBlocks);
+        continue;
+      }
+
+      ChainRoot.HeaderTipBlockchain = block.Header;
+      InsertBlock(block);
+    }
+  }
+
+  bool TryReorgToForkStrongest()
+  {
+    if (ChainRoot.FindForkStrongest() is not Chain chainForkStrongest
+      || !chainForkStrongest.IsStrongerThan(ChainRoot))
+      return false;
+
+    Reorg(chainForkStrongest);
+    return true;
   }
 
   void InsertBlock(Block block)
   {
-    Database.BeginTrans();
-
-    Token.CacheBlock cacheBlock;
-
-    try
-    {
-      cacheBlock = Token.InsertBlock(block, ChainRoot.GetCacheBranch(ChainRoot.HeaderTipBlockchain.Height));
-    }
-    catch (ProtocolException)
-    {
-      Database.Rollback();
-      PoolBlocks.Add(block);
-      ChainRoot.CutOff(block.Header, PoolBlocks);
-      return;
-    }
-
-    ChainRoot.HeaderTipBlockchain = block.Header;
-
-    if (cacheBlock != null)
-      ChainRoot.CacheBlocks.Add(block.Header.Height, cacheBlock);
-
     if (IsChild)
-    {
-      int heightPruning = ChainRoot.GetHeightPruning();
-
-      DatabaseBlockCollection.DeleteMany(Query.LT("_id", heightPruning));
-      ChainRoot.CacheBlocks.Remove(heightPruning);
-    }
+      DatabaseBlockCollection.DeleteMany(
+        Query.LT("_id", ChainRoot.GetHeightPruning()));
 
     DatabaseBlockCollection.Upsert(new BsonDocument
     {
@@ -363,16 +370,6 @@ internal partial class Blockchain
     AnnounceBlock(OnBlockInserted, block);
 
     PoolBlocks.Add(block);
-  }
-
-  bool TryReorgToForkStrongest()
-  {
-    if (ChainRoot.FindForkStrongest() is not Chain chainForkStrongest
-      || !chainForkStrongest.IsStrongerThan(ChainRoot))
-      return false;
-
-    Reorg(chainForkStrongest);
-    return true;
   }
 
   void AnnounceBlock(Action<Block> listeners, Block block)
@@ -417,7 +414,6 @@ internal partial class Blockchain
       Database.BeginTrans();
 
       Token.RollBack(block);
-      ChainRoot.CacheBlocks.Remove(header.Height);
 
       DatabaseBlockCollection.Delete(header.Height);
 

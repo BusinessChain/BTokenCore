@@ -17,11 +17,6 @@ public partial class TokenBToken : Token
 
   ILiteCollection<Account> DatabaseAccountCollection;
 
-  internal class CacheBlockBToken : CacheBlock
-  {
-    internal Dictionary<byte[], Account> Accounts = new(new EqualityComparerByteArray());
-  }
-
   internal PoolTXBToken TXPool;
 
   const int LENGTH_TX_P2PKH = 120;
@@ -161,63 +156,47 @@ public partial class TokenBToken : Token
     return false;
   }
 
-  public override CacheBlock InsertBlock(Block block, List<CacheBlock> cacheBranch)
+  public override void InsertBlock(Block block)
   {
-    List<CacheBlockBToken> cacheBlocks = [new(), .. cacheBranch.Cast<CacheBlockBToken>()];
-
     for (int i = 0; i < block.TXs.Count; i += 1)
     {
       TXBToken tX = (TXBToken)block.TXs[i];
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
-        InsertTXOutput(tXOutput, block.Header.Height, cacheBlocks);
+        InsertTXOutput(tXOutput, block.Header.Height);
 
       if (i > 0)
-        SpendTXInput(tX, cacheBlocks);
+        SpendTXInput(tX);
     }
-
-    return cacheBlocks[0];
   }
 
-  void WriteAccount(Account account, List<CacheBlockBToken> cacheBlocks)
+  void WriteAccount(Account account)
   {
     if (account.Balance > 0)
       DatabaseAccountCollection.Upsert(account);
     else
       DatabaseAccountCollection.Delete(account.ID);
-
-    if (cacheBlocks.Count > 0)
-      cacheBlocks[0].Accounts[account.ID] = account;
   }
 
-  void InsertTXOutput(TXOutput tXOutput, int blockHeight, List<CacheBlockBToken> cacheBlocks)
+  void InsertTXOutput(TXOutput tXOutput, int blockHeight)
   {
     if (tXOutput.Value < 0)
       throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
 
     if (tXOutput.Value > 0)
-      AddToBalance(tXOutput.IDAccount, blockHeight, tXOutput.Value, cacheBlocks);
+      AddToBalance(tXOutput.IDAccount, blockHeight, tXOutput.Value);
   }
 
-  void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value, List<CacheBlockBToken> cacheBlocks)
+  void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value)
   {
-    Account account = LoadAccount(accountID, blockHeightAccountCreated, cacheBlocks);
+    Account account = LoadAccount(accountID, blockHeightAccountCreated);
     account.Balance += value;
-    WriteAccount(account, cacheBlocks);
+    WriteAccount(account);
   }
 
-  Account FindAccount(byte[] accountID, List<CacheBlockBToken> cacheBlocks)
+  Account LoadAccount(byte[] accountID, int blockHeightAccountCreated)
   {
-    foreach (CacheBlockBToken cacheBlock in cacheBlocks)
-      if (cacheBlock.Accounts.TryGetValue(accountID, out Account accountCached))
-        return accountCached.Balance > 0 ? new Account(accountCached) : null;
-
-    return DatabaseAccountCollection.FindById(accountID);
-  }
-
-  Account LoadAccount(byte[] accountID, int blockHeightAccountCreated, List<CacheBlockBToken> cacheBlocks)
-  {
-    if (FindAccount(accountID, cacheBlocks) is Account accountStored)
+    if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
       return accountStored;
 
     return new()
@@ -227,19 +206,19 @@ public partial class TokenBToken : Token
     };
   }
 
-  Account GetCopyOfAccount(byte[] accountID, List<CacheBlockBToken> cacheBlocks)
+  Account GetCopyOfAccount(byte[] accountID)
   {
-    if (FindAccount(accountID, cacheBlocks) is Account accountStored)
-      return accountStored;
+    if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
+      return new(accountStored);
     else
       throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
   }
 
-  void SpendTXInput(TXBToken tX, List<CacheBlockBToken> cacheBlocks)
+  void SpendTXInput(TXBToken tX)
   {
-    Account account = GetCopyOfAccount(tX.IDAccountSource, cacheBlocks);
+    Account account = GetCopyOfAccount(tX.IDAccountSource);
     account.SpendTX(tX);
-    WriteAccount(account, cacheBlocks);
+    WriteAccount(account);
   }
 
   public override void RollBack(Block block)
@@ -250,14 +229,14 @@ public partial class TokenBToken : Token
 
       if (i > 0)
       {
-        Account accountSource = LoadAccount(tX.IDAccountSource, tX.BlockheightAccountCreated, []);
+        Account accountSource = LoadAccount(tX.IDAccountSource, tX.BlockheightAccountCreated);
         accountSource.ReverseSpendTX(tX);
-        WriteAccount(accountSource, []);
+        WriteAccount(accountSource);
       }
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput.Value > 0)
-          AddToBalance(tXOutput.IDAccount, block.Header.Height, -tXOutput.Value, []);
+          AddToBalance(tXOutput.IDAccount, block.Header.Height, -tXOutput.Value);
     }
   }
 

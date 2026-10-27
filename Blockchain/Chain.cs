@@ -17,7 +17,6 @@ internal partial class Blockchain
 
     const int HEIGHT_GAP_MAX_BlockMissing = 20;
     internal Dictionary<int, Block> Blocks = new();
-    internal Dictionary<int, Token.CacheBlock> CacheBlocks = new();
 
 
     internal Chain(Header headerGenesis, bool isRoot)
@@ -71,19 +70,6 @@ internal partial class Blockchain
     internal int GetHeightPruning()
     {
       return HeaderTipBlockchain.Height - MAX_COUNT_BLOCKS_STORED + 1;
-    }
-
-    internal List<Token.CacheBlock> GetCacheBranch(int height)
-    {
-      List<Token.CacheBlock> cacheBranch = new();
-
-      while (CacheBlocks.TryGetValue(height, out Token.CacheBlock cacheBlock))
-      {
-        cacheBranch.Add(cacheBlock);
-        height -= 1;
-      }
-
-      return cacheBranch;
     }
 
     static bool TrySearchHeaderAncestor(
