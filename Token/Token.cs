@@ -55,8 +55,7 @@ public abstract partial class Token
     return GetType().Name;
   }
 
-  internal virtual bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
-  { throw new NotSupportedException(); }
+  internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 
   public virtual Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
   { throw new NotSupportedException(); }
