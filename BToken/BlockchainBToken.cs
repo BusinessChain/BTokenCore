@@ -123,7 +123,7 @@ internal class BlockchainBToken : Blockchain
 
     try
     {
-      TokenBToken.InsertBlock(block);
+      TokenBToken.InsertTXs(block);
       ((TokenBToken.HeaderBToken)block.Header).HashDatabase = SHA256.HashData(TokenBToken.Accounts.Serialize());
     }
     finally

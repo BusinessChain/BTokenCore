@@ -145,6 +145,14 @@ public partial class TokenBToken : Token
     if (!Accounts.Exists())
       return;
 
+    InsertTXs(block);
+
+    if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)block.Header).HashDatabase))
+      throw new ProtocolException($"Hash of DB not equal to HashDatabase of block {block.Header.Hash.ToHexString()}.");
+  }
+
+  internal void InsertTXs(Block block)
+  {
     for (int i = 0; i < block.TXs.Count; i += 1)
     {
       TXBToken tX = (TXBToken)block.TXs[i];
