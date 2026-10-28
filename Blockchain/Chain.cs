@@ -159,14 +159,7 @@ internal partial class Blockchain
         chainChild.ReturnBlocksToPool(poolBlocks);
       }
 
-      foreach (int height in Blocks.Keys.Where(h => h >= headerRemove.Height).ToList())
-      {
-        Blocks.Remove(height, out Block block);
-        poolBlocks.Add(block);
-      }
-
-      foreach (Header header in HeadersAwaitingBlock.Values.Where(h => h.Height >= headerRemove.Height).ToList())
-        HeadersAwaitingBlock.Remove(header.Hash);
+      RemoveBlocksAndHeadersAwaitingBlock(h => h >= headerRemove.Height, poolBlocks);
 
       if (HeaderTipBlockchain != null && HeaderTipBlockchain.Height >= headerRemove.Height)
         HeaderTipBlockchain = headerPrevious;
@@ -202,6 +195,28 @@ internal partial class Blockchain
 
       if (ChainParent != null)
         AdvanceTipChain();
+    }
+
+    internal void ReRoot(Header headerRoot, ConcurrentBag<Block> poolBlocks)
+    {
+      DropForksDeep(headerRoot.Height, poolBlocks);
+      RemoveBlocksAndHeadersAwaitingBlock(h => h <= headerRoot.Height, poolBlocks);
+
+      headerRoot.HeaderPrevious = null;
+      HeaderRoot = headerRoot;
+      HeaderTipBlockchain = headerRoot;
+    }
+
+    void RemoveBlocksAndHeadersAwaitingBlock(Func<int, bool> isHeightRemoved, ConcurrentBag<Block> poolBlocks)
+    {
+      foreach (int height in Blocks.Keys.Where(isHeightRemoved).ToList())
+      {
+        Blocks.Remove(height, out Block block);
+        poolBlocks.Add(block);
+      }
+
+      foreach (Header header in HeadersAwaitingBlock.Values.Where(h => isHeightRemoved(h.Height)).ToList())
+        HeadersAwaitingBlock.Remove(header.Hash);
     }
 
     internal void DropForksDeep(int heightBlockStoredOldest, ConcurrentBag<Block> poolBlocks)

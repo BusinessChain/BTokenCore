@@ -35,6 +35,17 @@ public partial class TokenBToken : Token
     DatabaseAccountCollection = database.GetCollection<Account>("accounts");
   }
 
+  internal override void DropDatabase(LiteDatabase database)
+  {
+    database.DropCollection("accounts");
+    DatabaseAccountCollection = null;
+  }
+
+  internal override bool HasDatabase()
+  {
+    return DatabaseAccountCollection != null;
+  }
+
   public override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(

@@ -194,6 +194,26 @@ internal partial class Blockchain
     UpdateTipBlockchain(chain);
   }
 
+  internal void TriggerBootstrap(Block blockParent)
+  {
+    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
+
+    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
+    {
+      Token.DropDatabase(Database);
+      DatabaseBlockCollection.DeleteAll();
+
+      Header headerRoot = ChainRoot.HeaderTip;
+
+      while (headerRoot.Height > ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED)
+        headerRoot = headerRoot.HeaderPrevious;
+
+      ChainRoot.ReRoot(headerRoot, PoolBlocks);
+
+      UpdateTipBlockchain(ChainRoot);
+    }
+  }
+
   internal void RemoveHeaderPlaceholder(Block blockParent)
   {
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
@@ -328,7 +348,8 @@ internal partial class Blockchain
 
       try
       {
-        Token.InsertBlock(block);
+        if (Token.HasDatabase())
+          Token.InsertBlock(block);
       }
       catch (ProtocolException)
       {
@@ -413,7 +434,8 @@ internal partial class Blockchain
 
       Database.BeginTrans();
 
-      Token.RollBack(block);
+      if (Token.HasDatabase())
+        Token.RollBack(block);
 
       DatabaseBlockCollection.Delete(header.Height);
 
