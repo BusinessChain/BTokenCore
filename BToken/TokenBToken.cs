@@ -210,20 +210,6 @@ public partial class TokenBToken : Token
     }
   }
 
-  internal List<byte[]> ParseHashesDB(byte[] buffer, int length, Header headerTip)
-  {
-    SHA256 sHA256 = SHA256.Create();
-
-    byte[] hashRootHashesDB = sHA256.ComputeHash(buffer, 0, length);
-
-    if (!((HeaderBToken)headerTip).HashDatabase.IsAllBytesEqual(hashRootHashesDB))
-      throw new ProtocolException($"Root hash of hashesDB not equal to database hash in header tip");
-
-    List<byte[]> hashesDB = new();
-
-    return hashesDB;
-  }
-
   byte[] GetGenesisBlockBytes()
   {
     return [
