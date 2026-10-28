@@ -40,11 +40,6 @@ public abstract partial class Token
 
   public virtual void RollBack(Block block) { }
 
-  internal virtual IDatabaseToken GetDatabase()
-  {
-    return null;
-  }
-
   public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
   public abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
@@ -55,10 +50,4 @@ public abstract partial class Token
   }
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
-
-  public virtual Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
-  { throw new NotSupportedException(); }
-
-  public virtual Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
-  { throw new NotSupportedException(); }
 }

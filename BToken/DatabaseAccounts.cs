@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 public partial class TokenBToken : Token
 {
-  internal class DatabaseAccounts : IDatabaseToken
+  internal class DatabaseAccounts
   {
     const string NAME_COLLECTION = "accounts";
 
@@ -13,7 +13,7 @@ public partial class TokenBToken : Token
     ILiteCollection<Account> Collection;
 
 
-    public bool TryLoad(LiteDatabase database)
+    internal bool TryLoad(LiteDatabase database)
     {
       Database = database;
 
@@ -23,18 +23,18 @@ public partial class TokenBToken : Token
       return isStored;
     }
 
-    public void Drop()
+    internal void Drop()
     {
       Database.DropCollection(NAME_COLLECTION);
       Collection = null;
     }
 
-    public bool Exists()
+    internal bool Exists()
     {
       return Collection != null;
     }
 
-    public byte[] Serialize()
+    internal byte[] Serialize()
     {
       List<Account> accounts = Collection.Find(Query.All(Query.Ascending)).ToList();
 
@@ -53,7 +53,7 @@ public partial class TokenBToken : Token
       return bytes.ToArray();
     }
 
-    public void Install(byte[] buffer, int length)
+    internal void Install(byte[] buffer, int length)
     {
       int index = 0;
 

@@ -13,7 +13,7 @@ public partial class TokenBToken : Token
   const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
   const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
-  DatabaseAccounts Accounts = new();
+  internal DatabaseAccounts Accounts = new();
 
   internal PoolTXBToken TXPool;
 
@@ -28,11 +28,6 @@ public partial class TokenBToken : Token
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
 
-  internal override IDatabaseToken GetDatabase()
-  {
-    return Accounts;
-  }
-
   public override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(
@@ -45,7 +40,7 @@ public partial class TokenBToken : Token
     return header;
   }
 
-  public override Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
+  internal Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
   {
     return new HeaderBToken(
       headerHash: anchor.HashBlockReferenced,
@@ -63,7 +58,7 @@ public partial class TokenBToken : Token
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  public override Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
+  internal Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
   {
     int height = headerPrevious.Height + 1;
 

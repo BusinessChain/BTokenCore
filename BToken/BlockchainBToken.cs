@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal class BlockchainBToken : Blockchain
 {
-  IDatabaseToken DatabaseToken;
+  TokenBToken TokenBToken;
 
 
   internal BlockchainBToken(
@@ -14,9 +14,9 @@ internal class BlockchainBToken : Blockchain
     SemaphoreSlim semaphoreBlockchain)
     : base(token, blockchainParent, semaphoreBlockchain)
   {
-    DatabaseToken = Token.GetDatabase();
+    TokenBToken = token;
 
-    if (!DatabaseToken.TryLoad(Database))
+    if (!TokenBToken.Accounts.TryLoad(Database))
       DatabaseBlockCollection.DeleteAll();
   }
 
@@ -39,8 +39,8 @@ internal class BlockchainBToken : Blockchain
     {
       await LockBlockchain();
 
-      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && DatabaseToken.Exists())
-        return DatabaseToken.Serialize();
+      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && TokenBToken.Accounts.Exists())
+        return TokenBToken.Accounts.Serialize();
 
       return null;
     }
@@ -56,7 +56,7 @@ internal class BlockchainBToken : Blockchain
     {
       await LockBlockchain();
 
-      if (!DatabaseToken.Exists())
+      if (!TokenBToken.Accounts.Exists())
         return ChainRoot.HeaderTipBlockchain.Hash;
 
       return null;
@@ -73,7 +73,7 @@ internal class BlockchainBToken : Blockchain
     {
       await LockBlockchain();
 
-      if (DatabaseToken.Exists()
+      if (TokenBToken.Accounts.Exists()
         || !ChainRoot.TryGetHeader(hash, out Header header)
         || header.Height > ChainRoot.HeaderTipBlockchain.Height)
         return;
@@ -84,12 +84,12 @@ internal class BlockchainBToken : Blockchain
 
       try
       {
-        DatabaseToken.Install(buffer, length);
+        TokenBToken.Accounts.Install(buffer, length);
       }
       catch
       {
         Database.Rollback();
-        DatabaseToken.Drop();
+        TokenBToken.Accounts.Drop();
         throw;
       }
 
@@ -105,7 +105,7 @@ internal class BlockchainBToken : Blockchain
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
-    return Token.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
+    return TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
   }
 
   internal void RollBackUnanchored()
@@ -127,7 +127,7 @@ internal class BlockchainBToken : Blockchain
     if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
       return;
 
-    Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
+    Header headerPlaceholder = TokenBToken.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
 
     Header headerLastInTree = ChainRoot.HeaderRoot;
 
@@ -169,7 +169,7 @@ internal class BlockchainBToken : Blockchain
 
     if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
     {
-      DatabaseToken.Drop();
+      TokenBToken.Accounts.Drop();
       DatabaseBlockCollection.DeleteAll();
 
       Header headerRoot = ChainRoot.HeaderTip;
