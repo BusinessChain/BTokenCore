@@ -1,4 +1,5 @@
 using LiteDB;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -94,6 +95,17 @@ internal class BlockchainBToken : Blockchain
       }
 
       Database.Commit();
+
+      RollBack(heightAfterRollBack: GetHeightBlockStoredOldest());
+
+      if (!SHA256.HashData(TokenBToken.Accounts.Serialize())
+        .IsAllBytesEqual(((TokenBToken.HeaderBToken)ChainRoot.HeaderTipBlockchain).HashDatabase))
+      {
+        TokenBToken.Accounts.Drop();
+        UpdateTipBlockchain(ChainRoot);
+
+        throw new ProtocolException($"Hash of DB not equal to HashDatabase of oldest stored block.");
+      }
 
       UpdateTipBlockchain(ChainRoot);
     }
