@@ -33,7 +33,19 @@ internal partial class Network
 
     internal abstract Task Run(Peer peer);
 
-    internal abstract string GetCommand();
+    internal static async Task SendInventories(Peer peer, string command, List<Inventory> inventories)
+    {
+      List<byte> payload = new();
+
+      payload.AddRange(VarInt.GetBytes(inventories.Count));
+
+      foreach (Inventory inventory in inventories)
+        payload.AddRange(inventory.GetBytes());
+
+      byte[] buffer = payload.ToArray();
+
+      await peer.SocketCommunication.SendMessage(command, buffer.Length, buffer);
+    }
   }
 
   class AddressMessage : NetworkMessage
@@ -77,11 +89,6 @@ internal partial class Network
     {
 
     }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class PingMessage : NetworkMessage
@@ -107,11 +114,6 @@ internal partial class Network
     internal override async Task Run(Peer peer)
     {
       await PongMessage.SendPong(peer, LengthDataPayload, Payload);
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 
@@ -168,7 +170,7 @@ internal partial class Network
         TimeRequest = DateTime.UtcNow;
         peer.StateCurrent = Peer.StateProtocol.BlockDownload;
 
-        await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
+        await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
         return;
       }
 
@@ -185,17 +187,12 @@ internal partial class Network
       TimeRequest = DateTime.UtcNow;
       peer.StateCurrent = Peer.StateProtocol.DBDownload;
 
-      await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
+      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
     }
 
     internal static async Task SendBlock(Peer peer, Block block)
     {
       await peer.SocketCommunication.SendMessage(Command, block.LengthDataPayload, block.Buffer);
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 
@@ -252,7 +249,7 @@ internal partial class Network
             HeightBlockDownloadedLast = BlockUpload.Header.Height;
           }
           else
-            await NotFoundMessage.SendNotFound(peer, inventory);
+            await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_DB)
         {
@@ -261,29 +258,11 @@ internal partial class Network
           if (dataDB != null)
             await DBMessage.SendDB(peer, dataDB);
           else
-            await NotFoundMessage.SendNotFound(peer, inventory);
+            await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
       }
     }
 
-    internal static async Task SendGetData(Peer peer, List<Inventory> inventories)
-    {
-      List<byte> payload = new();
-
-      payload.AddRange(VarInt.GetBytes(inventories.Count));
-
-      foreach (Inventory inventory in inventories)
-        payload.AddRange(inventory.GetBytes());
-
-      byte[] buffer = payload.ToArray();
-
-      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class NotFoundMessage : NetworkMessage
@@ -328,17 +307,6 @@ internal partial class Network
       blockMessage.BlockDownload.Header = null;
       peer.StateCurrent = Peer.StateProtocol.Idle;
     }
-
-    internal static async Task SendNotFound(Peer peer, Inventory inventory)
-    {
-      byte[] buffer = [.. VarInt.GetBytes(1), .. inventory.GetBytes()];
-      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class DBMessage : NetworkMessage
@@ -376,11 +344,6 @@ internal partial class Network
     internal static async Task SendDB(Peer peer, byte[] dataDB)
     {
       await peer.SocketCommunication.SendMessage(Command, dataDB.Length, dataDB);
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 
@@ -456,11 +419,6 @@ internal partial class Network
       peer.StateCurrent = Peer.StateProtocol.HeaderDownload;
 
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 
@@ -550,18 +508,11 @@ internal partial class Network
 
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
     }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class InvMessage : NetworkMessage
   {
     internal const string Command = "inv";
-
-    internal List<Inventory> Inventories = new();
 
     Blockchain Blockchain;
 
@@ -576,37 +527,6 @@ internal partial class Network
       Blockchain = blockchain;
     }
 
-    internal InvMessage(List<Inventory> inventories)
-      : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Inventories = inventories;
-
-      List<byte> payload = new();
-
-      payload.AddRange(VarInt.GetBytes(inventories.Count));
-
-      Inventories.ForEach(
-        i => payload.AddRange(i.GetBytes()));
-
-      Payload = payload.ToArray();
-      LengthDataPayload = Payload.Length;
-    }
-
-    internal InvMessage(byte[] buffer)
-      : base(buffer, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      int startIndex = 0;
-
-      int inventoryCount = VarInt.GetInt(
-        Payload,
-        ref startIndex);
-
-      for (int i = 0; i < inventoryCount; i++)
-        Inventories.Add(Inventory.Parse(
-          Payload,
-          ref startIndex));
-    }
-
     internal override async Task Run(Peer peer)
     {
       int startIndex = 0;
@@ -619,11 +539,6 @@ internal partial class Network
           await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
           return;
         }
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 
@@ -663,11 +578,6 @@ internal partial class Network
     {
       await peer.SocketCommunication.SendMessage(Command, payloadLength, payload);
     }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class TXMessage : NetworkMessage
@@ -701,11 +611,6 @@ internal partial class Network
     {
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
     }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class VerAckMessage : NetworkMessage
@@ -735,11 +640,6 @@ internal partial class Network
 
       if (peer.ConfigNetwork.IsProtocolBitcoin && peer.Connection == Peer.ConnectionType.OUTBOUND)
         await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 
@@ -803,11 +703,6 @@ internal partial class Network
       if (peer.Connection == Peer.ConnectionType.INBOUND)
         SendVersion(peer, Blockchain.GetHeight());
     }
-
-    internal override string GetCommand()
-    {
-      return Command;
-    }
   }
 
   class UnknownMessage : NetworkMessage
@@ -826,11 +721,6 @@ internal partial class Network
     internal override async Task Run(Peer peer)
     {
 
-    }
-
-    internal override string GetCommand()
-    {
-      return Command;
     }
   }
 }

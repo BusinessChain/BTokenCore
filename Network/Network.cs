@@ -50,7 +50,7 @@ internal partial class Network
   {
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)
-        peer.BroadcastTX(tX);
+        NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
   }
 
   void AnnounceHeaderIfParentNewest(Block block)

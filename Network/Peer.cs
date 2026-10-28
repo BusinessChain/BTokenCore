@@ -68,23 +68,6 @@ internal partial class Network
         VersionMessage.SendVersion(this, heightBlockchainTip);
     }
 
-    internal void BroadcastTX(TX tX)
-    {
-      InvMessage invMessage = new(new List<Inventory> {
-            new(Inventory.InventoryType.MSG_TX, tX.Hash)});
-
-      SendMessage(invMessage);
-    }
-
-    internal async Task AdvertizeTX(TX tX)
-    {
-      InvMessage invMessage = new(new List<Inventory> {
-          new(Inventory.InventoryType.MSG_TX, tX.Hash)
-        });
-
-      await SendMessage(invMessage);
-    }
-
     internal string GetIP()
     {
       return SocketCommunication.GetIP();
@@ -123,11 +106,6 @@ internal partial class Network
         StateCurrent = StateProtocol.Disposed;
         SocketCommunication.Dispose();
       }
-    }
-
-    async Task SendMessage(NetworkMessage message)
-    {
-      await SocketCommunication.SendMessage(message.GetCommand(), message.LengthDataPayload, message.Payload);
     }
   }
 }
