@@ -48,17 +48,6 @@ public partial class TokenBToken : Token
     return DatabaseAccountCollection != null;
   }
 
-  internal override void DropDatabase(LiteDatabase database)
-  {
-    database.DropCollection("accounts");
-    DatabaseAccountCollection = null;
-  }
-
-  internal override bool HasDatabase()
-  {
-    return DatabaseAccountCollection != null;
-  }
-
   public override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(
