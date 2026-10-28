@@ -60,8 +60,11 @@ public class Node
     Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin, NetworkBToken);
 
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
+    BlockchainBitcoin.OnBlockInserted += BlockchainBToken.TriggerBootstrap;
     BlockchainBitcoin.OnBlockInserted += Miner.OnBlockBitcoinInserted;
+
     BlockchainBitcoin.OnBlockRolledBack += BlockchainBToken.RemoveHeaderPlaceholder;
+
     BlockchainBToken.OnBlockInserted += tokenBToken.TXPool.RemoveTXs;
     BlockchainBToken.OnBlockRolledBack += tokenBToken.TXPool.ReturnTXs;
   }
