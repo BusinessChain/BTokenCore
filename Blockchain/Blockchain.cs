@@ -39,7 +39,8 @@ internal partial class Blockchain
     Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
 
-    Token.LoadDatabase(Database);
+    if (!Token.TryLoadDatabase(Database))
+      DatabaseBlockCollection.DeleteAll();
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }

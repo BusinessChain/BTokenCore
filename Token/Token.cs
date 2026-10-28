@@ -42,7 +42,10 @@ public abstract partial class Token
 
   public virtual void RollBack(Block block) { }
 
-  internal virtual void LoadDatabase(LiteDatabase database) { }
+  internal virtual bool TryLoadDatabase(LiteDatabase database)
+  {
+    return true;
+  }
 
   internal virtual void DropDatabase(LiteDatabase database) { }
 

@@ -30,9 +30,11 @@ public partial class TokenBToken : Token
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
 
-  internal override void LoadDatabase(LiteDatabase database)
+  internal override bool TryLoadDatabase(LiteDatabase database)
   {
+    bool isDatabaseStored = database.CollectionExists("accounts");
     DatabaseAccountCollection = database.GetCollection<Account>("accounts");
+    return isDatabaseStored;
   }
 
   internal override void DropDatabase(LiteDatabase database)
