@@ -21,6 +21,7 @@ public class Node
     {
       Port = 8333,
       IsProtocolBitcoin = true,
+      NetworkServicesRemote = ConfigNetwork.NODE_NETWORK,
       SeedAddresses =
         [
           "seed.bitcoin.sipa.be",

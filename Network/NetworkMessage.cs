@@ -793,6 +793,11 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
+      ulong networkServicesRequired = peer.ConfigNetwork.NetworkServicesRemote;
+
+      if ((BitConverter.ToUInt64(Payload, 4) & networkServicesRequired) != networkServicesRequired)
+        throw new ProtocolException($"Peer lacks network services {networkServicesRequired}.");
+
       VerAckMessage.Send(peer);
 
       if (peer.Connection == Peer.ConnectionType.INBOUND)
