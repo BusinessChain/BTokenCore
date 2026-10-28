@@ -54,6 +54,13 @@ public abstract partial class Token
     return true;
   }
 
+  internal virtual void DropDatabase(LiteDatabase database) { }
+
+  internal virtual bool HasDatabase()
+  {
+    return true;
+  }
+
   public abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
 
   public abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
