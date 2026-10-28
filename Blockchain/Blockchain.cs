@@ -15,6 +15,7 @@ internal partial class Blockchain
 
   LiteDatabase Database;
   ILiteCollection<BsonDocument> DatabaseBlockCollection;
+  IDatabaseToken DatabaseToken;
 
   SemaphoreSlim SemaphoreBlockchain;
 
@@ -39,7 +40,9 @@ internal partial class Blockchain
     Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
 
-    if (!Token.TryLoadDatabase(Database))
+    DatabaseToken = Token.GetDatabase();
+
+    if (DatabaseToken != null && !DatabaseToken.TryLoad(Database))
       DatabaseBlockCollection.DeleteAll();
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
@@ -96,8 +99,8 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Token.TryGetDB(out byte[] dataDB))
-        return dataDB;
+      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && DatabaseToken != null && DatabaseToken.Exists())
+        return DatabaseToken.Serialize();
 
       return null;
     }
@@ -113,7 +116,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      if (!Token.HasDatabase())
+      if (DatabaseToken != null && !DatabaseToken.Exists())
         return ChainRoot.HeaderTipBlockchain.Hash;
 
       return null;
@@ -130,7 +133,7 @@ internal partial class Blockchain
     {
       await LockBlockchain();
 
-      if (Token.HasDatabase()
+      if (DatabaseToken.Exists()
         || !ChainRoot.TryGetHeader(hash, out Header header)
         || header.Height > ChainRoot.HeaderTipBlockchain.Height)
         return;
@@ -141,12 +144,12 @@ internal partial class Blockchain
 
       try
       {
-        Token.InstallDB(Database, buffer, length);
+        DatabaseToken.Install(buffer, length);
       }
       catch
       {
         Database.Rollback();
-        Token.DropDatabase(Database);
+        DatabaseToken.Drop();
         throw;
       }
 
@@ -271,7 +274,7 @@ internal partial class Blockchain
 
     if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
     {
-      Token.DropDatabase(Database);
+      DatabaseToken.Drop();
       DatabaseBlockCollection.DeleteAll();
 
       Header headerRoot = ChainRoot.HeaderTip;
@@ -419,8 +422,7 @@ internal partial class Blockchain
 
       try
       {
-        if (Token.HasDatabase())
-          Token.InsertBlock(block);
+        Token.InsertBlock(block);
       }
       catch (ProtocolException)
       {
@@ -505,8 +507,7 @@ internal partial class Blockchain
 
       Database.BeginTrans();
 
-      if (Token.HasDatabase())
-        Token.RollBack(block);
+      Token.RollBack(block);
 
       DatabaseBlockCollection.Delete(header.Height);
 

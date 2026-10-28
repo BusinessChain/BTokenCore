@@ -49,7 +49,7 @@ public partial class TokenBToken : Token
     {
       Account account;
 
-      account = Token.GetCopyOfAccount(accountID);
+      account = Token.Accounts.GetCopyOfAccount(accountID);
 
       if (TXsByIDAccountSource.TryGetValue(accountID, out List<TXBToken> tXsInPool))
       {
@@ -157,10 +157,7 @@ public partial class TokenBToken : Token
         {
           List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
 
-          long balance = 0;
-
-          if (Token.DatabaseAccountCollection.FindById(iDAccountSource) is Account accountStored)
-            balance = accountStored.Balance;
+          long balance = Token.Accounts.LoadAccount(iDAccountSource, 0).Balance;
 
           if (OutputValuesByIDAccount.TryGetValue(iDAccountSource, out long valueTotal))
             balance += valueTotal;

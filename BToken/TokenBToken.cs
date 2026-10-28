@@ -1,7 +1,5 @@
 ﻿using System.Security.Cryptography;
 
-using LiteDB;
-
 
 namespace BTokenCore;
 
@@ -15,7 +13,7 @@ public partial class TokenBToken : Token
   const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
   const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
-  ILiteCollection<Account> DatabaseAccountCollection;
+  DatabaseAccounts Accounts = new();
 
   internal PoolTXBToken TXPool;
 
@@ -30,82 +28,9 @@ public partial class TokenBToken : Token
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
 
-  internal override bool TryLoadDatabase(LiteDatabase database)
+  internal override IDatabaseToken GetDatabase()
   {
-    bool isDatabaseStored = database.CollectionExists("accounts");
-    DatabaseAccountCollection = database.GetCollection<Account>("accounts");
-    return isDatabaseStored;
-  }
-
-  internal override void DropDatabase(LiteDatabase database)
-  {
-    database.DropCollection("accounts");
-    DatabaseAccountCollection = null;
-  }
-
-  internal override bool HasDatabase()
-  {
-    return DatabaseAccountCollection != null;
-  }
-
-  internal override bool TryGetDB(out byte[] dataDB)
-  {
-    dataDB = null;
-
-    if (!HasDatabase())
-      return false;
-
-    List<Account> accounts = DatabaseAccountCollection.Find(Query.All(Query.Ascending)).ToList();
-
-    List<byte> bytes = new();
-
-    bytes.AddRange(VarInt.GetBytes(accounts.Count));
-
-    foreach (Account account in accounts)
-    {
-      bytes.AddRange(account.ID);
-      bytes.AddRange(BitConverter.GetBytes(account.BlockHeightAccountCreated));
-      bytes.AddRange(BitConverter.GetBytes(account.Nonce));
-      bytes.AddRange(BitConverter.GetBytes(account.Balance));
-    }
-
-    dataDB = bytes.ToArray();
-
-    return true;
-  }
-
-  internal override void InstallDB(LiteDatabase database, byte[] buffer, int length)
-  {
-    int index = 0;
-
-    int countAccounts = VarInt.GetInt(buffer, ref index);
-
-    if (index + (long)countAccounts * Account.LENGTH_ACCOUNT != length)
-      throw new ProtocolException($"Length {length} of DB does not match its {countAccounts} accounts.");
-
-    List<Account> accounts = new();
-
-    for (int i = 0; i < countAccounts; i += 1)
-    {
-      Account account = new();
-
-      Array.Copy(buffer, index, account.ID, 0, Account.LENGTH_ID);
-      index += Account.LENGTH_ID;
-
-      account.BlockHeightAccountCreated = BitConverter.ToInt32(buffer, index);
-      index += 4;
-
-      account.Nonce = BitConverter.ToInt32(buffer, index);
-      index += 4;
-
-      account.Balance = BitConverter.ToInt64(buffer, index);
-      index += 8;
-
-      accounts.Add(account);
-    }
-
-    DatabaseAccountCollection = database.GetCollection<Account>("accounts");
-    DatabaseAccountCollection.InsertBulk(accounts);
+    return Accounts;
   }
 
   public override Header CreateHeaderGenesis()
@@ -231,6 +156,9 @@ public partial class TokenBToken : Token
 
   public override void InsertBlock(Block block)
   {
+    if (!Accounts.Exists())
+      return;
+
     for (int i = 0; i < block.TXs.Count; i += 1)
     {
       TXBToken tX = (TXBToken)block.TXs[i];
@@ -241,14 +169,6 @@ public partial class TokenBToken : Token
       if (i > 0)
         SpendTXInput(tX);
     }
-  }
-
-  void WriteAccount(Account account)
-  {
-    if (account.Balance > 0)
-      DatabaseAccountCollection.Upsert(account);
-    else
-      DatabaseAccountCollection.Delete(account.ID);
   }
 
   void InsertTXOutput(TXOutput tXOutput, int blockHeight)
@@ -262,49 +182,32 @@ public partial class TokenBToken : Token
 
   void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value)
   {
-    Account account = LoadAccount(accountID, blockHeightAccountCreated);
+    Account account = Accounts.LoadAccount(accountID, blockHeightAccountCreated);
     account.Balance += value;
-    WriteAccount(account);
-  }
-
-  Account LoadAccount(byte[] accountID, int blockHeightAccountCreated)
-  {
-    if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
-      return accountStored;
-
-    return new()
-    {
-      ID = accountID,
-      BlockHeightAccountCreated = blockHeightAccountCreated
-    };
-  }
-
-  Account GetCopyOfAccount(byte[] accountID)
-  {
-    if (DatabaseAccountCollection.FindById(accountID) is Account accountStored)
-      return new(accountStored);
-    else
-      throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
+    Accounts.WriteAccount(account);
   }
 
   void SpendTXInput(TXBToken tX)
   {
-    Account account = GetCopyOfAccount(tX.IDAccountSource);
+    Account account = Accounts.GetCopyOfAccount(tX.IDAccountSource);
     account.SpendTX(tX);
-    WriteAccount(account);
+    Accounts.WriteAccount(account);
   }
 
   public override void RollBack(Block block)
   {
+    if (!Accounts.Exists())
+      return;
+
     for (int i = block.TXs.Count - 1; i >= 0; i--)
     {
       TXBToken tX = block.TXs[i] as TXBToken;
 
       if (i > 0)
       {
-        Account accountSource = LoadAccount(tX.IDAccountSource, tX.BlockheightAccountCreated);
+        Account accountSource = Accounts.LoadAccount(tX.IDAccountSource, tX.BlockheightAccountCreated);
         accountSource.ReverseSpendTX(tX);
-        WriteAccount(accountSource);
+        Accounts.WriteAccount(accountSource);
       }
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
