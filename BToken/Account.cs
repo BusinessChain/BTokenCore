@@ -10,7 +10,7 @@ public partial class TokenBToken : Token
 {
   internal class Account
   {
-    internal const int LENGTH_ACCOUNT = 40;
+    internal const int LENGTH_ACCOUNT = 36;
     internal const int LENGTH_ID = 20;
 
     [BsonId]

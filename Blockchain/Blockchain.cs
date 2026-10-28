@@ -90,6 +90,23 @@ internal partial class Blockchain
     }
   }
 
+  internal async Task<byte[]> GetDB(byte[] hash)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Token.TryGetDB(out byte[] dataDB))
+        return dataDB;
+
+      return null;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal int GetHeight()
   {
     return ChainRoot.HeaderTipBlockchain.Height;

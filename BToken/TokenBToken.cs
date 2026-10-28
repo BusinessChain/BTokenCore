@@ -48,6 +48,32 @@ public partial class TokenBToken : Token
     return DatabaseAccountCollection != null;
   }
 
+  internal override bool TryGetDB(out byte[] dataDB)
+  {
+    dataDB = null;
+
+    if (!HasDatabase())
+      return false;
+
+    List<Account> accounts = DatabaseAccountCollection.Find(Query.All(Query.Ascending)).ToList();
+
+    List<byte> bytes = new();
+
+    bytes.AddRange(VarInt.GetBytes(accounts.Count));
+
+    foreach (Account account in accounts)
+    {
+      bytes.AddRange(account.ID);
+      bytes.AddRange(BitConverter.GetBytes(account.BlockHeightAccountCreated));
+      bytes.AddRange(BitConverter.GetBytes(account.Nonce));
+      bytes.AddRange(BitConverter.GetBytes(account.Balance));
+    }
+
+    dataDB = bytes.ToArray();
+
+    return true;
+  }
+
   public override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(

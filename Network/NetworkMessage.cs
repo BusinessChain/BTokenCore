@@ -239,13 +239,16 @@ internal partial class Network
             HeightBlockDownloadedLast = BlockUpload.Header.Height;
           }
           else
-          {
-            byte[] buffer = [.. VarInt.GetBytes(1), .. inventory.GetBytes()];
-            await peer.SocketCommunication.SendMessage(NotFoundMessage.Command, buffer.Length, buffer);
-          }
+            await NotFoundMessage.SendNotFound(peer, inventory);
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_DB)
         {
+          byte[] dataDB = await Blockchain.GetDB(inventory.Hash);
+
+          if (dataDB != null)
+            await DBMessage.SendDB(peer, dataDB);
+          else
+            await NotFoundMessage.SendNotFound(peer, inventory);
         }
       }
     }
@@ -300,6 +303,42 @@ internal partial class Network
       peer.HashesBlockRefused.Add(inventory.Hash);
       blockMessage.BlockDownload.Header = null;
       peer.StateCurrent = Peer.StateProtocol.Idle;
+    }
+
+    internal static async Task SendNotFound(Peer peer, Inventory inventory)
+    {
+      byte[] buffer = [.. VarInt.GetBytes(1), .. inventory.GetBytes()];
+      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+    }
+
+    internal override string GetCommand()
+    {
+      return Command;
+    }
+  }
+
+  class DBMessage : NetworkMessage
+  {
+    internal const string Command = "db";
+
+    const int MAX_COUNT_ACCOUNTS = 1_000_000;
+    const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * TokenBToken.Account.LENGTH_ACCOUNT;
+    const int MAX_LEVEL_DOS = 1;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
+
+
+    internal DBMessage()
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
+    { }
+
+    internal override async Task Run(Peer peer)
+    {
+
+    }
+
+    internal static async Task SendDB(Peer peer, byte[] dataDB)
+    {
+      await peer.SocketCommunication.SendMessage(Command, dataDB.Length, dataDB);
     }
 
     internal override string GetCommand()

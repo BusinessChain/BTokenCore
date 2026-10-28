@@ -71,6 +71,9 @@ public abstract partial class Token
   public virtual Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
   { throw new NotSupportedException(); }
 
-  internal virtual bool TryGetDB(byte[] hash, out byte[] dataDB)
-  { throw new NotSupportedException(); }
+  internal virtual bool TryGetDB(out byte[] dataDB)
+  {
+    dataDB = null;
+    return false;
+  }
 }
