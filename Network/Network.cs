@@ -201,6 +201,8 @@ internal partial class Network
       protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
       protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
     }
+    else
+      protocol.Add(DBMessage.Command, new DBMessage(Blockchain));
 
     return protocol;
   }
@@ -225,14 +227,14 @@ internal partial class Network
         {
           BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
 
-          if (blockMessage.BlockDownload.Header == null)
+          if (blockMessage.BlockDownload.Header == null && peer.StateCurrent != Peer.StateProtocol.DBDownload)
           {
             if (peer.StateCurrent != Peer.StateProtocol.Idle)
               continue;
 
             await blockMessage.RequestBlockNext(peer);
           }
-          else if (DateTime.UtcNow - blockMessage.TimeRequestBlock > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
+          else if (DateTime.UtcNow - blockMessage.TimeRequest > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
             peer.SocketCommunication.Dispose();
         }
         catch

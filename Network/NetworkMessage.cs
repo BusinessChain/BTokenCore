@@ -120,7 +120,7 @@ internal partial class Network
     internal const string Command = "block";
 
     internal Block BlockDownload;
-    internal DateTime TimeRequestBlock;
+    internal DateTime TimeRequest;
 
     Blockchain Blockchain;
 
@@ -163,16 +163,29 @@ internal partial class Network
         headersMessage.HeaderTipReceivedLast,
         peer.CanDeliverBlock);
 
-      if (BlockDownload.Header == null)
+      if (BlockDownload.Header != null)
       {
-        peer.StateCurrent = Peer.StateProtocol.Idle; // side effect of function?
+        TimeRequest = DateTime.UtcNow;
+        peer.StateCurrent = Peer.StateProtocol.BlockDownload;
+
+        await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
         return;
       }
 
-      TimeRequestBlock = DateTime.UtcNow;
-      peer.StateCurrent = Peer.StateProtocol.BlockDownload;
+      byte[] hashDBMissing = await Blockchain.GetHashDBMissing();
 
-      await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
+      if (hashDBMissing == null)
+      {
+        peer.StateCurrent = Peer.StateProtocol.Idle;
+        return;
+      }
+
+      ((DBMessage)peer.ProtocolStateMachine[DBMessage.Command]).HashDBRequested = hashDBMissing;
+
+      TimeRequest = DateTime.UtcNow;
+      peer.StateCurrent = Peer.StateProtocol.DBDownload;
+
+      await GetDataMessage.SendGetData(peer, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
     }
 
     internal static async Task SendBlock(Peer peer, Block block)
@@ -293,6 +306,17 @@ internal partial class Network
       VarInt.GetInt(Payload, ref startIndex);
       Inventory inventory = Inventory.Parse(Payload, ref startIndex);
 
+      if (inventory.Type == Inventory.InventoryType.MSG_DB)
+      {
+        if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
+          return;
+
+        DOSMonitor.Decrement(1);
+
+        peer.StateCurrent = Peer.StateProtocol.Idle;
+        return;
+      }
+
       BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
 
       if (blockMessage.BlockDownload.Header?.Hash.IsAllBytesEqual(inventory.Hash) != true)
@@ -321,19 +345,32 @@ internal partial class Network
   {
     internal const string Command = "db";
 
+    internal byte[] HashDBRequested;
+
+    Blockchain Blockchain;
+
     const int MAX_COUNT_ACCOUNTS = 1_000_000;
     const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * TokenBToken.Account.LENGTH_ACCOUNT;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal DBMessage()
+    internal DBMessage(Blockchain blockchain)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    { }
+    {
+      Blockchain = blockchain;
+    }
 
     internal override async Task Run(Peer peer)
     {
+      if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
+        throw new ProtocolException($"Received unrequested db message.");
 
+      await Blockchain.InstallDB(HashDBRequested, Payload, LengthDataPayload);
+
+      DOSMonitor.Decrement(1);
+
+      peer.StateCurrent = Peer.StateProtocol.Idle;
     }
 
     internal static async Task SendDB(Peer peer, byte[] dataDB)

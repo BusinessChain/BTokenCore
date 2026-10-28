@@ -107,6 +107,59 @@ internal partial class Blockchain
     }
   }
 
+  internal async Task<byte[]> GetHashDBMissing()
+  {
+    try
+    {
+      await LockBlockchain();
+
+      if (!Token.HasDatabase())
+        return ChainRoot.HeaderTipBlockchain.Hash;
+
+      return null;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
+  internal async Task InstallDB(byte[] hash, byte[] buffer, int length)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      if (Token.HasDatabase()
+        || !ChainRoot.TryGetHeader(hash, out Header header)
+        || header.Height > ChainRoot.HeaderTipBlockchain.Height)
+        return;
+
+      RollBack(heightAfterRollBack: header.Height);
+
+      Database.BeginTrans();
+
+      try
+      {
+        Token.InstallDB(Database, buffer, length);
+      }
+      catch
+      {
+        Database.Rollback();
+        Token.DropDatabase(Database);
+        throw;
+      }
+
+      Database.Commit();
+
+      UpdateTipBlockchain(ChainRoot);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal int GetHeight()
   {
     return ChainRoot.HeaderTipBlockchain.Height;

@@ -49,6 +49,8 @@ public abstract partial class Token
 
   internal virtual void DropDatabase(LiteDatabase database) { }
 
+  internal virtual void InstallDB(LiteDatabase database, byte[] buffer, int length) { }
+
   internal virtual bool HasDatabase()
   {
     return true;

@@ -74,6 +74,40 @@ public partial class TokenBToken : Token
     return true;
   }
 
+  internal override void InstallDB(LiteDatabase database, byte[] buffer, int length)
+  {
+    int index = 0;
+
+    int countAccounts = VarInt.GetInt(buffer, ref index);
+
+    if (index + (long)countAccounts * Account.LENGTH_ACCOUNT != length)
+      throw new ProtocolException($"Length {length} of DB does not match its {countAccounts} accounts.");
+
+    List<Account> accounts = new();
+
+    for (int i = 0; i < countAccounts; i += 1)
+    {
+      Account account = new();
+
+      Array.Copy(buffer, index, account.ID, 0, Account.LENGTH_ID);
+      index += Account.LENGTH_ID;
+
+      account.BlockHeightAccountCreated = BitConverter.ToInt32(buffer, index);
+      index += 4;
+
+      account.Nonce = BitConverter.ToInt32(buffer, index);
+      index += 4;
+
+      account.Balance = BitConverter.ToInt64(buffer, index);
+      index += 8;
+
+      accounts.Add(account);
+    }
+
+    DatabaseAccountCollection = database.GetCollection<Account>("accounts");
+    DatabaseAccountCollection.InsertBulk(accounts);
+  }
+
   public override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(

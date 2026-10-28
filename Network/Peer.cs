@@ -19,6 +19,7 @@ internal partial class Network
       Idle,
       HeaderDownload,
       BlockDownload,
+      DBDownload,
       Disposed
     }
 
