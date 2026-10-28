@@ -4,7 +4,7 @@ namespace BTokenCore;
 
 internal partial class Blockchain
 {
-  class Chain
+  protected class Chain
   {
     internal Header HeaderTip;
     internal Header HeaderRoot;

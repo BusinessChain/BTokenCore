@@ -2,8 +2,8 @@ namespace BTokenCore;
 
 public class Node
 {
-  internal Blockchain BlockchainBitcoin;
-  internal Blockchain BlockchainBToken;
+  internal BlockchainBitcoin BlockchainBitcoin;
+  internal BlockchainBToken BlockchainBToken;
   internal Network NetworkBitcoin;
   internal Network NetworkBToken;
   internal Miner Miner;
@@ -15,7 +15,6 @@ public class Node
 
     BlockchainBitcoin = new(
       new TokenBitcoin(),
-      blockchainParent: null,
       semaphoreBlockchain);
 
     ConfigNetwork ConfigNetworkBitcoin = new()

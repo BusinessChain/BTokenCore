@@ -4,17 +4,16 @@ using System.Collections.Concurrent;
 
 namespace BTokenCore;
 
-internal partial class Blockchain
+internal abstract partial class Blockchain
 {
   const int MAX_COUNT_BLOCKS_STORED = 200;
 
   internal Token Token;
-  bool IsChild;
 
-  Chain ChainRoot;
+  protected Chain ChainRoot;
 
   LiteDatabase Database;
-  ILiteCollection<BsonDocument> DatabaseBlockCollection;
+  protected ILiteCollection<BsonDocument> DatabaseBlockCollection;
   IDatabaseToken DatabaseToken;
 
   SemaphoreSlim SemaphoreBlockchain;
@@ -25,13 +24,12 @@ internal partial class Blockchain
   ConcurrentBag<Block> PoolBlocks = new();
 
 
-  internal Blockchain(
+  protected Blockchain(
     Token token,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
     Token = token;
-    IsChild = blockchainParent != null;
     SemaphoreBlockchain = semaphoreBlockchain;
 
     ChainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
@@ -204,8 +202,7 @@ internal partial class Blockchain
 
         ChainRoot.HeaderTipBlockchain = header;
 
-        if (!IsChild)
-          AnnounceBlock(OnBlockInserted, blockLoad);
+        AnnounceBlock(OnBlockInserted, blockLoad);
       }
       catch
       {
@@ -316,13 +313,9 @@ internal partial class Blockchain
     return bsonDocumentBlockOldest["_id"].AsInt32;
   }
 
-  void ParseBlockStored(Block block)
-  {
-    if (IsChild)
-      block.Parse();
-    else
-      block.ParseCompact();
-  }
+  protected abstract void ParseBlockStored(Block block);
+
+  protected abstract byte[] SerializeBlockStored(Block block);
 
   bool TryLoadBlock(int height, out Block block)
   {
@@ -433,7 +426,18 @@ internal partial class Blockchain
       }
 
       ChainRoot.HeaderTipBlockchain = block.Header;
-      InsertBlock(block);
+
+      DatabaseBlockCollection.Upsert(new BsonDocument
+      {
+        ["_id"] = block.Header.Height,
+        ["blockBytes"] = SerializeBlockStored(block)
+      });
+
+      Database.Commit();
+
+      AnnounceBlock(OnBlockInserted, block);
+
+      PoolBlocks.Add(block);
     }
   }
 
@@ -445,25 +449,6 @@ internal partial class Blockchain
 
     Reorg(chainForkStrongest);
     return true;
-  }
-
-  void InsertBlock(Block block)
-  {
-    if (IsChild)
-      DatabaseBlockCollection.DeleteMany(
-        Query.LT("_id", ChainRoot.GetHeightPruning()));
-
-    DatabaseBlockCollection.Upsert(new BsonDocument
-    {
-      ["_id"] = block.Header.Height,
-      ["blockBytes"] = IsChild ? block.Buffer[..block.LengthDataPayload] : block.SerializeCompact()
-    });
-
-    Database.Commit();
-
-    AnnounceBlock(OnBlockInserted, block);
-
-    PoolBlocks.Add(block);
   }
 
   void AnnounceBlock(Action<Block> listeners, Block block)
