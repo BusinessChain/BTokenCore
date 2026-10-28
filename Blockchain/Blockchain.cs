@@ -6,22 +6,21 @@ namespace BTokenCore;
 
 internal abstract partial class Blockchain
 {
-  const int MAX_COUNT_BLOCKS_STORED = 200;
+  protected const int MAX_COUNT_BLOCKS_STORED = 200;
 
   internal Token Token;
 
   protected Chain ChainRoot;
 
-  LiteDatabase Database;
+  protected LiteDatabase Database;
   protected ILiteCollection<BsonDocument> DatabaseBlockCollection;
-  IDatabaseToken DatabaseToken;
 
   SemaphoreSlim SemaphoreBlockchain;
 
   internal Action<Block> OnBlockInserted;
   internal Action<Block> OnBlockRolledBack;
 
-  ConcurrentBag<Block> PoolBlocks = new();
+  protected ConcurrentBag<Block> PoolBlocks = new();
 
 
   protected Blockchain(
@@ -37,11 +36,6 @@ internal abstract partial class Blockchain
 
     Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
-
-    DatabaseToken = Token.GetDatabase();
-
-    if (DatabaseToken != null && !DatabaseToken.TryLoad(Database))
-      DatabaseBlockCollection.DeleteAll();
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }
@@ -91,84 +85,19 @@ internal abstract partial class Blockchain
     }
   }
 
-  internal async Task<byte[]> GetDB(byte[] hash)
+  internal virtual Task<byte[]> GetDB(byte[] hash)
   {
-    try
-    {
-      await LockBlockchain();
-
-      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && DatabaseToken != null && DatabaseToken.Exists())
-        return DatabaseToken.Serialize();
-
-      return null;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    return Task.FromResult<byte[]>(null);
   }
 
-  internal async Task<byte[]> GetHashDBMissing()
+  internal virtual Task<byte[]> GetHashDBMissing()
   {
-    try
-    {
-      await LockBlockchain();
-
-      if (DatabaseToken != null && !DatabaseToken.Exists())
-        return ChainRoot.HeaderTipBlockchain.Hash;
-
-      return null;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
-  internal async Task InstallDB(byte[] hash, byte[] buffer, int length)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      if (DatabaseToken.Exists()
-        || !ChainRoot.TryGetHeader(hash, out Header header)
-        || header.Height > ChainRoot.HeaderTipBlockchain.Height)
-        return;
-
-      RollBack(heightAfterRollBack: header.Height);
-
-      Database.BeginTrans();
-
-      try
-      {
-        DatabaseToken.Install(buffer, length);
-      }
-      catch
-      {
-        Database.Rollback();
-        DatabaseToken.Drop();
-        throw;
-      }
-
-      Database.Commit();
-
-      UpdateTipBlockchain(ChainRoot);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    return Task.FromResult<byte[]>(null);
   }
 
   internal int GetHeight()
   {
     return ChainRoot.HeaderTipBlockchain.Height;
-  }
-
-  internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
-  {
-    return Token.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
   }
 
   internal Block TakeBlockFromPool()
@@ -210,100 +139,7 @@ internal abstract partial class Blockchain
       }
   }
 
-  internal void RollBackUnanchored()
-  {
-    Header header = ChainRoot.HeaderRoot;
-
-    while (header != null && header.HeaderParent == null)
-      header = header.HeaderNext;
-
-    while (header != null && header.HeaderParent != null)
-      header = header.HeaderNext;
-
-    if (header != null)
-      RemoveHeader(ChainRoot, header);
-  }
-
-  internal void InsertHeaderPlaceholder(Block blockParent)
-  {
-    if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
-      return;
-
-    Header headerPlaceholder = Token.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);
-
-    Header headerLastInTree = ChainRoot.HeaderRoot;
-
-    if (!headerLastInTree.Hash.IsAllBytesEqual(headerPlaceholder.Hash))
-      ChainRoot.InsertHeadersInTree([headerPlaceholder], GetHeightBlockStoredOldest(), out headerLastInTree);
-
-    if (headerLastInTree == null)
-      return;
-
-    if (headerLastInTree != headerPlaceholder)
-    {
-      headerLastInTree.HeaderParent = blockParent.Header;
-      return;
-    }
-
-    if (!TryLoadBlock(headerPlaceholder.Height, out Block block))
-      return;
-
-    try
-    {
-      block.Header = headerPlaceholder;
-      ParseBlockStored(block);
-    }
-    catch (ProtocolException)
-    {
-      PoolBlocks.Add(block);
-      return;
-    }
-
-    Chain chain = ChainRoot.FindChain(headerPlaceholder);
-    chain.Blocks.Add(headerPlaceholder.Height, block);
-
-    UpdateTipBlockchain(chain);
-  }
-
-  internal void TriggerBootstrap(Block blockParent)
-  {
-    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
-
-    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
-    {
-      DatabaseToken.Drop();
-      DatabaseBlockCollection.DeleteAll();
-
-      Header headerRoot = ChainRoot.HeaderTip;
-
-      while (headerRoot.Height > ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED)
-        headerRoot = headerRoot.HeaderPrevious;
-
-      ChainRoot.ReRoot(headerRoot, PoolBlocks);
-
-      UpdateTipBlockchain(ChainRoot);
-    }
-  }
-
-  internal void RemoveHeaderPlaceholder(Block blockParent)
-  {
-    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
-      return;
-
-    RemoveHeader(ChainRoot.FindChain(headerPlaceholder), headerPlaceholder);
-  }
-
-  void RemoveHeader(Chain chain, Header header)
-  {
-    if (chain == ChainRoot)
-      RollBack(heightAfterRollBack: header.Height - 1);
-
-    chain.CutOff(header, PoolBlocks);
-
-    UpdateTipBlockchain(ChainRoot);
-  }
-
-  int GetHeightBlockStoredOldest()
+  protected int GetHeightBlockStoredOldest()
   {
     BsonDocument bsonDocumentBlockOldest = DatabaseBlockCollection.Query().OrderBy("_id").Select("_id").FirstOrDefault();
 
@@ -317,7 +153,7 @@ internal abstract partial class Blockchain
 
   protected abstract byte[] SerializeBlockStored(Block block);
 
-  bool TryLoadBlock(int height, out Block block)
+  protected bool TryLoadBlock(int height, out Block block)
   {
     block = null;
 
@@ -394,7 +230,7 @@ internal abstract partial class Blockchain
     }
   }
 
-  void UpdateTipBlockchain(Chain chain)
+  protected void UpdateTipBlockchain(Chain chain)
   {
     if (chain != ChainRoot)
       chain.AdvanceTipChain();
@@ -481,7 +317,7 @@ internal abstract partial class Blockchain
     }
   }
 
-  void RollBack(int heightAfterRollBack)
+  protected void RollBack(int heightAfterRollBack)
   {
     while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {

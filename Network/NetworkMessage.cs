@@ -347,7 +347,7 @@ internal partial class Network
 
     internal byte[] HashDBRequested;
 
-    Blockchain Blockchain;
+    BlockchainBToken Blockchain;
 
     const int MAX_COUNT_ACCOUNTS = 1_000_000;
     const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * TokenBToken.Account.LENGTH_ACCOUNT;
@@ -355,7 +355,7 @@ internal partial class Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal DBMessage(Blockchain blockchain)
+    internal DBMessage(BlockchainBToken blockchain)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;

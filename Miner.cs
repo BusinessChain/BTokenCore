@@ -6,7 +6,7 @@ namespace BTokenCore;
 internal class Miner
 {
   Blockchain BlockchainBitcoin;
-  Blockchain BlockchainBToken;
+  BlockchainBToken BlockchainBToken;
   Network NetworkBitcoin;
   Network NetworkBToken;
 
@@ -20,7 +20,7 @@ internal class Miner
 
   internal Miner(
     Blockchain blockchainBitcoin,
-    Blockchain blockchainBToken,
+    BlockchainBToken blockchainBToken,
     Network networkBitcoin,
     Network networkBToken)
   {

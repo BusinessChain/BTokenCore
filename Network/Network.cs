@@ -202,7 +202,7 @@ internal partial class Network
       protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
     }
     else
-      protocol.Add(DBMessage.Command, new DBMessage(Blockchain));
+      protocol.Add(DBMessage.Command, new DBMessage((BlockchainBToken)Blockchain));
 
     return protocol;
   }
