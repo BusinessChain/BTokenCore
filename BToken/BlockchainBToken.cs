@@ -117,7 +117,30 @@ internal class BlockchainBToken : Blockchain
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
-    return TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool(), out anchorToken);
+    Block block = TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool());
+
+    Database.BeginTrans();
+
+    try
+    {
+      TokenBToken.InsertBlock(block);
+      ((TokenBToken.HeaderBToken)block.Header).HashDatabase = SHA256.HashData(TokenBToken.Accounts.Serialize());
+    }
+    finally
+    {
+      Database.Rollback();
+    }
+
+    block.Header.ComputeHash();
+
+    anchorToken = new TXOutputTokenAnchor()
+    {
+      IDToken = Token.IDToken,
+      HashBlockPreviousReferenced = block.Header.HashPrevious,
+      HashBlockReferenced = block.Header.Hash
+    };
+
+    return block;
   }
 
   internal void RollBackUnanchored()

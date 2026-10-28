@@ -58,7 +58,7 @@ public partial class TokenBToken : Token
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  internal Block MineBlock(Header headerPrevious, Block block, out TXOutputTokenAnchor anchorToken)
+  internal Block MineBlock(Header headerPrevious, Block block)
   {
     int height = headerPrevious.Height + 1;
 
@@ -81,15 +81,6 @@ public partial class TokenBToken : Token
       MerkleRoot = block.ComputeMerkleRoot(),
       CountTXs = block.TXs.Count,
       Fee = feeTXs
-    };
-
-    block.Header.ComputeHash();
-
-    anchorToken = new TXOutputTokenAnchor()
-    {
-      IDToken = IDToken,
-      HashBlockPreviousReferenced = block.Header.HashPrevious,
-      HashBlockReferenced = block.Header.Hash
     };
 
     return block;
