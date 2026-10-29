@@ -9,6 +9,7 @@ public partial class TokenBitcoin : Token
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
   const string NAME_COLLECTION_OUTPUTS_OWNED = "outputsOwned";
+  const string NAME_COLLECTION_ANCHORS_OWNED = "anchorsOwned";
 
   const int LENGTH_P2PKH_INPUT = 148;
   const int LENGTH_P2PKH_OUTPUT = 34;
@@ -17,6 +18,7 @@ public partial class TokenBitcoin : Token
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
   ILiteCollection<TXOutputOwned> OutputsOwned;
+  ILiteCollection<BsonDocument> AnchorsOwned;
   TXBitcoin TXAnchorOpen;
 
 
@@ -25,9 +27,22 @@ public partial class TokenBitcoin : Token
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
 
-  internal void LoadOutputsOwned(LiteDatabase database)
+  internal void LoadDatabase(LiteDatabase database)
   {
     OutputsOwned = database.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
+    AnchorsOwned = database.GetCollection<BsonDocument>(NAME_COLLECTION_ANCHORS_OWNED);
+
+    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
+    {
+      byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
+      int index = 0;
+
+      TXAnchorOpen = new TXBitcoin(tXRaw, ref index, Wallet.SHA256, flagIsCoinbase: false)
+      {
+        TXRaw = tXRaw,
+        Fee = documentAnchor["fee"].AsInt64
+      };
+    }
   }
 
   public override Header CreateHeaderGenesis()
@@ -113,16 +128,6 @@ public partial class TokenBitcoin : Token
   {
     tXAnchor = new TXBitcoin();
 
-    //return new()
-    //{
-    //  new TXOutputOwned()
-    //  {
-    //    TXID = "20da7491ec53757a914dc1f045afbcb0a5c3396785a9abe9fc074e017e9403fd".ToBinary(),
-    //    Value = 7106,
-    //    Index = 1
-    //  }
-    //};
-
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
     long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
 
@@ -182,6 +187,18 @@ public partial class TokenBitcoin : Token
     tXAnchor.Serialize(Wallet);
 
     tXAnchor.Fee = valueInputs - tXAnchor.GetValueOutputs();
+
+    if (TXAnchorOpen != null)
+      AnchorsOwned.Delete(TXAnchorOpen.Hash);
+
+    AnchorsOwned.Insert(new BsonDocument
+    {
+      ["_id"] = tXAnchor.Hash,
+      ["tXRaw"] = tXAnchor.TXRaw,
+      ["fee"] = tXAnchor.Fee,
+      ["heightConfirmed"] = 0
+    });
+
     TXAnchorOpen = (TXBitcoin)tXAnchor;
 
     return true;
@@ -205,7 +222,10 @@ public partial class TokenBitcoin : Token
 
         if (TXAnchorOpen != null &&
           TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
+        {
+          AnchorsOwned.Delete(TXAnchorOpen.Hash);
           TXAnchorOpen = null;
+        }
       }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
