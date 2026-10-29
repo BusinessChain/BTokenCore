@@ -88,6 +88,9 @@ internal class Miner
 
     Block block = BlockchainBToken.MineBlock(out TXOutputTokenAnchor anchorToken);
 
+    if (!BlockchainBitcoin.Token.TryCreateTXAnchor(anchorToken, FeePerByte, out TX tX))
+      return;
+
     block.Serialize();
 
     BlocksMinedCache.Add(block);
@@ -98,7 +101,6 @@ internal class Miner
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
 
-    if (BlockchainBitcoin.Token.TryCreateTXAnchor(anchorToken, FeePerByte, out TX tX))
-      NetworkBitcoin.Broadcast(tX);
+    NetworkBitcoin.Broadcast(tX);
   }
 }
