@@ -36,6 +36,11 @@ public partial class TokenBitcoin : Token
       LoadTXAnchorOpen(documentAnchor);
   }
 
+  internal bool IsTXAnchorOpen()
+  {
+    return TXAnchorOpen != null;
+  }
+
   void LoadTXAnchorOpen(BsonDocument documentAnchor)
   {
     byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
