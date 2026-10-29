@@ -88,13 +88,7 @@ public partial class TokenBitcoin : Token
         tXRaw.AddRange(BitConverter.GetBytes(input.Sequence));
       }
 
-      tXRaw.Add((byte)TXOutputs.Count);
-      foreach (TXOutput output in TXOutputs)
-      {
-        tXRaw.AddRange(BitConverter.GetBytes(output.Value));
-        tXRaw.AddRange(VarInt.GetBytes(output.Script.Length));
-        tXRaw.AddRange(output.Script);
-      }
+      SerializeTXOutputs(tXRaw);
 
       tXRaw.AddRange([0x00, 0x00, 0x00, 0x00]); // locktime
       tXRaw.AddRange([0x01, 0x00, 0x00, 0x00]); // sighash

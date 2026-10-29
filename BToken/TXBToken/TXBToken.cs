@@ -122,12 +122,7 @@ public partial class TokenBToken : Token
       tXRaw.AddRange(BitConverter.GetBytes(Nonce));
       tXRaw.AddRange(BitConverter.GetBytes(Fee));
 
-      tXRaw.AddRange(VarInt.GetBytes(TXOutputs.Count));
-      foreach (TXOutputP2PKH output in TXOutputs)
-      {
-        tXRaw.Add((byte)output.Type);
-        tXRaw.AddRange(output.Script);
-      }
+      SerializeTXOutputs(tXRaw);
 
       byte[] signature = wallet.GetSignature(tXRaw.ToArray());
 
