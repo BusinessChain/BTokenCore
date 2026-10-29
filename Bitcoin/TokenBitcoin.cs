@@ -33,16 +33,19 @@ public partial class TokenBitcoin : Token
     AnchorsOwned = database.GetCollection<BsonDocument>(NAME_COLLECTION_ANCHORS_OWNED);
 
     if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
-    {
-      byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
-      int index = 0;
+      LoadTXAnchorOpen(documentAnchor);
+  }
 
-      TXAnchorOpen = new TXBitcoin(tXRaw, ref index, Wallet.SHA256, flagIsCoinbase: false)
-      {
-        TXRaw = tXRaw,
-        Fee = documentAnchor["fee"].AsInt64
-      };
-    }
+  void LoadTXAnchorOpen(BsonDocument documentAnchor)
+  {
+    byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
+    int index = 0;
+
+    TXAnchorOpen = new TXBitcoin(tXRaw, ref index, Wallet.SHA256, flagIsCoinbase: false)
+    {
+      TXRaw = tXRaw,
+      Fee = documentAnchor["fee"].AsInt64
+    };
   }
 
   public override Header CreateHeaderGenesis()
@@ -208,7 +211,10 @@ public partial class TokenBitcoin : Token
   {
     int height = block.Header.Height;
 
-    OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, height - Blockchain.MAX_COUNT_BLOCKS_STORED));
+    int heightPruning = height - Blockchain.MAX_COUNT_BLOCKS_STORED;
+
+    OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
+    AnchorsOwned.DeleteMany(Query.Between("heightConfirmed", 1, heightPruning));
 
     foreach (TXBitcoin tX in block.TXs)
     {
@@ -223,7 +229,10 @@ public partial class TokenBitcoin : Token
         if (TXAnchorOpen != null &&
           TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
         {
-          AnchorsOwned.Delete(TXAnchorOpen.Hash);
+          BsonDocument documentAnchor = AnchorsOwned.FindById(TXAnchorOpen.Hash);
+          documentAnchor["heightConfirmed"] = height;
+          AnchorsOwned.Update(documentAnchor);
+
           TXAnchorOpen = null;
         }
       }
@@ -253,6 +262,16 @@ public partial class TokenBitcoin : Token
     {
       outputSpent.HeightSpent = 0;
       OutputsOwned.Update(outputSpent);
+    }
+
+    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", height)) is BsonDocument documentAnchor)
+    {
+      AnchorsOwned.DeleteMany(Query.EQ("heightConfirmed", 0));
+
+      documentAnchor["heightConfirmed"] = 0;
+      AnchorsOwned.Update(documentAnchor);
+
+      LoadTXAnchorOpen(documentAnchor);
     }
   }
 }
