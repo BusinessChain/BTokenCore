@@ -6,10 +6,6 @@ public partial class TokenBToken : Token
   {
     internal const int COUNT_HEADER_BYTES = 100;
 
-    // Statt den aktuellen DB Hash, könnte auch der diesem Block vorangehende DB Hash
-    // aufgeführt werden. Dies hätte beim Mining der vorteil, dass das Inserten des 
-    // gemineden Block nicht durchgespielt werden müsste.
-
     internal byte[] HashDatabase = new byte[32];
 
 
