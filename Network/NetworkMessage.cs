@@ -485,7 +485,7 @@ internal partial class Network
         if (headerTipReceivedLast != null)
         {
           DOSMonitor.Decrement(1);
-          GetHeadersMessage.SendGetHeaders(peer, [headerTipReceivedLast.Hash]);
+          await GetHeadersMessage.SendGetHeaders(peer, [headerTipReceivedLast.Hash]);
         }
         else
           peer.StateCurrent = Peer.StateProtocol.Idle;
