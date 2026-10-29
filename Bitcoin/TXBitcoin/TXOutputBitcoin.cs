@@ -11,8 +11,6 @@ public partial class TokenBitcoin : Token
 
     internal byte[] Data;
 
-    internal byte[] Script;
-
 
     internal TXOutputBitcoin() { }
 

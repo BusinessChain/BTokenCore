@@ -89,7 +89,7 @@ public partial class TokenBitcoin : Token
       }
 
       tXRaw.Add((byte)TXOutputs.Count);
-      foreach (TXOutputBitcoin output in TXOutputs)
+      foreach (TXOutput output in TXOutputs)
       {
         tXRaw.AddRange(BitConverter.GetBytes(output.Value));
         tXRaw.AddRange(VarInt.GetBytes(output.Script.Length));
