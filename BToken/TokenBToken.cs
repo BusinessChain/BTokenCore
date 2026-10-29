@@ -89,7 +89,7 @@ public partial class TokenBToken : Token
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
   {
     tXAnchor = null;
-    byte[] dataAnchorToken = tokenAnchor.Serialize();
+    tokenAnchor.Serialize();
 
     long fee = feePerByte * LENGTH_TX_P2PKH;
 

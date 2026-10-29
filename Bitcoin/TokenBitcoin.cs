@@ -118,12 +118,12 @@ public partial class TokenBitcoin : Token
 
     long valueInputs = outputsSpendable.Sum(o => o.Value);
 
-    byte[] tokenAnchorRaw = tokenAnchor.Serialize();
+    tokenAnchor.Serialize();
 
     long feeTX = (long)(feePerByte
       * (LENGTH_P2PKH_INPUT * outputsSpendable.Count
       + LENGTH_TX_OVERHEAD
-      + tokenAnchorRaw.Length));
+      + tokenAnchor.Script.Length));
 
     if (valueInputs < feeTX + tokenAnchor.Value)
       return false;

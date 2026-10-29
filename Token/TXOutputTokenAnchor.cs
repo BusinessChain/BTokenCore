@@ -20,8 +20,6 @@ public class TXOutputTokenAnchor : TXOutput
   internal byte[] HashBlockReferenced = new byte[32];
   internal byte[] HashBlockPreviousReferenced = new byte[32];
 
-  byte[] TXOutputTokenAnchorRaw = new byte[LengthDataAnchorToken];
-
 
   internal TXOutputTokenAnchor()
   {
@@ -41,24 +39,8 @@ public class TXOutputTokenAnchor : TXOutput
     startIndex += HashBlockPreviousReferenced.Length;
   }
 
-  internal byte[] Serialize()
+  internal void Serialize()
   {
-    int startIndex = 0;
-
-    IDENTIFIER_BTOKEN_PROTOCOL.CopyTo(TXOutputTokenAnchorRaw, startIndex);
-
-    startIndex += IDENTIFIER_BTOKEN_PROTOCOL.Length;
-
-    IDToken.CopyTo(TXOutputTokenAnchorRaw, startIndex);
-
-    startIndex += Token.LENGTH_ID_TOKEN;
-
-    HashBlockReferenced.CopyTo(TXOutputTokenAnchorRaw, startIndex);
-
-    startIndex += 32;
-
-    HashBlockPreviousReferenced.CopyTo(TXOutputTokenAnchorRaw, startIndex);
-
-    return TXOutputTokenAnchorRaw;
+    Script = [.. PREFIX_ANCHOR_TOKEN, .. IDToken, .. HashBlockReferenced, .. HashBlockPreviousReferenced];
   }
 }
