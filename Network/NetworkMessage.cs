@@ -96,6 +96,7 @@ internal partial class Network
     internal const string Command = "ping";
 
     internal UInt64 Nonce;
+    internal bool IsPongPending;
 
 
     const int SIZE_BUFFER_PAYLOAD = 8;
@@ -105,10 +106,6 @@ internal partial class Network
 
     internal PingMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    { }
-
-    internal PingMessage(byte[] payload)
-      : base(payload, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal override async Task Run(Peer peer)
@@ -555,23 +552,14 @@ internal partial class Network
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
-    internal PongMessage(byte[] payload, int lengthDataPayload)
-      : base(payload, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      LengthDataPayload = lengthDataPayload;
-    }
-
     internal override async Task Run(Peer peer)
     {
-      PingMessage messagePing = peer.ProtocolStateMachine[PingMessage.Command] as PingMessage;
+      PingMessage messagePing = (PingMessage)peer.ProtocolStateMachine[PingMessage.Command];
 
-      if (messagePing == null)
-        throw new ProtocolException("Transistion into state 'pong' from other than state 'ping' is not supported.");
-
-      if (messagePing.Payload != Payload)
-        throw new ProtocolException("'Pong' message did not return same nonce as sended in 'ping' message.");
-
-      peer.ProtocolStateMachine = null;
+      if (messagePing.IsPongPending
+        && LengthDataPayload == SIZE_BUFFER_PAYLOAD
+        && BitConverter.ToUInt64(Payload) == messagePing.Nonce)
+        messagePing.IsPongPending = false;
     }
 
     internal static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
