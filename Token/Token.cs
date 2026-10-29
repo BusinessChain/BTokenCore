@@ -1,5 +1,4 @@
-﻿using System.Text;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -11,17 +10,13 @@ public abstract partial class Token
   internal static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
 
   internal const int LENGTH_ID_TOKEN = 4;
-  internal byte[] IDToken = new byte [LENGTH_ID_TOKEN];
   internal Wallet Wallet;
 
   internal int SizeBlockMax;
 
 
-  protected Token(string id)
+  protected Token()
   {
-    byte[] bytes = Encoding.ASCII.GetBytes(id);
-    Array.Copy(bytes, IDToken, bytes.Length);
-
     Directory.CreateDirectory(GetName());
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{GetName()}/wallet"));

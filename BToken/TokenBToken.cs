@@ -21,7 +21,6 @@ public partial class TokenBToken : Token
 
 
   public TokenBToken()
-    : base(id: "BTK")
   {
     TXPool = new PoolTXBToken(this);
 

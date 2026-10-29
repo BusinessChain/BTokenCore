@@ -19,6 +19,9 @@ internal abstract partial class Blockchain
 
   internal Action<Block> OnBlockInserted;
   internal Action<Block> OnBlockRolledBack;
+  internal Action<Header> OnTipChanged;
+
+  Header HeaderTipBlockchainAnnounced;
 
   protected ConcurrentBag<Block> PoolBlocks = new();
 
@@ -131,7 +134,7 @@ internal abstract partial class Blockchain
 
         ChainRoot.HeaderTipBlockchain = header;
 
-        AnnounceBlock(OnBlockInserted, blockLoad);
+        OnBlockInserted.Announce(blockLoad);
       }
       catch
       {
@@ -241,6 +244,12 @@ internal abstract partial class Blockchain
       ChainRoot.DropForksDeep(GetHeightBlockStoredOldest(), PoolBlocks);
     }
     while (TryReorgToForkStrongest());
+
+    if (ChainRoot.HeaderTipBlockchain != HeaderTipBlockchainAnnounced)
+    {
+      HeaderTipBlockchainAnnounced = ChainRoot.HeaderTipBlockchain;
+      OnTipChanged.Announce(HeaderTipBlockchainAnnounced);
+    }
   }
 
   void InsertBlocksQueued()
@@ -271,7 +280,7 @@ internal abstract partial class Blockchain
 
       Database.Commit();
 
-      AnnounceBlock(OnBlockInserted, block);
+      OnBlockInserted.Announce(block);
 
       PoolBlocks.Add(block);
     }
@@ -285,24 +294,6 @@ internal abstract partial class Blockchain
 
     Reorg(chainForkStrongest);
     return true;
-  }
-
-  void AnnounceBlock(Action<Block> listeners, Block block)
-  {
-    if (listeners == null)
-      return;
-
-    foreach (Action<Block> listener in listeners.GetInvocationList())
-      try
-      {
-        listener(block);
-      }
-      catch (Exception exception)
-      {
-        Console.WriteLine(
-          $"Listener {listener.Method.DeclaringType.Name}.{listener.Method.Name} " +
-          $"failed on block {block.Header}: {exception}");
-      }
   }
 
   void Reorg(Chain chain)
@@ -334,7 +325,7 @@ internal abstract partial class Blockchain
 
       Database.Commit();
 
-      AnnounceBlock(OnBlockRolledBack, block);
+      OnBlockRolledBack.Announce(block);
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 

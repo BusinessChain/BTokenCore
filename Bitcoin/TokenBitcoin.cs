@@ -18,7 +18,6 @@ public partial class TokenBitcoin : Token
 
 
   public TokenBitcoin()
-    : base(id: "BTC")
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
   }

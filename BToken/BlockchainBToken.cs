@@ -1,5 +1,6 @@
 using LiteDB;
 using System.Security.Cryptography;
+using System.Text;
 
 
 namespace BTokenCore;
@@ -7,6 +8,8 @@ namespace BTokenCore;
 internal class BlockchainBToken : Blockchain
 {
   TokenBToken TokenBToken;
+
+  internal byte[] IDToken = new byte[Token.LENGTH_ID_TOKEN];
 
 
   internal BlockchainBToken(
@@ -16,6 +19,8 @@ internal class BlockchainBToken : Blockchain
     : base(token, blockchainParent, semaphoreBlockchain)
   {
     TokenBToken = token;
+
+    Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
 
     if (!TokenBToken.Accounts.TryLoad(Database))
       DatabaseBlockCollection.DeleteAll();
@@ -135,7 +140,7 @@ internal class BlockchainBToken : Blockchain
 
     anchorToken = new TXOutputTokenAnchor()
     {
-      IDToken = Token.IDToken,
+      IDToken = IDToken,
       HashBlockPreviousReferenced = block.Header.HashPrevious,
       HashBlockReferenced = block.Header.Hash
     };
@@ -159,7 +164,7 @@ internal class BlockchainBToken : Blockchain
 
   internal void InsertHeaderPlaceholder(Block blockParent)
   {
-    if (!blockParent.Header.AnchorsWinner.TryGetValue(Token.IDToken, out TXOutputTokenAnchor anchorWinner))
+    if (!blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner))
       return;
 
     Header headerPlaceholder = TokenBToken.CreateHeaderPlaceholder(anchorWinner, blockParent.Header);

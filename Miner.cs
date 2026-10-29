@@ -33,17 +33,6 @@ internal class Miner
     DatabaseBlocksMinedCollection = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
   }
 
-  internal void OnBlockBitcoinInserted(Block blockBitcoin)
-  {
-    blockBitcoin.Header.AnchorsWinner.TryGetValue(BlockchainBToken.Token.IDToken, out TXOutputTokenAnchor anchorWinner);
-
-    if (anchorWinner != null)
-      InsertBlockMined(anchorWinner);
-
-    if (IsMining)
-      MineBlockNext();
-  }
-
   internal async Task StartMining(long feePerByte)
   {
     // The user has to define the fee rate at which they want to pay for the anchoring.
@@ -57,7 +46,7 @@ internal class Miner
       FeePerByte = feePerByte;
       IsMining = true;
 
-      MineBlockNext();
+      MineBlockNext(null);
     }
     finally
     {
@@ -70,8 +59,11 @@ internal class Miner
     IsMining = false;
   }
 
-  void InsertBlockMined(TXOutputTokenAnchor anchorWinner)
+  internal void InsertBlockMined(Block blockBitcoin)
   {
+    if (!blockBitcoin.Header.AnchorsWinner.TryGetValue(BlockchainBToken.IDToken, out TXOutputTokenAnchor anchorWinner))
+      return;
+
     if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
       return;
 
@@ -85,8 +77,11 @@ internal class Miner
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
   }
 
-  void MineBlockNext()
+  internal void MineBlockNext(Header headerTip)
   {
+    if (!IsMining)
+      return;
+
     Block block = BlockchainBToken.MineBlock(out TXOutputTokenAnchor anchorToken);
 
     block.Serialize();

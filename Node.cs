@@ -61,12 +61,13 @@ public class Node
 
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.TriggerBootstrap;
-    BlockchainBitcoin.OnBlockInserted += Miner.OnBlockBitcoinInserted;
+    BlockchainBitcoin.OnBlockInserted += Miner.InsertBlockMined;
 
     BlockchainBitcoin.OnBlockRolledBack += BlockchainBToken.RemoveHeaderPlaceholder;
 
     BlockchainBToken.OnBlockInserted += tokenBToken.TXPool.RemoveTXs;
     BlockchainBToken.OnBlockRolledBack += tokenBToken.TXPool.ReturnTXs;
+    BlockchainBToken.OnTipChanged += Miner.MineBlockNext;
   }
 
   public void Start()
