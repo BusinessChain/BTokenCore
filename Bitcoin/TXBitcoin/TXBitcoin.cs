@@ -54,9 +54,10 @@ public partial class TokenBitcoin : Token
       TXOutput tXOutput;
 
       if (lengthScript == LENGTH_SCRIPT_P2PKH &&
-        PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript))
+        PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript) &&
+        POSTFIX_P2PKH.IsAllBytesEqual(buffer, indexScript + LENGTH_SCRIPT_P2PKH - POSTFIX_P2PKH.Length))
       {
-        tXOutput = new TXOutputBitcoin(buffer, indexScript);
+        tXOutput = new TXOutputP2PKH(buffer, indexScript);
       }
       else if (lengthScript == TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN &&
         TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, indexScript))
@@ -64,7 +65,7 @@ public partial class TokenBitcoin : Token
         tXOutput = new TXOutputTokenAnchor(buffer, ref indexScript);
       }
       else
-        tXOutput = new TXOutputBitcoin();
+        tXOutput = new TXOutput();
 
       tXOutput.Value = value;
 

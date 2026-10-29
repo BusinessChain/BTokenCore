@@ -6,6 +6,7 @@ namespace BTokenCore;
 public abstract partial class Token
 {
   internal const byte LENGTH_SCRIPT_P2PKH = 25;
+  internal const int LENGTH_HASH160 = 20;
   internal static byte[] PREFIX_P2PKH = [0x76, 0xA9, 0x14];
   internal static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
 

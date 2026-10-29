@@ -185,11 +185,11 @@ public partial class TokenBitcoin : Token
     tXAnchor.TXOutputs.Add(tokenAnchor);
 
     if (flagCreateOutputChange)
-      tXAnchor.TXOutputs.Add(new TXOutputBitcoin
+      tXAnchor.TXOutputs.Add(new TXOutputP2PKH
       {
-        Type = TXOutput.TypesToken.P2PKH,
         Value = valueChange,
-        Script = PREFIX_P2PKH.Concat(Wallet.Hash160PKeyPublic).Concat(POSTFIX_P2PKH).ToArray()
+        IDAccount = Wallet.Hash160PKeyPublic,
+        Script = [.. PREFIX_P2PKH, .. Wallet.Hash160PKeyPublic, .. POSTFIX_P2PKH]
       });
 
     tXAnchor.Serialize(Wallet);
@@ -243,9 +243,8 @@ public partial class TokenBitcoin : Token
       }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
-        if (tX.TXOutputs[i] is TXOutputBitcoin tXOutput &&
-          tXOutput.Type == TXOutput.TypesToken.P2PKH &&
-          tXOutput.PublicKeyHash160.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
+        if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
+          tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
           OutputsOwned.Insert(new TXOutputOwned
           {
             ID = TXOutputOwned.CreateID(tX.Hash, i),
