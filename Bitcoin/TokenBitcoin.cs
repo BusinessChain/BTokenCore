@@ -11,7 +11,10 @@ public partial class TokenBitcoin : Token
   const int LENGTH_P2PKH_OUTPUT = 34;
   const int LENGTH_TX_OVERHEAD = 10;
 
+  const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
+
   List<TXOutputWallet> OutputsSpendable = new();
+  TXBitcoin TXAnchorOpen;
 
 
   public TokenBitcoin()
@@ -111,18 +114,31 @@ public partial class TokenBitcoin : Token
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
     long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
 
-    List<TXOutputWallet> outputsSpendable = OutputsSpendable
-      .Where(o => o.Value > feePerInputP2PKH)
-      .Take(VarInt.PREFIX_UINT16 - 1).ToList();
+    List<TXOutputWallet> outputsSpendable;
+
+    if (TXAnchorOpen != null)
+      outputsSpendable = OutputsSpendable
+        .Where(o => TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(o.TXID) && i.OutputIndex == o.Index))
+        .ToList();
+    else
+      outputsSpendable = OutputsSpendable
+        .Where(o => o.Value > feePerInputP2PKH)
+        .Take(VarInt.PREFIX_UINT16 - 1).ToList();
 
     long valueInputs = outputsSpendable.Sum(o => o.Value);
 
     tokenAnchor.Serialize();
 
-    long feeTX = (long)(feePerByte
-      * (LENGTH_P2PKH_INPUT * outputsSpendable.Count
+    long lengthTX = LENGTH_P2PKH_INPUT * outputsSpendable.Count
       + LENGTH_TX_OVERHEAD
-      + tokenAnchor.Script.Length));
+      + tokenAnchor.Script.Length;
+
+    long feeTX = feePerByte * lengthTX;
+
+    if (TXAnchorOpen != null)
+      feeTX = Math.Max(
+        feeTX,
+        TXAnchorOpen.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
 
     if (valueInputs < feeTX + tokenAnchor.Value)
       return false;
@@ -152,6 +168,9 @@ public partial class TokenBitcoin : Token
 
     tXAnchor.Serialize(Wallet);
 
+    tXAnchor.Fee = valueInputs - tXAnchor.GetValueOutputs();
+    TXAnchorOpen = (TXBitcoin)tXAnchor;
+
     return true;
   }
 
@@ -160,7 +179,13 @@ public partial class TokenBitcoin : Token
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)
+      {
         OutputsSpendable.RemoveAll(o => o.TXID.IsAllBytesEqual(tXInput.TXIDOutput) && o.Index == tXInput.OutputIndex);
+
+        if (TXAnchorOpen != null &&
+          TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
+          TXAnchorOpen = null;
+      }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
         if (TryAddTXOutputWallet(OutputsSpendable, tX, i))
