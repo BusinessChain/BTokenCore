@@ -4,7 +4,9 @@ internal class BlockchainBitcoin : Blockchain
 {
   internal BlockchainBitcoin(TokenBitcoin token, SemaphoreSlim semaphoreBlockchain)
     : base(token, blockchainParent: null, semaphoreBlockchain)
-  { }
+  {
+    token.LoadOutputsOwned(Database);
+  }
 
   protected override void ParseBlockStored(Block block)
   {

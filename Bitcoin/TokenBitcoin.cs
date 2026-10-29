@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using LiteDB;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -7,19 +8,26 @@ public partial class TokenBitcoin : Token
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
+  const string NAME_COLLECTION_OUTPUTS_OWNED = "outputsOwned";
+
   const int LENGTH_P2PKH_INPUT = 148;
   const int LENGTH_P2PKH_OUTPUT = 34;
   const int LENGTH_TX_OVERHEAD = 10;
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
-  List<TXOutputWallet> OutputsSpendable = new();
+  ILiteCollection<TXOutputOwned> OutputsOwned;
   TXBitcoin TXAnchorOpen;
 
 
   public TokenBitcoin()
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
+  }
+
+  internal void LoadOutputsOwned(LiteDatabase database)
+  {
+    OutputsOwned = database.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
   }
 
   public override Header CreateHeaderGenesis()
@@ -107,7 +115,7 @@ public partial class TokenBitcoin : Token
 
     //return new()
     //{
-    //  new TXOutputWallet()
+    //  new TXOutputOwned()
     //  {
     //    TXID = "20da7491ec53757a914dc1f045afbcb0a5c3396785a9abe9fc074e017e9403fd".ToBinary(),
     //    Value = 7106,
@@ -118,14 +126,15 @@ public partial class TokenBitcoin : Token
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
     long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
 
-    List<TXOutputWallet> outputsSpendable;
+    List<TXOutputOwned> outputsSpendable;
 
     if (TXAnchorOpen != null)
-      outputsSpendable = OutputsSpendable
-        .Where(o => TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(o.TXID) && i.OutputIndex == o.Index))
+      outputsSpendable = TXAnchorOpen.Inputs
+        .Select(i => OutputsOwned.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.OutputIndex)))
+        .Where(o => o != null)
         .ToList();
     else
-      outputsSpendable = OutputsSpendable
+      outputsSpendable = OutputsOwned.Find(Query.EQ("HeightSpent", 0))
         .Where(o => o.Value > feePerInputP2PKH)
         .Take(VarInt.PREFIX_UINT16 - 1).ToList();
 
@@ -151,7 +160,7 @@ public partial class TokenBitcoin : Token
 
     bool flagCreateOutputChange = valueChange > feePerInputP2PKH;
 
-    foreach (TXOutputWallet outputSpendable in outputsSpendable)
+    foreach (TXOutputOwned outputSpendable in outputsSpendable)
     {
       ((TXBitcoin)tXAnchor).Inputs.Add(new TXInputBitcoin
       {
@@ -180,11 +189,17 @@ public partial class TokenBitcoin : Token
 
   public override void InsertBlock(Block block)
   {
+    int height = block.Header.Height;
+
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)
       {
-        OutputsSpendable.RemoveAll(o => o.TXID.IsAllBytesEqual(tXInput.TXIDOutput) && o.Index == tXInput.OutputIndex);
+        if (OutputsOwned.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
+        {
+          outputSpent.HeightSpent = height;
+          OutputsOwned.Update(outputSpent);
+        }
 
         if (TXAnchorOpen != null &&
           TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
@@ -192,51 +207,30 @@ public partial class TokenBitcoin : Token
       }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
-        if (TryAddTXOutputWallet(OutputsSpendable, tX, i))
-          IndexTXs.Add(tX.Hash, tX);
+        if (tX.TXOutputs[i] is TXOutputBitcoin tXOutput &&
+          tXOutput.Type == TXOutput.TypesToken.P2PKH &&
+          tXOutput.PublicKeyHash160.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
+          OutputsOwned.Insert(new TXOutputOwned
+          {
+            ID = TXOutputOwned.CreateID(tX.Hash, i),
+            TXID = tX.Hash,
+            Index = i,
+            Value = tXOutput.Value,
+            HeightCreated = height
+          });
     }
   }
-
-  // Das muss eine Datanbank sein!!
-  internal Dictionary<byte[], TX> IndexTXs = new(new EqualityComparerByteArray());
 
   public override void RollBack(Block block)
   {
-    for (int t = block.TXs.Count - 1; t >= 0; t--)
+    int height = block.Header.Height;
+
+    OutputsOwned.DeleteMany(Query.EQ("HeightCreated", height));
+
+    foreach (TXOutputOwned outputSpent in OutputsOwned.Find(Query.EQ("HeightSpent", height)).ToList())
     {
-      TXBitcoin tX = block.TXs[t] as TXBitcoin;
-
-      OutputsSpendable.RemoveAll(o => o.TXID.IsAllBytesEqual(tX.Hash));
-
-      foreach (TXInputBitcoin tXInput in tX.Inputs)
-      {
-        TX tXReferenced = block.TXs.Find(t => t.Hash.IsAllBytesEqual(tXInput.TXIDOutput));
-
-        if (tXReferenced != null || IndexTXs.TryGetValue(tXInput.TXIDOutput, out tXReferenced))
-          TryAddTXOutputWallet(OutputsSpendable, tXReferenced as TXBitcoin, tXInput.OutputIndex);
-      }
-
-      IndexTXs.Remove(tX.Hash);
+      outputSpent.HeightSpent = 0;
+      OutputsOwned.Update(outputSpent);
     }
-  }
-
-  bool TryAddTXOutputWallet(List<TXOutputWallet> listOutputs, TXBitcoin tX, int indexOutput)
-  {
-    if (tX.TXOutputs[indexOutput] is TXOutputBitcoin tXOutputReferenced &&
-      tXOutputReferenced.Type == TXOutput.TypesToken.P2PKH &&
-      tXOutputReferenced.PublicKeyHash160.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-    {
-      listOutputs.Add(
-        new TXOutputWallet
-        {
-          TXID = tX.Hash,
-          Index = indexOutput,
-          Value = tXOutputReferenced.Value
-        });
-
-      return true;
-    }
-
-    return false;
   }
 }
