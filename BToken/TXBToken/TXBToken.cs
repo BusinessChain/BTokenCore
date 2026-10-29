@@ -61,7 +61,14 @@ public partial class TokenBToken : Token
       int countOutputs = VarInt.GetInt(buffer, ref index);
 
       for (int i = 0; i < countOutputs; i++)
-        TXOutputs.Add(ParseTXOutputBToken(buffer, ref index));
+      {
+        TXOutput tXOutput = ParseTXOutput(buffer, ref index);
+
+        if (tXOutput.GetType() == typeof(TXOutput))
+          throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
+
+        TXOutputs.Add(tXOutput);
+      }
 
       Hash = sHA256.ComputeHash(sHA256.ComputeHash(buffer, indexTxStart, index - indexTxStart));
 
@@ -69,35 +76,6 @@ public partial class TokenBToken : Token
         VerifySignatureTX(indexTxStart, buffer, ref index);
 
       CountBytes = index - indexTxStart;
-    }
-
-    TXOutput ParseTXOutputBToken(byte[] buffer, ref int startIndex)
-    {
-      long value = BitConverter.ToInt64(buffer, startIndex);
-      startIndex += 8;
-
-      int lengthScript = VarInt.GetInt(buffer, ref startIndex);
-      int indexScript = startIndex;
-      startIndex += lengthScript;
-
-      TXOutput tXOutput;
-
-      if (lengthScript == LENGTH_SCRIPT_P2PKH &&
-        PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript))
-      {
-        tXOutput = new TXOutputP2PKH(buffer, indexScript);
-      }
-      else if (lengthScript == TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN &&
-        TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, indexScript))
-      {
-        tXOutput = new TXOutputTokenAnchor(buffer, ref indexScript);
-      }
-      else
-        throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
-
-      tXOutput.Value = value;
-
-      return tXOutput;
     }
 
     internal void VerifySignatureTX(int indexTxStart, byte[] buffer, ref int index)

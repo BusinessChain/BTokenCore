@@ -34,42 +34,12 @@ public partial class TokenBitcoin : Token
 
       for (int i = 0; i < countTXOutputs; i++)
       {
-        TXOutputs.Add(ParseTXOutputBitcoin(buffer, ref index));
+        TXOutputs.Add(ParseTXOutput(buffer, ref index));
       }
 
       index += 4; //BYTE_LENGTH_LOCK_TIME
 
       Hash = sHA256.ComputeHash(sHA256.ComputeHash(buffer, indexTxStart, index - indexTxStart));
-    }
-
-    TXOutput ParseTXOutputBitcoin(byte[] buffer, ref int startIndex)
-    {
-      long value = BitConverter.ToInt64(buffer, startIndex);
-      startIndex += 8;
-
-      int lengthScript = VarInt.GetInt(buffer, ref startIndex);
-      int indexScript = startIndex;
-      startIndex += lengthScript;
-
-      TXOutput tXOutput;
-
-      if (lengthScript == LENGTH_SCRIPT_P2PKH &&
-        PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript) &&
-        POSTFIX_P2PKH.IsAllBytesEqual(buffer, indexScript + LENGTH_SCRIPT_P2PKH - POSTFIX_P2PKH.Length))
-      {
-        tXOutput = new TXOutputP2PKH(buffer, indexScript);
-      }
-      else if (lengthScript == TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN &&
-        TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, indexScript))
-      {
-        tXOutput = new TXOutputTokenAnchor(buffer, ref indexScript);
-      }
-      else
-        tXOutput = new TXOutput();
-
-      tXOutput.Value = value;
-
-      return tXOutput;
     }
 
 
