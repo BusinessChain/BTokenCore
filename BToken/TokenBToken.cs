@@ -123,11 +123,12 @@ public partial class TokenBToken : Token
       BlockheightAccountCreated = blockHeight,
     };
 
-    TXOutputP2PKH tXOutput = new()
+    tX.TXOutputs.Add(new TXOutputP2PKH()
     {
-      Type = TXOutput.TypesToken.P2PKH,
-      Script = BitConverter.GetBytes(blockReward).Concat(hash160PKeyPublic).ToArray()
-    };
+      Value = blockReward,
+      IDAccount = hash160PKeyPublic,
+      Script = [.. PREFIX_P2PKH, .. hash160PKeyPublic, .. POSTFIX_P2PKH]
+    });
 
     tX.Serialize(Wallet);
 
