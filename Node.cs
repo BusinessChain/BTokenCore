@@ -78,4 +78,14 @@ public class Node
 
     NetworkBToken.Start();
   }
+
+  public async Task StartMining(long feePerByte)
+  {
+    await Miner.StartMining(feePerByte);
+  }
+
+  public void StopMining()
+  {
+    Miner.StopMining();
+  }
 }

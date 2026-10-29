@@ -44,6 +44,32 @@ internal class Miner
       MineBlockNext();
   }
 
+  internal async Task StartMining(long feePerByte)
+  {
+    // The user has to define the fee rate at which they want to pay for the anchoring.
+    // The GUI could also offer a tool that controls the fee rate automatically,
+    // e.g. based on past fee rates or market price arbitrage.
+
+    try
+    {
+      await BlockchainBToken.LockBlockchain();
+
+      FeePerByte = feePerByte;
+      IsMining = true;
+
+      MineBlockNext();
+    }
+    finally
+    {
+      BlockchainBToken.ReleaseLockBlockchain();
+    }
+  }
+
+  internal void StopMining()
+  {
+    IsMining = false;
+  }
+
   void InsertBlockMined(TXOutputTokenAnchor anchorWinner)
   {
     if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
@@ -61,10 +87,6 @@ internal class Miner
 
   void MineBlockNext()
   {
-    // The user has to define the fee rate at which they want to pay for the anchoring.
-    // The GUI could also offer a tool that controls the fee rate automatically,
-    // e.g. based on past fee rates or market price arbitrage.
-
     Block block = BlockchainBToken.MineBlock(out TXOutputTokenAnchor anchorToken);
 
     block.Serialize();
