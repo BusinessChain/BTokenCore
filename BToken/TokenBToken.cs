@@ -119,7 +119,6 @@ public partial class TokenBToken : Token
   {
     TXBToken tX = new()
     {
-      KeyPublic = new byte[32],
       BlockheightAccountCreated = blockHeight,
     };
 
@@ -130,7 +129,7 @@ public partial class TokenBToken : Token
       Script = [.. PREFIX_P2PKH, .. hash160PKeyPublic, .. POSTFIX_P2PKH]
     });
 
-    tX.Serialize(Wallet);
+    tX.SerializeUnsigned(Wallet.SHA256);
 
     return tX;
   }

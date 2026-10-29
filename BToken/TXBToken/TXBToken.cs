@@ -115,6 +115,15 @@ public partial class TokenBToken : Token
 
     internal override void Serialize(Wallet wallet)
     {
+      SerializeUnsigned(wallet.SHA256);
+
+      byte[] signature = wallet.GetSignature(TXRaw);
+
+      TXRaw = [.. TXRaw, (byte)signature.Length, .. signature];
+    }
+
+    internal void SerializeUnsigned(SHA256 sHA256)
+    {
       List<byte> tXRaw = new();
 
       tXRaw.AddRange(KeyPublic);
@@ -124,14 +133,9 @@ public partial class TokenBToken : Token
 
       SerializeTXOutputs(tXRaw);
 
-      Hash = wallet.SHA256.ComputeHash(wallet.SHA256.ComputeHash(tXRaw.ToArray()));
-
-      byte[] signature = wallet.GetSignature(tXRaw.ToArray());
-
-      tXRaw.Add((byte)signature.Length);
-      tXRaw.AddRange(signature);
-
       TXRaw = tXRaw.ToArray();
+
+      Hash = sHA256.ComputeHash(sHA256.ComputeHash(TXRaw));
     }
   }
 }
