@@ -709,7 +709,7 @@ internal partial class Network
   {
     internal const string Command = "commandUnknown";
 
-    const int SIZE_BUFFER_PAYLOAD = 4_000_000; // does this really have to be that big, claude?
+    const int SIZE_BUFFER_PAYLOAD = 10_000;
     const int MAX_LEVEL_DOS = 100;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 100;
 
