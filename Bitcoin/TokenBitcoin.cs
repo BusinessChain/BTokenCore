@@ -92,6 +92,11 @@ public partial class TokenBitcoin : Token
 
   internal override bool TryGetTX(byte[] hash, out TX tX)
   {
+    tX = TXAnchorOpen;
+
+    if (tX != null && tX.Hash.IsAllBytesEqual(hash))
+      return true;
+
     tX = null;
     return false;
   }
