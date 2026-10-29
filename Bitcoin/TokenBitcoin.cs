@@ -12,7 +12,6 @@ public partial class TokenBitcoin : Token
   const int LENGTH_TX_OVERHEAD = 10;
 
   List<TXOutputWallet> OutputsSpendable = new();
-  List<TXOutputWallet> OutputsSpendableConfirmed = new();
 
 
   public TokenBitcoin()
@@ -112,7 +111,7 @@ public partial class TokenBitcoin : Token
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
     long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
 
-    List<TXOutputWallet> outputsSpendable = OutputsSpendableConfirmed
+    List<TXOutputWallet> outputsSpendable = OutputsSpendable
       .Where(o => o.Value > feePerInputP2PKH)
       .Take(VarInt.PREFIX_UINT16 - 1).ToList();
 
