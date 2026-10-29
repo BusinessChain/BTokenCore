@@ -6,7 +6,8 @@ public class TXOutputTokenAnchor : TXOutput
   internal static byte[] IDENTIFIER_BTOKEN_PROTOCOL = [(byte)'B', (byte)'T', (byte)'K'];
 
   internal const byte OP_RETURN = 0x6A;
-  internal const byte LengthDataAnchorToken = 70;
+  internal static readonly byte LengthDataAnchorToken =
+    (byte)(IDENTIFIER_BTOKEN_PROTOCOL.Length + Token.LENGTH_ID_TOKEN + 32 + 32);
 
   internal static byte[] PREFIX_ANCHOR_TOKEN =
     new byte[] { OP_RETURN, LengthDataAnchorToken }.Concat(IDENTIFIER_BTOKEN_PROTOCOL).ToArray();
@@ -19,7 +20,7 @@ public class TXOutputTokenAnchor : TXOutput
   internal byte[] HashBlockReferenced = new byte[32];
   internal byte[] HashBlockPreviousReferenced = new byte[32];
 
-  byte[] TXOutputTokenAnchorRaw = new byte[IDENTIFIER_BTOKEN_PROTOCOL.Length + Token.LENGTH_ID_TOKEN + 32 + 32];
+  byte[] TXOutputTokenAnchorRaw = new byte[LengthDataAnchorToken];
 
 
   internal TXOutputTokenAnchor()
