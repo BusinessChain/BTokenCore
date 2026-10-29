@@ -261,22 +261,26 @@ internal abstract partial class Blockchain
       try
       {
         Token.InsertBlock(block);
+
+        ChainRoot.HeaderTipBlockchain = block.Header;
+
+        DatabaseBlockCollection.Upsert(new BsonDocument
+        {
+          ["_id"] = block.Header.Height,
+          ["blockBytes"] = SerializeBlockStored(block)
+        });
       }
-      catch (ProtocolException)
+      catch (Exception exception)
       {
         Database.Rollback();
+
+        if (exception is not ProtocolException)
+          throw;
+
         PoolBlocks.Add(block);
         ChainRoot.CutOff(block.Header, PoolBlocks);
         continue;
       }
-
-      ChainRoot.HeaderTipBlockchain = block.Header;
-
-      DatabaseBlockCollection.Upsert(new BsonDocument
-      {
-        ["_id"] = block.Header.Height,
-        ["blockBytes"] = SerializeBlockStored(block)
-      });
 
       Database.Commit();
 
@@ -319,9 +323,17 @@ internal abstract partial class Blockchain
 
       Database.BeginTrans();
 
-      Token.RollBack(block);
+      try
+      {
+        Token.RollBack(block);
 
-      DatabaseBlockCollection.Delete(header.Height);
+        DatabaseBlockCollection.Delete(header.Height);
+      }
+      catch
+      {
+        Database.Rollback();
+        throw;
+      }
 
       Database.Commit();
 
