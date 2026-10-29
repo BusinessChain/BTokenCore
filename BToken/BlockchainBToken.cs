@@ -186,9 +186,22 @@ internal class BlockchainBToken : Blockchain
     if (!TryLoadBlock(headerPlaceholder.Height, out Block block))
       return;
 
+    QueueBlock(headerPlaceholder, block);
+  }
+
+  internal void InsertBlockMined(Block blockParent, Block block)
+  {
+    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
+      return;
+
+    QueueBlock(headerPlaceholder, block);
+  }
+
+  void QueueBlock(Header header, Block block)
+  {
     try
     {
-      block.Header = headerPlaceholder;
+      block.Header = header;
       ParseBlockStored(block);
     }
     catch (ProtocolException)
@@ -197,8 +210,8 @@ internal class BlockchainBToken : Blockchain
       return;
     }
 
-    Chain chain = ChainRoot.FindChain(headerPlaceholder);
-    chain.Blocks.Add(headerPlaceholder.Height, block);
+    Chain chain = ChainRoot.FindChain(header);
+    chain.Blocks.Add(header.Height, block);
 
     UpdateTipBlockchain(chain);
   }

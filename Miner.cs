@@ -8,7 +8,6 @@ internal class Miner
   Blockchain BlockchainBitcoin;
   BlockchainBToken BlockchainBToken;
   Network NetworkBitcoin;
-  Network NetworkBToken;
 
   bool IsMining;
   long FeePerByte;
@@ -21,13 +20,11 @@ internal class Miner
   internal Miner(
     Blockchain blockchainBitcoin,
     BlockchainBToken blockchainBToken,
-    Network networkBitcoin,
-    Network networkBToken)
+    Network networkBitcoin)
   {
     BlockchainBitcoin = blockchainBitcoin;
     BlockchainBToken = blockchainBToken;
     NetworkBitcoin = networkBitcoin;
-    NetworkBToken = networkBToken;
 
     LiteDatabase = new LiteDatabase("Filename=Miner.db;Mode=Exclusive");
     DatabaseBlocksMinedCollection = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
@@ -64,17 +61,24 @@ internal class Miner
     if (!blockBitcoin.Header.AnchorsWinner.TryGetValue(BlockchainBToken.IDToken, out TXOutputTokenAnchor anchorWinner))
       return;
 
-    if (!TryGetBlockMined(out Block block, anchorWinner.HashBlockReferenced))
-      return;
+    Block block = BlocksMinedCache
+      .Find(b => b.Header.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced));
 
-    // We will deal with self mined blocks only when we correctly implemented the typical case where we get 
-    // a block from a peer.
+    if (block == null)
+    {
+      BsonDocument bsonDocumentBlock = DatabaseBlocksMinedCollection.FindById(anchorWinner.HashBlockReferenced);
 
-    //if (BlockchainBToken.InsertBlockMined(block))
-    //  NetworkBToken.AnnounceHeader(block.Header);
+      if (bsonDocumentBlock == null)
+        return;
+
+      block = new(BlockchainBToken.Token);
+      block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+    }
 
     BlocksMinedCache.Remove(block);
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
+
+    BlockchainBToken.InsertBlockMined(blockBitcoin, block);
   }
 
   internal void MineBlockNext(Header headerTip)
@@ -96,25 +100,5 @@ internal class Miner
 
     if (BlockchainBitcoin.Token.TryCreateTXAnchor(anchorToken, FeePerByte, out TX tX))
       NetworkBitcoin.Broadcast(tX);
-  }
-
-  bool TryGetBlockMined(out Block block, byte[] hash)
-  {
-    block = BlocksMinedCache
-      .Find(b => b.Header.Hash.IsAllBytesEqual(hash));
-
-    if (block == null)
-    {
-      BsonDocument bsonDocumentBlock = DatabaseBlocksMinedCollection.FindById(hash);
-
-      if (bsonDocumentBlock == null)
-        return false;
-
-      block = new(BlockchainBToken.Token);
-      block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-      block.Parse();
-    }
-
-    return true;
   }
 }

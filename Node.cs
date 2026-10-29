@@ -57,7 +57,7 @@ public class Node
       communication,
       ConfigNetworkBToken);
 
-    Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin, NetworkBToken);
+    Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin);
 
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.TriggerBootstrap;
