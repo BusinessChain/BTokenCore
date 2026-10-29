@@ -191,6 +191,8 @@ public partial class TokenBitcoin : Token
   {
     int height = block.Header.Height;
 
+    OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, height - Blockchain.MAX_COUNT_BLOCKS_STORED));
+
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)

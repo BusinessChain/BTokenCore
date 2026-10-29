@@ -6,7 +6,7 @@ namespace BTokenCore;
 
 internal abstract partial class Blockchain
 {
-  protected const int MAX_COUNT_BLOCKS_STORED = 200;
+  internal const int MAX_COUNT_BLOCKS_STORED = 200;
 
   internal Token Token;
 
