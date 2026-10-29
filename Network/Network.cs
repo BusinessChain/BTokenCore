@@ -221,7 +221,20 @@ internal partial class Network
 
       foreach (Peer peer in peers)
       {
-        if (peer.IsDisposed() || !peer.SemaphorePeer.Wait(0))
+        if (peer.IsDisposed())
+          continue;
+
+        if (peer.StateCurrent != Peer.StateProtocol.Handshake)
+          try
+          {
+            await ((PingMessage)peer.ProtocolStateMachine[PingMessage.Command]).Ping(peer);
+          }
+          catch
+          {
+            peer.SocketCommunication.Dispose();
+          }
+
+        if (!peer.SemaphorePeer.Wait(0))
           continue;
 
         try
