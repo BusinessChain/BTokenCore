@@ -7,21 +7,11 @@ public partial class TokenBToken : Token
     internal TXOutputP2PKH()
     { }
 
-    internal TXOutputP2PKH(byte[] buffer, ref int index)
+    internal TXOutputP2PKH(byte[] buffer, int indexScript)
     {
-      Type = (TypesToken)buffer[index];
-      index += 1;
+      IDAccount = new byte[TXBToken.LENGTH_IDACCOUNT];
 
-      if (Type == TypesToken.P2PKH)
-      {
-        Value = BitConverter.ToInt64(buffer, index);
-        index += 8;
-
-        IDAccount = new byte[TXBToken.LENGTH_IDACCOUNT];
-
-        Array.Copy(buffer, index, IDAccount, 0, TXBToken.LENGTH_IDACCOUNT);
-        index += TXBToken.LENGTH_IDACCOUNT;
-      }
+      Array.Copy(buffer, indexScript + PREFIX_P2PKH.Length, IDAccount, 0, TXBToken.LENGTH_IDACCOUNT);
     }
   }
 }

@@ -73,23 +73,31 @@ public partial class TokenBToken : Token
 
     TXOutput ParseTXOutputBToken(byte[] buffer, ref int startIndex)
     {
-      double value = BitConverter.ToInt64(buffer, startIndex);
+      long value = BitConverter.ToInt64(buffer, startIndex);
       startIndex += 8;
 
       int lengthScript = VarInt.GetInt(buffer, ref startIndex);
+      int indexScript = startIndex;
+      startIndex += lengthScript;
+
+      TXOutput tXOutput;
 
       if (lengthScript == LENGTH_SCRIPT_P2PKH &&
-        PREFIX_P2PKH.IsAllBytesEqual(buffer, startIndex))
+        PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript))
       {
-        return new TXOutputP2PKH(buffer, ref startIndex);
+        tXOutput = new TXOutputP2PKH(buffer, indexScript);
       }
       else if (lengthScript == TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN &&
-        TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, startIndex))
+        TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, indexScript))
       {
-        return new TXOutputTokenAnchor(buffer, ref startIndex);
+        tXOutput = new TXOutputTokenAnchor(buffer, ref indexScript);
       }
       else
-        return null;
+        throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
+
+      tXOutput.Value = value;
+
+      return tXOutput;
     }
 
     internal void VerifySignatureTX(int indexTxStart, byte[] buffer, ref int index)
