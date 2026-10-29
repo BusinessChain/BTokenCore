@@ -124,6 +124,8 @@ public partial class TokenBToken : Token
 
       SerializeTXOutputs(tXRaw);
 
+      Hash = wallet.SHA256.ComputeHash(wallet.SHA256.ComputeHash(tXRaw.ToArray()));
+
       byte[] signature = wallet.GetSignature(tXRaw.ToArray());
 
       tXRaw.Add((byte)signature.Length);

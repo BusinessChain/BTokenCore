@@ -96,6 +96,8 @@ public partial class TokenBitcoin : Token
       SignTX(tXRaw, wallet);
 
       TXRaw = tXRaw.ToArray();
+
+      Hash = wallet.SHA256.ComputeHash(wallet.SHA256.ComputeHash(TXRaw));
     }
 
     void SignTX(List<byte> tXRaw, Wallet wallet)
