@@ -99,7 +99,8 @@ internal class Miner
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
 
-    MineTokenAnchor(anchorToken);
+    if (BlockchainBitcoin.Token.TryCreateTXAnchor(anchorToken, FeePerByte, out TX tX))
+      NetworkBitcoin.Broadcast(tX);
   }
 
   bool TryGetBlockMined(out Block block, byte[] hash)
@@ -120,15 +121,5 @@ internal class Miner
     }
 
     return true;
-  }
-
-  void MineTokenAnchor(TXOutputTokenAnchor tokenAnchor)
-  {
-    if (BlockchainBitcoin.Token.TryCreateTXAnchor(tokenAnchor, FeePerByte, out TX tX))
-      NetworkBitcoin.Broadcast(tX);
-    else
-    {
-      IsMining = false;
-    }
   }
 }
