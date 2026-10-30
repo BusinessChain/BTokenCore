@@ -52,49 +52,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
   internal override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
-    byte[] hash = sHA256.ComputeHash(
-      sHA256.ComputeHash(
-        buffer,
-        index,
-        HeaderBitcoin.COUNT_HEADER_BYTES));
-
-    uint version = BitConverter.ToUInt32(buffer, index);
-    index += 4;
-
-    byte[] hashHeaderPrevious = new byte[32];
-    Array.Copy(buffer, index, hashHeaderPrevious, 0, 32);
-    index += 32;
-
-    byte[] merkleRootHash = new byte[32];
-    Array.Copy(buffer, index, merkleRootHash, 0, 32);
-    index += 32;
-
-    uint unixTimeSeconds = BitConverter.ToUInt32(buffer, index);
-    index += 4;
-
-    bool isBlockTimePremature = unixTimeSeconds >
-      (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
-
-    if (isBlockTimePremature)
-      throw new ProtocolException($"Timestamp premature {new DateTime(unixTimeSeconds).Date}.");
-
-    uint nBits = BitConverter.ToUInt32(buffer, index);
-    index += 4;
-
-    if (hash.IsGreaterThan(nBits))
-      throw new ProtocolException($"Header hash {hash.ToHexString()} greater than NBits {nBits}.");
-
-    uint nonce = BitConverter.ToUInt32(buffer, index);
-    index += 4;
-
-    return new HeaderBitcoin(
-      hash,
-      version,
-      hashHeaderPrevious,
-      merkleRootHash,
-      unixTimeSeconds,
-      nBits,
-      nonce);
+    return new HeaderBitcoin(buffer, ref index, sHA256);
   }
 
   internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)

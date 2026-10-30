@@ -81,37 +81,7 @@ internal partial class BlockchainBToken : Blockchain
 
   internal override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
-    byte[] hash =
-      sHA256.ComputeHash(
-        sHA256.ComputeHash(
-          buffer,
-          index,
-          HeaderBToken.COUNT_HEADER_BYTES));
-
-    uint version = BitConverter.ToUInt32(buffer, index);
-    index += 4;
-
-    byte[] hashHeaderPrevious = new byte[32];
-    Array.Copy(buffer, index, hashHeaderPrevious, 0, 32);
-    index += 32;
-
-    byte[] merkleRootHash = new byte[32];
-    Array.Copy(buffer, index, merkleRootHash, 0, 32);
-    index += 32;
-
-    byte[] hashDatabase = new byte[32];
-    Array.Copy(buffer, index, hashDatabase, 0, 32);
-    index += 32;
-
-    uint nonce = BitConverter.ToUInt32(buffer, index);
-    index += 4;
-
-    return new HeaderBToken(
-      hash,
-      hashHeaderPrevious,
-      merkleRootHash,
-      hashDatabase,
-      nonce);
+    return new HeaderBToken(buffer, ref index, sHA256);
   }
 
   internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)

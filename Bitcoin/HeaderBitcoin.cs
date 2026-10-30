@@ -1,4 +1,7 @@
-﻿namespace BTokenCore;
+﻿using System.Security.Cryptography;
+
+
+namespace BTokenCore;
 
 internal partial class BlockchainBitcoin : Blockchain
 {
@@ -19,6 +22,12 @@ internal partial class BlockchainBitcoin : Blockchain
       "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
 
 
+    HeaderBitcoin()
+    {
+      BlockRewardInitial = 5000000000; // 200 BTK;
+      PeriodHalveningBlockReward = 210000;
+    }
+
     internal HeaderBitcoin(
       byte[] headerHash,
       uint version,
@@ -27,21 +36,56 @@ internal partial class BlockchainBitcoin : Blockchain
       uint unixTimeSeconds,
       uint nBits,
       uint nonce)
-      : base(
-        headerHash,
-        hashPrevious,
-        merkleRootHash,
-        nonce)
+      : this()
     {
+      Hash = headerHash;
       Version = version;
-      NBits = nBits;
-
+      HashPrevious = hashPrevious;
+      MerkleRoot = merkleRootHash;
       UnixTimeSeconds = unixTimeSeconds;
-
-      BlockRewardInitial = 5000000000; // 200 BTK;
-      PeriodHalveningBlockReward = 210000;
+      NBits = nBits;
+      Nonce = nonce;
 
       Difficulty = ComputeDifficultyFromNBits(nBits);
+    }
+
+    internal HeaderBitcoin(byte[] buffer, ref int index, SHA256 sHA256)
+      : this()
+    {
+      Hash = sHA256.ComputeHash(
+        sHA256.ComputeHash(
+          buffer,
+          index,
+          COUNT_HEADER_BYTES));
+
+      Version = BitConverter.ToUInt32(buffer, index);
+      index += 4;
+
+      Array.Copy(buffer, index, HashPrevious, 0, 32);
+      index += 32;
+
+      Array.Copy(buffer, index, MerkleRoot, 0, 32);
+      index += 32;
+
+      UnixTimeSeconds = BitConverter.ToUInt32(buffer, index);
+      index += 4;
+
+      bool isBlockTimePremature = UnixTimeSeconds >
+        (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
+
+      if (isBlockTimePremature)
+        throw new ProtocolException($"Timestamp premature {new DateTime(UnixTimeSeconds).Date}.");
+
+      NBits = BitConverter.ToUInt32(buffer, index);
+      index += 4;
+
+      if (Hash.IsGreaterThan(NBits))
+        throw new ProtocolException($"Header hash {Hash.ToHexString()} greater than NBits {NBits}.");
+
+      Nonce = BitConverter.ToUInt32(buffer, index);
+      index += 4;
+
+      Difficulty = ComputeDifficultyFromNBits(NBits);
     }
 
     internal static double ComputeDifficultyFromNBits(uint nBits)

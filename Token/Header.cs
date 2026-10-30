@@ -34,18 +34,6 @@ public abstract class Header
     MerkleRoot = new byte[32];
   }
 
-  internal Header(
-    byte[] headerHash,
-    byte[] hashPrevious,
-    byte[] merkleRootHash,
-    uint nonce)
-  {
-    Hash = headerHash;
-    HashPrevious = hashPrevious;
-    MerkleRoot = merkleRootHash;
-    Nonce = nonce;
-  }
-
   internal abstract byte[] Serialize();
 
   internal virtual bool TryAppendToHeader(Header headerPrevious)

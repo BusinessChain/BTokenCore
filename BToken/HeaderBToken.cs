@@ -1,4 +1,7 @@
-﻿namespace BTokenCore;
+﻿using System.Security.Cryptography;
+
+
+namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
@@ -12,6 +15,9 @@ internal partial class BlockchainBToken : Blockchain
     internal HeaderBToken()
     {
       Difficulty = 1;
+
+      BlockRewardInitial = 200000000000000; // 200 BTK;
+      PeriodHalveningBlockReward = 105000;
     }
 
     internal HeaderBToken(
@@ -19,17 +25,40 @@ internal partial class BlockchainBToken : Blockchain
       byte[] hashPrevious,
       byte[] merkleRootHash,
       byte[] hashDatabase,
-      uint nonce) : base(
-        headerHash,
-        hashPrevious,
-        merkleRootHash,
-        nonce)
+      uint nonce)
+      : this()
     {
-      Difficulty = 1;
+      Hash = headerHash;
+      HashPrevious = hashPrevious;
+      MerkleRoot = merkleRootHash;
       HashDatabase = hashDatabase;
+      Nonce = nonce;
+    }
 
-      BlockRewardInitial = 200000000000000; // 200 BTK;
-      PeriodHalveningBlockReward = 105000;
+    internal HeaderBToken(byte[] buffer, ref int index, SHA256 sHA256)
+      : this()
+    {
+      Hash =
+        sHA256.ComputeHash(
+          sHA256.ComputeHash(
+            buffer,
+            index,
+            COUNT_HEADER_BYTES));
+
+      uint version = BitConverter.ToUInt32(buffer, index);
+      index += 4;
+
+      Array.Copy(buffer, index, HashPrevious, 0, 32);
+      index += 32;
+
+      Array.Copy(buffer, index, MerkleRoot, 0, 32);
+      index += 32;
+
+      Array.Copy(buffer, index, HashDatabase, 0, 32);
+      index += 32;
+
+      Nonce = BitConverter.ToUInt32(buffer, index);
+      index += 4;
     }
 
     internal override byte[] Serialize()
