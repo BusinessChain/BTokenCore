@@ -33,7 +33,7 @@ internal partial class Network
     Communication = communication;
     ConfigNetwork = configNetwork;
 
-    Blockchain.OnBlockInserted += AnnounceHeaderIfParentNewest;
+    Blockchain.OnBlockInserted += HandleBlockInserted;
   }
 
   internal void Start()
@@ -50,18 +50,25 @@ internal partial class Network
   {
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)
+      {
+        lock (peer.HashesTXAnnounced)
+          peer.HashesTXAnnounced.Add(tX.Hash);
+
         NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
+      }
   }
 
-  void AnnounceHeaderIfParentNewest(Block block)
+  void HandleBlockInserted(Block block)
   {
-    if (!block.Header.IsParentNewest())
-      return;
-
     lock (LOCK_Peers)
-      Peers.ForEach(p => HeadersMessage.SendHeaders(
-        p,
-        new List<byte[]> { block.Header.Serialize() }));
+      foreach (Peer peer in Peers)
+      {
+        lock (peer.HashesTXAnnounced)
+          peer.HashesTXAnnounced.Clear();
+
+        if (block.Header.IsParentNewest())
+          HeadersMessage.SendHeaders(peer, new List<byte[]> { block.Header.Serialize() });
+      }
   }
 
   async Task StartPeerConnectorOutbound()

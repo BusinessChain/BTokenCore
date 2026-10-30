@@ -250,6 +250,10 @@ internal partial class Network
 
         if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
+          lock (peer.HashesTXAnnounced)
+            if (peer.HashesTXAnnounced.Remove(inventory.Hash))
+              DOSMonitor.Decrement(1);
+
           TX tXInPool = await Blockchain.GetTX(inventory.Hash);
 
           if (tXInPool != null)

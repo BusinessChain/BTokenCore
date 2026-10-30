@@ -29,6 +29,8 @@ internal partial class Network
 
     internal HashSet<byte[]> HashesBlockRefused = new(new EqualityComparerByteArray());
 
+    internal HashSet<byte[]> HashesTXAnnounced = new(new EqualityComparerByteArray());
+
     internal byte[] HashBlockAnnounced;
 
 
