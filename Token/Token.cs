@@ -44,6 +44,4 @@ public abstract partial class Token
   {
     return GetType().Name;
   }
-
-  internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor);
 }

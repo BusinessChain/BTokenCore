@@ -17,9 +17,6 @@ public partial class TokenBToken : Token
 
   internal PoolTXBToken TXPool;
 
-  const int LENGTH_TX_P2PKH = 120;
-
-
   public TokenBToken()
   {
     TXPool = new PoolTXBToken(this);
@@ -83,35 +80,6 @@ public partial class TokenBToken : Token
     };
 
     return block;
-  }
-
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
-  {
-    tXAnchor = null;
-    tokenAnchor.Serialize();
-
-    long fee = feePerByte * LENGTH_TX_P2PKH;
-
-    Account accountWallet = null; // Aus DB holen hier
-
-    if (accountWallet == null || accountWallet.Balance < fee)
-      return false;
-
-    TXBToken tX = new()
-    {
-      KeyPublic = Wallet.KeyPublic,
-      BlockheightAccountCreated = accountWallet.BlockHeightAccountCreated,
-      Nonce = accountWallet.Nonce,
-      Fee = fee
-    };
-
-    tX.TXOutputs.Add(tokenAnchor);
-
-    tX.Serialize(Wallet);
-
-    TXPool.AddTX(tX);
-
-    return true;
   }
 
   TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)

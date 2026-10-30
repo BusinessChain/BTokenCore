@@ -132,7 +132,7 @@ public partial class TokenBitcoin : Token
     return false;
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
+  internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
   {
     tXAnchor = new TXBitcoin();
 
