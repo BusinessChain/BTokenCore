@@ -95,16 +95,31 @@ internal abstract partial class Blockchain
     return block;
   }
 
-  protected bool TryLoadBlock(int height, out Block block)
+  protected bool TryLoadBlock(int height, Block block)
   {
-    block = null;
-
     BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
+
     if (bsonDocumentBlock == null)
       return false;
 
-    block = TakeBlockFromPool();
     block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+
+    return true;
+  }
+
+  protected bool TryParseBlockStored(Header header, Block block)
+  {
+    block.Header = header;
+
+    try
+    {
+      ParseBlockStored(block);
+    }
+    catch (ProtocolException)
+    {
+      block.Header = null;
+      return false;
+    }
 
     return true;
   }
@@ -112,28 +127,10 @@ internal abstract partial class Blockchain
   internal async Task GetBlock(byte[] hash, Block blockLoad)
   {
     Header header = null;
-    BsonDocument bsonDocumentBlock = null;
 
-    await RunLocked(() =>
-    {
-      if (ChainRoot.TryGetHeader(hash, out header))
-        bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
-    });
-
-    if (bsonDocumentBlock == null)
-      return;
-
-    blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-    blockLoad.Header = header;
-
-    try
-    {
-      ParseBlockStored(blockLoad);
-    }
-    catch (ProtocolException)
-    {
-      blockLoad.Header = null;
-    }
+    if (await RunLocked(() => ChainRoot.TryGetHeader(hash, out header))
+      && TryLoadBlock(header.Height, blockLoad))
+      TryParseBlockStored(header, blockLoad);
   }
 
   internal void LoadBlockchain()
@@ -278,9 +275,10 @@ internal abstract partial class Blockchain
     while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {
       Header header = ChainRoot.HeaderTipBlockchain;
-      TryLoadBlock(header.Height, out Block block);
-      block.Header = header;
-      ParseBlockStored(block);
+      Block block = TakeBlockFromPool();
+
+      if (!TryLoadBlock(header.Height, block) || !TryParseBlockStored(header, block))
+        throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded for rollback.");
 
       Database.BeginTrans();
 

@@ -369,20 +369,20 @@ internal partial class BlockchainBToken : Blockchain
       return;
     }
 
-    if (!TryLoadBlock(headerPlaceholder.Height, out Block block))
+    Block block = TakeBlockFromPool();
+
+    if (!TryLoadBlock(headerPlaceholder.Height, block))
+    {
+      PoolBlocks.Add(block);
       return;
+    }
 
     QueueBlock(headerPlaceholder, block);
   }
 
   void QueueBlock(Header header, Block block)
   {
-    try
-    {
-      block.Header = header;
-      ParseBlockStored(block);
-    }
-    catch (ProtocolException)
+    if (!TryParseBlockStored(header, block))
     {
       PoolBlocks.Add(block);
       return;
