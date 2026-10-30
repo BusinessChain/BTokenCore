@@ -28,6 +28,9 @@ internal class Miner
 
     LiteDatabase = new LiteDatabase("Filename=Miner.db;Mode=Exclusive");
     DatabaseBlocksMinedCollection = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
+
+    BlockchainBitcoin.OnBlockInserted += InsertBlockMined;
+    BlockchainBToken.OnTipChanged += MineBlockNext;
   }
 
   internal async Task StartMining(long feePerByte)
@@ -56,7 +59,7 @@ internal class Miner
     IsMining = false;
   }
 
-  internal void InsertBlockMined(Block blockBitcoin)
+  void InsertBlockMined(Block blockBitcoin)
   {
     if (!blockBitcoin.Header.AnchorsWinner.TryGetValue(BlockchainBToken.IDToken, out TXOutputTokenAnchor anchorWinner))
       return;
@@ -81,7 +84,7 @@ internal class Miner
     BlockchainBToken.InsertBlockMined(blockBitcoin, block);
   }
 
-  internal void MineBlockNext(Header headerTip)
+  void MineBlockNext(Header headerTip)
   {
     if (!IsMining)
       return;

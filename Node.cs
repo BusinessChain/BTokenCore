@@ -56,14 +56,6 @@ public class Node
     #endregion
 
     Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin);
-
-    BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
-    BlockchainBitcoin.OnBlockInserted += BlockchainBToken.TriggerBootstrap;
-    BlockchainBitcoin.OnBlockInserted += Miner.InsertBlockMined;
-
-    BlockchainBitcoin.OnBlockRolledBack += BlockchainBToken.RemoveHeaderPlaceholder;
-
-    BlockchainBToken.OnTipChanged += Miner.MineBlockNext;
   }
 
   public void Start()

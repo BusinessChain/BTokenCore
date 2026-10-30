@@ -34,6 +34,10 @@ internal partial class BlockchainBToken : Blockchain
     OnBlockInserted += TXPool.RemoveTXs;
     OnBlockRolledBack += TXPool.ReturnTXs;
 
+    blockchainParent.OnBlockInserted += InsertHeaderPlaceholder;
+    blockchainParent.OnBlockInserted += TriggerBootstrap;
+    blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
+
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
 
     if (!Accounts.TryLoad(Database))
@@ -271,7 +275,7 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal void TriggerBootstrap(Block blockParent)
+  void TriggerBootstrap(Block blockParent)
   {
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
@@ -408,7 +412,7 @@ internal partial class BlockchainBToken : Blockchain
     QueueBlock(headerPlaceholder, block);
   }
 
-  internal void InsertHeaderPlaceholder(Block blockParent)
+  void InsertHeaderPlaceholder(Block blockParent)
   {
     if (!blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner))
       return;
@@ -462,7 +466,7 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(chain);
   }
 
-  internal void RemoveHeaderPlaceholder(Block blockParent)
+  void RemoveHeaderPlaceholder(Block blockParent)
   {
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
       return;
