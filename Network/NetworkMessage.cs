@@ -545,8 +545,8 @@ internal partial class Network
     internal const int MAX_COUNT_INVENTORIES = 100;
 
     const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_INVENTORIES * 36;
-    const int MAX_LEVEL_DOS = 5;
-    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
+    const int MAX_LEVEL_DOS = 240;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 120;
 
 
     internal InvMessage(Blockchain blockchain)
@@ -561,12 +561,35 @@ internal partial class Network
 
       int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
 
+      if (peer.ConfigNetwork.IsProtocolBitcoin)
+      {
+        for (int i = 0; i < inventoryCount; i++)
+          if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
+          {
+            await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+            return;
+          }
+
+        return;
+      }
+
+      List<byte[]> hashesTX = new();
+
       for (int i = 0; i < inventoryCount; i++)
-        if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
-        {
-          await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
-          return;
-        }
+      {
+        Inventory inventory = Inventory.Parse(Payload, ref startIndex);
+
+        if (inventory.Type == Inventory.InventoryType.MSG_TX)
+          hashesTX.Add(inventory.Hash);
+      }
+
+      List<byte[]> hashesTXNotInPool = await Blockchain.GetHashesTXNotInPool(hashesTX);
+
+      if (hashesTXNotInPool.Count > 0)
+        await SendInventories(
+          peer,
+          GetDataMessage.Command,
+          hashesTXNotInPool.Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h)).ToList());
     }
   }
 

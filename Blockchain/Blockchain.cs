@@ -104,6 +104,20 @@ internal abstract partial class Blockchain
     }
   }
 
+  internal async Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      return hashes.Where(h => !Token.TryGetTX(h, out TX tX)).ToList();
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal virtual Task<byte[]> GetDB(byte[] hash)
   {
     return Task.FromResult<byte[]>(null);

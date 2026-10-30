@@ -209,14 +209,15 @@ internal partial class Network
     protocol.Add(PongMessage.Command, new PongMessage());
     protocol.Add(NotFoundMessage.Command, new NotFoundMessage());
     protocol.Add(UnknownMessage.Command, new UnknownMessage());
+    protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
 
     if (ConfigNetwork.IsProtocolBitcoin)
-    {
       protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
-      protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
-    }
     else
+    {
       protocol.Add(DBMessage.Command, new DBMessage((BlockchainBToken)Blockchain));
+      protocol.Add(TXMessage.Command, new TXMessage());
+    }
 
     return protocol;
   }
