@@ -22,12 +22,6 @@ internal partial class BlockchainBitcoin : Blockchain
       "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
 
 
-    HeaderBitcoin()
-    {
-      BlockRewardInitial = 5000000000; // 200 BTK;
-      PeriodHalveningBlockReward = 210000;
-    }
-
     internal HeaderBitcoin(
       byte[] headerHash,
       uint version,
@@ -36,7 +30,6 @@ internal partial class BlockchainBitcoin : Blockchain
       uint unixTimeSeconds,
       uint nBits,
       uint nonce)
-      : this()
     {
       Hash = headerHash;
       Version = version;
@@ -50,7 +43,6 @@ internal partial class BlockchainBitcoin : Blockchain
     }
 
     internal HeaderBitcoin(byte[] buffer, ref int index, SHA256 sHA256)
-      : this()
     {
       Hash = sHA256.ComputeHash(
         sHA256.ComputeHash(

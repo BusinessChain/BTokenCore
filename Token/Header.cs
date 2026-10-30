@@ -21,9 +21,6 @@ public abstract class Header
 
   internal double Difficulty;
 
-  internal long BlockRewardInitial;
-  internal int PeriodHalveningBlockReward;
-
   internal long Fee;
 
 

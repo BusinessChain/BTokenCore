@@ -9,9 +9,6 @@ internal partial class BlockchainBToken : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
-  const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
-  const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
-
   const long COUNT_SATOSHIS_PER_DAY_MINING = 500000;
   const long TIMESPAN_DAY_SECONDS = 24 * 3600;
 
@@ -277,9 +274,7 @@ internal partial class BlockchainBToken : Blockchain
 
     long feeTXs = block.TXs.Sum(t => t.Fee);
 
-    long blockReward =
-      (BLOCK_REWARD_INITIAL >> height / PERIOD_HALVENING_BLOCK_REWARD)
-      + feeTXs;
+    long blockReward = HeaderBToken.GetBlockReward(height) + feeTXs;
 
     TX tXCoinbase = CreateTXCoinbase(height, blockReward, Wallet.Hash160PKeyPublic);
 

@@ -9,15 +9,15 @@ internal partial class BlockchainBToken : Blockchain
   {
     internal const int COUNT_HEADER_BYTES = 100;
 
+    const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
+    const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
+
     internal byte[] HashDatabase = new byte[32];
 
 
     internal HeaderBToken()
     {
       Difficulty = 1;
-
-      BlockRewardInitial = 200000000000000; // 200 BTK;
-      PeriodHalveningBlockReward = 105000;
     }
 
     internal HeaderBToken(
@@ -82,11 +82,14 @@ internal partial class BlockchainBToken : Blockchain
       ((HeaderBToken)header).HashDatabase = HashDatabase;
     }
 
+    internal static long GetBlockReward(int height)
+    {
+      return BLOCK_REWARD_INITIAL >> height / PERIOD_HALVENING_BLOCK_REWARD;
+    }
+
     internal override void VerifyCoinbase(long valueOutputsTXCoinbase)
     {
-      long blockReward = BlockRewardInitial >> Height / PeriodHalveningBlockReward;
-
-      if (blockReward + Fee != valueOutputsTXCoinbase)
+      if (GetBlockReward(Height) + Fee != valueOutputsTXCoinbase)
         throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
     }
   }
