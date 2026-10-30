@@ -259,12 +259,23 @@ internal partial class Network
 
             if (DateTime.UtcNow >= peer.TimeInvNext)
             {
-              List<byte[]> hashesTX;
+              HashSet<byte[]> hashesQueued;
 
               lock (peer.HashesTXQueued)
+                hashesQueued = new(peer.HashesTXQueued, new EqualityComparerByteArray());
+
+              List<byte[]> hashesTX = new();
+
+              if (hashesQueued.Count > 0)
               {
-                hashesTX = peer.HashesTXQueued.Take(InvMessage.MAX_COUNT_INVENTORIES).ToList();
-                peer.HashesTXQueued.RemoveRange(0, hashesTX.Count);
+                List<BlockchainBToken.TXBToken> tXsRanked = await ((BlockchainBToken)Blockchain).GetTXsRanked(hashesQueued);
+
+                hashesTX = tXsRanked.Take(InvMessage.MAX_COUNT_INVENTORIES).Select(t => t.Hash).ToList();
+
+                hashesQueued.ExceptWith(tXsRanked.Skip(hashesTX.Count).Select(t => t.Hash));
+
+                lock (peer.HashesTXQueued)
+                  peer.HashesTXQueued.ExceptWith(hashesQueued);
               }
 
               if (hashesTX.Count > 0)

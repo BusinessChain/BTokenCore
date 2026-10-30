@@ -238,6 +238,11 @@ internal partial class BlockchainBToken : Blockchain
     return RunLocked(() => hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList());
   }
 
+  internal Task<List<TXBToken>> GetTXsRanked(HashSet<byte[]> hashes)
+  {
+    return RunLocked(() => TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList());
+  }
+
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
     Block block = TakeBlockFromPool();

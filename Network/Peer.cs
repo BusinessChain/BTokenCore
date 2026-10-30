@@ -31,7 +31,7 @@ internal partial class Network
 
     internal HashSet<byte[]> HashesTXAnnounced = new(new EqualityComparerByteArray());
 
-    internal List<byte[]> HashesTXQueued = new();
+    internal HashSet<byte[]> HashesTXQueued = new(new EqualityComparerByteArray());
     internal DateTime TimeInvNext;
 
     internal byte[] HashBlockAnnounced;
