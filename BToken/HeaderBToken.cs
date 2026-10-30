@@ -7,11 +7,12 @@ internal partial class BlockchainBToken : Blockchain
 {
   public class HeaderBToken : Header
   {
-    internal const int COUNT_HEADER_BYTES = 100;
+    internal const int COUNT_HEADER_BYTES = 104;
 
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
+    internal uint Version;
     internal byte[] HashDatabase = new byte[32];
 
 
@@ -45,7 +46,7 @@ internal partial class BlockchainBToken : Blockchain
             index,
             COUNT_HEADER_BYTES));
 
-      uint version = BitConverter.ToUInt32(buffer, index);
+      Version = BitConverter.ToUInt32(buffer, index);
       index += 4;
 
       Array.Copy(buffer, index, HashPrevious, 0, 32);
@@ -65,13 +66,15 @@ internal partial class BlockchainBToken : Blockchain
     {
       byte[] buffer = new byte[COUNT_HEADER_BYTES];
 
-      HashPrevious.CopyTo(buffer, 0);
+      BitConverter.GetBytes(Version).CopyTo(buffer, 0);
 
-      MerkleRoot.CopyTo(buffer, 32);
+      HashPrevious.CopyTo(buffer, 4);
 
-      HashDatabase.CopyTo(buffer, 64);
+      MerkleRoot.CopyTo(buffer, 36);
 
-      BitConverter.GetBytes(Nonce).CopyTo(buffer, 96);
+      HashDatabase.CopyTo(buffer, 68);
+
+      BitConverter.GetBytes(Nonce).CopyTo(buffer, 100);
 
       return buffer;
     }
@@ -79,6 +82,7 @@ internal partial class BlockchainBToken : Blockchain
     internal override void CopyTo(Header header)
     {
       base.CopyTo(header);
+      ((HeaderBToken)header).Version = Version;
       ((HeaderBToken)header).HashDatabase = HashDatabase;
     }
 
