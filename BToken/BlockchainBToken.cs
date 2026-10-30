@@ -9,6 +9,8 @@ internal class BlockchainBToken : Blockchain
 {
   TokenBToken TokenBToken;
 
+  TokenBToken.PoolTXBToken TXPool;
+
   internal byte[] IDToken = new byte[Token.LENGTH_ID_TOKEN];
 
 
@@ -19,6 +21,11 @@ internal class BlockchainBToken : Blockchain
     : base(token, blockchainParent, semaphoreBlockchain)
   {
     TokenBToken = token;
+
+    TXPool = new TokenBToken.PoolTXBToken(token);
+
+    OnBlockInserted += TXPool.RemoveTXs;
+    OnBlockRolledBack += TXPool.ReturnTXs;
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
 
@@ -126,7 +133,7 @@ internal class BlockchainBToken : Blockchain
     {
       await LockBlockchain();
 
-      TokenBToken.TXPool.AddTX(tX);
+      TXPool.AddTX(tX);
     }
     finally
     {
@@ -140,7 +147,7 @@ internal class BlockchainBToken : Blockchain
     {
       await LockBlockchain();
 
-      TokenBToken.TXPool.TXsByHash.TryGetValue(hash, out (TokenBToken.TXBToken tX, int sequenceNumberTX) tXsByHashItem);
+      TXPool.TXsByHash.TryGetValue(hash, out (TokenBToken.TXBToken tX, int sequenceNumberTX) tXsByHashItem);
 
       return tXsByHashItem.tX;
     }
@@ -156,7 +163,7 @@ internal class BlockchainBToken : Blockchain
     {
       await LockBlockchain();
 
-      return hashes.Where(h => !TokenBToken.TXPool.TXsByHash.ContainsKey(h)).ToList();
+      return hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList();
     }
     finally
     {
@@ -166,7 +173,9 @@ internal class BlockchainBToken : Blockchain
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
-    Block block = TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool());
+    Block block = TakeBlockFromPool();
+
+    TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, block, TXPool.GetTXs(block.Buffer.Length));
 
     Database.BeginTrans();
 

@@ -15,12 +15,8 @@ public partial class TokenBToken : Token
 
   internal DatabaseAccounts Accounts = new();
 
-  internal PoolTXBToken TXPool;
-
   public TokenBToken()
   {
-    TXPool = new PoolTXBToken(this);
-
     SizeBlockMax = SIZE_BLOCK_MAX;
   }
 
@@ -54,11 +50,11 @@ public partial class TokenBToken : Token
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  internal Block MineBlock(Header headerPrevious, Block block)
+  internal void MineBlock(Header headerPrevious, Block block, List<TX> tXs)
   {
     int height = headerPrevious.Height + 1;
 
-    block.TXs = TXPool.GetTXs(block.Buffer.Length);
+    block.TXs = tXs;
 
     long feeTXs = block.TXs.Sum(t => t.Fee);
 
@@ -78,8 +74,6 @@ public partial class TokenBToken : Token
       CountTXs = block.TXs.Count,
       Fee = feeTXs
     };
-
-    return block;
   }
 
   TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)
