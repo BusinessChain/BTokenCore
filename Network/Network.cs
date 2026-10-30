@@ -16,6 +16,7 @@ internal partial class Network
   const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
 
   const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
+  const int TIMESPAN_MEAN_INV_SECONDS = 5;
   const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
 
   object LOCK_Peers = new();
@@ -50,12 +51,17 @@ internal partial class Network
   {
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)
-      {
-        lock (peer.HashesTXAnnounced)
-          peer.HashesTXAnnounced.Add(tX.Hash);
+        // Reto: a future child-token anchor on the BToken network must bypass the batching as well.
+        if (ConfigNetwork.IsProtocolBitcoin)
+        {
+          lock (peer.HashesTXAnnounced)
+            peer.HashesTXAnnounced.Add(tX.Hash);
 
-        NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
-      }
+          NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
+        }
+        else
+          lock (peer.HashesTXQueued)
+            peer.HashesTXQueued.Add(tX.Hash);
   }
 
   void HandleBlockInserted(Block block)
@@ -235,6 +241,31 @@ internal partial class Network
           try
           {
             await ((PingMessage)peer.ProtocolStateMachine[PingMessage.Command]).Ping(peer);
+
+            if (DateTime.UtcNow >= peer.TimeInvNext)
+            {
+              List<byte[]> hashesTX;
+
+              lock (peer.HashesTXQueued)
+              {
+                hashesTX = peer.HashesTXQueued.Take(InvMessage.MAX_COUNT_INVENTORIES).ToList();
+                peer.HashesTXQueued.RemoveRange(0, hashesTX.Count);
+              }
+
+              if (hashesTX.Count > 0)
+              {
+                lock (peer.HashesTXAnnounced)
+                  peer.HashesTXAnnounced.UnionWith(hashesTX);
+
+                await NetworkMessage.SendInventories(
+                  peer,
+                  InvMessage.Command,
+                  hashesTX.Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h)).ToList());
+
+                peer.TimeInvNext = DateTime.UtcNow.AddSeconds(
+                  -TIMESPAN_MEAN_INV_SECONDS * Math.Log(1 - Random.Shared.NextDouble()));
+              }
+            }
           }
           catch
           {

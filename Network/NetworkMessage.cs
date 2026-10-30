@@ -542,7 +542,9 @@ internal partial class Network
 
     Blockchain Blockchain;
 
-    const int SIZE_BUFFER_PAYLOAD = 36_003;
+    internal const int MAX_COUNT_INVENTORIES = 100;
+
+    const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_INVENTORIES * 36;
     const int MAX_LEVEL_DOS = 5;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
