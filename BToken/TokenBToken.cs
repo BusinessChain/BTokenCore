@@ -136,7 +136,12 @@ public partial class TokenBToken : Token
   internal override bool TryGetTX(byte[] hash, out TX tX)
   {
     tX = null;
-    return false;
+
+    if (!TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
+      return false;
+
+    tX = tXsByHashItem.tX;
+    return true;
   }
 
   public override void InsertBlock(Block block)

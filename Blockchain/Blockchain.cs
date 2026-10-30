@@ -88,6 +88,22 @@ internal abstract partial class Blockchain
     }
   }
 
+  internal async Task<TX> GetTX(byte[] hash)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      Token.TryGetTX(hash, out TX tX);
+
+      return tX;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal virtual Task<byte[]> GetDB(byte[] hash)
   {
     return Task.FromResult<byte[]>(null);

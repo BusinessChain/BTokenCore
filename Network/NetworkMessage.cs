@@ -250,8 +250,10 @@ internal partial class Network
 
         if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
-          if (Blockchain.Token.TryGetTX(inventory.Hash, out TX tXInPool))
-            TXMessage.Send(peer, tXInPool.TXRaw);
+          TX tXInPool = await Blockchain.GetTX(inventory.Hash);
+
+          if (tXInPool != null)
+            await TXMessage.Send(peer, tXInPool.TXRaw);
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
         {
