@@ -58,6 +58,9 @@ public partial class TokenBToken : Token
       Fee = BitConverter.ToInt64(buffer, index);
       index += 8;
 
+      if (Fee < 0)
+        throw new ProtocolException($"Fee {Fee} of TX smaller than zero.");
+
       int countOutputs = VarInt.GetInt(buffer, ref index);
 
       for (int i = 0; i < countOutputs; i++)
@@ -66,6 +69,9 @@ public partial class TokenBToken : Token
 
         if (tXOutput.GetType() == typeof(TXOutput))
           throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
+
+        if (tXOutput.Value < 0)
+          throw new ProtocolException($"Value {tXOutput.Value} of TX output smaller than zero.");
 
         TXOutputs.Add(tXOutput);
       }

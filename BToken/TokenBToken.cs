@@ -157,20 +157,12 @@ public partial class TokenBToken : Token
       TXBToken tX = (TXBToken)block.TXs[i];
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
-        InsertTXOutput(tXOutput, block.Header.Height);
+        if (tXOutput.Value > 0)
+          AddToBalance(tXOutput.IDAccount, block.Header.Height, tXOutput.Value);
 
       if (i > 0)
         SpendTXInput(tX);
     }
-  }
-
-  void InsertTXOutput(TXOutput tXOutput, int blockHeight)
-  {
-    if (tXOutput.Value < 0)
-      throw new ProtocolException($"Value of TX output {tXOutput.IDAccount.ToHexString()} smaller than zero.");
-
-    if (tXOutput.Value > 0)
-      AddToBalance(tXOutput.IDAccount, blockHeight, tXOutput.Value);
   }
 
   void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value)
