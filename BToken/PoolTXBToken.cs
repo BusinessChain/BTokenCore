@@ -12,13 +12,13 @@ internal partial class BlockchainBToken : Blockchain
     class TXBundle
     {
       internal byte[] IDAccountSource;
-      internal long FeeAverageTX;
+      internal double FeePerByte;
       internal List<TXBToken> TXs = new();
 
       internal TXBundle(TXBToken tX)
       {
         IDAccountSource = tX.IDAccountSource;
-        FeeAverageTX = tX.Fee;
+        FeePerByte = (double)tX.Fee / tX.CountBytes;
         TXs = new List<TXBToken> { tX };
       }
     }
@@ -212,7 +212,7 @@ internal partial class BlockchainBToken : Blockchain
       {
         TXBundle tXBundleNext = TXBundlesSortedByFee[i];
 
-        if (tXBundle.FeeAverageTX < tXBundleNext.FeeAverageTX)
+        if (tXBundle.FeePerByte < tXBundleNext.FeePerByte)
         {
           TXBundlesSortedByFee.Insert(i + 1, tXBundle);
           return;
@@ -221,8 +221,8 @@ internal partial class BlockchainBToken : Blockchain
         {
           tXBundleNext.TXs.AddRange(tXBundle.TXs);
 
-          tXBundleNext.FeeAverageTX =
-            tXBundleNext.TXs.Sum(t => t.Fee) / tXBundleNext.TXs.Count;
+          tXBundleNext.FeePerByte =
+            (double)tXBundleNext.TXs.Sum(t => t.Fee) / tXBundleNext.TXs.Sum(t => t.CountBytes);
 
           tXBundle = tXBundleNext;
 
