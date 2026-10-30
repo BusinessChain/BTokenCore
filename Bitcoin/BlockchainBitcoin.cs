@@ -2,9 +2,14 @@ namespace BTokenCore;
 
 internal class BlockchainBitcoin : Blockchain
 {
+  TokenBitcoin TokenBitcoin;
+
+
   internal BlockchainBitcoin(TokenBitcoin token, SemaphoreSlim semaphoreBlockchain)
     : base(token, blockchainParent: null, semaphoreBlockchain)
   {
+    TokenBitcoin = token;
+
     token.LoadDatabase(Database);
   }
 
@@ -16,5 +21,21 @@ internal class BlockchainBitcoin : Blockchain
   protected override byte[] SerializeBlockStored(Block block)
   {
     return block.SerializeCompact();
+  }
+
+  internal async Task<TX> GetTXAnchorOpen(byte[] hash)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      TokenBitcoin.TryGetTXAnchorOpen(hash, out TX tX);
+
+      return tX;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
   }
 }

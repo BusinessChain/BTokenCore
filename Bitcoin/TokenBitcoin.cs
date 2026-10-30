@@ -121,7 +121,7 @@ public partial class TokenBitcoin : Token
     return new TXBitcoin(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  internal override bool TryGetTX(byte[] hash, out TX tX)
+  internal bool TryGetTXAnchorOpen(byte[] hash, out TX tX)
   {
     tX = TXAnchorOpen;
 

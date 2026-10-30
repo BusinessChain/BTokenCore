@@ -30,8 +30,6 @@ public abstract partial class Token
 
   public abstract Header CreateHeaderGenesis();
 
-  internal abstract bool TryGetTX(byte[] hash, out TX tX);
-
   public abstract void InsertBlock(Block block);
 
   public virtual void RollBack(Block block) { }

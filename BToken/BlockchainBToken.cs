@@ -134,6 +134,36 @@ internal class BlockchainBToken : Blockchain
     }
   }
 
+  internal async Task<TX> GetTX(byte[] hash)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      TokenBToken.TXPool.TXsByHash.TryGetValue(hash, out (TokenBToken.TXBToken tX, int sequenceNumberTX) tXsByHashItem);
+
+      return tXsByHashItem.tX;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
+  internal async Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      return hashes.Where(h => !TokenBToken.TXPool.TXsByHash.ContainsKey(h)).ToList();
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
     Block block = TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool());

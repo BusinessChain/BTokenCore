@@ -254,10 +254,15 @@ internal partial class Network
             if (peer.HashesTXAnnounced.Remove(inventory.Hash))
               DOSMonitor.Decrement(1);
 
-          TX tXInPool = await Blockchain.GetTX(inventory.Hash);
+          TX tX;
 
-          if (tXInPool != null)
-            await TXMessage.Send(peer, tXInPool.TXRaw);
+          if (peer.ConfigNetwork.IsProtocolBitcoin)
+            tX = await ((BlockchainBitcoin)Blockchain).GetTXAnchorOpen(inventory.Hash);
+          else
+            tX = await ((BlockchainBToken)Blockchain).GetTX(inventory.Hash);
+
+          if (tX != null)
+            await TXMessage.Send(peer, tX.TXRaw);
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
         {
@@ -583,7 +588,7 @@ internal partial class Network
           hashesTX.Add(inventory.Hash);
       }
 
-      List<byte[]> hashesTXNotInPool = await Blockchain.GetHashesTXNotInPool(hashesTX);
+      List<byte[]> hashesTXNotInPool = await ((BlockchainBToken)Blockchain).GetHashesTXNotInPool(hashesTX);
 
       if (hashesTXNotInPool.Count > 0)
         await SendInventories(

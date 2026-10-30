@@ -101,17 +101,6 @@ public partial class TokenBToken : Token
     return tX;
   }
 
-  internal override bool TryGetTX(byte[] hash, out TX tX)
-  {
-    tX = null;
-
-    if (!TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
-      return false;
-
-    tX = tXsByHashItem.tX;
-    return true;
-  }
-
   public override void InsertBlock(Block block)
   {
     if (!Accounts.Exists())
