@@ -49,14 +49,27 @@ internal abstract partial class Blockchain
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }
 
-  internal async Task LockBlockchain()
+  internal async Task<T> RunLocked<T>(Func<T> function)
   {
     await SemaphoreBlockchain.WaitAsync().ConfigureAwait(false);
+
+    try
+    {
+      return function();
+    }
+    finally
+    {
+      SemaphoreBlockchain.Release();
+    }
   }
 
-  internal void ReleaseLockBlockchain()
+  internal async Task RunLocked(Action action)
   {
-    SemaphoreBlockchain.Release();
+    await RunLocked(() =>
+    {
+      action();
+      return true;
+    });
   }
 
   protected abstract Header CreateHeaderGenesis();
@@ -98,22 +111,14 @@ internal abstract partial class Blockchain
 
   internal async Task GetBlock(byte[] hash, Block blockLoad)
   {
-    Header header;
-    BsonDocument bsonDocumentBlock;
+    Header header = null;
+    BsonDocument bsonDocumentBlock = null;
 
-    try
+    await RunLocked(() =>
     {
-      await LockBlockchain();
-
-      if (!ChainRoot.TryGetHeader(hash, out header))
-        return;
-
-      bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+      if (ChainRoot.TryGetHeader(hash, out header))
+        bsonDocumentBlock = DatabaseBlockCollection.FindById(header.Height);
+    });
 
     if (bsonDocumentBlock == null)
       return;
@@ -176,23 +181,17 @@ internal abstract partial class Blockchain
 
   protected virtual void RollBackBlock(Block block) { }
 
-  internal async Task<bool> TryInsertBlock(Block block)
+  internal Task<bool> TryInsertBlock(Block block)
   {
-    try
+    return RunLocked(() =>
     {
-      await LockBlockchain();
-
       if (!ChainRoot.TryQueueBlock(block, out Chain chain))
         return false;
 
       UpdateTipBlockchain(chain);
 
       return true;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
   protected void UpdateTipBlockchain(Chain chain)
@@ -322,30 +321,22 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTipBlockchain.Height;
   }
 
-  internal async Task<Header> TryInsertHeadersInTree(List<Header> headers)
+  internal Task<Header> TryInsertHeadersInTree(List<Header> headers)
   {
-    try
+    return RunLocked(() =>
     {
-      await LockBlockchain();
-
       ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
 
       return headerLastInTree;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
-  internal async Task<Header> FetchHeaderBlockMissingNext(
+  internal Task<Header> FetchHeaderBlockMissingNext(
     Header headerTipSupplier,
     Func<Header, bool> canSupplierDeliverBlock)
   {
-    try
+    return RunLocked(() =>
     {
-      await LockBlockchain();
-
       if (headerTipSupplier == null)
         return ChainRoot.FetchHeaderBlockMissingNextInTree(
           ChainRoot.HeaderTipBlockchain.Height,
@@ -359,38 +350,18 @@ internal abstract partial class Blockchain
       return ChainRoot.FindChain(headerTipSupplier)?.FetchHeaderBlockMissingNextInChain(
         headerTipSupplier.Height,
         canSupplierDeliverBlock);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
-  internal async Task<List<byte[]>> GetLocator()
+  internal Task<List<byte[]>> GetLocator()
   {
-    try
-    {
-      await LockBlockchain();
-      return ChainRoot.GetLocator();
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    return RunLocked(() => ChainRoot.GetLocator());
   }
 
-  internal async Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
+  internal Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
     List<byte[]> hashesLocator,
     int maxCountHeaders)
   {
-    try
-    {
-      await LockBlockchain();
-      return ChainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    return RunLocked(() => ChainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders));
   }
 }

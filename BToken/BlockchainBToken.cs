@@ -164,46 +164,32 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal override async Task<byte[]> GetDB(byte[] hash)
+  internal override Task<byte[]> GetDB(byte[] hash)
   {
-    try
+    return RunLocked(() =>
     {
-      await LockBlockchain();
-
       if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Accounts.Exists())
         return Accounts.Serialize();
 
       return null;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
-  internal override async Task<byte[]> GetHashDBMissing()
+  internal override Task<byte[]> GetHashDBMissing()
   {
-    try
+    return RunLocked(() =>
     {
-      await LockBlockchain();
-
       if (!Accounts.Exists())
         return ChainRoot.HeaderTipBlockchain.Hash;
 
       return null;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
-  internal async Task InstallDB(byte[] hash, byte[] buffer, int length)
+  internal Task InstallDB(byte[] hash, byte[] buffer, int length)
   {
-    try
+    return RunLocked(() =>
     {
-      await LockBlockchain();
-
       if (Accounts.Exists()
         || !ChainRoot.TryGetHeader(hash, out Header header)
         || header.Height > ChainRoot.HeaderTipBlockchain.Height)
@@ -238,11 +224,7 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       UpdateTipBlockchain(ChainRoot);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
   void TriggerBootstrap(Block blockParent)
@@ -265,48 +247,24 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal async Task AddTX(TX tX)
+  internal Task AddTX(TX tX)
   {
-    try
-    {
-      await LockBlockchain();
-
-      TXPool.AddTX(tX);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    return RunLocked(() => TXPool.AddTX(tX));
   }
 
-  internal async Task<TX> GetTX(byte[] hash)
+  internal Task<TX> GetTX(byte[] hash)
   {
-    try
+    return RunLocked<TX>(() =>
     {
-      await LockBlockchain();
-
       TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem);
 
       return tXsByHashItem.tX;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
-  internal async Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  internal Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
   {
-    try
-    {
-      await LockBlockchain();
-
-      return hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList();
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    return RunLocked(() => hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList());
   }
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)

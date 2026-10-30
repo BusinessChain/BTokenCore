@@ -137,21 +137,15 @@ internal partial class BlockchainBitcoin : Blockchain
     }
   }
 
-  internal async Task<TX> GetTXAnchorOpen(byte[] hash)
+  internal Task<TX> GetTXAnchorOpen(byte[] hash)
   {
-    try
+    return RunLocked<TX>(() =>
     {
-      await LockBlockchain();
-
       if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
         return TXAnchorOpen;
 
       return null;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
+    });
   }
 
   internal bool IsTXAnchorOpen()

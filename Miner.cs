@@ -39,19 +39,13 @@ internal class Miner
     // The GUI could also offer a tool that controls the fee rate automatically,
     // e.g. based on past fee rates or market price arbitrage.
 
-    try
+    await BlockchainBToken.RunLocked(() =>
     {
-      await BlockchainBToken.LockBlockchain();
-
       FeePerByte = feePerByte;
       IsMining = true;
 
       MineBlockNext(null);
-    }
-    finally
-    {
-      BlockchainBToken.ReleaseLockBlockchain();
-    }
+    });
   }
 
   internal void StopMining()
