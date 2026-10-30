@@ -546,7 +546,7 @@ internal partial class Network
 
     const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_INVENTORIES * 36;
     const int MAX_LEVEL_DOS = 240;
-    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 120;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 150;
 
 
     internal InvMessage(Blockchain blockchain)
@@ -626,14 +626,22 @@ internal partial class Network
   {
     internal const string Command = "tx";
 
+    BlockchainBToken Blockchain;
+    Network Network;
+
+    SHA256 SHA256 = SHA256.Create();
+
     const int SIZE_BUFFER_PAYLOAD = 100_000;
-    const int MAX_LEVEL_DOS = 1_000_000;
+    const int MAX_LEVEL_DOS = 2_000_000;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
 
 
-    internal TXMessage()
+    internal TXMessage(BlockchainBToken blockchain, Network network)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    { }
+    {
+      Blockchain = blockchain;
+      Network = network;
+    }
 
     internal TXMessage(byte[] tXRaw)
       : base(tXRaw, MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
@@ -646,7 +654,23 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
+      int index = 0;
 
+      TX tX = Blockchain.Token.ParseTX(Payload, ref index, SHA256, flagIsCoinbase: false);
+
+      if (index != LengthDataPayload)
+        throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");
+
+      try
+      {
+        await Blockchain.AddTX(tX);
+      }
+      catch (ProtocolException)
+      {
+        return;
+      }
+
+      Network.Broadcast(tX);
     }
 
     internal static async Task Send(Peer peer, byte[] buffer)

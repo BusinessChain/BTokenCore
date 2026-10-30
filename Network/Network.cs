@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -45,6 +46,19 @@ internal partial class Network
       StartPeerConnectorInbound();
 
     StartBlockDownloadDispatcher();
+  }
+
+  internal async Task SubmitTX(byte[] tXRaw)
+  {
+    using SHA256 sHA256 = SHA256.Create();
+
+    int index = 0;
+
+    TX tX = Blockchain.Token.ParseTX(tXRaw, ref index, sHA256, flagIsCoinbase: false);
+
+    await ((BlockchainBToken)Blockchain).AddTX(tX);
+
+    Broadcast(tX);
   }
 
   internal void Broadcast(TX tX)
@@ -216,7 +230,7 @@ internal partial class Network
     else
     {
       protocol.Add(DBMessage.Command, new DBMessage((BlockchainBToken)Blockchain));
-      protocol.Add(TXMessage.Command, new TXMessage());
+      protocol.Add(TXMessage.Command, new TXMessage((BlockchainBToken)Blockchain, this));
     }
 
     return protocol;

@@ -120,19 +120,13 @@ internal class BlockchainBToken : Blockchain
     }
   }
 
-  internal async Task<TX> AddTX(byte[] tXRaw)
+  internal async Task AddTX(TX tX)
   {
     try
     {
       await LockBlockchain();
 
-      int index = 0;
-
-      TX tX = TokenBToken.ParseTX(tXRaw, ref index, TokenBToken.Wallet.SHA256, flagIsCoinbase: false);
-
       TokenBToken.TXPool.AddTX(tX);
-
-      return tX;
     }
     finally
     {

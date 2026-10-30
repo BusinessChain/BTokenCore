@@ -92,10 +92,8 @@ public class Node
     Miner.StopMining();
   }
 
-  public async Task SubmitTX(byte[] tXRaw)
+  public async Task SubmitTXBToken(byte[] tXRaw)
   {
-    TX tX = await BlockchainBToken.AddTX(tXRaw);
-
-    NetworkBToken.Broadcast(tX);
+    await NetworkBToken.SubmitTX(tXRaw);
   }
 }
