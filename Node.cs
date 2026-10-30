@@ -13,6 +13,7 @@ public class Node
   {
     SemaphoreSlim semaphoreBlockchain = new(1);
 
+    #region Bitcoin
     BlockchainBitcoin = new(semaphoreBlockchain);
 
     ConfigNetwork ConfigNetworkBitcoin = new()
@@ -34,8 +35,9 @@ public class Node
       BlockchainBitcoin,
       communication, 
       ConfigNetworkBitcoin);
+    #endregion
 
-
+    #region BToken
     BlockchainBToken = new(
       blockchainParent: BlockchainBitcoin,
       semaphoreBlockchain);
@@ -51,6 +53,7 @@ public class Node
       BlockchainBToken,
       communication,
       ConfigNetworkBToken);
+    #endregion
 
     Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin);
 

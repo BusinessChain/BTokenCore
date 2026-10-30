@@ -97,10 +97,10 @@ internal partial class BlockchainBitcoin : Blockchain
   internal override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
     byte[] hash = sHA256.ComputeHash(
-        sHA256.ComputeHash(
-          buffer,
-          index,
-          HeaderBitcoin.COUNT_HEADER_BYTES));
+      sHA256.ComputeHash(
+        buffer,
+        index,
+        HeaderBitcoin.COUNT_HEADER_BYTES));
 
     uint version = BitConverter.ToUInt32(buffer, index);
     index += 4;
@@ -199,12 +199,7 @@ internal partial class BlockchainBitcoin : Blockchain
     tXAnchor.TXOutputs.Add(tokenAnchor);
 
     if (flagCreateOutputChange)
-      tXAnchor.TXOutputs.Add(new TXOutputP2PKH
-      {
-        Value = valueChange,
-        IDAccount = Wallet.Hash160PKeyPublic,
-        Script = [.. TXOutputP2PKH.PREFIX_P2PKH, .. Wallet.Hash160PKeyPublic, .. TXOutputP2PKH.POSTFIX_P2PKH]
-      });
+      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160PKeyPublic));
 
     tXAnchor.Serialize(Wallet);
 

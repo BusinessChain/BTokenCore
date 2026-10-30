@@ -9,8 +9,12 @@ public class TXOutputP2PKH : TXOutput
   internal static byte[] POSTFIX_P2PKH = [0x88, 0xAC];
 
 
-  internal TXOutputP2PKH()
-  { }
+  internal TXOutputP2PKH(long value, byte[] iDAccount)
+  {
+    Value = value;
+    IDAccount = iDAccount;
+    Script = [.. PREFIX_P2PKH, .. iDAccount, .. POSTFIX_P2PKH];
+  }
 
   internal TXOutputP2PKH(byte[] buffer, int indexScript)
   {
