@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public partial class TokenBitcoin : Token
+internal partial class BlockchainBitcoin : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
@@ -21,20 +21,6 @@ public partial class TokenBitcoin : Token
   ILiteCollection<BsonDocument> AnchorsOwned;
   TXBitcoin TXAnchorOpen;
 
-
-  public TokenBitcoin()
-  {
-    SizeBlockMax = SIZE_BLOCK_MAX;
-  }
-
-  internal void LoadDatabase(LiteDatabase database)
-  {
-    OutputsOwned = database.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
-    AnchorsOwned = database.GetCollection<BsonDocument>(NAME_COLLECTION_ANCHORS_OWNED);
-
-    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
-      LoadTXAnchorOpen(documentAnchor);
-  }
 
   internal bool IsTXAnchorOpen()
   {
@@ -53,7 +39,7 @@ public partial class TokenBitcoin : Token
     };
   }
 
-  public override Header CreateHeaderGenesis()
+  protected override Header CreateHeaderGenesis()
   {
     HeaderBitcoin header = new(
        headerHash: "000000000000000000010538edbfd2d5b809a33dd83f284aeea41c6d0d96968a".ToBinary(),
@@ -69,7 +55,7 @@ public partial class TokenBitcoin : Token
     return header;
   }
 
-  public override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  internal override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
     byte[] hash = sHA256.ComputeHash(
         sHA256.ComputeHash(
@@ -116,20 +102,9 @@ public partial class TokenBitcoin : Token
       nonce);
   }
 
-  public override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBitcoin(buffer, ref index, sHA256, flagIsCoinbase);
-  }
-
-  internal bool TryGetTXAnchorOpen(byte[] hash, out TX tX)
-  {
-    tX = TXAnchorOpen;
-
-    if (tX != null && tX.Hash.IsAllBytesEqual(hash))
-      return true;
-
-    tX = null;
-    return false;
   }
 
   internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
@@ -189,7 +164,7 @@ public partial class TokenBitcoin : Token
       {
         Value = valueChange,
         IDAccount = Wallet.Hash160PKeyPublic,
-        Script = [.. PREFIX_P2PKH, .. Wallet.Hash160PKeyPublic, .. POSTFIX_P2PKH]
+        Script = [.. TXOutputP2PKH.PREFIX_P2PKH, .. Wallet.Hash160PKeyPublic, .. TXOutputP2PKH.POSTFIX_P2PKH]
       });
 
     tXAnchor.Serialize(Wallet);
@@ -212,11 +187,11 @@ public partial class TokenBitcoin : Token
     return true;
   }
 
-  public override void InsertBlock(Block block)
+  protected override void InsertBlock(Block block)
   {
     int height = block.Header.Height;
 
-    int heightPruning = height - Blockchain.MAX_COUNT_BLOCKS_STORED;
+    int heightPruning = height - MAX_COUNT_BLOCKS_STORED;
 
     OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
     AnchorsOwned.DeleteMany(Query.Between("heightConfirmed", 1, heightPruning));
@@ -256,7 +231,7 @@ public partial class TokenBitcoin : Token
     }
   }
 
-  public override void RollBack(Block block)
+  protected override void RollBackBlock(Block block)
   {
     int height = block.Header.Height;
 

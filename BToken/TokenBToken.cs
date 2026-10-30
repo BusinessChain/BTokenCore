@@ -3,7 +3,7 @@
 
 namespace BTokenCore;
 
-public partial class TokenBToken : Token
+internal partial class BlockchainBToken : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
@@ -15,12 +15,7 @@ public partial class TokenBToken : Token
 
   internal DatabaseAccounts Accounts = new();
 
-  public TokenBToken()
-  {
-    SizeBlockMax = SIZE_BLOCK_MAX;
-  }
-
-  public override Header CreateHeaderGenesis()
+  protected override Header CreateHeaderGenesis()
   {
     HeaderBToken header = new(
       headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
@@ -32,48 +27,9 @@ public partial class TokenBToken : Token
     return header;
   }
 
-  internal Header CreateHeaderPlaceholder(TXOutputTokenAnchor anchor, Header headerParent)
-  {
-    return new HeaderBToken(
-      headerHash: anchor.HashBlockReferenced,
-      hashPrevious: anchor.HashBlockPreviousReferenced,
-      merkleRootHash: new byte[32],
-      hashDatabase: new byte[32],
-      nonce: 0)
-    {
-      HeaderParent = headerParent
-    };
-  }
-
-  public override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
-  }
-
-  internal void MineBlock(Header headerPrevious, Block block, List<TX> tXs)
-  {
-    int height = headerPrevious.Height + 1;
-
-    block.TXs = tXs;
-
-    long feeTXs = block.TXs.Sum(t => t.Fee);
-
-    long blockReward =
-      (BLOCK_REWARD_INITIAL >> height / PERIOD_HALVENING_BLOCK_REWARD)
-      + feeTXs;
-
-    TX tXCoinbase = CreateTXCoinbase(height, blockReward, Wallet.Hash160PKeyPublic);
-
-    block.TXs.Insert(0, tXCoinbase);
-
-    block.Header = new HeaderBToken()
-    {
-      Height = height,
-      HashPrevious = headerPrevious.Hash,
-      MerkleRoot = block.ComputeMerkleRoot(),
-      CountTXs = block.TXs.Count,
-      Fee = feeTXs
-    };
   }
 
   TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)
@@ -87,7 +43,7 @@ public partial class TokenBToken : Token
     {
       Value = blockReward,
       IDAccount = hash160PKeyPublic,
-      Script = [.. PREFIX_P2PKH, .. hash160PKeyPublic, .. POSTFIX_P2PKH]
+      Script = [.. TXOutputP2PKH.PREFIX_P2PKH, .. hash160PKeyPublic, .. TXOutputP2PKH.POSTFIX_P2PKH]
     });
 
     tX.SerializeUnsigned(Wallet.SHA256);
@@ -95,7 +51,7 @@ public partial class TokenBToken : Token
     return tX;
   }
 
-  public override void InsertBlock(Block block)
+  protected override void InsertBlock(Block block)
   {
     if (!Accounts.Exists())
       return;
@@ -135,7 +91,7 @@ public partial class TokenBToken : Token
     Accounts.WriteAccount(account);
   }
 
-  public override void RollBack(Block block)
+  protected override void RollBackBlock(Block block)
   {
     if (!Accounts.Exists())
       return;
@@ -180,7 +136,7 @@ public partial class TokenBToken : Token
         0x8a, 0x4c, 0x70, 0x2b, 0x6b, 0xf1, 0x1d, 0x5f, 0xac, 0x00, 0x00 ,0x00 ,0x00 ];
   }
 
-  public override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  internal override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
   {
     byte[] hash =
       sHA256.ComputeHash(

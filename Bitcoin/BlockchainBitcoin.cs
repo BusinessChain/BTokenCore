@@ -1,16 +1,20 @@
+using LiteDB;
+
+
 namespace BTokenCore;
 
-internal class BlockchainBitcoin : Blockchain
+internal partial class BlockchainBitcoin : Blockchain
 {
-  TokenBitcoin TokenBitcoin;
-
-
-  internal BlockchainBitcoin(TokenBitcoin token, SemaphoreSlim semaphoreBlockchain)
-    : base(token, blockchainParent: null, semaphoreBlockchain)
+  internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
+    : base("TokenBitcoin", blockchainParent: null, semaphoreBlockchain)
   {
-    TokenBitcoin = token;
+    SizeBlockMax = SIZE_BLOCK_MAX;
 
-    token.LoadDatabase(Database);
+    OutputsOwned = Database.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
+    AnchorsOwned = Database.GetCollection<BsonDocument>(NAME_COLLECTION_ANCHORS_OWNED);
+
+    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
+      LoadTXAnchorOpen(documentAnchor);
   }
 
   protected override void ParseBlockStored(Block block)
@@ -29,9 +33,10 @@ internal class BlockchainBitcoin : Blockchain
     {
       await LockBlockchain();
 
-      TokenBitcoin.TryGetTXAnchorOpen(hash, out TX tX);
+      if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
+        return TXAnchorOpen;
 
-      return tX;
+      return null;
     }
     finally
     {

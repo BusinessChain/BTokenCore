@@ -1,5 +1,6 @@
 ﻿using LiteDB;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -8,7 +9,9 @@ internal abstract partial class Blockchain
 {
   internal const int MAX_COUNT_BLOCKS_STORED = 200;
 
-  internal Token Token;
+  internal Wallet Wallet;
+
+  internal int SizeBlockMax;
 
   protected Chain ChainRoot;
 
@@ -27,21 +30,39 @@ internal abstract partial class Blockchain
 
 
   protected Blockchain(
-    Token token,
+    string nameToken,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
-    Token = token;
+    Directory.CreateDirectory(nameToken);
+
+    Wallet = new Wallet(File.ReadAllText($"Wallet{nameToken}/wallet"));
+
     SemaphoreBlockchain = semaphoreBlockchain;
 
-    ChainRoot = new(Token.CreateHeaderGenesis(), isRoot: true);
+    ChainRoot = new(CreateHeaderGenesis(), isRoot: true);
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
-    Database = new ($"Filename={token.GetName() + "Network"}.db;Mode=Exclusive");
+    Database = new ($"Filename={nameToken + "Network"}.db;Mode=Exclusive");
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }
+
+  public int GetSizeBlockBuffer()
+  {
+    return SizeBlockMax;
+  }
+
+  protected abstract Header CreateHeaderGenesis();
+
+  protected abstract void InsertBlock(Block block);
+
+  protected virtual void RollBackBlock(Block block) { }
+
+  internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
+
+  internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
   internal async Task LockBlockchain()
   {
@@ -106,14 +127,14 @@ internal abstract partial class Blockchain
   internal Block TakeBlockFromPool()
   {
     if (!PoolBlocks.TryTake(out Block block))
-      block = new Block(Token);
+      block = new Block(this);
 
     return block;
   }
 
   internal void LoadBlockchain()
   {
-    Block blockLoad = new(Token);
+    Block blockLoad = new(this);
 
     foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
       try
@@ -260,7 +281,7 @@ internal abstract partial class Blockchain
 
       try
       {
-        Token.InsertBlock(block);
+        InsertBlock(block);
 
         ChainRoot.HeaderTipBlockchain = block.Header;
 
@@ -325,7 +346,7 @@ internal abstract partial class Blockchain
 
       try
       {
-        Token.RollBack(block);
+        RollBackBlock(block);
 
         DatabaseBlockCollection.Delete(header.Height);
       }

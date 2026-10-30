@@ -349,7 +349,7 @@ internal partial class Network
     BlockchainBToken Blockchain;
 
     const int MAX_COUNT_ACCOUNTS = 1_000_000;
-    const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * TokenBToken.Account.LENGTH_ACCOUNT;
+    const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
@@ -482,7 +482,7 @@ internal partial class Network
       if (!peer.ConfigNetwork.IsProtocolBitcoin)
       {
         if (countHeaders == 1)
-          peer.HashBlockAnnounced = Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256).Hash;
+          peer.HashBlockAnnounced = Blockchain.ParseHeader(Payload, ref startIndex, SHA256).Hash;
 
         return;
       }
@@ -502,7 +502,7 @@ internal partial class Network
 
       for (int i = 0; i < countHeaders; i++)
       {
-        headers.Add(Blockchain.Token.ParseHeader(Payload, ref startIndex, SHA256));
+        headers.Add(Blockchain.ParseHeader(Payload, ref startIndex, SHA256));
         VarInt.GetInt(Payload, ref startIndex);
       }
 
@@ -661,7 +661,7 @@ internal partial class Network
     {
       int index = 0;
 
-      TX tX = Blockchain.Token.ParseTX(Payload, ref index, SHA256, flagIsCoinbase: false);
+      TX tX = Blockchain.ParseTX(Payload, ref index, SHA256, flagIsCoinbase: false);
 
       if (index != LengthDataPayload)
         throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");

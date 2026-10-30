@@ -6,7 +6,7 @@ using LiteDB;
 
 namespace BTokenCore;
 
-public partial class TokenBToken : Token
+internal partial class BlockchainBToken : Blockchain
 {
   internal class Account
   {

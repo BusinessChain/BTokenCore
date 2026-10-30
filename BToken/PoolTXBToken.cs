@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace BTokenCore;
 
-public partial class TokenBToken : Token
+internal partial class BlockchainBToken : Blockchain
 {
   internal class PoolTXBToken
   {
@@ -23,7 +23,7 @@ public partial class TokenBToken : Token
       }
     }
 
-    TokenBToken Token;
+    BlockchainBToken Blockchain;
 
     int SequenceNumberTX;
 
@@ -40,16 +40,16 @@ public partial class TokenBToken : Token
     List<TXBundle> TXBundlesSortedByFee = new();
 
 
-    internal PoolTXBToken(TokenBToken token)
+    internal PoolTXBToken(BlockchainBToken blockchain)
     {
-      Token = token;
+      Blockchain = blockchain;
     }
 
     internal void AddTX(TX tX)
     {
       TXBToken tXBToken = tX as TXBToken;
 
-      Account accountTrial = Token.Accounts.GetCopyOfAccount(tXBToken.IDAccountSource);
+      Account accountTrial = Blockchain.Accounts.GetCopyOfAccount(tXBToken.IDAccountSource);
 
       if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBToken> tXsInPool))
       {
@@ -142,7 +142,7 @@ public partial class TokenBToken : Token
         {
           List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
 
-          Account account = Token.Accounts.LoadAccount(iDAccountSource, 0);
+          Account account = Blockchain.Accounts.LoadAccount(iDAccountSource, 0);
 
           if (OutputValuesByIDAccount.TryGetValue(iDAccountSource, out long valueTotal))
             account.Balance += valueTotal;

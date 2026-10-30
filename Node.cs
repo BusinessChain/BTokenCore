@@ -13,11 +13,7 @@ public class Node
   {
     SemaphoreSlim semaphoreBlockchain = new(1);
 
-    TokenBitcoin tokenBitcoin = new();
-
-    BlockchainBitcoin = new(
-      tokenBitcoin,
-      semaphoreBlockchain);
+    BlockchainBitcoin = new(semaphoreBlockchain);
 
     ConfigNetwork ConfigNetworkBitcoin = new()
     {
@@ -41,7 +37,6 @@ public class Node
 
 
     BlockchainBToken = new(
-      new TokenBToken(),
       blockchainParent: BlockchainBitcoin,
       semaphoreBlockchain);
 
@@ -57,7 +52,7 @@ public class Node
       communication,
       ConfigNetworkBToken);
 
-    Miner = new(tokenBitcoin, BlockchainBToken, NetworkBitcoin);
+    Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin);
 
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.InsertHeaderPlaceholder;
     BlockchainBitcoin.OnBlockInserted += BlockchainBToken.TriggerBootstrap;

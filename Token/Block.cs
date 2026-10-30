@@ -8,7 +8,7 @@ namespace BTokenCore;
 
 public class Block
 {
-  Token Token;
+  Blockchain Blockchain;
 
   internal Header Header;
   internal List<TX> TXs = new();
@@ -21,10 +21,10 @@ public class Block
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal Block(Token token)
+  internal Block(Blockchain blockchain)
   {
-    Token = token;
-    Buffer = new byte[token.GetSizeBlockBuffer()];
+    Blockchain = blockchain;
+    Buffer = new byte[blockchain.GetSizeBlockBuffer()];
   }
 
   internal void LoadBuffer(byte[] bytes)
@@ -49,7 +49,7 @@ public class Block
 
     for (int t = 0; t < Header.CountTXs; t += 1)
     {
-      TX tX = Token.ParseTX(Buffer, ref startIndex, SHA256, flagIsCoinbase: t == 0);
+      TX tX = Blockchain.ParseTX(Buffer, ref startIndex, SHA256, flagIsCoinbase: t == 0);
 
       if (!hashesTX.Add(tX.Hash))
         throw new ProtocolException($"Block {Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");
@@ -108,7 +108,7 @@ public class Block
 
   void ParseHeader(ref int startIndex)
   {
-    Header header = Token.ParseHeader(Buffer, ref startIndex, SHA256);
+    Header header = Blockchain.ParseHeader(Buffer, ref startIndex, SHA256);
 
     if (Header == null)
       Header = header;

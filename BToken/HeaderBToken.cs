@@ -1,6 +1,6 @@
 ﻿namespace BTokenCore;
 
-public partial class TokenBToken : Token
+internal partial class BlockchainBToken : Blockchain
 {
   public class HeaderBToken : Header
   {

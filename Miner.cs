@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal class Miner
 {
-  TokenBitcoin TokenBitcoin;
+  BlockchainBitcoin BlockchainBitcoin;
   BlockchainBToken BlockchainBToken;
   Network NetworkBitcoin;
 
@@ -18,11 +18,11 @@ internal class Miner
 
 
   internal Miner(
-    TokenBitcoin tokenBitcoin,
+    BlockchainBitcoin blockchainBitcoin,
     BlockchainBToken blockchainBToken,
     Network networkBitcoin)
   {
-    TokenBitcoin = tokenBitcoin;
+    BlockchainBitcoin = blockchainBitcoin;
     BlockchainBToken = blockchainBToken;
     NetworkBitcoin = networkBitcoin;
 
@@ -71,7 +71,7 @@ internal class Miner
       if (bsonDocumentBlock == null)
         return;
 
-      block = new(BlockchainBToken.Token);
+      block = new(BlockchainBToken);
       block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
     }
 
@@ -86,7 +86,7 @@ internal class Miner
     if (!IsMining)
       return;
 
-    if (!TokenBitcoin.IsTXAnchorOpen())
+    if (!BlockchainBitcoin.IsTXAnchorOpen())
     {
       BlocksMinedCache.Clear();
       DatabaseBlocksMinedCollection.DeleteAll();
@@ -94,7 +94,7 @@ internal class Miner
 
     Block block = BlockchainBToken.MineBlock(out TXOutputTokenAnchor anchorToken);
 
-    if (!TokenBitcoin.TryCreateTXAnchor(anchorToken, FeePerByte, out TX tX))
+    if (!BlockchainBitcoin.TryCreateTXAnchor(anchorToken, FeePerByte, out TX tX))
       return;
 
     block.Serialize();

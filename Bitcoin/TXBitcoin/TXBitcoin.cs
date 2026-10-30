@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public partial class TokenBitcoin : Token
+internal partial class BlockchainBitcoin : Blockchain
 {
   internal class TXBitcoin : TX
   {
@@ -81,7 +81,7 @@ public partial class TokenBitcoin : Token
         List<byte> tXRawSign = tXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
-        byte[] publicScript = PREFIX_P2PKH.Concat(wallet.Hash160PKeyPublic).Concat(POSTFIX_P2PKH).ToArray();
+        byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(wallet.Hash160PKeyPublic).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
 
         tXRawSign[indexRawSign++] = (byte)publicScript.Length;
         tXRawSign.InsertRange(indexRawSign, publicScript);

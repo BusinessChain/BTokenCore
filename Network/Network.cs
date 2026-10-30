@@ -54,7 +54,7 @@ internal partial class Network
 
     int index = 0;
 
-    TX tX = Blockchain.Token.ParseTX(tXRaw, ref index, sHA256, flagIsCoinbase: false);
+    TX tX = Blockchain.ParseTX(tXRaw, ref index, sHA256, flagIsCoinbase: false);
 
     await ((BlockchainBToken)Blockchain).AddTX(tX);
 
@@ -211,8 +211,8 @@ internal partial class Network
   {
     Dictionary<string, NetworkMessage> protocol = new();
 
-    Block blockDownload = new(Blockchain.Token);
-    Block blockUpload = new(Blockchain.Token);
+    Block blockDownload = new(Blockchain);
+    Block blockUpload = new(Blockchain);
 
     protocol.Add(GetDataMessage.Command, new GetDataMessage(Blockchain, blockUpload));
     protocol.Add(HeadersMessage.Command, new HeadersMessage(Blockchain));

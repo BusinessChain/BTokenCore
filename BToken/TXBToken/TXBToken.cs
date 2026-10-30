@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 
 namespace BTokenCore;
 
-public partial class TokenBToken : Token
+internal partial class BlockchainBToken : Blockchain
 {
   internal class TXBToken : TX
   {

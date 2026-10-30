@@ -32,9 +32,9 @@ public abstract class TX
 
     TXOutput tXOutput;
 
-    if (lengthScript == Token.LENGTH_SCRIPT_P2PKH &&
-      Token.PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript) &&
-      Token.POSTFIX_P2PKH.IsAllBytesEqual(buffer, indexScript + Token.LENGTH_SCRIPT_P2PKH - Token.POSTFIX_P2PKH.Length))
+    if (lengthScript == TXOutputP2PKH.LENGTH_SCRIPT_P2PKH &&
+      TXOutputP2PKH.PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript) &&
+      TXOutputP2PKH.POSTFIX_P2PKH.IsAllBytesEqual(buffer, indexScript + TXOutputP2PKH.LENGTH_SCRIPT_P2PKH - TXOutputP2PKH.POSTFIX_P2PKH.Length))
     {
       tXOutput = new TXOutputP2PKH(buffer, indexScript);
     }
