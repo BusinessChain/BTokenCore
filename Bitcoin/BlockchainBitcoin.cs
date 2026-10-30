@@ -34,50 +34,6 @@ internal partial class BlockchainBitcoin : Blockchain
       LoadTXAnchorOpen(documentAnchor);
   }
 
-  protected override void ParseBlockStored(Block block)
-  {
-    block.ParseCompact();
-  }
-
-  protected override byte[] SerializeBlockStored(Block block)
-  {
-    return block.SerializeCompact();
-  }
-
-  internal async Task<TX> GetTXAnchorOpen(byte[] hash)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
-        return TXAnchorOpen;
-
-      return null;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
-  internal bool IsTXAnchorOpen()
-  {
-    return TXAnchorOpen != null;
-  }
-
-  void LoadTXAnchorOpen(BsonDocument documentAnchor)
-  {
-    byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
-    int index = 0;
-
-    TXAnchorOpen = new TXBitcoin(tXRaw, ref index, Wallet.SHA256, flagIsCoinbase: false)
-    {
-      TXRaw = tXRaw,
-      Fee = documentAnchor["fee"].AsInt64
-    };
-  }
-
   protected override Header CreateHeaderGenesis()
   {
     HeaderBitcoin header = new(
@@ -144,6 +100,105 @@ internal partial class BlockchainBitcoin : Blockchain
   internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
   {
     return new TXBitcoin(buffer, ref index, sHA256, flagIsCoinbase);
+  }
+
+  protected override void ParseBlockStored(Block block)
+  {
+    block.ParseCompact();
+  }
+
+  protected override byte[] SerializeBlockStored(Block block)
+  {
+    return block.SerializeCompact();
+  }
+
+  protected override void InsertBlock(Block block)
+  {
+    int height = block.Header.Height;
+
+    int heightPruning = height - MAX_COUNT_BLOCKS_STORED;
+
+    OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
+    AnchorsOwned.DeleteMany(Query.Between("heightConfirmed", 1, heightPruning));
+
+    foreach (TXBitcoin tX in block.TXs)
+    {
+      foreach (TXInputBitcoin tXInput in tX.Inputs)
+      {
+        if (OutputsOwned.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
+        {
+          outputSpent.HeightSpent = height;
+          OutputsOwned.Update(outputSpent);
+        }
+
+        if (TXAnchorOpen != null &&
+          TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
+        {
+          BsonDocument documentAnchor = AnchorsOwned.FindById(TXAnchorOpen.Hash);
+          documentAnchor["heightConfirmed"] = height;
+          AnchorsOwned.Update(documentAnchor);
+
+          TXAnchorOpen = null;
+        }
+      }
+
+      for (int i = 0; i < tX.TXOutputs.Count; i++)
+        if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
+          tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
+          OutputsOwned.Insert(new TXOutputOwned
+          {
+            ID = TXOutputOwned.CreateID(tX.Hash, i),
+            TXID = tX.Hash,
+            Index = i,
+            Value = tXOutput.Value,
+            HeightCreated = height
+          });
+    }
+  }
+
+  protected override void RollBackBlock(Block block)
+  {
+    int height = block.Header.Height;
+
+    OutputsOwned.DeleteMany(Query.EQ("HeightCreated", height));
+
+    foreach (TXOutputOwned outputSpent in OutputsOwned.Find(Query.EQ("HeightSpent", height)).ToList())
+    {
+      outputSpent.HeightSpent = 0;
+      OutputsOwned.Update(outputSpent);
+    }
+
+    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", height)) is BsonDocument documentAnchor)
+    {
+      AnchorsOwned.DeleteMany(Query.EQ("heightConfirmed", 0));
+
+      documentAnchor["heightConfirmed"] = 0;
+      AnchorsOwned.Update(documentAnchor);
+
+      LoadTXAnchorOpen(documentAnchor);
+    }
+  }
+
+  internal async Task<TX> GetTXAnchorOpen(byte[] hash)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
+        return TXAnchorOpen;
+
+      return null;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
+  internal bool IsTXAnchorOpen()
+  {
+    return TXAnchorOpen != null;
   }
 
   internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte, out TX tXAnchor)
@@ -221,70 +276,15 @@ internal partial class BlockchainBitcoin : Blockchain
     return true;
   }
 
-  protected override void InsertBlock(Block block)
+  void LoadTXAnchorOpen(BsonDocument documentAnchor)
   {
-    int height = block.Header.Height;
+    byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
+    int index = 0;
 
-    int heightPruning = height - MAX_COUNT_BLOCKS_STORED;
-
-    OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
-    AnchorsOwned.DeleteMany(Query.Between("heightConfirmed", 1, heightPruning));
-
-    foreach (TXBitcoin tX in block.TXs)
+    TXAnchorOpen = new TXBitcoin(tXRaw, ref index, Wallet.SHA256, flagIsCoinbase: false)
     {
-      foreach (TXInputBitcoin tXInput in tX.Inputs)
-      {
-        if (OutputsOwned.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
-        {
-          outputSpent.HeightSpent = height;
-          OutputsOwned.Update(outputSpent);
-        }
-
-        if (TXAnchorOpen != null &&
-          TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
-        {
-          BsonDocument documentAnchor = AnchorsOwned.FindById(TXAnchorOpen.Hash);
-          documentAnchor["heightConfirmed"] = height;
-          AnchorsOwned.Update(documentAnchor);
-
-          TXAnchorOpen = null;
-        }
-      }
-
-      for (int i = 0; i < tX.TXOutputs.Count; i++)
-        if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
-          tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-          OutputsOwned.Insert(new TXOutputOwned
-          {
-            ID = TXOutputOwned.CreateID(tX.Hash, i),
-            TXID = tX.Hash,
-            Index = i,
-            Value = tXOutput.Value,
-            HeightCreated = height
-          });
-    }
-  }
-
-  protected override void RollBackBlock(Block block)
-  {
-    int height = block.Header.Height;
-
-    OutputsOwned.DeleteMany(Query.EQ("HeightCreated", height));
-
-    foreach (TXOutputOwned outputSpent in OutputsOwned.Find(Query.EQ("HeightSpent", height)).ToList())
-    {
-      outputSpent.HeightSpent = 0;
-      OutputsOwned.Update(outputSpent);
-    }
-
-    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", height)) is BsonDocument documentAnchor)
-    {
-      AnchorsOwned.DeleteMany(Query.EQ("heightConfirmed", 0));
-
-      documentAnchor["heightConfirmed"] = 0;
-      AnchorsOwned.Update(documentAnchor);
-
-      LoadTXAnchorOpen(documentAnchor);
-    }
+      TXRaw = tXRaw,
+      Fee = documentAnchor["fee"].AsInt64
+    };
   }
 }

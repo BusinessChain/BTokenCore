@@ -49,21 +49,6 @@ internal abstract partial class Blockchain
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }
 
-  public int GetSizeBlockBuffer()
-  {
-    return SizeBlockMax;
-  }
-
-  protected abstract Header CreateHeaderGenesis();
-
-  protected abstract void InsertBlock(Block block);
-
-  protected virtual void RollBackBlock(Block block) { }
-
-  internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
-
-  internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
-
   internal async Task LockBlockchain()
   {
     await SemaphoreBlockchain.WaitAsync().ConfigureAwait(false);
@@ -72,6 +57,43 @@ internal abstract partial class Blockchain
   internal void ReleaseLockBlockchain()
   {
     SemaphoreBlockchain.Release();
+  }
+
+  protected abstract Header CreateHeaderGenesis();
+
+  internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
+
+  internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
+
+  protected abstract void ParseBlockStored(Block block);
+
+  protected abstract byte[] SerializeBlockStored(Block block);
+
+  public int GetSizeBlockBuffer()
+  {
+    return SizeBlockMax;
+  }
+
+  internal Block TakeBlockFromPool()
+  {
+    if (!PoolBlocks.TryTake(out Block block))
+      block = new Block(this);
+
+    return block;
+  }
+
+  protected bool TryLoadBlock(int height, out Block block)
+  {
+    block = null;
+
+    BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
+    if (bsonDocumentBlock == null)
+      return false;
+
+    block = TakeBlockFromPool();
+    block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+
+    return true;
   }
 
   internal async Task GetBlock(byte[] hash, Block blockLoad)
@@ -107,29 +129,6 @@ internal abstract partial class Blockchain
     {
       blockLoad.Header = null;
     }
-  }
-
-  internal virtual Task<byte[]> GetDB(byte[] hash)
-  {
-    return Task.FromResult<byte[]>(null);
-  }
-
-  internal virtual Task<byte[]> GetHashDBMissing()
-  {
-    return Task.FromResult<byte[]>(null);
-  }
-
-  internal int GetHeight()
-  {
-    return ChainRoot.HeaderTipBlockchain.Height;
-  }
-
-  internal Block TakeBlockFromPool()
-  {
-    if (!PoolBlocks.TryTake(out Block block))
-      block = new Block(this);
-
-    return block;
   }
 
   internal void LoadBlockchain()
@@ -173,67 +172,9 @@ internal abstract partial class Blockchain
     return bsonDocumentBlockOldest["_id"].AsInt32;
   }
 
-  protected abstract void ParseBlockStored(Block block);
+  protected abstract void InsertBlock(Block block);
 
-  protected abstract byte[] SerializeBlockStored(Block block);
-
-  protected bool TryLoadBlock(int height, out Block block)
-  {
-    block = null;
-
-    BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
-    if (bsonDocumentBlock == null)
-      return false;
-
-    block = TakeBlockFromPool();
-    block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-
-    return true;
-  }
-
-  internal async Task<Header> TryInsertHeadersInTree(List<Header> headers)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
-
-      return headerLastInTree;
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
-
-  internal async Task<Header> FetchHeaderBlockMissingNext(
-    Header headerTipSupplier,
-    Func<Header, bool> canSupplierDeliverBlock)
-  {
-    try
-    {
-      await LockBlockchain();
-
-      if (headerTipSupplier == null)
-        return ChainRoot.FetchHeaderBlockMissingNextInTree(
-          ChainRoot.HeaderTipBlockchain.Height,
-          canSupplierDeliverBlock);
-
-      bool isTipSupplierAhead = headerTipSupplier.Height > ChainRoot.HeaderTipBlockchain.Height;
-
-      if (!isTipSupplierAhead)
-        return null;
-
-      return ChainRoot.FindChain(headerTipSupplier)?.FetchHeaderBlockMissingNextInChain(
-        headerTipSupplier.Height,
-        canSupplierDeliverBlock);
-    }
-    finally
-    {
-      ReleaseLockBlockchain();
-    }
-  }
+  protected virtual void RollBackBlock(Block block) { }
 
   internal async Task<bool> TryInsertBlock(Block block)
   {
@@ -362,7 +303,66 @@ internal abstract partial class Blockchain
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
-      ChainRoot.Blocks.Add(header.Height, block); 
+      ChainRoot.Blocks.Add(header.Height, block);
+    }
+  }
+
+  internal virtual Task<byte[]> GetDB(byte[] hash)
+  {
+    return Task.FromResult<byte[]>(null);
+  }
+
+  internal virtual Task<byte[]> GetHashDBMissing()
+  {
+    return Task.FromResult<byte[]>(null);
+  }
+
+  internal int GetHeight()
+  {
+    return ChainRoot.HeaderTipBlockchain.Height;
+  }
+
+  internal async Task<Header> TryInsertHeadersInTree(List<Header> headers)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
+
+      return headerLastInTree;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
+  internal async Task<Header> FetchHeaderBlockMissingNext(
+    Header headerTipSupplier,
+    Func<Header, bool> canSupplierDeliverBlock)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      if (headerTipSupplier == null)
+        return ChainRoot.FetchHeaderBlockMissingNextInTree(
+          ChainRoot.HeaderTipBlockchain.Height,
+          canSupplierDeliverBlock);
+
+      bool isTipSupplierAhead = headerTipSupplier.Height > ChainRoot.HeaderTipBlockchain.Height;
+
+      if (!isTipSupplierAhead)
+        return null;
+
+      return ChainRoot.FindChain(headerTipSupplier)?.FetchHeaderBlockMissingNextInChain(
+        headerTipSupplier.Height,
+        canSupplierDeliverBlock);
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
     }
   }
 
