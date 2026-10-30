@@ -45,37 +45,22 @@ public partial class TokenBToken : Token
       Token = token;
     }
 
-    internal Account GetCopyOfAccount(byte[] accountID)
-    {
-      Account account;
-
-      account = Token.Accounts.GetCopyOfAccount(accountID);
-
-      if (TXsByIDAccountSource.TryGetValue(accountID, out List<TXBToken> tXsInPool))
-      {
-        account.Balance -= tXsInPool.Sum(t => t.GetValueOutputs() + t.Fee);
-        account.Nonce += tXsInPool.Count;
-      }
-
-      if (OutputValuesByIDAccount.TryGetValue(accountID, out long valueTotal))
-        account.Balance += valueTotal;
-
-      return account;
-    }
-
     internal void AddTX(TX tX)
     {
       TXBToken tXBToken = tX as TXBToken;
 
-      Account accountSource = GetCopyOfAccount(tXBToken.IDAccountSource);
+      Account accountTrial = Token.Accounts.GetCopyOfAccount(tXBToken.IDAccountSource);
 
-      if (accountSource.Nonce != tXBToken.Nonce)
-        throw new ProtocolException($"Nonce {tXBToken.Nonce} of tX {tXBToken} not equal " +
-          $"to unconfirmed nonce {accountSource.Nonce} of account {accountSource}.");
+      if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBToken> tXsInPool))
+      {
+        accountTrial.Balance -= tXsInPool.Sum(t => t.GetValueOutputs() + t.Fee);
+        accountTrial.Nonce += tXsInPool.Count;
+      }
 
-      if (accountSource.Balance < tXBToken.GetValueOutputs() + tXBToken.Fee)
-        throw new ProtocolException($"Value {tXBToken.GetValueOutputs() + tXBToken.Fee} of tX {tXBToken} " +
-          $"bigger than unconfirmed balance {accountSource.Balance} of account {accountSource}.");
+      if (OutputValuesByIDAccount.TryGetValue(tXBToken.IDAccountSource, out long valueTotal))
+        accountTrial.Balance += valueTotal;
+
+      accountTrial.SpendTX(tXBToken);
 
       InsertTX(tXBToken, flagAhead: false);
 
@@ -157,16 +142,18 @@ public partial class TokenBToken : Token
         {
           List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
 
-          long balance = Token.Accounts.LoadAccount(iDAccountSource, 0).Balance;
+          Account account = Token.Accounts.LoadAccount(iDAccountSource, 0);
 
           if (OutputValuesByIDAccount.TryGetValue(iDAccountSource, out long valueTotal))
-            balance += valueTotal;
+            account.Balance += valueTotal;
 
           for (int i = 0; i < tXsInPool.Count; i += 1)
           {
-            balance -= tXsInPool[i].GetValueOutputs() + tXsInPool[i].Fee;
-
-            if (balance < 0)
+            try
+            {
+              account.SpendTX(tXsInPool[i]);
+            }
+            catch (ProtocolException)
             {
               foreach (TXBToken tXDropped in tXsInPool.Skip(i))
               {
