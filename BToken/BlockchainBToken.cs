@@ -120,6 +120,26 @@ internal class BlockchainBToken : Blockchain
     }
   }
 
+  internal async Task<TX> AddTX(byte[] tXRaw)
+  {
+    try
+    {
+      await LockBlockchain();
+
+      int index = 0;
+
+      TX tX = TokenBToken.ParseTX(tXRaw, ref index, TokenBToken.Wallet.SHA256, flagIsCoinbase: false);
+
+      TokenBToken.TXPool.AddTX(tX);
+
+      return tX;
+    }
+    finally
+    {
+      ReleaseLockBlockchain();
+    }
+  }
+
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
   {
     Block block = TokenBToken.MineBlock(ChainRoot.HeaderTipBlockchain, TakeBlockFromPool());

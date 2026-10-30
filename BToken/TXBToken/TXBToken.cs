@@ -82,6 +82,8 @@ public partial class TokenBToken : Token
         VerifySignatureTX(indexTxStart, buffer, ref index);
 
       CountBytes = index - indexTxStart;
+
+      TXRaw = buffer[indexTxStart..index];
     }
 
     internal void VerifySignatureTX(int indexTxStart, byte[] buffer, ref int index)
