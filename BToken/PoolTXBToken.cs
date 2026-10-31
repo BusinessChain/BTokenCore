@@ -35,8 +35,6 @@ internal partial class BlockchainBToken : Blockchain
 
     Dictionary<byte[], List<TXBToken>> TXsByIDAccountSource = new(new EqualityComparerByteArray());
 
-    Dictionary<byte[], long> OutputValuesByIDAccount = new(new EqualityComparerByteArray());
-
     /// <summary>
     /// A bundle conains tXs with the same source account with consecutive nonce.
     /// The miner can pull bundles from this list and be sure to have maximized fee.
@@ -60,9 +58,6 @@ internal partial class BlockchainBToken : Blockchain
         accountTrial.Balance -= tXsInPool.Sum(t => t.GetValueOutputs() + t.Fee);
         accountTrial.Nonce += tXsInPool.Count;
       }
-
-      if (OutputValuesByIDAccount.TryGetValue(tXBToken.IDAccountSource, out long valueTotal))
-        accountTrial.Balance += valueTotal;
 
       accountTrial.SpendTX(tXBToken);
 
@@ -119,7 +114,7 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       if (flagTXEvicted)
-        DropTXsNoLongerCoveredByBalance();
+        SortTXBundlesByFee();
     }
 
     void InsertTX(TXBToken tX, bool flagAhead)
@@ -141,11 +136,6 @@ internal partial class BlockchainBToken : Blockchain
         tXsInPool.Insert(0, tX);
       else
         tXsInPool.Add(tX);
-
-      foreach (TXOutput tXOutputBToken in tX.TXOutputs)
-        if (tXOutputBToken.Value > 0)
-          if (!OutputValuesByIDAccount.TryAdd(tXOutputBToken.IDAccount, tXOutputBToken.Value))
-            OutputValuesByIDAccount[tXOutputBToken.IDAccount] += tXOutputBToken.Value;
     }
 
     internal void RemoveTXs(Block block)
@@ -175,43 +165,32 @@ internal partial class BlockchainBToken : Blockchain
 
     void DropTXsNoLongerCoveredByBalance()
     {
-      bool flagTXDropped;
-
-      do
+      foreach (byte[] iDAccountSource in TXsByIDAccountSource.Keys.ToList())
       {
-        flagTXDropped = false;
+        List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
 
-        foreach (byte[] iDAccountSource in TXsByIDAccountSource.Keys.ToList())
+        Account account = Blockchain.Accounts.LoadAccount(iDAccountSource, 0);
+
+        for (int i = 0; i < tXsInPool.Count; i += 1)
         {
-          List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
-
-          Account account = Blockchain.Accounts.LoadAccount(iDAccountSource, 0);
-
-          if (OutputValuesByIDAccount.TryGetValue(iDAccountSource, out long valueTotal))
-            account.Balance += valueTotal;
-
-          for (int i = 0; i < tXsInPool.Count; i += 1)
+          try
           {
-            try
-            {
-              account.SpendTX(tXsInPool[i]);
-            }
-            catch (ProtocolException)
-            {
-              foreach (TXBToken tXDropped in tXsInPool.Skip(i))
-                RemoveTXFromIndexes(tXDropped);
+            account.SpendTX(tXsInPool[i]);
+          }
+          catch (ProtocolException)
+          {
+            foreach (TXBToken tXDropped in tXsInPool.Skip(i))
+              RemoveTXFromIndexes(tXDropped);
 
-              tXsInPool.RemoveRange(i, tXsInPool.Count - i);
+            tXsInPool.RemoveRange(i, tXsInPool.Count - i);
 
-              if (tXsInPool.Count == 0)
-                TXsByIDAccountSource.Remove(iDAccountSource);
+            if (tXsInPool.Count == 0)
+              TXsByIDAccountSource.Remove(iDAccountSource);
 
-              flagTXDropped = true;
-              break;
-            }
+            break;
           }
         }
-      } while (flagTXDropped);
+      }
 
       SortTXBundlesByFee();
     }
@@ -221,15 +200,6 @@ internal partial class BlockchainBToken : Blockchain
       TXsByHash.Remove(tX.Hash);
 
       CountBytesTXs -= tX.CountBytes;
-
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput.Value > 0)
-        {
-          OutputValuesByIDAccount[tXOutput.IDAccount] -= tXOutput.Value;
-
-          if (OutputValuesByIDAccount[tXOutput.IDAccount] == 0)
-            OutputValuesByIDAccount.Remove(tXOutput.IDAccount);
-        }
     }
 
     void SortTXBundlesByFee()
