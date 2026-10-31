@@ -18,12 +18,14 @@ internal partial class BlockchainBToken : Blockchain
       internal TXBundle(TXBToken tX)
       {
         IDAccountSource = tX.IDAccountSource;
-        FeePerByte = (double)tX.Fee / tX.CountBytes;
+        FeePerByte = tX.GetFeePerByte();
         TXs = new List<TXBToken> { tX };
       }
     }
 
     const int COUNT_BYTES_MAX_POOL = 100 * SIZE_BLOCK_MAX;
+
+    const double FEE_PER_BYTE_INCREMENT = 1;
 
     BlockchainBToken Blockchain;
 
@@ -60,6 +62,10 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       accountTrial.SpendTX(tXBToken);
+
+      if (CountBytesTXs + tXBToken.CountBytes > COUNT_BYTES_MAX_POOL &&
+        tXBToken.GetFeePerByte() < TXBundlesSortedByFee[^1].FeePerByte + FEE_PER_BYTE_INCREMENT)
+        throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} does not outbid the full pool by the fee increment.");
 
       InsertTX(tXBToken, flagAhead: false);
 

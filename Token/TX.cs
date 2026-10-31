@@ -63,6 +63,11 @@ public abstract class TX
     }
   }
 
+  internal double GetFeePerByte()
+  {
+    return (double)Fee / CountBytes;
+  }
+
   internal long GetValueOutputs()
   {
     return TXOutputs.Sum(t => t.Value);
