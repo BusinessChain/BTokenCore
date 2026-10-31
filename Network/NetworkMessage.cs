@@ -637,8 +637,10 @@ internal partial class Network
     SHA256 SHA256 = SHA256.Create();
 
     const int SIZE_BUFFER_PAYLOAD = 100_000;
-    const int MAX_LEVEL_DOS = 2_000_000;
-    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
+    internal const int MAX_LEVEL_ANNOUNCED = 1_000_000;
+    const int MARGIN_LEVEL_DOS = 1_000_000;
+    const int MAX_LEVEL_DOS = MAX_LEVEL_ANNOUNCED + MARGIN_LEVEL_DOS;
+    internal const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
 
 
     internal TXMessage(BlockchainBToken blockchain, Network network)

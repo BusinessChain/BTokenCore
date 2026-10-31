@@ -20,12 +20,19 @@ internal class DOSMonitorPer10Minutes
 
   internal void Increment(int amount)
   {
+    if (!TryIncrement(amount))
+      throw new ProtocolException($"Exceed MaxLevel in DoS counter {GetType()}");
+  }
+
+  internal bool TryIncrement(int amount)
+  {
     Drain();
 
-    Level += amount;
+    if (Level + amount > MaxLevel)
+      return false;
 
-    if (Level > MaxLevel)
-      throw new ProtocolException($"Exceed MaxLevel in DoS counter {GetType()}");
+    Level += amount;
+    return true;
   }
 
   internal void Decrement(int amount)

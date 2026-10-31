@@ -270,7 +270,13 @@ internal partial class Network
               {
                 List<BlockchainBToken.TXBToken> tXsRanked = await ((BlockchainBToken)Blockchain).GetTXsRanked(hashesQueued);
 
-                hashesTX = tXsRanked.Take(InvMessage.MAX_COUNT_INVENTORIES).Select(t => t.Hash).ToList();
+                foreach (BlockchainBToken.TXBToken tX in tXsRanked)
+                {
+                  if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !peer.ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
+                    break;
+
+                  hashesTX.Add(tX.Hash);
+                }
 
                 hashesQueued.ExceptWith(tXsRanked.Skip(hashesTX.Count).Select(t => t.Hash));
 
