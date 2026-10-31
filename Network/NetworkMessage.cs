@@ -244,6 +244,8 @@ internal partial class Network
 
       int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
 
+      List<Inventory> inventoriesTXNotFound = new();
+
       for (int i = 0; i < inventoryCount; i++)
       {
         Inventory inventory = Inventory.Parse(Payload, ref startIndex);
@@ -263,6 +265,8 @@ internal partial class Network
 
           if (tX != null)
             await TXMessage.Send(peer, tX.TXRaw);
+          else
+            inventoriesTXNotFound.Add(inventory);
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
         {
@@ -292,6 +296,9 @@ internal partial class Network
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
       }
+
+      if (inventoriesTXNotFound.Count > 0)
+        await SendInventories(peer, NotFoundMessage.Command, inventoriesTXNotFound);
     }
 
   }
@@ -313,8 +320,25 @@ internal partial class Network
     {
       int startIndex = 0;
 
-      VarInt.GetInt(Payload, ref startIndex);
+      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
+      int startIndexInventories = startIndex;
       Inventory inventory = Inventory.Parse(Payload, ref startIndex);
+
+      if (inventory.Type == Inventory.InventoryType.MSG_TX)
+      {
+        startIndex = startIndexInventories;
+        bool isRequestAnswered = false;
+
+        lock (peer.HashesTXRequested)
+          for (int i = 0; i < inventoryCount; i++)
+            if (peer.HashesTXRequested.Remove(Inventory.Parse(Payload, ref startIndex).Hash))
+              isRequestAnswered = true;
+
+        if (isRequestAnswered)
+          DOSMonitor.Decrement(1);
+
+        return;
+      }
 
       if (inventory.Type == Inventory.InventoryType.MSG_DB)
       {
