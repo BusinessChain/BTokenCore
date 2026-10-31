@@ -75,8 +75,8 @@ internal partial class Network
         }
         else
         {
-          lock (peer.HashesTXKnown)
-            if (peer.HashesTXKnown.Contains(tX.Hash))
+          lock (peer.HashesTXRequested)
+            if (peer.HashesTXRequested.ContainsKey(tX.Hash))
               continue;
 
           lock (peer.HashesTXQueued)
@@ -92,8 +92,8 @@ internal partial class Network
         lock (peer.HashesTXAnnounced)
           peer.HashesTXAnnounced.Clear();
 
-        lock (peer.HashesTXKnown)
-          peer.HashesTXKnown.Clear();
+        lock (peer.HashesTXRequested)
+          peer.HashesTXRequested.Clear();
 
         if (block.Header.IsParentNewest())
           HeadersMessage.SendHeaders(peer, new List<byte[]> { block.Header.Serialize() });

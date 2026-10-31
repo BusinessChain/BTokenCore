@@ -588,10 +588,11 @@ internal partial class Network
           hashesTX.Add(inventory.Hash);
       }
 
-      lock (peer.HashesTXKnown)
-        peer.HashesTXKnown.UnionWith(hashesTX);
-
       List<byte[]> hashesTXNotInPool = await ((BlockchainBToken)Blockchain).GetHashesTXNotInPool(hashesTX);
+
+      lock (peer.HashesTXRequested)
+        foreach (byte[] hashTX in hashesTXNotInPool)
+          peer.HashesTXRequested.TryAdd(hashTX, DateTime.UtcNow);
 
       if (hashesTXNotInPool.Count > 0)
         await SendInventories(
@@ -674,13 +675,13 @@ internal partial class Network
       try
       {
         await Blockchain.AddTX(tX);
+        Network.Broadcast(tX);
       }
       catch (ProtocolException)
-      {
-        return;
-      }
+      { }
 
-      Network.Broadcast(tX);
+      lock (peer.HashesTXRequested)
+        peer.HashesTXRequested.Remove(tX.Hash);
     }
 
     internal static async Task Send(Peer peer, byte[] buffer)
