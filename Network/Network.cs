@@ -67,12 +67,7 @@ internal partial class Network
       foreach (Peer peer in Peers)
         // Reto: a future child-token anchor on the BToken network must bypass the batching as well.
         if (ConfigNetwork.IsProtocolBitcoin)
-        {
-          lock (peer.HashesTXAnnounced)
-            peer.HashesTXAnnounced.Add(tX.Hash);
-
           NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
-        }
         else
         {
           lock (peer.HashesTXRequested)
@@ -88,13 +83,8 @@ internal partial class Network
   {
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)
-      {
-        lock (peer.HashesTXAnnounced)
-          peer.HashesTXAnnounced.Clear();
-
         if (block.Header.IsParentNewest())
           HeadersMessage.SendHeaders(peer, new List<byte[]> { block.Header.Serialize() });
-      }
   }
 
   async Task StartPeerConnectorOutbound()
@@ -296,9 +286,6 @@ internal partial class Network
 
               if (hashesTX.Count > 0)
               {
-                lock (peer.HashesTXAnnounced)
-                  peer.HashesTXAnnounced.UnionWith(hashesTX);
-
                 await NetworkMessage.SendInventories(
                   peer,
                   InvMessage.Command,

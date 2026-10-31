@@ -18,6 +18,8 @@ internal class Inventory
     MSG_DB = 5
   }
 
+  internal const int LENGTH = 36;
+
   internal InventoryType Type;
   internal byte[] Hash;
 

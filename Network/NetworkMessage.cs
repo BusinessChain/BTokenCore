@@ -230,6 +230,10 @@ internal partial class Network
     const int MAX_LEVEL_DOS = 5;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
+    DOSMonitorPer10Minutes DOSMonitorTX = new(
+      TXMessage.MAX_LEVEL_DOS,
+      TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
+
 
     internal GetDataMessage(Blockchain blockchain, Block blockUpload)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
@@ -237,6 +241,9 @@ internal partial class Network
       Blockchain = blockchain;
       BlockUpload = blockUpload;
     }
+
+    internal override void IncrementDOSMonitor()
+    { }
 
     internal override async Task Run(Peer peer)
     {
@@ -252,10 +259,6 @@ internal partial class Network
 
         if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
-          lock (peer.HashesTXAnnounced)
-            if (peer.HashesTXAnnounced.Remove(inventory.Hash))
-              DOSMonitor.Decrement(1);
-
           TX tX;
 
           if (peer.ConfigNetwork.IsProtocolBitcoin)
@@ -264,12 +267,20 @@ internal partial class Network
             tX = await ((BlockchainBToken)Blockchain).GetTX(inventory.Hash);
 
           if (tX != null)
+          {
+            DOSMonitorTX.Increment(tX.TXRaw.Length);
             await TXMessage.Send(peer, tX.TXRaw);
+          }
           else
+          {
+            DOSMonitorTX.Increment(Inventory.LENGTH);
             inventoriesTXNotFound.Add(inventory);
+          }
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_BLOCK)
         {
+          DOSMonitor.Increment(1);
+
           BlockUpload.Header = null;
 
           await Blockchain.GetBlock(inventory.Hash, BlockUpload);
@@ -288,6 +299,8 @@ internal partial class Network
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_DB)
         {
+          DOSMonitor.Increment(1);
+
           byte[] dataDB = await Blockchain.GetDB(inventory.Hash);
 
           if (dataDB != null)
@@ -667,7 +680,7 @@ internal partial class Network
     const int SIZE_BUFFER_PAYLOAD = 100_000;
     internal const int MAX_LEVEL_ANNOUNCED = 1_000_000;
     const int MARGIN_LEVEL_DOS = 1_000_000;
-    const int MAX_LEVEL_DOS = MAX_LEVEL_ANNOUNCED + MARGIN_LEVEL_DOS;
+    internal const int MAX_LEVEL_DOS = MAX_LEVEL_ANNOUNCED + MARGIN_LEVEL_DOS;
     internal const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
 
 
