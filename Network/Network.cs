@@ -18,7 +18,7 @@ internal partial class Network
 
   const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
   const int TIMESPAN_MEAN_INV_SECONDS = 5;
-  const int TIMEOUT_BLOCK_REQUEST_SECONDS = 60;
+  const int TIMEOUT_REQUEST_SECONDS = 60;
 
   object LOCK_Peers = new();
   List<Peer> Peers = new();
@@ -91,9 +91,6 @@ internal partial class Network
       {
         lock (peer.HashesTXAnnounced)
           peer.HashesTXAnnounced.Clear();
-
-        lock (peer.HashesTXRequested)
-          peer.HashesTXRequested.Clear();
 
         if (block.Header.IsParentNewest())
           HeadersMessage.SendHeaders(peer, new List<byte[]> { block.Header.Serialize() });
@@ -266,6 +263,10 @@ internal partial class Network
           {
             await ((PingMessage)peer.ProtocolStateMachine[PingMessage.Command]).Ping(peer);
 
+            lock (peer.HashesTXRequested)
+              if (peer.HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))
+                throw new ProtocolException($"Peer did not answer a TX request within {TIMEOUT_REQUEST_SECONDS} seconds.");
+
             if (DateTime.UtcNow >= peer.TimeInvNext)
             {
               HashSet<byte[]> hashesQueued;
@@ -327,7 +328,7 @@ internal partial class Network
 
             await blockMessage.RequestBlockNext(peer);
           }
-          else if (DateTime.UtcNow - blockMessage.TimeRequest > TimeSpan.FromSeconds(TIMEOUT_BLOCK_REQUEST_SECONDS))
+          else if (DateTime.UtcNow - blockMessage.TimeRequest > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS))
             peer.SocketCommunication.Dispose();
         }
         catch
