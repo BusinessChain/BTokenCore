@@ -30,6 +30,7 @@ internal partial class Network
     internal HashSet<byte[]> HashesBlockRefused = new(new EqualityComparerByteArray());
 
     internal HashSet<byte[]> HashesTXAnnounced = new(new EqualityComparerByteArray());
+    internal HashSet<byte[]> HashesTXKnown = new(new EqualityComparerByteArray());
 
     internal HashSet<byte[]> HashesTXQueued = new(new EqualityComparerByteArray());
     internal DateTime TimeInvNext;

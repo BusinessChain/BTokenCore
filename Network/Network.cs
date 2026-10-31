@@ -74,8 +74,14 @@ internal partial class Network
           NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
         }
         else
+        {
+          lock (peer.HashesTXKnown)
+            if (peer.HashesTXKnown.Contains(tX.Hash))
+              continue;
+
           lock (peer.HashesTXQueued)
             peer.HashesTXQueued.Add(tX.Hash);
+        }
   }
 
   void HandleBlockInserted(Block block)
@@ -85,6 +91,9 @@ internal partial class Network
       {
         lock (peer.HashesTXAnnounced)
           peer.HashesTXAnnounced.Clear();
+
+        lock (peer.HashesTXKnown)
+          peer.HashesTXKnown.Clear();
 
         if (block.Header.IsParentNewest())
           HeadersMessage.SendHeaders(peer, new List<byte[]> { block.Header.Serialize() });

@@ -588,6 +588,9 @@ internal partial class Network
           hashesTX.Add(inventory.Hash);
       }
 
+      lock (peer.HashesTXKnown)
+        peer.HashesTXKnown.UnionWith(hashesTX);
+
       List<byte[]> hashesTXNotInPool = await ((BlockchainBToken)Blockchain).GetHashesTXNotInPool(hashesTX);
 
       if (hashesTXNotInPool.Count > 0)
