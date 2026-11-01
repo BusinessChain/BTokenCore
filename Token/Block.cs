@@ -8,8 +8,6 @@ public class Block
   internal Header Header;
   internal List<TX> TXs = new();
 
-  // The buffer is constant in size [SizeBlockMax]
-  // LengthDataPayload signifies the length of used data in buffer.
   internal byte[] Buffer;
   internal int LengthDataPayload;
 
