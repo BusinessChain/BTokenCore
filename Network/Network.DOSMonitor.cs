@@ -1,0 +1,51 @@
+namespace BTokenCore;
+
+
+internal partial class Network
+{
+  internal class DOSMonitor
+  {
+    double Level;
+    int MaxLevel;
+    int AmountDrainPer10Minutes;
+
+    DateTime TimestampLastDrain = DateTime.UtcNow;
+
+
+    internal DOSMonitor(int maxLevel, int amountDrainPer10Minutes)
+    {
+      MaxLevel = maxLevel;
+      AmountDrainPer10Minutes = amountDrainPer10Minutes;
+    }
+
+    internal void Increment(int amount)
+    {
+      if (!TryIncrement(amount))
+        throw new ProtocolException($"Exceed MaxLevel in DoS counter {GetType()}");
+    }
+
+    internal bool TryIncrement(int amount)
+    {
+      Drain();
+
+      if (Level + amount > MaxLevel)
+        return false;
+
+      Level += amount;
+      return true;
+    }
+
+    internal void Decrement(int amount)
+    {
+      Level = Math.Max(0, Level - amount);
+    }
+
+    void Drain()
+    {
+      DateTime now = DateTime.UtcNow;
+
+      Level = Math.Max(0, Level - AmountDrainPer10Minutes * (now - TimestampLastDrain) / TimeSpan.FromMinutes(10));
+      TimestampLastDrain = now;
+    }
+  }
+}

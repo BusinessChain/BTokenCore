@@ -10,14 +10,14 @@ internal partial class Network
     internal byte[] Payload;
     internal int LengthDataPayload;
 
-    protected DOSMonitorPer10Minutes DOSMonitor;
+    protected DOSMonitor DOSMonitor;
 
 
     internal NetworkMessage(byte[] payload, int maxLevelDoS, int amountDrainDoSPer10Minutes)
     {
       Payload = payload;
       LengthDataPayload = payload.Length;
-      DOSMonitor = new DOSMonitorPer10Minutes(maxLevelDoS, amountDrainDoSPer10Minutes);
+      DOSMonitor = new DOSMonitor(maxLevelDoS, amountDrainDoSPer10Minutes);
     }
 
     internal virtual byte[] GetPayloadBuffer()
@@ -51,7 +51,7 @@ internal partial class Network
   {
     internal const string Command = "addr";
 
-    internal List<NetworkAddress> NetworkAddresses = new();
+    internal List<Address> NetworkAddresses = new();
 
     const int SIZE_BUFFER_PAYLOAD = 30_003;
     const int MAX_LEVEL_DOS = 10;
@@ -73,7 +73,7 @@ internal partial class Network
 
       for (int i = 0; i < addressesCount; i++)
       {
-        NetworkAddress address = NetworkAddress.ParseAddress(
+        Address address = Address.ParseAddress(
             Payload, ref startIndex);
 
         if (NetworkAddresses.Any(
@@ -229,7 +229,7 @@ internal partial class Network
     const int MAX_LEVEL_DOS = 5;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
-    DOSMonitorPer10Minutes DOSMonitorTX = new(
+    DOSMonitor DOSMonitorTX = new(
       TXMessage.MAX_LEVEL_DOS,
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 

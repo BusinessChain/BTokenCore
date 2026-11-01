@@ -33,7 +33,7 @@ internal partial class Network
 
     internal HashSet<byte[]> HashesTXQueued = new(new EqualityComparerByteArray());
     internal DateTime TimeInvNext;
-    internal DOSMonitorPer10Minutes ThrottleTXAnnouncedToPeer = new(
+    internal DOSMonitor ThrottleTXAnnouncedToPeer = new(
       TXMessage.MAX_LEVEL_ANNOUNCED,
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 
