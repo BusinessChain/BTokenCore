@@ -194,10 +194,14 @@ internal abstract partial class Blockchain
   {
     return RunLocked(() =>
     {
-      if (!ChainRoot.TryQueueBlock(block, out Chain chain))
+      if (!ChainRoot.TryRemoveHeaderAwaited(block.Header.Hash, out Header headerAwaited, out Chain chainAwaiting))
         return false;
 
-      UpdateTipBlockchain(chain);
+      block.Header = headerAwaited;
+      block.Parse();
+      chainAwaiting.Blocks.Add(headerAwaited.Height, block);
+
+      UpdateTipBlockchain(chainAwaiting);
 
       return true;
     });

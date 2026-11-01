@@ -316,22 +316,19 @@ internal partial class Blockchain
       return null;
     }
 
-    internal bool TryQueueBlock(Block block, out Chain chainQueued)
+    internal bool TryRemoveHeaderAwaited(byte[] hash, out Header headerAwaited, out Chain chainAwaiting)
     {
-      if (HeadersAwaitingBlock.Remove(block.Header.Hash, out Header headerAwaited))
+      if (HeadersAwaitingBlock.Remove(hash, out headerAwaited))
       {
-        block.Header = headerAwaited;
-        block.Parse();
-        Blocks.Add(block.Header.Height, block);
-        chainQueued = this;
+        chainAwaiting = this;
         return true;
       }
 
-      foreach (Chain chain in ChainsChild)
-        if (chain.TryQueueBlock(block, out chainQueued))
+      foreach (Chain chainChild in ChainsChild)
+        if (chainChild.TryRemoveHeaderAwaited(hash, out headerAwaited, out chainAwaiting))
           return true;
 
-      chainQueued = null;
+      chainAwaiting = null;
       return false;
     }
 
