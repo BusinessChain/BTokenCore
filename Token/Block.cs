@@ -13,8 +13,6 @@ public class Block
   internal byte[] Buffer;
   internal int LengthDataPayload;
 
-  SHA256 SHA256 = SHA256.Create();
-
 
   internal Block(int sizeBuffer)
   {
@@ -56,7 +54,7 @@ public class Block
         merkleList[i2].CopyTo(leafPair, 0);
         merkleList[i2 + 1].CopyTo(leafPair, HASH_BYTE_SIZE);
 
-        merkleList[i] = SHA256.ComputeHash(SHA256.ComputeHash(leafPair));
+        merkleList[i] = SHA256.HashData(SHA256.HashData(leafPair));
       }
 
       if (merkleIndex == 1)
