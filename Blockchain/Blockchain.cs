@@ -136,15 +136,10 @@ internal abstract partial class Blockchain
 
   protected abstract byte[] SerializeBlockStored(Block block);
 
-  public int GetSizeBlockBuffer()
-  {
-    return SizeBlockMax;
-  }
-
   internal Block TakeBlockFromPool()
   {
     if (!PoolBlocks.TryTake(out Block block))
-      block = new Block(this);
+      block = new Block(SizeBlockMax);
 
     return block;
   }
@@ -189,7 +184,7 @@ internal abstract partial class Blockchain
 
   internal void LoadBlockchain()
   {
-    Block blockLoad = new(this);
+    Block blockLoad = new(SizeBlockMax);
 
     foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
       try

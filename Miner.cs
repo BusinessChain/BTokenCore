@@ -68,7 +68,7 @@ internal class Miner
       if (bsonDocumentBlock == null)
         return;
 
-      block = new(BlockchainBToken);
+      block = new(BlockchainBToken.SizeBlockMax);
       block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
     }
 

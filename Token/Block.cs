@@ -5,8 +5,6 @@ namespace BTokenCore;
 
 public class Block
 {
-  Blockchain Blockchain;
-
   internal Header Header;
   internal List<TX> TXs = new();
 
@@ -18,10 +16,9 @@ public class Block
   SHA256 SHA256 = SHA256.Create();
 
 
-  internal Block(Blockchain blockchain)
+  internal Block(int sizeBuffer)
   {
-    Blockchain = blockchain;
-    Buffer = new byte[blockchain.GetSizeBlockBuffer()];
+    Buffer = new byte[sizeBuffer];
   }
 
   internal void LoadBuffer(byte[] bytes)

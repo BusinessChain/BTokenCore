@@ -207,8 +207,8 @@ internal partial class Network
   {
     Dictionary<string, NetworkMessage> protocol = new();
 
-    Block blockDownload = new(Blockchain);
-    Block blockUpload = new(Blockchain);
+    Block blockDownload = new(Blockchain.SizeBlockMax);
+    Block blockUpload = new(Blockchain.SizeBlockMax);
 
     protocol.Add(GetDataMessage.Command, new GetDataMessage(Blockchain, blockUpload));
     protocol.Add(HeadersMessage.Command, new HeadersMessage(Blockchain));
