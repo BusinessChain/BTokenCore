@@ -502,8 +502,6 @@ internal partial class Network
     Blockchain Blockchain;
     internal Header HeaderTipReceivedLast;
 
-    SHA256 SHA256 = SHA256.Create();
-
 
     internal HeadersMessage(Blockchain blockchain)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
@@ -519,7 +517,7 @@ internal partial class Network
       if (!peer.ConfigNetwork.IsProtocolBitcoin)
       {
         if (countHeaders == 1)
-          peer.HashBlockAnnounced = Blockchain.ParseHeader(Payload, ref startIndex, SHA256).Hash;
+          peer.HashBlockAnnounced = Blockchain.ParseHeader(Payload, ref startIndex).Hash;
 
         return;
       }
@@ -539,7 +537,7 @@ internal partial class Network
 
       for (int i = 0; i < countHeaders; i++)
       {
-        headers.Add(Blockchain.ParseHeader(Payload, ref startIndex, SHA256));
+        headers.Add(Blockchain.ParseHeader(Payload, ref startIndex));
         VarInt.GetInt(Payload, ref startIndex);
       }
 

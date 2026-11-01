@@ -50,9 +50,9 @@ internal partial class BlockchainBitcoin : Blockchain
     return header;
   }
 
-  internal override Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  internal override Header ParseHeader(byte[] buffer, ref int index)
   {
-    return new HeaderBitcoin(buffer, ref index, sHA256);
+    return new HeaderBitcoin(buffer, ref index);
   }
 
   internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
@@ -62,12 +62,10 @@ internal partial class BlockchainBitcoin : Blockchain
 
   protected override void ParseBlockStored(Block block)
   {
-    using SHA256 sHA256 = SHA256.Create();
-
     block.TXs.Clear();
     int startIndex = 0;
 
-    ParseBlockHeader(block, ref startIndex, sHA256);
+    ParseBlockHeader(block, ref startIndex);
 
     int countAnchors = VarInt.GetInt(block.Buffer, ref startIndex);
 

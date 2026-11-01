@@ -55,9 +55,6 @@ public abstract class Header
 
   internal void ComputeHash()
   {
-    SHA256 sHA256 = SHA256.Create();
-
-    Hash = sHA256.ComputeHash(
-      sHA256.ComputeHash(Serialize()));
+    Hash = SHA256.HashData(SHA256.HashData(Serialize()));
   }
 }

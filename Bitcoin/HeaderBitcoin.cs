@@ -42,13 +42,9 @@ internal partial class BlockchainBitcoin : Blockchain
       Difficulty = ComputeDifficultyFromNBits(nBits);
     }
 
-    internal HeaderBitcoin(byte[] buffer, ref int index, SHA256 sHA256)
+    internal HeaderBitcoin(byte[] buffer, ref int index)
     {
-      Hash = sHA256.ComputeHash(
-        sHA256.ComputeHash(
-          buffer,
-          index,
-          COUNT_HEADER_BYTES));
+      Hash = SHA256.HashData(SHA256.HashData(buffer.AsSpan(index, COUNT_HEADER_BYTES)));
 
       Version = BitConverter.ToUInt32(buffer, index);
       index += 4;

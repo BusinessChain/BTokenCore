@@ -50,9 +50,9 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
-  internal override HeaderBToken ParseHeader(byte[] buffer, ref int index, SHA256 sHA256)
+  internal override HeaderBToken ParseHeader(byte[] buffer, ref int index)
   {
-    return new HeaderBToken(buffer, ref index, sHA256);
+    return new HeaderBToken(buffer, ref index);
   }
 
   internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)

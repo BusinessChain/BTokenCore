@@ -74,13 +74,13 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderGenesis();
 
-  internal abstract Header ParseHeader(byte[] buffer, ref int index, SHA256 sHA256);
+  internal abstract Header ParseHeader(byte[] buffer, ref int index);
 
   internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
-  protected void ParseBlockHeader(Block block, ref int startIndex, SHA256 sHA256)
+  protected void ParseBlockHeader(Block block, ref int startIndex)
   {
-    Header header = ParseHeader(block.Buffer, ref startIndex, sHA256);
+    Header header = ParseHeader(block.Buffer, ref startIndex);
 
     if (block.Header == null)
       block.Header = header;
@@ -97,7 +97,7 @@ internal abstract partial class Blockchain
     block.TXs.Clear();
     int startIndex = 0;
 
-    ParseBlockHeader(block, ref startIndex, sHA256);
+    ParseBlockHeader(block, ref startIndex);
 
     block.Header.CountTXs = VarInt.GetInt(block.Buffer, ref startIndex);
 
