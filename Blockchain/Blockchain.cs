@@ -90,7 +90,49 @@ internal abstract partial class Blockchain
       throw new ProtocolException($"Received unexpected block {header} expected was {block.Header}.");
   }
 
-  protected abstract void ParseBlockStored(Block block);
+  void ParseBlock(Block block)
+  {
+    using SHA256 sHA256 = SHA256.Create();
+
+    block.TXs.Clear();
+    int startIndex = 0;
+
+    ParseBlockHeader(block, ref startIndex, sHA256);
+
+    block.Header.CountTXs = VarInt.GetInt(block.Buffer, ref startIndex);
+
+    if (block.Header.CountTXs == 0)
+      throw new ProtocolException($"Block {block} lacks coinbase transaction.");
+
+    HashSet<byte[]> hashesTX = new(new EqualityComparerByteArray());
+
+    for (int t = 0; t < block.Header.CountTXs; t += 1)
+    {
+      TX tX = ParseTX(block.Buffer, ref startIndex, sHA256, flagIsCoinbase: t == 0);
+
+      if (!hashesTX.Add(tX.Hash))
+        throw new ProtocolException($"Block {block.Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");
+
+      block.TXs.Add(tX);
+    }
+
+    if (!block.Header.MerkleRoot.IsAllBytesEqual(block.ComputeMerkleRoot()))
+      throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
+
+    block.Header.Fee = block.TXs.Sum(t => t.Fee);
+
+    block.Header.VerifyCoinbase(block.TXs[0].GetValueOutputs());
+
+    foreach (TX tX in block.TXs)
+      foreach (TXOutput tXOutput in tX.TXOutputs)
+        if (tXOutput is TXOutputTokenAnchor tokenAnchor)
+          block.Header.AnchorsWinner.TryAdd(tokenAnchor.IDToken, tokenAnchor);
+  }
+
+  protected virtual void ParseBlockStored(Block block)
+  {
+    ParseBlock(block);
+  }
 
   protected abstract byte[] SerializeBlockStored(Block block);
 
@@ -198,7 +240,7 @@ internal abstract partial class Blockchain
         return false;
 
       block.Header = headerAwaited;
-      block.Parse();
+      ParseBlock(block);
       chainAwaiting.Blocks.Add(headerAwaited.Height, block);
 
       UpdateTipBlockchain(chainAwaiting);

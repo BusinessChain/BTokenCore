@@ -60,11 +60,6 @@ internal partial class BlockchainBToken : Blockchain
     return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
   }
 
-  protected override void ParseBlockStored(Block block)
-  {
-    block.Parse();
-  }
-
   protected override byte[] SerializeBlockStored(Block block)
   {
     DatabaseBlockCollection.DeleteMany(

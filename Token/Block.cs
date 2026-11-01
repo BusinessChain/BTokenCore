@@ -33,43 +33,6 @@ public class Block
     LengthDataPayload = bytes.Length;
   }
 
-  internal void Parse()
-  {
-    TXs.Clear();
-    int startIndex = 0;
-
-    Blockchain.ParseBlockHeader(this, ref startIndex, SHA256);
-
-    Header.CountTXs = VarInt.GetInt(Buffer, ref startIndex);
-
-    if (Header.CountTXs == 0)
-      throw new ProtocolException($"Block {this} lacks coinbase transaction.");
-
-    HashSet<byte[]> hashesTX = new(new EqualityComparerByteArray());
-
-    for (int t = 0; t < Header.CountTXs; t += 1)
-    {
-      TX tX = Blockchain.ParseTX(Buffer, ref startIndex, SHA256, flagIsCoinbase: t == 0);
-
-      if (!hashesTX.Add(tX.Hash))
-        throw new ProtocolException($"Block {Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");
-
-      TXs.Add(tX);
-    }
-
-    if (!Header.MerkleRoot.IsAllBytesEqual(ComputeMerkleRoot()))
-      throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
-
-    Header.Fee = TXs.Sum(t => t.Fee);
-
-    Header.VerifyCoinbase(TXs[0].GetValueOutputs());
-
-    foreach (TX tX in TXs)
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-          Header.AnchorsWinner.TryAdd(tokenAnchor.IDToken, tokenAnchor);
-  }
-
   internal void ParseCompact()
   {
     TXs.Clear();
