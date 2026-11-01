@@ -7,7 +7,7 @@ internal class Miner
 {
   BlockchainBitcoin BlockchainBitcoin;
   BlockchainBToken BlockchainBToken;
-  Network NetworkBitcoin;
+  NetworkBitcoin NetworkBitcoin;
 
   bool IsMining;
   long FeePerByte;
@@ -20,7 +20,7 @@ internal class Miner
   internal Miner(
     BlockchainBitcoin blockchainBitcoin,
     BlockchainBToken blockchainBToken,
-    Network networkBitcoin)
+    NetworkBitcoin networkBitcoin)
   {
     BlockchainBitcoin = blockchainBitcoin;
     BlockchainBToken = blockchainBToken;

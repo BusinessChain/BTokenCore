@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace BTokenCore;
 
-internal partial class Network
+internal abstract partial class Network
 {
   Blockchain Blockchain;
   Configuration ConfigurationNetwork;
@@ -25,7 +25,7 @@ internal partial class Network
   List<string> IPAddresses = new();
 
 
-  internal Network(
+  protected Network(
     Blockchain blockchain,
     ICommunication communication,
     Configuration configNetwork)

@@ -4,8 +4,8 @@ public class Node
 {
   internal BlockchainBitcoin BlockchainBitcoin;
   internal BlockchainBToken BlockchainBToken;
-  internal Network NetworkBitcoin;
-  internal Network NetworkBToken;
+  internal NetworkBitcoin NetworkBitcoin;
+  internal NetworkBToken NetworkBToken;
   internal Miner Miner;
 
 
@@ -16,25 +16,7 @@ public class Node
     #region Bitcoin
     BlockchainBitcoin = new(semaphoreBlockchain);
 
-    Network.Configuration ConfigNetworkBitcoin = new()
-    {
-      Port = 8333,
-      IsProtocolBitcoin = true,
-      NetworkServicesRemote = Network.Configuration.NODE_NETWORK,
-      SeedAddresses =
-        [
-          "seed.bitcoin.sipa.be",
-          "dnsseed.bluematt.me",
-          "dnsseed.bitcoin.dashjr.org",
-          "seed.bitcoinstats.com",
-          "seed.bitnodes.io"
-        ]
-    };
-
-    NetworkBitcoin = new(
-      BlockchainBitcoin,
-      communication, 
-      ConfigNetworkBitcoin);
+    NetworkBitcoin = new(BlockchainBitcoin, communication);
     #endregion
 
     #region BToken
@@ -42,17 +24,7 @@ public class Node
       blockchainParent: BlockchainBitcoin,
       semaphoreBlockchain);
 
-    Network.Configuration ConfigNetworkBToken = new()
-    {
-      Port = 8777,
-      EnableInboundConnections = true,
-      EnableRelay = true
-    };
-
-    NetworkBToken = new(
-      BlockchainBToken,
-      communication,
-      ConfigNetworkBToken);
+    NetworkBToken = new(BlockchainBToken, communication);
     #endregion
 
     Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin);
