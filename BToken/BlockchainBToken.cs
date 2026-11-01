@@ -296,7 +296,7 @@ internal partial class BlockchainBToken : Blockchain
 
     tX.TXOutputs.Add(new TXOutputP2PKH(blockReward, hash160PKeyPublic));
 
-    tX.SerializeUnsigned(Wallet.SHA256);
+    tX.SerializeUnsigned();
 
     return tX;
   }

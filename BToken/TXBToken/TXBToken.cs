@@ -101,14 +101,14 @@ internal partial class BlockchainBToken : Blockchain
 
     internal override void Serialize(Wallet wallet)
     {
-      SerializeUnsigned(wallet.SHA256);
+      SerializeUnsigned();
 
       byte[] signature = wallet.GetSignature(TXRaw);
 
       TXRaw = [.. TXRaw, (byte)signature.Length, .. signature];
     }
 
-    internal void SerializeUnsigned(SHA256 sHA256)
+    internal void SerializeUnsigned()
     {
       List<byte> tXRaw = new();
 
@@ -121,7 +121,7 @@ internal partial class BlockchainBToken : Blockchain
 
       TXRaw = tXRaw.ToArray();
 
-      Hash = sHA256.ComputeHash(sHA256.ComputeHash(TXRaw));
+      Hash = SHA256.HashData(SHA256.HashData(TXRaw));
     }
   }
 }

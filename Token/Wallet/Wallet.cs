@@ -1,12 +1,7 @@
-﻿using System.Security.Cryptography;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal class Wallet
 {
-  internal SHA256 SHA256 = SHA256.Create();
-
   internal string KeyPrivateDecimal;
   internal byte[] KeyPublic;
   internal byte[] Hash160PKeyPublic = new byte[20];

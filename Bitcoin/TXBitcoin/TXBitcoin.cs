@@ -68,7 +68,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
       TXRaw = tXRaw.ToArray();
 
-      Hash = wallet.SHA256.ComputeHash(wallet.SHA256.ComputeHash(TXRaw));
+      Hash = SHA256.HashData(SHA256.HashData(TXRaw));
     }
 
     void SignTX(List<byte> tXRaw, Wallet wallet)
@@ -86,7 +86,7 @@ internal partial class BlockchainBitcoin : Blockchain
         tXRawSign[indexRawSign++] = (byte)publicScript.Length;
         tXRawSign.InsertRange(indexRawSign, publicScript);
 
-        byte[] message = wallet.SHA256.ComputeHash(tXRawSign.ToArray());
+        byte[] message = SHA256.HashData(tXRawSign.ToArray());
 
         byte[] signature = wallet.GetSignature(message);
 
