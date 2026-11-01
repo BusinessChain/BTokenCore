@@ -27,8 +27,6 @@ internal class SocketTCP : ISocketCommunication
 
   SemaphoreSlim SemaphoreSendMessage = new(1);
 
-  SHA256 SHA256 = SHA256.Create();
-
   CancellationTokenSource Cancellation = new();
 
 
@@ -71,8 +69,7 @@ internal class SocketTCP : ISocketCommunication
       byte[] payloadLength = BitConverter.GetBytes(lengthDataPayload);
       NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
-      byte[] checksum = SHA256.ComputeHash(
-        SHA256.ComputeHash(payload, 0, lengthDataPayload));
+      byte[] checksum = SHA256.HashData(SHA256.HashData(payload.AsSpan(0, lengthDataPayload)));
 
       NetworkStream.Write(checksum, 0, ChecksumSize);
 
