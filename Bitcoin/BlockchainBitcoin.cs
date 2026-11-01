@@ -90,7 +90,12 @@ internal partial class BlockchainBitcoin : Blockchain
 
   protected override byte[] SerializeBlockStored(Block block)
   {
-    return block.SerializeCompact();
+    List<byte> bytes = [.. block.Header.Serialize(), .. VarInt.GetBytes(block.Header.AnchorsWinner.Count)];
+
+    foreach (TXOutputTokenAnchor anchor in block.Header.AnchorsWinner.Values)
+      bytes.AddRange([.. anchor.IDToken, .. anchor.HashBlockReferenced, .. anchor.HashBlockPreviousReferenced]);
+
+    return bytes.ToArray();
   }
 
   protected override void InsertBlock(Block block)

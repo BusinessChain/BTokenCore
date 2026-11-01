@@ -30,16 +30,6 @@ public class Block
     LengthDataPayload = bytes.Length;
   }
 
-  internal byte[] SerializeCompact()
-  {
-    List<byte> bytes = [.. Header.Serialize(), .. VarInt.GetBytes(Header.AnchorsWinner.Count)];
-
-    foreach (TXOutputTokenAnchor anchor in Header.AnchorsWinner.Values)
-      bytes.AddRange([.. anchor.IDToken, .. anchor.HashBlockReferenced, .. anchor.HashBlockPreviousReferenced]);
-
-    return bytes.ToArray();
-  }
-
   internal byte[] ComputeMerkleRoot()
   {
     const int HASH_BYTE_SIZE = 32;
