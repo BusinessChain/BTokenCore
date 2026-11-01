@@ -7,7 +7,7 @@ namespace BTokenCore;
 internal partial class Network
 {
   Blockchain Blockchain;
-  ConfigNetwork ConfigNetwork;
+  Configuration ConfigurationNetwork;
 
   ICommunication Communication;
 
@@ -28,11 +28,11 @@ internal partial class Network
   internal Network(
     Blockchain blockchain,
     ICommunication communication,
-    ConfigNetwork configNetwork)
+    Configuration configNetwork)
   {
     Blockchain = blockchain;
     Communication = communication;
-    ConfigNetwork = configNetwork;
+    ConfigurationNetwork = configNetwork;
 
     Blockchain.OnBlockInserted += HandleBlockInserted;
   }
@@ -41,7 +41,7 @@ internal partial class Network
   {
     StartPeerConnectorOutbound();
 
-    if (ConfigNetwork.EnableInboundConnections)
+    if (ConfigurationNetwork.EnableInboundConnections)
       StartPeerConnectorInbound();
 
     StartBlockDownloadDispatcher();
@@ -63,7 +63,7 @@ internal partial class Network
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)
         // Reto: a future child-token anchor on the BToken network must bypass the batching as well.
-        if (ConfigNetwork.IsProtocolBitcoin)
+        if (ConfigurationNetwork.IsProtocolBitcoin)
           NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
         else
         {
@@ -118,7 +118,7 @@ internal partial class Network
 
         string iP = "83.229.86.158"; // 84.74.69.100
 
-        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(ConfigNetwork.Port, iP);
+        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
 
         Peer peer = new(this, socketCommunication, Peer.ConnectionType.OUTBOUND);
 
@@ -137,7 +137,7 @@ internal partial class Network
   {
     while (IPAddresses.Count == 0)
     {
-      foreach (string dnsSeed in ConfigNetwork.SeedAddresses)
+      foreach (string dnsSeed in ConfigurationNetwork.SeedAddresses)
       {
         try
         {
@@ -167,7 +167,7 @@ internal partial class Network
 
   async Task StartPeerConnectorInbound()
   {
-    Communication.StartListenerCommunicationInbound(ConfigNetwork.Port);
+    Communication.StartListenerCommunicationInbound(ConfigurationNetwork.Port);
 
     while (true)
     {
@@ -218,7 +218,7 @@ internal partial class Network
     protocol.Add(UnknownMessage.Command, new UnknownMessage());
     protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
 
-    if (ConfigNetwork.IsProtocolBitcoin)
+    if (ConfigurationNetwork.IsProtocolBitcoin)
       protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
     else
     {

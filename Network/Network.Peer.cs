@@ -6,7 +6,7 @@ internal partial class Network
   {
     internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
 
-    internal ConfigNetwork ConfigNetwork;
+    internal Configuration ConfigurationNetwork;
 
     internal ISocketCommunication SocketCommunication;
 
@@ -45,7 +45,7 @@ internal partial class Network
       ISocketCommunication socketCommunication,
       ConnectionType connection)
     {
-      ConfigNetwork = network.ConfigNetwork;
+      ConfigurationNetwork = network.ConfigurationNetwork;
 
       ProtocolStateMachine = network.CreateStateMachineProtocol();
       SocketCommunication = socketCommunication;

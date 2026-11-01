@@ -260,7 +260,7 @@ internal partial class Network
         {
           TX tX;
 
-          if (peer.ConfigNetwork.IsProtocolBitcoin)
+          if (peer.ConfigurationNetwork.IsProtocolBitcoin)
             tX = await ((BlockchainBitcoin)Blockchain).GetTXAnchorOpen(inventory.Hash);
           else
             tX = await ((BlockchainBToken)Blockchain).GetTX(inventory.Hash);
@@ -473,7 +473,7 @@ internal partial class Network
     {
       List<byte> payload = new();
 
-      payload.AddRange(BitConverter.GetBytes(peer.ConfigNetwork.ProtocolVersion));
+      payload.AddRange(BitConverter.GetBytes(peer.ConfigurationNetwork.ProtocolVersion));
       payload.AddRange(VarInt.GetBytes(locator.Count()));
 
       foreach (byte[] locatorHash in locator)
@@ -513,7 +513,7 @@ internal partial class Network
       int startIndex = 0;
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
-      if (!peer.ConfigNetwork.IsProtocolBitcoin)
+      if (!peer.ConfigurationNetwork.IsProtocolBitcoin)
       {
         if (countHeaders == 1)
           peer.HashBlockAnnounced = Blockchain.ParseHeader(Payload, ref startIndex).Hash;
@@ -600,7 +600,7 @@ internal partial class Network
 
       int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
 
-      if (peer.ConfigNetwork.IsProtocolBitcoin)
+      if (peer.ConfigurationNetwork.IsProtocolBitcoin)
       {
         for (int i = 0; i < inventoryCount; i++)
           if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
@@ -747,7 +747,7 @@ internal partial class Network
     {
       peer.StateCurrent = Peer.StateProtocol.Idle;
 
-      if (peer.ConfigNetwork.IsProtocolBitcoin && peer.Connection == Peer.ConnectionType.OUTBOUND)
+      if (peer.ConfigurationNetwork.IsProtocolBitcoin && peer.Connection == Peer.ConnectionType.OUTBOUND)
         await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
     }
   }
@@ -778,7 +778,7 @@ internal partial class Network
 
     internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
     {
-      ConfigNetwork c = peer.ConfigNetwork;
+      Configuration c = peer.ConfigurationNetwork;
 
       byte[] buffer =
       [
@@ -802,7 +802,7 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
-      ulong networkServicesRequired = peer.ConfigNetwork.NetworkServicesRemote;
+      ulong networkServicesRequired = peer.ConfigurationNetwork.NetworkServicesRemote;
 
       if ((BitConverter.ToUInt64(Payload, 4) & networkServicesRequired) != networkServicesRequired)
         throw new ProtocolException($"Peer lacks network services {networkServicesRequired}.");

@@ -16,11 +16,11 @@ public class Node
     #region Bitcoin
     BlockchainBitcoin = new(semaphoreBlockchain);
 
-    ConfigNetwork ConfigNetworkBitcoin = new()
+    Network.Configuration ConfigNetworkBitcoin = new()
     {
       Port = 8333,
       IsProtocolBitcoin = true,
-      NetworkServicesRemote = ConfigNetwork.NODE_NETWORK,
+      NetworkServicesRemote = Network.Configuration.NODE_NETWORK,
       SeedAddresses =
         [
           "seed.bitcoin.sipa.be",
@@ -42,7 +42,7 @@ public class Node
       blockchainParent: BlockchainBitcoin,
       semaphoreBlockchain);
 
-    ConfigNetwork ConfigNetworkBToken = new()
+    Network.Configuration ConfigNetworkBToken = new()
     {
       Port = 8777,
       EnableInboundConnections = true,
