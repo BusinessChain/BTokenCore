@@ -78,7 +78,7 @@ internal abstract partial class Blockchain
 
   internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
-  internal void ParseBlockHeader(Block block, ref int startIndex, SHA256 sHA256)
+  protected void ParseBlockHeader(Block block, ref int startIndex, SHA256 sHA256)
   {
     Header header = ParseHeader(block.Buffer, ref startIndex, sHA256);
 

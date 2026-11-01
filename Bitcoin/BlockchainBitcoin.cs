@@ -62,7 +62,30 @@ internal partial class BlockchainBitcoin : Blockchain
 
   protected override void ParseBlockStored(Block block)
   {
-    block.ParseCompact();
+    using SHA256 sHA256 = SHA256.Create();
+
+    block.TXs.Clear();
+    int startIndex = 0;
+
+    ParseBlockHeader(block, ref startIndex, sHA256);
+
+    int countAnchors = VarInt.GetInt(block.Buffer, ref startIndex);
+
+    for (int i = 0; i < countAnchors; i++)
+    {
+      TXOutputTokenAnchor anchor = new();
+
+      Array.Copy(block.Buffer, startIndex, anchor.IDToken, 0, anchor.IDToken.Length);
+      startIndex += anchor.IDToken.Length;
+
+      Array.Copy(block.Buffer, startIndex, anchor.HashBlockReferenced, 0, anchor.HashBlockReferenced.Length);
+      startIndex += anchor.HashBlockReferenced.Length;
+
+      Array.Copy(block.Buffer, startIndex, anchor.HashBlockPreviousReferenced, 0, anchor.HashBlockPreviousReferenced.Length);
+      startIndex += anchor.HashBlockPreviousReferenced.Length;
+
+      block.Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
+    }
   }
 
   protected override byte[] SerializeBlockStored(Block block)

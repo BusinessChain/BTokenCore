@@ -1,7 +1,4 @@
-﻿using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -31,32 +28,6 @@ public class Block
   {
     bytes.CopyTo(Buffer, 0);
     LengthDataPayload = bytes.Length;
-  }
-
-  internal void ParseCompact()
-  {
-    TXs.Clear();
-    int startIndex = 0;
-
-    Blockchain.ParseBlockHeader(this, ref startIndex, SHA256);
-
-    int countAnchors = VarInt.GetInt(Buffer, ref startIndex);
-
-    for (int i = 0; i < countAnchors; i++)
-    {
-      TXOutputTokenAnchor anchor = new();
-
-      Array.Copy(Buffer, startIndex, anchor.IDToken, 0, anchor.IDToken.Length);
-      startIndex += anchor.IDToken.Length;
-
-      Array.Copy(Buffer, startIndex, anchor.HashBlockReferenced, 0, anchor.HashBlockReferenced.Length);
-      startIndex += anchor.HashBlockReferenced.Length;
-
-      Array.Copy(Buffer, startIndex, anchor.HashBlockPreviousReferenced, 0, anchor.HashBlockPreviousReferenced.Length);
-      startIndex += anchor.HashBlockPreviousReferenced.Length;
-
-      Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
-    }
   }
 
   internal byte[] SerializeCompact()
