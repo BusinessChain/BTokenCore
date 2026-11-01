@@ -19,7 +19,7 @@ internal class Wallet
 
     KeyPublic = Crypto.GetPubKeyFromPrivKey(KeyPrivateDecimal);
 
-    Hash160PKeyPublic = Crypto.ComputeHash160(KeyPublic, SHA256);
+    Hash160PKeyPublic = Crypto.ComputeHash160(KeyPublic);
 
     AddressAccount = Hash160PKeyPublic.BinaryToBase58Check();
   }

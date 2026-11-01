@@ -89,11 +89,11 @@ public static class Crypto
     return pubKeyX.ToArray();
   }
 
-  public static byte[] ComputeHash160(byte[] data, SHA256 sHA256)
+  public static byte[] ComputeHash160(byte[] data)
   {
     byte[] publicKeyHash160 = new byte[20];
 
-    var hashPublicKey = sHA256.ComputeHash(data);
+    var hashPublicKey = SHA256.HashData(data);
 
     RipeMD160Digest RIPEMD160 = new();
     RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);

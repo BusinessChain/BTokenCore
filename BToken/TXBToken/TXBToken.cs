@@ -47,7 +47,7 @@ internal partial class BlockchainBToken : Blockchain
       Array.Copy(buffer, index, KeyPublic, 0, KeyPublic.Length);
       index += KeyPublic.Length;
 
-      IDAccountSource = Crypto.ComputeHash160(KeyPublic, sHA256);
+      IDAccountSource = Crypto.ComputeHash160(KeyPublic);
 
       BlockheightAccountCreated = BitConverter.ToInt32(buffer, index);
       index += 4;
