@@ -2,7 +2,7 @@
 
 internal partial class Network
 {
-  class Peer
+  protected abstract class Peer
   {
     internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
 
@@ -40,14 +40,30 @@ internal partial class Network
     internal byte[] HashBlockAnnounced;
 
 
-    internal Peer(
+    protected Peer(
       Network network,
       ISocketCommunication socketCommunication,
       ConnectionType connection)
     {
       ConfigurationNetwork = network.ConfigurationNetwork;
 
-      ProtocolStateMachine = network.CreateStateMachineProtocol();
+      Block blockDownload = new(network.Blockchain.SizeBlockMax);
+      Block blockUpload = new(network.Blockchain.SizeBlockMax);
+
+      ProtocolStateMachine = new()
+      {
+        { GetDataMessage.Command, new GetDataMessage(network.Blockchain, blockUpload) },
+        { HeadersMessage.Command, new HeadersMessage(network.Blockchain) },
+        { BlockMessage.Command, new BlockMessage(network.Blockchain, blockDownload) },
+        { VerAckMessage.Command, new VerAckMessage(network.Blockchain) },
+        { VersionMessage.Command, new VersionMessage(network.Blockchain) },
+        { PingMessage.Command, new PingMessage() },
+        { PongMessage.Command, new PongMessage() },
+        { NotFoundMessage.Command, new NotFoundMessage() },
+        { UnknownMessage.Command, new UnknownMessage() },
+        { InvMessage.Command, new InvMessage(network.Blockchain) }
+      };
+
       SocketCommunication = socketCommunication;
       Connection = connection;
     }

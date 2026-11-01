@@ -23,4 +23,11 @@ internal partial class NetworkBitcoin : Network
           ]
       })
   { }
+
+  protected override Peer CreatePeer(
+    ISocketCommunication socketCommunication,
+    Peer.ConnectionType connection)
+  {
+    return new PeerBitcoin(this, socketCommunication, connection);
+  }
 }

@@ -15,4 +15,11 @@ internal partial class NetworkBToken : Network
         EnableRelay = true
       })
   { }
+
+  protected override Peer CreatePeer(
+    ISocketCommunication socketCommunication,
+    Peer.ConnectionType connection)
+  {
+    return new PeerBToken(this, socketCommunication, connection);
+  }
 }

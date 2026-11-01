@@ -6,7 +6,7 @@ namespace BTokenCore;
 
 internal abstract partial class Network
 {
-  Blockchain Blockchain;
+  protected Blockchain Blockchain;
   Configuration ConfigurationNetwork;
 
   ICommunication Communication;
@@ -123,7 +123,7 @@ internal abstract partial class Network
 
         ISocketCommunication socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
 
-        Peer peer = new(this, socketCommunication, Peer.ConnectionType.OUTBOUND);
+        Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
 
         await peer.Start(Blockchain.GetHeight());
 
@@ -187,7 +187,7 @@ internal abstract partial class Network
             throw new ProtocolException("Inbound request rejected.");
           }
 
-        Peer peer = new(this, socketCommunication, Peer.ConnectionType.INBOUND);
+        Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.INBOUND);
 
         await peer.Start(Blockchain.GetHeight());
 
@@ -203,34 +203,9 @@ internal abstract partial class Network
     }
   }
 
-  Dictionary<string, NetworkMessage> CreateStateMachineProtocol()
-  {
-    Dictionary<string, NetworkMessage> protocol = new();
-
-    Block blockDownload = new(Blockchain.SizeBlockMax);
-    Block blockUpload = new(Blockchain.SizeBlockMax);
-
-    protocol.Add(GetDataMessage.Command, new GetDataMessage(Blockchain, blockUpload));
-    protocol.Add(HeadersMessage.Command, new HeadersMessage(Blockchain));
-    protocol.Add(BlockMessage.Command, new BlockMessage(Blockchain, blockDownload));
-    protocol.Add(VerAckMessage.Command, new VerAckMessage(Blockchain));
-    protocol.Add(VersionMessage.Command, new VersionMessage(Blockchain));
-    protocol.Add(PingMessage.Command, new PingMessage());
-    protocol.Add(PongMessage.Command, new PongMessage());
-    protocol.Add(NotFoundMessage.Command, new NotFoundMessage());
-    protocol.Add(UnknownMessage.Command, new UnknownMessage());
-    protocol.Add(InvMessage.Command, new InvMessage(Blockchain));
-
-    if (ConfigurationNetwork.IsProtocolBitcoin)
-      protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
-    else
-    {
-      protocol.Add(DBMessage.Command, new DBMessage(Blockchain));
-      protocol.Add(TXMessage.Command, new TXMessage(Blockchain, this));
-    }
-
-    return protocol;
-  }
+  protected abstract Peer CreatePeer(
+    ISocketCommunication socketCommunication,
+    Peer.ConnectionType connection);
 
   async Task StartBlockDownloadDispatcher()
   {

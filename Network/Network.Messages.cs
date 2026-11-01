@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal partial class Network
 {
-  abstract class NetworkMessage
+  protected abstract class NetworkMessage
   {
     internal byte[] Payload;
     internal int LengthDataPayload;
@@ -371,7 +371,7 @@ internal partial class Network
     }
   }
 
-  class DBMessage : NetworkMessage
+  protected class DBMessage : NetworkMessage
   {
     internal const string Command = "db";
 
@@ -409,7 +409,7 @@ internal partial class Network
     }
   }
 
-  class GetHeadersMessage : NetworkMessage
+  protected class GetHeadersMessage : NetworkMessage
   {
     internal const string Command = "getheaders";
 
@@ -660,7 +660,7 @@ internal partial class Network
     }
   }
 
-  class TXMessage : NetworkMessage
+  protected class TXMessage : NetworkMessage
   {
     internal const string Command = "tx";
 
