@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -50,11 +49,9 @@ internal partial class Network
 
   internal async Task SubmitTX(byte[] tXRaw)
   {
-    using SHA256 sHA256 = SHA256.Create();
-
     int index = 0;
 
-    TX tX = Blockchain.ParseTX(tXRaw, ref index, sHA256, flagIsCoinbase: false);
+    TX tX = Blockchain.ParseTX(tXRaw, ref index, flagIsCoinbase: false);
 
     await ((BlockchainBToken)Blockchain).AddTX(tX);
 

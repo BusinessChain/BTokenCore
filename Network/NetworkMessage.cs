@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -673,8 +672,6 @@ internal partial class Network
     BlockchainBToken Blockchain;
     Network Network;
 
-    SHA256 SHA256 = SHA256.Create();
-
     const int SIZE_BUFFER_PAYLOAD = 100_000;
     internal const int MAX_LEVEL_ANNOUNCED = 1_000_000;
     const int MARGIN_LEVEL_DOS = 1_000_000;
@@ -702,7 +699,7 @@ internal partial class Network
     {
       int index = 0;
 
-      TX tX = Blockchain.ParseTX(Payload, ref index, SHA256, flagIsCoinbase: false);
+      TX tX = Blockchain.ParseTX(Payload, ref index, flagIsCoinbase: false);
 
       if (index != LengthDataPayload)
         throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");

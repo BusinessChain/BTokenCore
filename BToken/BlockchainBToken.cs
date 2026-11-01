@@ -55,9 +55,9 @@ internal partial class BlockchainBToken : Blockchain
     return new HeaderBToken(buffer, ref index);
   }
 
-  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase)
   {
-    return new TXBToken(buffer, ref index, sHA256, flagIsCoinbase);
+    return new TXBToken(buffer, ref index, flagIsCoinbase);
   }
 
   protected override byte[] SerializeBlockStored(Block block)

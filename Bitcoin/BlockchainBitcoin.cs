@@ -1,5 +1,4 @@
 using LiteDB;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -55,9 +54,9 @@ internal partial class BlockchainBitcoin : Blockchain
     return new HeaderBitcoin(buffer, ref index);
   }
 
-  internal override TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase)
   {
-    return new TXBitcoin(buffer, ref index, sHA256, flagIsCoinbase);
+    return new TXBitcoin(buffer, ref index, flagIsCoinbase);
   }
 
   protected override void ParseBlockStored(Block block)
@@ -259,7 +258,7 @@ internal partial class BlockchainBitcoin : Blockchain
     byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
     int index = 0;
 
-    TXAnchorOpen = new TXBitcoin(tXRaw, ref index, Wallet.SHA256, flagIsCoinbase: false)
+    TXAnchorOpen = new TXBitcoin(tXRaw, ref index, flagIsCoinbase: false)
     {
       TXRaw = tXRaw,
       Fee = documentAnchor["fee"].AsInt64

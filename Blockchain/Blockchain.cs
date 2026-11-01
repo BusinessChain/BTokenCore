@@ -1,6 +1,5 @@
 ﻿using LiteDB;
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -76,7 +75,7 @@ internal abstract partial class Blockchain
 
   internal abstract Header ParseHeader(byte[] buffer, ref int index);
 
-  internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
+  internal abstract TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase = false);
 
   protected void ParseBlockHeader(Block block, ref int startIndex)
   {
@@ -92,8 +91,6 @@ internal abstract partial class Blockchain
 
   void ParseBlock(Block block)
   {
-    using SHA256 sHA256 = SHA256.Create();
-
     block.TXs.Clear();
     int startIndex = 0;
 
@@ -108,7 +105,7 @@ internal abstract partial class Blockchain
 
     for (int t = 0; t < block.Header.CountTXs; t += 1)
     {
-      TX tX = ParseTX(block.Buffer, ref startIndex, sHA256, flagIsCoinbase: t == 0);
+      TX tX = ParseTX(block.Buffer, ref startIndex, flagIsCoinbase: t == 0);
 
       if (!hashesTX.Add(tX.Hash))
         throw new ProtocolException($"Block {block.Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");

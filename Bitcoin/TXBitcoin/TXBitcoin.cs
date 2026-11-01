@@ -16,7 +16,7 @@ internal partial class BlockchainBitcoin : Blockchain
     internal TXBitcoin()
     { }
 
-    internal TXBitcoin(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+    internal TXBitcoin(byte[] buffer, ref int index, bool flagIsCoinbase)
     {
       int indexTxStart = index;
 
@@ -39,7 +39,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
       index += 4; //BYTE_LENGTH_LOCK_TIME
 
-      Hash = sHA256.ComputeHash(sHA256.ComputeHash(buffer, indexTxStart, index - indexTxStart));
+      Hash = SHA256.HashData(SHA256.HashData(buffer.AsSpan(indexTxStart, index - indexTxStart)));
     }
 
 

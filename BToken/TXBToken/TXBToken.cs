@@ -40,7 +40,7 @@ internal partial class BlockchainBToken : Blockchain
     internal TXBToken()
     { }
 
-    internal TXBToken(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase)
+    internal TXBToken(byte[] buffer, ref int index, bool flagIsCoinbase)
     {
       int indexTxStart = index;
 
@@ -76,7 +76,7 @@ internal partial class BlockchainBToken : Blockchain
         TXOutputs.Add(tXOutput);
       }
 
-      Hash = sHA256.ComputeHash(sHA256.ComputeHash(buffer, indexTxStart, index - indexTxStart));
+      Hash = SHA256.HashData(SHA256.HashData(buffer.AsSpan(indexTxStart, index - indexTxStart)));
 
       if (!flagIsCoinbase)
         VerifySignatureTX(indexTxStart, buffer, ref index);
