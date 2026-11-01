@@ -258,12 +258,7 @@ internal partial class Network
 
         if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
-          TX tX;
-
-          if (peer.ConfigurationNetwork.IsProtocolBitcoin)
-            tX = await ((BlockchainBitcoin)Blockchain).GetTXAnchorOpen(inventory.Hash);
-          else
-            tX = await ((BlockchainBToken)Blockchain).GetTX(inventory.Hash);
+          TX tX = await Blockchain.GetTX(inventory.Hash);
 
           if (tX != null)
           {
@@ -382,7 +377,7 @@ internal partial class Network
 
     internal byte[] HashDBRequested;
 
-    BlockchainBToken Blockchain;
+    Blockchain Blockchain;
 
     const int MAX_COUNT_ACCOUNTS = 1_000_000;
     const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
@@ -390,7 +385,7 @@ internal partial class Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal DBMessage(BlockchainBToken blockchain)
+    internal DBMessage(Blockchain blockchain)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
@@ -622,7 +617,7 @@ internal partial class Network
           hashesTX.Add(inventory.Hash);
       }
 
-      List<byte[]> hashesTXNotInPool = await ((BlockchainBToken)Blockchain).GetHashesTXNotInPool(hashesTX);
+      List<byte[]> hashesTXNotInPool = await Blockchain.GetHashesTXNotInPool(hashesTX);
 
       lock (peer.HashesTXRequested)
         foreach (byte[] hashTX in hashesTXNotInPool)
@@ -669,7 +664,7 @@ internal partial class Network
   {
     internal const string Command = "tx";
 
-    BlockchainBToken Blockchain;
+    Blockchain Blockchain;
     Network Network;
 
     const int SIZE_BUFFER_PAYLOAD = 100_000;
@@ -679,7 +674,7 @@ internal partial class Network
     internal const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
 
 
-    internal TXMessage(BlockchainBToken blockchain, Network network)
+    internal TXMessage(Blockchain blockchain, Network network)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;

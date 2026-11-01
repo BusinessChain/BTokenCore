@@ -162,7 +162,7 @@ internal partial class BlockchainBitcoin : Blockchain
     }
   }
 
-  internal Task<TX> GetTXAnchorOpen(byte[] hash)
+  internal override Task<TX> GetTX(byte[] hash)
   {
     return RunLocked<TX>(() =>
     {

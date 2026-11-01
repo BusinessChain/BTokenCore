@@ -77,6 +77,8 @@ internal abstract partial class Blockchain
 
   internal abstract TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase = false);
 
+  internal abstract Task<TX> GetTX(byte[] hash);
+
   protected void ParseBlockHeader(Block block, ref int startIndex)
   {
     Header header = ParseHeader(block.Buffer, ref startIndex);
@@ -362,6 +364,26 @@ internal abstract partial class Blockchain
   internal virtual Task<byte[]> GetHashDBMissing()
   {
     return Task.FromResult<byte[]>(null);
+  }
+
+  internal virtual Task InstallDB(byte[] hash, byte[] buffer, int length)
+  {
+    return Task.CompletedTask;
+  }
+
+  internal virtual Task AddTX(TX tX)
+  {
+    throw new ProtocolException($"Blockchain has no TX pool to add TX {tX.Hash.ToHexString()}.");
+  }
+
+  internal virtual Task<List<TX>> GetTXsRanked(HashSet<byte[]> hashes)
+  {
+    return Task.FromResult(new List<TX>());
+  }
+
+  internal virtual Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  {
+    return Task.FromResult(new List<byte[]>());
   }
 
   internal int GetHeight()

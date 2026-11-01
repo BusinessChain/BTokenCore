@@ -53,7 +53,7 @@ internal partial class Network
 
     TX tX = Blockchain.ParseTX(tXRaw, ref index, flagIsCoinbase: false);
 
-    await ((BlockchainBToken)Blockchain).AddTX(tX);
+    await Blockchain.AddTX(tX);
 
     Broadcast(tX);
   }
@@ -222,8 +222,8 @@ internal partial class Network
       protocol.Add(GetHeadersMessage.Command, new GetHeadersMessage(Blockchain));
     else
     {
-      protocol.Add(DBMessage.Command, new DBMessage((BlockchainBToken)Blockchain));
-      protocol.Add(TXMessage.Command, new TXMessage((BlockchainBToken)Blockchain, this));
+      protocol.Add(DBMessage.Command, new DBMessage(Blockchain));
+      protocol.Add(TXMessage.Command, new TXMessage(Blockchain, this));
     }
 
     return protocol;
@@ -265,9 +265,9 @@ internal partial class Network
 
               if (hashesQueued.Count > 0)
               {
-                List<BlockchainBToken.TXBToken> tXsRanked = await ((BlockchainBToken)Blockchain).GetTXsRanked(hashesQueued);
+                List<TX> tXsRanked = await Blockchain.GetTXsRanked(hashesQueued);
 
-                foreach (BlockchainBToken.TXBToken tX in tXsRanked)
+                foreach (TX tX in tXsRanked)
                 {
                   if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !peer.ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
                     break;

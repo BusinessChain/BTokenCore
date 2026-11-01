@@ -152,7 +152,7 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  internal Task InstallDB(byte[] hash, byte[] buffer, int length)
+  internal override Task InstallDB(byte[] hash, byte[] buffer, int length)
   {
     return RunLocked(() =>
     {
@@ -213,12 +213,12 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal Task AddTX(TX tX)
+  internal override Task AddTX(TX tX)
   {
     return RunLocked(() => TXPool.AddTX(tX));
   }
 
-  internal Task<TX> GetTX(byte[] hash)
+  internal override Task<TX> GetTX(byte[] hash)
   {
     return RunLocked<TX>(() =>
     {
@@ -228,14 +228,14 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  internal Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  internal override Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
   {
     return RunLocked(() => hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList());
   }
 
-  internal Task<List<TXBToken>> GetTXsRanked(HashSet<byte[]> hashes)
+  internal override Task<List<TX>> GetTXsRanked(HashSet<byte[]> hashes)
   {
-    return RunLocked(() => TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList());
+    return RunLocked(() => TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>());
   }
 
   internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
