@@ -90,9 +90,7 @@ public static class StringExtensionMethods
   {
     byte[] bb = base58.Base58ToByteArray();
 
-    using SHA256 sha256 = SHA256.Create();
-    byte[] checksum = sha256.ComputeHash(bb, 0, bb.Length - 4);
-    checksum = sha256.ComputeHash(checksum);
+    byte[] checksum = SHA256.HashData(SHA256.HashData(bb.AsSpan(0, bb.Length - 4)));
 
     for (int i = 0; i < 4; i++)
       if (checksum[i] != bb[bb.Length - 4 + i])
