@@ -78,6 +78,18 @@ internal abstract partial class Blockchain
 
   internal abstract TX ParseTX(byte[] buffer, ref int index, SHA256 sHA256, bool flagIsCoinbase = false);
 
+  internal void ParseBlockHeader(Block block, ref int startIndex, SHA256 sHA256)
+  {
+    Header header = ParseHeader(block.Buffer, ref startIndex, sHA256);
+
+    if (block.Header == null)
+      block.Header = header;
+    else if (block.Header.Hash.IsAllBytesEqual(header.Hash) && block.Header.HashPrevious.IsAllBytesEqual(header.HashPrevious))
+      header.CopyTo(block.Header);
+    else
+      throw new ProtocolException($"Received unexpected block {header} expected was {block.Header}.");
+  }
+
   protected abstract void ParseBlockStored(Block block);
 
   protected abstract byte[] SerializeBlockStored(Block block);

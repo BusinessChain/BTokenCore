@@ -81,9 +81,12 @@ internal partial class BlockchainBToken : Blockchain
 
     internal override void CopyTo(Header header)
     {
-      base.CopyTo(header);
-      ((HeaderBToken)header).Version = Version;
-      ((HeaderBToken)header).HashDatabase = HashDatabase;
+      HeaderBToken headerBToken = (HeaderBToken)header;
+
+      headerBToken.MerkleRoot = MerkleRoot;
+      headerBToken.Nonce = Nonce;
+      headerBToken.Version = Version;
+      headerBToken.HashDatabase = HashDatabase;
     }
 
     internal static long GetBlockReward(int height)

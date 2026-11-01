@@ -49,11 +49,7 @@ public abstract class Header
     return HeaderParent != null && HeaderParent.HeaderNext == null;
   }
 
-  internal virtual void CopyTo(Header header)
-  {
-     header.MerkleRoot = MerkleRoot;
-     header.Nonce = Nonce;
-  }
+  internal virtual void CopyTo(Header header) { }
 
   internal virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }
 

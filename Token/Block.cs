@@ -38,7 +38,7 @@ public class Block
     TXs.Clear();
     int startIndex = 0;
 
-    ParseHeader(ref startIndex);
+    Blockchain.ParseBlockHeader(this, ref startIndex, SHA256);
 
     Header.CountTXs = VarInt.GetInt(Buffer, ref startIndex);
 
@@ -75,7 +75,7 @@ public class Block
     TXs.Clear();
     int startIndex = 0;
 
-    ParseHeader(ref startIndex);
+    Blockchain.ParseBlockHeader(this, ref startIndex, SHA256);
 
     int countAnchors = VarInt.GetInt(Buffer, ref startIndex);
 
@@ -104,18 +104,6 @@ public class Block
       bytes.AddRange([.. anchor.IDToken, .. anchor.HashBlockReferenced, .. anchor.HashBlockPreviousReferenced]);
 
     return bytes.ToArray();
-  }
-
-  void ParseHeader(ref int startIndex)
-  {
-    Header header = Blockchain.ParseHeader(Buffer, ref startIndex, SHA256);
-
-    if (Header == null)
-      Header = header;
-    else if (Header.Hash.IsAllBytesEqual(header.Hash) && Header.HashPrevious.IsAllBytesEqual(header.HashPrevious))
-      header.CopyTo(Header);
-    else
-      throw new ProtocolException($"Received unexpected block {header} expected was {Header}.");
   }
 
   internal byte[] ComputeMerkleRoot()
