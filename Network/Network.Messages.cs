@@ -702,7 +702,7 @@ internal partial class Network
       try
       {
         await Blockchain.AddTX(tX);
-        Network.Broadcast(tX);
+        Network.QueueTXAnnouncement(tX);
       }
       catch (ProtocolException)
       { }

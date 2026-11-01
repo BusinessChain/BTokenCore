@@ -55,25 +55,28 @@ internal partial class Network
 
     await Blockchain.AddTX(tX);
 
-    Broadcast(tX);
+    QueueTXAnnouncement(tX);
   }
 
   internal void Broadcast(TX tX)
   {
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)
-        // Reto: a future child-token anchor on the BToken network must bypass the batching as well.
-        if (ConfigurationNetwork.IsProtocolBitcoin)
-          NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
-        else
-        {
-          lock (peer.HashesTXRequested)
-            if (peer.HashesTXRequested.ContainsKey(tX.Hash))
-              continue;
+        NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
+  }
 
-          lock (peer.HashesTXQueued)
-            peer.HashesTXQueued.Add(tX.Hash);
-        }
+  void QueueTXAnnouncement(TX tX)
+  {
+    lock (LOCK_Peers)
+      foreach (Peer peer in Peers)
+      {
+        lock (peer.HashesTXRequested)
+          if (peer.HashesTXRequested.ContainsKey(tX.Hash))
+            continue;
+
+        lock (peer.HashesTXQueued)
+          peer.HashesTXQueued.Add(tX.Hash);
+      }
   }
 
   void HandleBlockInserted(Block block)
