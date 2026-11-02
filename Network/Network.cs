@@ -87,7 +87,7 @@ internal abstract partial class Network
 
         Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
 
-        await peer.Start(Blockchain.GetHeight());
+        await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
         return peer;
       }
@@ -151,7 +151,7 @@ internal abstract partial class Network
 
         Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.INBOUND);
 
-        await peer.Start(Blockchain.GetHeight());
+        await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
         lock (LOCK_Peers)
           Peers.Add(peer);

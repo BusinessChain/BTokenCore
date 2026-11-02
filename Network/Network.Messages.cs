@@ -504,7 +504,7 @@ internal partial class Network
       VerAckMessage.Send(peer);
 
       if (peer.Connection == Peer.ConnectionType.INBOUND)
-        SendVersion(peer, Blockchain.GetHeight());
+        SendVersion(peer, await Blockchain.RunLocked(Blockchain.GetHeight));
     }
   }
 
