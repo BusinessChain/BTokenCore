@@ -107,13 +107,6 @@ internal partial class BlockchainBToken : Blockchain
         if (tXBundleLast.TXs.Count == 0)
           TXBundlesSortedByFee.RemoveAt(TXBundlesSortedByFee.Count - 1);
 
-        List<TXBToken> tXsInPool = TXsByIDAccountSource[tXEvicted.IDAccountSource];
-
-        tXsInPool.RemoveAt(tXsInPool.Count - 1);
-
-        if (tXsInPool.Count == 0)
-          TXsByIDAccountSource.Remove(tXEvicted.IDAccountSource);
-
         RemoveTXFromIndexes(tXEvicted);
 
         flagTXEvicted = true;
@@ -153,15 +146,8 @@ internal partial class BlockchainBToken : Blockchain
 
         TXBToken tX = tXsByHashItem.tX;
 
-        List<TXBToken> tXsByAccountSource = TXsByIDAccountSource[tX.IDAccountSource];
-
-        if (!tXsByAccountSource[0].Hash.IsAllBytesEqual(tXConfirmed.Hash))
+        if (!TXsByIDAccountSource[tX.IDAccountSource][0].Hash.IsAllBytesEqual(tXConfirmed.Hash))
           throw new ProtocolException($"Removal of tX {tXConfirmed.Hash.ToHexString()} from pool not in expected order of nonce.");
-
-        tXsByAccountSource.RemoveAt(0);
-
-        if (tXsByAccountSource.Count == 0)
-          TXsByIDAccountSource.Remove(tX.IDAccountSource);
 
         RemoveTXFromIndexes(tX);
 
@@ -185,13 +171,8 @@ internal partial class BlockchainBToken : Blockchain
           }
           catch (ProtocolException)
           {
-            foreach (TXBToken tXDropped in tXsInPool.Skip(i))
+            foreach (TXBToken tXDropped in tXsInPool.Skip(i).ToList())
               RemoveTXFromIndexes(tXDropped);
-
-            tXsInPool.RemoveRange(i, tXsInPool.Count - i);
-
-            if (tXsInPool.Count == 0)
-              TXsByIDAccountSource.Remove(iDAccountSource);
 
             break;
           }
@@ -206,6 +187,13 @@ internal partial class BlockchainBToken : Blockchain
       TXsByHash.Remove(tX.Hash);
 
       CountBytesTXs -= tX.CountBytes;
+
+      List<TXBToken> tXsInPool = TXsByIDAccountSource[tX.IDAccountSource];
+
+      tXsInPool.Remove(tX);
+
+      if (tXsInPool.Count == 0)
+        TXsByIDAccountSource.Remove(tX.IDAccountSource);
     }
 
     void SortTXBundlesByFee()
