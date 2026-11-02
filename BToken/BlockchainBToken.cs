@@ -15,6 +15,13 @@ internal partial class BlockchainBToken : Blockchain
 
   internal byte[] IDToken = new byte[TXOutputTokenAnchor.LENGTH_ID_TOKEN];
 
+  BlockchainBitcoin BlockchainBitcoin;
+
+  bool IsMining;
+  long FeePerByte;
+  List<Block> BlocksMinedCache = new();
+  ILiteCollection<BsonDocument> DatabaseBlocksMinedCollection;
+
 
   internal BlockchainBToken(
     BlockchainBitcoin blockchainParent,
@@ -23,6 +30,10 @@ internal partial class BlockchainBToken : Blockchain
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
+    BlockchainBitcoin = blockchainParent;
+
+    DatabaseBlocksMinedCollection = Database.GetCollection<BsonDocument>("blocksMined");
+
     TXPool = new PoolTXBToken(this);
 
     OnBlockInserted += TXPool.RemoveTXs;
@@ -30,6 +41,7 @@ internal partial class BlockchainBToken : Blockchain
 
     blockchainParent.OnBlockInserted += InsertHeaderPlaceholder;
     blockchainParent.OnBlockInserted += TriggerBootstrap;
+    blockchainParent.OnBlockInserted += InsertBlockMined;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
@@ -238,8 +250,37 @@ internal partial class BlockchainBToken : Blockchain
     return RunLocked(() => TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>());
   }
 
-  internal Block MineBlock(out TXOutputTokenAnchor anchorToken)
+  internal Task StartMining(long feePerByte)
   {
+    // The user has to define the fee rate at which they want to pay for the anchoring.
+    // The GUI could also offer a tool that controls the fee rate automatically,
+    // e.g. based on past fee rates or market price arbitrage.
+
+    return RunLocked(() =>
+    {
+      FeePerByte = feePerByte;
+      IsMining = true;
+
+      OnTipChanged();
+    });
+  }
+
+  internal void StopMining()
+  {
+    IsMining = false;
+  }
+
+  protected override void OnTipChanged()
+  {
+    if (!IsMining)
+      return;
+
+    if (!BlockchainBitcoin.IsTXAnchorOpen())
+    {
+      BlocksMinedCache.Clear();
+      DatabaseBlocksMinedCollection.DeleteAll();
+    }
+
     Block block = TakeBlockFromPool();
 
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
@@ -277,14 +318,25 @@ internal partial class BlockchainBToken : Blockchain
 
     block.Header.ComputeHash();
 
-    anchorToken = new TXOutputTokenAnchor()
+    TXOutputTokenAnchor anchorToken = new()
     {
       IDToken = IDToken,
       HashBlockPreviousReferenced = block.Header.HashPrevious,
       HashBlockReferenced = block.Header.Hash
     };
 
-    return block;
+    if (!BlockchainBitcoin.TryCreateTXAnchor(anchorToken, FeePerByte))
+      return;
+
+    block.Serialize();
+
+    BlocksMinedCache.Add(block);
+
+    DatabaseBlocksMinedCollection.Insert(new BsonDocument
+    {
+      ["_id"] = block.Header.Hash,
+      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
+    });
   }
 
   TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)
@@ -301,8 +353,28 @@ internal partial class BlockchainBToken : Blockchain
     return tX;
   }
 
-  internal void InsertBlockMined(Block blockParent, Block block)
+  void InsertBlockMined(Block blockParent)
   {
+    if (!blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner))
+      return;
+
+    Block block = BlocksMinedCache
+      .Find(b => b.Header.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced));
+
+    if (block == null)
+    {
+      BsonDocument bsonDocumentBlock = DatabaseBlocksMinedCollection.FindById(anchorWinner.HashBlockReferenced);
+
+      if (bsonDocumentBlock == null)
+        return;
+
+      block = new(SizeBlockMax);
+      block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
+    }
+
+    BlocksMinedCache.Remove(block);
+    DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
+
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
       return;
 

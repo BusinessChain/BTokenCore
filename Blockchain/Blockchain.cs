@@ -21,7 +21,6 @@ internal abstract partial class Blockchain
 
   internal Action<Block> OnBlockInserted;
   internal Action<Block> OnBlockRolledBack;
-  internal Action<Header> OnTipChanged;
 
   Header HeaderTipBlockchainAnnounced;
 
@@ -226,6 +225,8 @@ internal abstract partial class Blockchain
 
   protected virtual void RollBackBlock(Block block) { }
 
+  protected virtual void OnTipChanged() { }
+
   internal Task<bool> TryInsertBlock(Block block)
   {
     return RunLocked(() =>
@@ -258,7 +259,7 @@ internal abstract partial class Blockchain
     if (ChainRoot.HeaderTipBlockchain != HeaderTipBlockchainAnnounced)
     {
       HeaderTipBlockchainAnnounced = ChainRoot.HeaderTipBlockchain;
-      OnTipChanged.Announce(HeaderTipBlockchainAnnounced);
+      OnTipChanged();
     }
   }
 

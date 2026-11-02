@@ -6,7 +6,6 @@ public class Node
   internal BlockchainBToken BlockchainBToken;
   internal NetworkBitcoin NetworkBitcoin;
   internal NetworkBToken NetworkBToken;
-  internal Miner Miner;
 
 
   public Node(ICommunication communication)
@@ -18,8 +17,6 @@ public class Node
 
     BlockchainBToken = new(BlockchainBitcoin, semaphoreBlockchain);
     NetworkBToken = new(BlockchainBToken, communication);
-
-    Miner = new(BlockchainBitcoin, BlockchainBToken);
   }
 
   public void Start()
@@ -34,12 +31,12 @@ public class Node
 
   public async Task StartMining(long feePerByte)
   {
-    await Miner.StartMining(feePerByte);
+    await BlockchainBToken.StartMining(feePerByte);
   }
 
   public void StopMining()
   {
-    Miner.StopMining();
+    BlockchainBToken.StopMining();
   }
 
   public async Task SubmitTXBToken(byte[] tXRaw)
