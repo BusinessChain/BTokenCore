@@ -151,56 +151,50 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  internal Task<byte[]> GetHashDBMissing()
+  internal byte[] GetHashDBMissing()
   {
-    return RunLocked(() =>
-    {
-      if (!Accounts.Exists())
-        return ChainRoot.HeaderTipBlockchain.Hash;
+    if (!Accounts.Exists())
+      return ChainRoot.HeaderTipBlockchain.Hash;
 
-      return null;
-    });
+    return null;
   }
 
-  internal Task InstallDB(byte[] hash, byte[] buffer, int length)
+  internal void InstallDB(byte[] hash, byte[] buffer, int length)
   {
-    return RunLocked(() =>
+    if (Accounts.Exists()
+      || !ChainRoot.TryGetHeader(hash, out Header header)
+      || header.Height > ChainRoot.HeaderTipBlockchain.Height)
+      return;
+
+    RollBack(heightAfterRollBack: header.Height);
+
+    Database.BeginTrans();
+
+    try
     {
-      if (Accounts.Exists()
-        || !ChainRoot.TryGetHeader(hash, out Header header)
-        || header.Height > ChainRoot.HeaderTipBlockchain.Height)
-        return;
+      Accounts.Install(buffer, length);
+    }
+    catch
+    {
+      Database.Rollback();
+      Accounts.Drop();
+      throw;
+    }
 
-      RollBack(heightAfterRollBack: header.Height);
+    Database.Commit();
 
-      Database.BeginTrans();
+    RollBack(heightAfterRollBack: GetHeightBlockStoredOldest());
 
-      try
-      {
-        Accounts.Install(buffer, length);
-      }
-      catch
-      {
-        Database.Rollback();
-        Accounts.Drop();
-        throw;
-      }
-
-      Database.Commit();
-
-      RollBack(heightAfterRollBack: GetHeightBlockStoredOldest());
-
-      if (!SHA256.HashData(Accounts.Serialize())
-        .IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashDatabase))
-      {
-        Accounts.Drop();
-        UpdateTipBlockchain(ChainRoot);
-
-        throw new ProtocolException($"Hash of DB not equal to HashDatabase of oldest stored block.");
-      }
-
+    if (!SHA256.HashData(Accounts.Serialize())
+      .IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashDatabase))
+    {
+      Accounts.Drop();
       UpdateTipBlockchain(ChainRoot);
-    });
+
+      throw new ProtocolException($"Hash of DB not equal to HashDatabase of oldest stored block.");
+    }
+
+    UpdateTipBlockchain(ChainRoot);
   }
 
   internal Task AddTX(TX tX)
