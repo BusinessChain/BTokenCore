@@ -13,21 +13,13 @@ public class Node
   {
     SemaphoreSlim semaphoreBlockchain = new(1);
 
-    #region Bitcoin
     BlockchainBitcoin = new(semaphoreBlockchain);
-
     NetworkBitcoin = new(BlockchainBitcoin, communication);
-    #endregion
 
-    #region BToken
-    BlockchainBToken = new(
-      blockchainParent: BlockchainBitcoin,
-      semaphoreBlockchain);
-
+    BlockchainBToken = new(BlockchainBitcoin, semaphoreBlockchain);
     NetworkBToken = new(BlockchainBToken, communication);
-    #endregion
 
-    Miner = new(BlockchainBitcoin, BlockchainBToken, NetworkBitcoin);
+    Miner = new(BlockchainBitcoin, BlockchainBToken);
   }
 
   public void Start()

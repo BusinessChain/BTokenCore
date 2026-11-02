@@ -8,6 +8,7 @@ internal partial class Network
     internal const ulong NODE_NETWORK = 1;
 
     internal int Port;
+    internal byte[] MagicBytes;
     internal UInt32 ProtocolVersion = 70015;
     internal ulong NetworkServicesLocal = 0;
     internal ulong NetworkServicesRemote = 0;

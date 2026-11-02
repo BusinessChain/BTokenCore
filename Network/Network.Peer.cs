@@ -69,7 +69,7 @@ internal partial class Network
 
     internal async Task Start(int heightBlockchainTip)
     {
-      await SocketCommunication.Start();
+      await SocketCommunication.Start(ConfigurationNetwork.MagicBytes);
 
       StartMessageReceiver();
       StartHeartbeat();

@@ -11,6 +11,7 @@ internal partial class NetworkBitcoin : Network
       new Configuration()
       {
         Port = 8333,
+        MagicBytes = [0xF9, 0xBE, 0xB4, 0xD9],
         NetworkServicesRemote = Configuration.NODE_NETWORK,
         SeedAddresses =
           [
@@ -21,9 +22,11 @@ internal partial class NetworkBitcoin : Network
             "seed.bitnodes.io"
           ]
       })
-  { }
+  {
+    blockchain.OnTXAnchorCreated += Broadcast;
+  }
 
-  internal void Broadcast(TX tX)
+  void Broadcast(TX tX)
   {
     lock (LOCK_Peers)
       foreach (Peer peer in Peers)

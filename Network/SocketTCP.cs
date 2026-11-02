@@ -19,7 +19,7 @@ internal class SocketTCP : ISocketCommunication
   internal const int CommandSize = 12;
   internal const int ChecksumSize = 4;
 
-  static readonly byte[] MagicBytes = [0xF9, 0xBE, 0xB4, 0xD9];
+  byte[] MagicBytes;
   byte[] MagicBytesRead = new byte[4];
   byte[] CommandRead = new byte[CommandSize];
   byte[] LengthRead = new byte[4];
@@ -47,8 +47,10 @@ internal class SocketTCP : ISocketCommunication
     Port = iPEndPoint.Port;
   }
 
-  public async Task Start()
+  public async Task Start(byte[] magicBytes)
   {
+    MagicBytes = magicBytes;
+
     if (!TcpClient.Connected)
       await TcpClient.ConnectAsync(IP, Port).ConfigureAwait(false);
 
@@ -84,6 +86,10 @@ internal class SocketTCP : ISocketCommunication
   public async Task<string> ReceiveCommandMessageNext()
   {
     await ReadBytes(MagicBytesRead, 4);
+
+    if (!MagicBytesRead.IsAllBytesEqual(MagicBytes))
+      throw new ProtocolException($"Magic bytes {MagicBytesRead.ToHexString()} do not match {MagicBytes.ToHexString()}.");
+
     await ReadBytes(CommandRead, CommandRead.Length);
 
     return Encoding.ASCII.GetString(CommandRead).TrimEnd('\0');

@@ -14,6 +14,7 @@ internal partial class NetworkBToken : Network
       new Configuration()
       {
         Port = 8777,
+        MagicBytes = [0xB7, 0xD0, 0xC3, 0xE5],
         EnableInboundConnections = true,
         EnableRelay = true
       })

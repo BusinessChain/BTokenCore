@@ -2,7 +2,7 @@
 
 internal interface ISocketCommunication
 {
-  internal Task Start();
+  internal Task Start(byte[] magicBytes);
   internal Task SendMessage(string commandString, int lengthDataPayload, byte[] payload);
   internal Task<string> ReceiveCommandMessageNext();
   internal Task<int> ReceivePayloadNext(byte[] buffer);
