@@ -194,9 +194,9 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(ChainRoot);
   }
 
-  internal Task AddTX(TX tX)
+  internal void AddTX(TX tX)
   {
-    return RunLocked(() => TXPool.AddTX(tX));
+    TXPool.AddTX(tX);
   }
 
   internal override TX GetTX(byte[] hash)
@@ -206,14 +206,14 @@ internal partial class BlockchainBToken : Blockchain
     return tXsByHashItem.tX;
   }
 
-  internal Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  internal List<byte[]> GetHashesTXNotInPool(List<byte[]> hashes)
   {
-    return RunLocked(() => hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList());
+    return hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList();
   }
 
-  internal Task<List<TX>> GetTXsRanked(HashSet<byte[]> hashes)
+  internal List<TX> GetTXsRanked(HashSet<byte[]> hashes)
   {
-    return RunLocked(() => TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>());
+    return TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>();
   }
 
   internal Task StartMining(long feePerByte)

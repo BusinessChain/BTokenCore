@@ -33,7 +33,7 @@ internal partial class NetworkBToken : Network
 
   async Task AddTX(TX tX)
   {
-    await BlockchainBToken.AddTX(tX);
+    await BlockchainBToken.RunLocked(() => BlockchainBToken.AddTX(tX));
 
     lock (LOCK_Peers)
       foreach (PeerBToken peer in Peers)

@@ -63,7 +63,7 @@ internal partial class NetworkBToken : Network
 
       if (hashesQueued.Count > 0)
       {
-        List<TX> tXsRanked = await BlockchainBToken.GetTXsRanked(hashesQueued);
+        List<TX> tXsRanked = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetTXsRanked(hashesQueued));
 
         foreach (TX tX in tXsRanked)
         {

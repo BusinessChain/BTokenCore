@@ -44,7 +44,7 @@ internal partial class NetworkBToken : Network
           hashesTX.Add(inventory.Hash);
       }
 
-      List<byte[]> hashesTXNotInPool = await BlockchainBToken.GetHashesTXNotInPool(hashesTX);
+      List<byte[]> hashesTXNotInPool = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetHashesTXNotInPool(hashesTX));
 
       Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
 
