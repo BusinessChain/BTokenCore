@@ -39,9 +39,7 @@ internal partial class BlockchainBToken : Blockchain
     OnBlockInserted += TXPool.RemoveTXs;
     OnBlockRolledBack += TXPool.ReturnTXs;
 
-    blockchainParent.OnBlockInserted += InsertHeaderPlaceholder;
-    blockchainParent.OnBlockInserted += TriggerBootstrap;
-    blockchainParent.OnBlockInserted += InsertBlockMined;
+    blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
@@ -205,26 +203,6 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  void TriggerBootstrap(Block blockParent)
-  {
-    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
-
-    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
-    {
-      Accounts.Drop();
-      DatabaseBlockCollection.DeleteAll();
-
-      Header headerRoot = ChainRoot.HeaderTip;
-
-      while (headerRoot.Height > ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED)
-        headerRoot = headerRoot.HeaderPrevious;
-
-      ChainRoot.ReRoot(headerRoot, PoolBlocks);
-
-      UpdateTipBlockchain(ChainRoot);
-    }
-  }
-
   internal Task AddTX(TX tX)
   {
     return RunLocked(() => TXPool.AddTX(tX));
@@ -353,84 +331,92 @@ internal partial class BlockchainBToken : Blockchain
     return tX;
   }
 
-  void InsertBlockMined(Block blockParent)
+  void HandleBlockParentInserted(Block blockParent)
   {
-    if (!blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner))
+    bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
+    bool isPlaceholderNew = false;
+
+    if (hasAnchorWinner)
+    {
+      Header headerPlaceholderNew = new HeaderBToken(
+        headerHash: anchorWinner.HashBlockReferenced,
+        hashPrevious: anchorWinner.HashBlockPreviousReferenced,
+        merkleRootHash: new byte[32],
+        hashDatabase: new byte[32],
+        nonce: 0)
+      {
+        HeaderParent = blockParent.Header
+      };
+
+      Header headerLastInTree = ChainRoot.HeaderRoot;
+
+      if (!headerLastInTree.Hash.IsAllBytesEqual(headerPlaceholderNew.Hash))
+        ChainRoot.InsertHeadersInTree([headerPlaceholderNew], GetHeightBlockStoredOldest(), out headerLastInTree);
+
+      isPlaceholderNew = headerLastInTree == headerPlaceholderNew;
+
+      if (headerLastInTree != null && !isPlaceholderNew)
+        headerLastInTree.HeaderParent = blockParent.Header;
+    }
+
+    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
+
+    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
+    {
+      Accounts.Drop();
+      DatabaseBlockCollection.DeleteAll();
+
+      Header headerRoot = ChainRoot.HeaderTip;
+
+      while (headerRoot.Height > ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED)
+        headerRoot = headerRoot.HeaderPrevious;
+
+      ChainRoot.ReRoot(headerRoot, PoolBlocks);
+
+      UpdateTipBlockchain(ChainRoot);
+    }
+
+    if (!hasAnchorWinner)
       return;
 
     Block block = BlocksMinedCache
       .Find(b => b.Header.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced));
 
-    if (block == null)
+    if (block != null)
+      BlocksMinedCache.Remove(block);
+    else if (DatabaseBlocksMinedCollection.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
     {
-      BsonDocument bsonDocumentBlock = DatabaseBlocksMinedCollection.FindById(anchorWinner.HashBlockReferenced);
-
-      if (bsonDocumentBlock == null)
-        return;
-
       block = new(SizeBlockMax);
       block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
     }
 
-    BlocksMinedCache.Remove(block);
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
 
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
       return;
 
-    QueueBlock(headerPlaceholder, block);
-  }
-
-  void InsertHeaderPlaceholder(Block blockParent)
-  {
-    if (!blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner))
-      return;
-
-    Header headerPlaceholder = new HeaderBToken(
-      headerHash: anchorWinner.HashBlockReferenced,
-      hashPrevious: anchorWinner.HashBlockPreviousReferenced,
-      merkleRootHash: new byte[32],
-      hashDatabase: new byte[32],
-      nonce: 0)
+    if (block == null)
     {
-      HeaderParent = blockParent.Header
-    };
+      if (!isPlaceholderNew)
+        return;
 
-    Header headerLastInTree = ChainRoot.HeaderRoot;
+      block = TakeBlockFromPool();
 
-    if (!headerLastInTree.Hash.IsAllBytesEqual(headerPlaceholder.Hash))
-      ChainRoot.InsertHeadersInTree([headerPlaceholder], GetHeightBlockStoredOldest(), out headerLastInTree);
-
-    if (headerLastInTree == null)
-      return;
-
-    if (headerLastInTree != headerPlaceholder)
-    {
-      headerLastInTree.HeaderParent = blockParent.Header;
-      return;
+      if (!TryLoadBlock(headerPlaceholder.Height, block))
+      {
+        PoolBlocks.Add(block);
+        return;
+      }
     }
 
-    Block block = TakeBlockFromPool();
-
-    if (!TryLoadBlock(headerPlaceholder.Height, block))
+    if (!TryParseBlockStored(headerPlaceholder, block))
     {
       PoolBlocks.Add(block);
       return;
     }
 
-    QueueBlock(headerPlaceholder, block);
-  }
-
-  void QueueBlock(Header header, Block block)
-  {
-    if (!TryParseBlockStored(header, block))
-    {
-      PoolBlocks.Add(block);
-      return;
-    }
-
-    Chain chain = ChainRoot.FindChain(header);
-    chain.Blocks.Add(header.Height, block);
+    Chain chain = ChainRoot.FindChain(headerPlaceholder);
+    chain.Blocks.Add(headerPlaceholder.Height, block);
 
     UpdateTipBlockchain(chain);
   }
