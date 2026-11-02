@@ -362,14 +362,11 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTipBlockchain.Height;
   }
 
-  internal Task<Header> TryInsertHeadersInTree(List<Header> headers)
+  internal Header TryInsertHeadersInTree(List<Header> headers)
   {
-    return RunLocked(() =>
-    {
-      ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
+    ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
 
-      return headerLastInTree;
-    });
+    return headerLastInTree;
   }
 
   internal Task<Header> FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
@@ -379,15 +376,15 @@ internal abstract partial class Blockchain
       canSupplierDeliverBlock));
   }
 
-  internal Task<List<byte[]>> GetLocator()
+  internal List<byte[]> GetLocator()
   {
-    return RunLocked(() => ChainRoot.GetLocator());
+    return ChainRoot.GetLocator();
   }
 
-  internal Task<(List<byte[]> headers, int heightAncestor)> GetHeadersSerialized(
+  internal (List<byte[]> headers, int heightAncestor) GetHeadersSerialized(
     List<byte[]> hashesLocator,
     int maxCountHeaders)
   {
-    return RunLocked(() => ChainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders));
+    return ChainRoot.GetHeadersSerialized(hashesLocator, maxCountHeaders);
   }
 }

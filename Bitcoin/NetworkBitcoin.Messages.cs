@@ -46,7 +46,7 @@ internal partial class NetworkBitcoin : Network
       }
 
       (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-        await Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.MAX_COUNT_HEADERS);
+        await Blockchain.RunLocked(() => Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.MAX_COUNT_HEADERS));
 
       HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
 
@@ -107,7 +107,7 @@ internal partial class NetworkBitcoin : Network
         VarInt.GetInt(Payload, ref startIndex);
       }
 
-      Header headerTipReceivedLast = await Blockchain.TryInsertHeadersInTree(headers);
+      Header headerTipReceivedLast = await Blockchain.RunLocked(() => Blockchain.TryInsertHeadersInTree(headers));
 
       if (headerTipReceivedLast != null)
         ((PeerBitcoin)peer).HeaderTipReceivedLast = headerTipReceivedLast;
@@ -144,7 +144,7 @@ internal partial class NetworkBitcoin : Network
       for (int i = 0; i < inventoryCount; i++)
         if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
         {
-          await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+          await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.RunLocked(Blockchain.GetLocator));
           return;
         }
     }
@@ -165,7 +165,7 @@ internal partial class NetworkBitcoin : Network
       await base.Run(peer);
 
       if (peer.Connection == Peer.ConnectionType.OUTBOUND)
-        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.RunLocked(Blockchain.GetLocator));
     }
   }
 }
