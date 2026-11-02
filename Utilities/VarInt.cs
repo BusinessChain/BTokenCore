@@ -73,7 +73,7 @@ public static class VarInt
     {
       value = prefix;
     }
-    if (prefix == PREFIX_UINT16)
+    else if (prefix == PREFIX_UINT16)
     {
       value = BitConverter.ToUInt16(buffer, startIndex);
       startIndex += 2;
