@@ -17,6 +17,12 @@ public class Block
     Buffer = new byte[sizeBuffer];
   }
 
+  internal Block(byte[] bytes)
+  {
+    Buffer = bytes;
+    LengthDataPayload = bytes.Length;
+  }
+
   internal void LoadBuffer(byte[] bytes)
   {
     bytes.CopyTo(Buffer, 0);

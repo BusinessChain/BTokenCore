@@ -244,7 +244,7 @@ internal partial class BlockchainBToken : Blockchain
       DatabaseBlocksMinedCollection.DeleteAll();
     }
 
-    Block block = TakeBlockFromPool();
+    Block block = new(SizeBlockMax);
 
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
 
@@ -370,10 +370,7 @@ internal partial class BlockchainBToken : Blockchain
     if (block != null)
       BlocksMinedCache.Remove(block);
     else if (DatabaseBlocksMinedCollection.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
-    {
-      block = new(SizeBlockMax);
-      block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-    }
+      block = new(bsonDocumentBlock["blockBytes"].AsBinary);
 
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
 
@@ -385,20 +382,14 @@ internal partial class BlockchainBToken : Blockchain
       if (!isPlaceholderNew)
         return;
 
-      block = TakeBlockFromPool();
+      block = LoadBlock(headerPlaceholder.Height);
 
-      if (!TryLoadBlock(headerPlaceholder.Height, block))
-      {
-        PoolBlocks.Add(block);
+      if (block == null)
         return;
-      }
     }
 
     if (!TryParseBlockStored(headerPlaceholder, block))
-    {
-      PoolBlocks.Add(block);
       return;
-    }
 
     chain.Blocks.Add(headerPlaceholder.Height, block);
 

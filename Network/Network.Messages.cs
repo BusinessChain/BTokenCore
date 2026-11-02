@@ -168,8 +168,7 @@ internal partial class Network
 
       BlockDownload.LengthDataPayload = LengthDataPayload;
 
-      if (await Blockchain.RunLocked(() => Blockchain.TryInsertBlock(BlockDownload)))
-        BlockDownload = Blockchain.TakeBlockFromPool();
+      await Blockchain.RunLocked(() => Blockchain.ReceiveBlock(BlockDownload));
 
       DOSMonitor.Decrement(1);
 

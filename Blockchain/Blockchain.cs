@@ -1,5 +1,4 @@
 ﻿using LiteDB;
-using System.Collections.Concurrent;
 
 
 namespace BTokenCore;
@@ -23,8 +22,6 @@ internal abstract partial class Blockchain
   internal Action<Block> OnBlockRolledBack;
 
   Header HeaderTipBlockchainAnnounced;
-
-  protected ConcurrentBag<Block> PoolBlocks = new();
 
 
   protected Blockchain(
@@ -134,24 +131,12 @@ internal abstract partial class Blockchain
 
   protected abstract byte[] SerializeBlockStored(Block block);
 
-  internal Block TakeBlockFromPool()
+  protected Block LoadBlock(int height)
   {
-    if (!PoolBlocks.TryTake(out Block block))
-      block = new Block(SizeBlockMax);
+    if (DatabaseBlockCollection.FindById(height) is BsonDocument bsonDocumentBlock)
+      return new Block(bsonDocumentBlock["blockBytes"].AsBinary);
 
-    return block;
-  }
-
-  protected bool TryLoadBlock(int height, Block block)
-  {
-    BsonDocument bsonDocumentBlock = DatabaseBlockCollection.FindById(height);
-
-    if (bsonDocumentBlock == null)
-      return false;
-
-    block.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-
-    return true;
+    return null;
   }
 
   protected bool TryParseBlockStored(Header header, Block block)
@@ -174,19 +159,19 @@ internal abstract partial class Blockchain
   internal void GetBlock(byte[] hash, Block blockLoad)
   {
     if (ChainRoot.TryGetHeader(hash, out Header header)
-      && TryLoadBlock(header.Height, blockLoad))
+      && LoadBlock(header.Height) is Block block)
+    {
+      blockLoad.LoadBuffer(block.Buffer);
       TryParseBlockStored(header, blockLoad);
+    }
   }
 
   internal void LoadBlockchain()
   {
-    Block blockLoad = new(SizeBlockMax);
-
     foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
       try
       {
-        blockLoad.LoadBuffer(bsonDocumentBlock["blockBytes"].AsBinary);
-        blockLoad.Header = null;
+        Block blockLoad = new(bsonDocumentBlock["blockBytes"].AsBinary);
         ParseBlockStored(blockLoad);
 
         Header header = blockLoad.Header;
@@ -225,23 +210,25 @@ internal abstract partial class Blockchain
 
   protected virtual void OnTipChanged() { }
 
-  internal bool TryInsertBlock(Block block)
+  internal void ReceiveBlock(Block blockReceived)
   {
     Header headerAwaited = null;
 
     Chain chainAwaiting = ChainRoot.FindInTree(chain =>
-      chain.HeadersAwaitingBlock.Remove(block.Header.Hash, out headerAwaited) ? chain : null);
+      chain.HeadersAwaitingBlock.Remove(blockReceived.Header.Hash, out headerAwaited) ? chain : null);
 
     if (chainAwaiting == null)
-      return false;
+      return;
 
-    block.Header = headerAwaited;
+    Block block = new(blockReceived.Buffer[..blockReceived.LengthDataPayload])
+    {
+      Header = headerAwaited
+    };
+
     ParseBlock(block);
     chainAwaiting.Blocks.Add(headerAwaited.Height, block);
 
     UpdateTipBlockchain(chainAwaiting);
-
-    return true;
   }
 
   protected void UpdateTipBlockchain(Chain chain)
@@ -288,7 +275,6 @@ internal abstract partial class Blockchain
         if (exception is not ProtocolException)
           throw;
 
-        PoolBlocks.Add(block);
         ChainRoot.CutOff(block.Header);
         continue;
       }
@@ -296,8 +282,6 @@ internal abstract partial class Blockchain
       Database.Commit();
 
       OnBlockInserted.Announce(block);
-
-      PoolBlocks.Add(block);
     }
   }
 
@@ -328,9 +312,7 @@ internal abstract partial class Blockchain
     while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {
       Header header = ChainRoot.HeaderTipBlockchain;
-      Block block = TakeBlockFromPool();
-
-      if (!TryLoadBlock(header.Height, block) || !TryParseBlockStored(header, block))
+      if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
         throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded for rollback.");
 
       Database.BeginTrans();
