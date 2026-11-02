@@ -201,9 +201,9 @@ internal partial class BlockchainBToken : Blockchain
     return hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList();
   }
 
-  internal List<TX> GetTXsRanked(HashSet<byte[]> hashes)
+  internal List<TXBToken> GetTXsRanked(HashSet<byte[]> hashes)
   {
-    return TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>();
+    return TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList();
   }
 
   internal void StartMining(long feePerByte)

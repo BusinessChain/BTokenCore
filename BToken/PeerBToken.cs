@@ -18,6 +18,8 @@ internal partial class NetworkBToken : Network
       TXMessage.MAX_LEVEL_ANNOUNCED,
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 
+    internal double FeeFilterReceived;
+
 
     internal PeerBToken(
       NetworkBToken network,
@@ -29,6 +31,7 @@ internal partial class NetworkBToken : Network
 
       ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(BlockchainBToken));
       ProtocolStateMachine.Add(TXMessage.Command, new TXMessageBToken(network));
+      ProtocolStateMachine.Add(FeeFilterMessage.Command, new FeeFilterMessage());
       ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(BlockchainBToken));
       ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBToken(BlockchainBToken));
       ProtocolStateMachine.Add(VerAckMessage.Command, new VerAckMessage());
@@ -63,17 +66,27 @@ internal partial class NetworkBToken : Network
 
       if (hashesQueued.Count > 0)
       {
-        List<TX> tXsRanked = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetTXsRanked(hashesQueued));
+        List<BlockchainBToken.TXBToken> tXsRanked = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetTXsRanked(hashesQueued));
 
-        foreach (TX tX in tXsRanked)
+        HashSet<byte[]> iDsAccountSkipped = new(new EqualityComparerByteArray());
+        int indexStop = 0;
+
+        for (; indexStop < tXsRanked.Count; indexStop++)
         {
-          if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
-            break;
+          BlockchainBToken.TXBToken tX = tXsRanked[indexStop];
 
-          hashesTX.Add(tX.Hash);
+          if (iDsAccountSkipped.Contains(tX.IDAccountSource) || tX.GetFeePerByte() < FeeFilterReceived)
+            iDsAccountSkipped.Add(tX.IDAccountSource);
+          else if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
+            break;
+          else
+            hashesTX.Add(tX.Hash);
         }
 
-        hashesQueued.ExceptWith(tXsRanked.Skip(hashesTX.Count).Select(t => t.Hash));
+        hashesQueued.ExceptWith(tXsRanked
+          .Skip(indexStop)
+          .Where(t => !iDsAccountSkipped.Contains(t.IDAccountSource))
+          .Select(t => t.Hash));
 
         lock (HashesTXQueued)
           HashesTXQueued.ExceptWith(hashesQueued);
