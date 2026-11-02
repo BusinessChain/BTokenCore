@@ -72,17 +72,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     for (int i = 0; i < countAnchors; i++)
     {
-      TXOutputTokenAnchor anchor = new();
-
-      Array.Copy(block.Buffer, startIndex, anchor.IDToken, 0, anchor.IDToken.Length);
-      startIndex += anchor.IDToken.Length;
-
-      Array.Copy(block.Buffer, startIndex, anchor.HashBlockReferenced, 0, anchor.HashBlockReferenced.Length);
-      startIndex += anchor.HashBlockReferenced.Length;
-
-      Array.Copy(block.Buffer, startIndex, anchor.HashBlockPreviousReferenced, 0, anchor.HashBlockPreviousReferenced.Length);
-      startIndex += anchor.HashBlockPreviousReferenced.Length;
-
+      TXOutputTokenAnchor anchor = new(block.Buffer, ref startIndex);
       block.Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
     }
   }
@@ -92,7 +82,10 @@ internal partial class BlockchainBitcoin : Blockchain
     List<byte> bytes = [.. block.Header.Serialize(), .. VarInt.GetBytes(block.Header.AnchorsWinner.Count)];
 
     foreach (TXOutputTokenAnchor anchor in block.Header.AnchorsWinner.Values)
-      bytes.AddRange([.. anchor.IDToken, .. anchor.HashBlockReferenced, .. anchor.HashBlockPreviousReferenced]);
+    {
+      anchor.Serialize();
+      bytes.AddRange(anchor.Script);
+    }
 
     return bytes.ToArray();
   }
