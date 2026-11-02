@@ -230,11 +230,11 @@ internal partial class Network
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 
 
-    internal GetDataMessage(Blockchain blockchain, Block blockUpload)
+    internal GetDataMessage(Blockchain blockchain)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
-      BlockUpload = blockUpload;
+      BlockUpload = new(blockchain.SizeBlockMax);
     }
 
     internal override void IncrementDOSMonitor()
@@ -288,22 +288,17 @@ internal partial class Network
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
         else if (inventory.Type == Inventory.InventoryType.MSG_DB)
-        {
-          DOSMonitor.Increment(1);
-
-          byte[] dataDB = await Blockchain.GetDB(inventory.Hash);
-
-          if (dataDB != null)
-            await DBMessage.SendDB(peer, dataDB);
-          else
-            await SendInventories(peer, NotFoundMessage.Command, [inventory]);
-        }
+          await ServeDB(peer, inventory);
       }
 
       if (inventoriesTXNotFound.Count > 0)
         await SendInventories(peer, NotFoundMessage.Command, inventoriesTXNotFound);
     }
 
+    protected virtual Task ServeDB(Peer peer, Inventory inventory)
+    {
+      return Task.CompletedTask;
+    }
   }
 
   protected class NotFoundMessage : NetworkMessage

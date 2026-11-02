@@ -18,6 +18,7 @@ internal partial class NetworkBitcoin : Network
       ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBitcoin(network.Blockchain));
       ProtocolStateMachine.Add(VerAckMessage.Command, new VerAckMessageBitcoin(network.Blockchain));
       ProtocolStateMachine.Add(NotFoundMessage.Command, new NotFoundMessage());
+      ProtocolStateMachine.Add(GetDataMessage.Command, new GetDataMessage(network.Blockchain));
     }
 
     internal override bool CanDeliverBlock(Header header)

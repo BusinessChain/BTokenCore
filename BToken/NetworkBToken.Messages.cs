@@ -127,4 +127,28 @@ internal partial class NetworkBToken : Network
         DOSMonitor.Decrement(1);
     }
   }
+
+  class GetDataMessageBToken : GetDataMessage
+  {
+    BlockchainBToken BlockchainBToken;
+
+
+    internal GetDataMessageBToken(BlockchainBToken blockchain)
+      : base(blockchain)
+    {
+      BlockchainBToken = blockchain;
+    }
+
+    protected override async Task ServeDB(Peer peer, Inventory inventory)
+    {
+      DOSMonitor.Increment(1);
+
+      byte[] dataDB = await BlockchainBToken.GetDB(inventory.Hash);
+
+      if (dataDB != null)
+        await DBMessage.SendDB(peer, dataDB);
+      else
+        await SendInventories(peer, NotFoundMessage.Command, [inventory]);
+    }
+  }
 }
