@@ -191,13 +191,7 @@ internal partial class Blockchain
       HeaderTip.HeaderNext = chainForkAtTip.HeaderRoot;
       HeaderTip = chainForkAtTip.HeaderTip;
 
-      MoveItems(chainForkAtTip.Blocks, Blocks, b => true);
-      MoveItems(chainForkAtTip.HeadersAwaitingBlock, HeadersAwaitingBlock, h => true);
-
-      foreach (Chain chainChild in chainForkAtTip.ChainsChild)
-        chainChild.ChainParent = this;
-
-      MoveItems(chainForkAtTip.ChainsChild, ChainsChild, c => true);
+      chainForkAtTip.MoveBlockDownloadsAndForksTo(this, int.MaxValue);
 
       if (ChainParent != null)
         AdvanceTipChain();
@@ -345,12 +339,7 @@ internal partial class Blockchain
       (HeadersAwaitingBlock, chainParent.HeadersAwaitingBlock) = (chainParent.HeadersAwaitingBlock, HeadersAwaitingBlock);
       (ChainsChild, chainParent.ChainsChild) = (chainParent.ChainsChild, ChainsChild);
 
-      MoveItems(Blocks, chainParent.Blocks, b => b.Key <= heightFork);
-      MoveItems(HeadersAwaitingBlock, chainParent.HeadersAwaitingBlock, h => h.Value.Height <= heightFork);
-      MoveItems(ChainsChild, chainParent.ChainsChild, c => c.HeaderRoot.HeaderPrevious.Height <= heightFork);
-
-      foreach (Chain chainChild in chainParent.ChainsChild)
-        chainChild.ChainParent = chainParent;
+      MoveBlockDownloadsAndForksTo(chainParent, heightFork);
 
       foreach (Chain chainChild in ChainsChild)
         chainChild.ChainParent = this;
@@ -368,6 +357,16 @@ internal partial class Blockchain
 
       HeaderTipBlockchain = null;
       AdvanceTipChain();
+    }
+
+    void MoveBlockDownloadsAndForksTo(Chain chainTarget, int heightMax)
+    {
+      MoveItems(Blocks, chainTarget.Blocks, b => b.Key <= heightMax);
+      MoveItems(HeadersAwaitingBlock, chainTarget.HeadersAwaitingBlock, h => h.Value.Height <= heightMax);
+      MoveItems(ChainsChild, chainTarget.ChainsChild, c => c.HeaderRoot.HeaderPrevious.Height <= heightMax);
+
+      foreach (Chain chainChild in chainTarget.ChainsChild)
+        chainChild.ChainParent = chainTarget;
     }
 
     static void MoveItems<T>(ICollection<T> source, ICollection<T> target, Func<T, bool> predicate)
