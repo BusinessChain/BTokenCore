@@ -20,7 +20,7 @@ internal partial class BlockchainBitcoin : Blockchain
   ILiteCollection<BsonDocument> AnchorsOwned;
   TXBitcoin TXAnchorOpen;
 
-  internal Action<TX> OnTXAnchorCreated;
+  internal event Action<TX> OnTXAnchorCreated;
 
 
   internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)

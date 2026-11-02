@@ -18,8 +18,8 @@ internal abstract partial class Blockchain
 
   SemaphoreSlim SemaphoreBlockchain;
 
-  internal Action<Block> OnBlockInserted;
-  internal Action<Block> OnBlockRolledBack;
+  internal event Action<Block> OnBlockInserted;
+  internal event Action<Block> OnBlockRolledBack;
 
   Header HeaderTipBlockchainAnnounced;
 
