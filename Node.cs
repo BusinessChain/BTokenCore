@@ -19,11 +19,15 @@ public class Node
     NetworkBToken = new(BlockchainBToken, communication);
   }
 
-  public void Start()
+  public async Task Start()
   {
-    BlockchainBToken.LoadBlockchain();
-    BlockchainBitcoin.LoadBlockchain();
-    BlockchainBToken.RollBackUnanchored();
+    await BlockchainBToken.RunLocked(() =>
+    {
+      BlockchainBToken.LoadBlockchain();
+      BlockchainBitcoin.LoadBlockchain();
+      BlockchainBToken.RollBackUnanchored();
+    });
+
     NetworkBitcoin.Start();
 
     NetworkBToken.Start();
@@ -31,12 +35,12 @@ public class Node
 
   public async Task StartMining(long feePerByte)
   {
-    await BlockchainBToken.StartMining(feePerByte);
+    await BlockchainBToken.RunLocked(() => BlockchainBToken.StartMining(feePerByte));
   }
 
-  public void StopMining()
+  public async Task StopMining()
   {
-    BlockchainBToken.StopMining();
+    await BlockchainBToken.RunLocked(BlockchainBToken.StopMining);
   }
 
   public async Task SubmitTXBToken(byte[] tXRaw)

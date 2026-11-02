@@ -216,19 +216,16 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>();
   }
 
-  internal Task StartMining(long feePerByte)
+  internal void StartMining(long feePerByte)
   {
     // The user has to define the fee rate at which they want to pay for the anchoring.
     // The GUI could also offer a tool that controls the fee rate automatically,
     // e.g. based on past fee rates or market price arbitrage.
 
-    return RunLocked(() =>
-    {
-      FeePerByte = feePerByte;
-      IsMining = true;
+    FeePerByte = feePerByte;
+    IsMining = true;
 
-      OnTipChanged();
-    });
+    OnTipChanged();
   }
 
   internal void StopMining()
