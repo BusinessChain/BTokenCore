@@ -371,9 +371,10 @@ internal abstract partial class Blockchain
 
   internal Header FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
   {
-    return ChainRoot.FetchHeaderBlockMissingNextInTree(
-      ChainRoot.HeaderTipBlockchain.Height,
-      canSupplierDeliverBlock);
+    return ChainRoot.FindInTree(chain =>
+      chain.HeaderTip.Height > ChainRoot.HeaderTipBlockchain.Height
+        ? chain.FetchHeaderBlockMissingNextInChain(chain.HeaderTip.Height, canSupplierDeliverBlock)
+        : null);
   }
 
   internal List<byte[]> GetLocator()

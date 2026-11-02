@@ -293,21 +293,6 @@ internal partial class Blockchain
         .MinBy(h => h.Height);
     }
 
-    internal Header FetchHeaderBlockMissingNextInTree(int heightTipBlockchainRoot, Func<Header, bool> canSupplierDeliverBlock)
-    {
-      bool isChainAhead = HeaderTip.Height > heightTipBlockchainRoot;
-
-      if (isChainAhead
-        && FetchHeaderBlockMissingNextInChain(HeaderTip.Height, canSupplierDeliverBlock) is Header header)
-        return header;
-
-      foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FetchHeaderBlockMissingNextInTree(heightTipBlockchainRoot, canSupplierDeliverBlock) is Header headerChild)
-          return headerChild;
-
-      return null;
-    }
-
     internal void AdvanceTipChain()
     {
       int heightBlockNext = HeaderTipBlockchain != null
