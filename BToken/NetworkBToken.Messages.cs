@@ -20,9 +20,13 @@ internal partial class NetworkBToken : Network
 
   class InvMessageBToken : InvMessage
   {
-    internal InvMessageBToken(Blockchain blockchain)
-      : base(blockchain)
-    { }
+    BlockchainBToken BlockchainBToken;
+
+
+    internal InvMessageBToken(BlockchainBToken blockchain)
+    {
+      BlockchainBToken = blockchain;
+    }
 
     internal override async Task Run(Peer peer)
     {
@@ -40,7 +44,7 @@ internal partial class NetworkBToken : Network
           hashesTX.Add(inventory.Hash);
       }
 
-      List<byte[]> hashesTXNotInPool = await Blockchain.GetHashesTXNotInPool(hashesTX);
+      List<byte[]> hashesTXNotInPool = await BlockchainBToken.GetHashesTXNotInPool(hashesTX);
 
       Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
 
@@ -75,7 +79,7 @@ internal partial class NetworkBToken : Network
     {
       int index = 0;
 
-      TX tX = Network.Blockchain.ParseTX(Payload, ref index, flagIsCoinbase: false);
+      TX tX = Network.BlockchainBToken.ParseTX(Payload, ref index, flagIsCoinbase: false);
 
       if (index != LengthDataPayload)
         throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");

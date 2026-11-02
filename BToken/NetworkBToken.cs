@@ -4,6 +4,8 @@ internal partial class NetworkBToken : Network
 {
   const int TIMESPAN_MEAN_INV_SECONDS = 5;
 
+  BlockchainBToken BlockchainBToken;
+
 
   internal NetworkBToken(
     BlockchainBToken blockchain,
@@ -17,20 +19,22 @@ internal partial class NetworkBToken : Network
         EnableInboundConnections = true,
         EnableRelay = true
       })
-  { }
+  {
+    BlockchainBToken = blockchain;
+  }
 
   internal async Task SubmitTX(byte[] tXRaw)
   {
     int index = 0;
 
-    TX tX = Blockchain.ParseTX(tXRaw, ref index, flagIsCoinbase: false);
+    TX tX = BlockchainBToken.ParseTX(tXRaw, ref index, flagIsCoinbase: false);
 
     await AddTX(tX);
   }
 
   async Task AddTX(TX tX)
   {
-    await Blockchain.AddTX(tX);
+    await BlockchainBToken.AddTX(tX);
 
     lock (LOCK_Peers)
       foreach (PeerBToken peer in Peers)
@@ -71,7 +75,7 @@ internal partial class NetworkBToken : Network
 
     if (hashesQueued.Count > 0)
     {
-      List<TX> tXsRanked = await Blockchain.GetTXsRanked(hashesQueued);
+      List<TX> tXsRanked = await BlockchainBToken.GetTXsRanked(hashesQueued);
 
       foreach (TX tX in tXsRanked)
       {

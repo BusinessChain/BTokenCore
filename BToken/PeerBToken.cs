@@ -21,10 +21,10 @@ internal partial class NetworkBToken : Network
       ConnectionType connection)
       : base(network, socketCommunication, connection)
     {
-      ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(network.Blockchain));
+      ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(network.BlockchainBToken));
       ProtocolStateMachine.Add(TXMessage.Command, new TXMessageBToken(network));
-      ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(network.Blockchain));
-      ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBToken(network.Blockchain));
+      ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(network.BlockchainBToken));
+      ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBToken(network.BlockchainBToken));
       ProtocolStateMachine.Add(VerAckMessage.Command, new VerAckMessage());
       ProtocolStateMachine.Add(NotFoundMessage.Command, new NotFoundMessageBToken());
     }

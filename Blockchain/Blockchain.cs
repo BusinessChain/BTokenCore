@@ -371,21 +371,6 @@ internal abstract partial class Blockchain
     return Task.CompletedTask;
   }
 
-  internal virtual Task AddTX(TX tX)
-  {
-    throw new ProtocolException($"Blockchain has no TX pool to add TX {tX.Hash.ToHexString()}.");
-  }
-
-  internal virtual Task<List<TX>> GetTXsRanked(HashSet<byte[]> hashes)
-  {
-    return Task.FromResult(new List<TX>());
-  }
-
-  internal virtual Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
-  {
-    return Task.FromResult(new List<byte[]>());
-  }
-
   internal int GetHeight()
   {
     return ChainRoot.HeaderTipBlockchain.Height;

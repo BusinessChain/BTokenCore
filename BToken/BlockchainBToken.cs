@@ -213,7 +213,7 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal override Task AddTX(TX tX)
+  internal Task AddTX(TX tX)
   {
     return RunLocked(() => TXPool.AddTX(tX));
   }
@@ -228,12 +228,12 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  internal override Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
+  internal Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)
   {
     return RunLocked(() => hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList());
   }
 
-  internal override Task<List<TX>> GetTXsRanked(HashSet<byte[]> hashes)
+  internal Task<List<TX>> GetTXsRanked(HashSet<byte[]> hashes)
   {
     return RunLocked(() => TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList<TX>());
   }

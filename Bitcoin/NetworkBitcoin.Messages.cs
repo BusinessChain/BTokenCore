@@ -127,9 +127,13 @@ internal partial class NetworkBitcoin : Network
 
   class InvMessageBitcoin : InvMessage
   {
+    Blockchain Blockchain;
+
+
     internal InvMessageBitcoin(Blockchain blockchain)
-      : base(blockchain)
-    { }
+    {
+      Blockchain = blockchain;
+    }
 
     internal override async Task Run(Peer peer)
     {

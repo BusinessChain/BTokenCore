@@ -428,8 +428,6 @@ internal partial class Network
   {
     internal const string Command = "inv";
 
-    protected Blockchain Blockchain;
-
     internal const int MAX_COUNT_INVENTORIES = 100;
 
     const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_INVENTORIES * 36;
@@ -437,11 +435,9 @@ internal partial class Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 150;
 
 
-    internal InvMessage(Blockchain blockchain)
+    internal InvMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Blockchain = blockchain;
-    }
+    { }
   }
 
   class PongMessage : NetworkMessage
