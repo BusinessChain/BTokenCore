@@ -206,6 +206,11 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetTXsRanked().Where(t => hashes.Contains(t.Hash)).ToList();
   }
 
+  internal double GetFeePerByteMin()
+  {
+    return TXPool.GetFeePerByteMin();
+  }
+
   internal void StartMining(long feePerByte)
   {
     // The user has to define the fee rate at which they want to pay for the anchoring.

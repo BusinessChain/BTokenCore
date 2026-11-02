@@ -243,6 +243,13 @@ internal partial class NetworkBToken : Network
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
+    internal static async Task SendFeeFilter(Peer peer, double feeFilter)
+    {
+      byte[] payload = BitConverter.GetBytes(feeFilter);
+
+      await peer.SocketCommunication.SendMessage(Command, payload.Length, payload);
+    }
+
     internal override async Task Run(Peer peer)
     {
       if (LengthDataPayload != SIZE_BUFFER_PAYLOAD)

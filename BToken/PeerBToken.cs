@@ -5,6 +5,7 @@ internal partial class NetworkBToken : Network
   class PeerBToken : Peer
   {
     const int TIMESPAN_MEAN_INV_SECONDS = 5;
+    const int TIMESPAN_MEAN_FEEFILTER_SECONDS = 60;
 
     BlockchainBToken BlockchainBToken;
 
@@ -19,6 +20,8 @@ internal partial class NetworkBToken : Network
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 
     internal double FeeFilterReceived;
+    double FeeFilterSent;
+    DateTime TimeFeeFilterNext;
 
 
     internal PeerBToken(
@@ -53,6 +56,20 @@ internal partial class NetworkBToken : Network
       lock (HashesTXRequested)
         if (HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))
           throw new ProtocolException($"Peer did not answer a TX request within {TIMEOUT_REQUEST_SECONDS} seconds.");
+
+      if (DateTime.UtcNow >= TimeFeeFilterNext)
+      {
+        double feeFilter = await BlockchainBToken.RunLocked(BlockchainBToken.GetFeePerByteMin);
+
+        if (feeFilter != FeeFilterSent)
+        {
+          await FeeFilterMessage.SendFeeFilter(this, feeFilter);
+          FeeFilterSent = feeFilter;
+        }
+
+        TimeFeeFilterNext = DateTime.UtcNow.AddSeconds(
+          -TIMESPAN_MEAN_FEEFILTER_SECONDS * Math.Log(1 - Random.Shared.NextDouble()));
+      }
 
       if (DateTime.UtcNow < TimeInvNext)
         return;

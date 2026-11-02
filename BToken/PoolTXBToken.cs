@@ -243,6 +243,14 @@ internal partial class BlockchainBToken : Blockchain
       TXBundlesSortedByFee.Insert(0, tXBundle);
     }
 
+    internal double GetFeePerByteMin()
+    {
+      if (CountBytesTXs <= COUNT_BYTES_MAX_POOL - SIZE_BLOCK_MAX)
+        return 0;
+
+      return TXBundlesSortedByFee[^1].FeePerByte + FEE_PER_BYTE_INCREMENT;
+    }
+
     internal IEnumerable<TXBToken> GetTXsRanked()
     {
       foreach (TXBundle tXBundle in TXBundlesSortedByFee)
