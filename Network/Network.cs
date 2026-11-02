@@ -16,8 +16,7 @@ internal abstract partial class Network
   const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
 
   const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
-  const int TIMESPAN_MEAN_INV_SECONDS = 5;
-  const int TIMEOUT_REQUEST_SECONDS = 60;
+  protected const int TIMEOUT_REQUEST_SECONDS = 60;
 
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
@@ -45,31 +44,6 @@ internal abstract partial class Network
       StartPeerConnectorInbound();
 
     StartBlockDownloadDispatcher();
-  }
-
-  internal async Task SubmitTX(byte[] tXRaw)
-  {
-    int index = 0;
-
-    TX tX = Blockchain.ParseTX(tXRaw, ref index, flagIsCoinbase: false);
-
-    await Blockchain.AddTX(tX);
-
-    QueueTXAnnouncement(tX);
-  }
-
-  void QueueTXAnnouncement(TX tX)
-  {
-    lock (LOCK_Peers)
-      foreach (Peer peer in Peers)
-      {
-        lock (peer.HashesTXRequested)
-          if (peer.HashesTXRequested.ContainsKey(tX.Hash))
-            continue;
-
-        lock (peer.HashesTXQueued)
-          peer.HashesTXQueued.Add(tX.Hash);
-      }
   }
 
   void HandleBlockInserted(Block block)
@@ -200,6 +174,11 @@ internal abstract partial class Network
     ISocketCommunication socketCommunication,
     Peer.ConnectionType connection);
 
+  protected virtual Task RelayTXs(Peer peer)
+  {
+    return Task.CompletedTask;
+  }
+
   async Task StartBlockDownloadDispatcher()
   {
     while (true)
@@ -221,48 +200,7 @@ internal abstract partial class Network
           {
             await ((PingMessage)peer.ProtocolStateMachine[PingMessage.Command]).Ping(peer);
 
-            lock (peer.HashesTXRequested)
-              if (peer.HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))
-                throw new ProtocolException($"Peer did not answer a TX request within {TIMEOUT_REQUEST_SECONDS} seconds.");
-
-            if (DateTime.UtcNow >= peer.TimeInvNext)
-            {
-              HashSet<byte[]> hashesQueued;
-
-              lock (peer.HashesTXQueued)
-                hashesQueued = new(peer.HashesTXQueued, new EqualityComparerByteArray());
-
-              List<byte[]> hashesTX = new();
-
-              if (hashesQueued.Count > 0)
-              {
-                List<TX> tXsRanked = await Blockchain.GetTXsRanked(hashesQueued);
-
-                foreach (TX tX in tXsRanked)
-                {
-                  if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !peer.ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
-                    break;
-
-                  hashesTX.Add(tX.Hash);
-                }
-
-                hashesQueued.ExceptWith(tXsRanked.Skip(hashesTX.Count).Select(t => t.Hash));
-
-                lock (peer.HashesTXQueued)
-                  peer.HashesTXQueued.ExceptWith(hashesQueued);
-              }
-
-              if (hashesTX.Count > 0)
-              {
-                await NetworkMessage.SendInventories(
-                  peer,
-                  InvMessage.Command,
-                  hashesTX.Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h)).ToList());
-
-                peer.TimeInvNext = DateTime.UtcNow.AddSeconds(
-                  -TIMESPAN_MEAN_INV_SECONDS * Math.Log(1 - Random.Shared.NextDouble()));
-              }
-            }
+            await RelayTXs(peer);
           }
           catch
           {

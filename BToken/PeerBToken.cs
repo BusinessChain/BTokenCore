@@ -14,7 +14,7 @@ internal partial class NetworkBToken : Network
       : base(network, socketCommunication, connection)
     {
       ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(network.Blockchain));
-      ProtocolStateMachine.Add(TXMessage.Command, new TXMessage(network.Blockchain, network));
+      ProtocolStateMachine.Add(TXMessage.Command, new TXMessageBToken(network));
       ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(network.Blockchain));
       ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBToken(network.Blockchain));
       ProtocolStateMachine.Add(VerAckMessage.Command, new VerAckMessage());

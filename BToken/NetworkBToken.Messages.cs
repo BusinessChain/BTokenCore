@@ -53,4 +53,40 @@ internal partial class NetworkBToken : Network
           hashesTXNotInPool.Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h)).ToList());
     }
   }
+
+  class TXMessageBToken : TXMessage
+  {
+    NetworkBToken Network;
+
+
+    internal TXMessageBToken(NetworkBToken network)
+    {
+      Network = network;
+    }
+
+    internal override void IncrementDOSMonitor()
+    {
+      DOSMonitor.Increment(LengthDataPayload);
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      int index = 0;
+
+      TX tX = Network.Blockchain.ParseTX(Payload, ref index, flagIsCoinbase: false);
+
+      if (index != LengthDataPayload)
+        throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");
+
+      try
+      {
+        await Network.AddTX(tX);
+      }
+      catch (ProtocolException)
+      { }
+
+      lock (peer.HashesTXRequested)
+        peer.HashesTXRequested.Remove(tX.Hash);
+    }
+  }
 }
