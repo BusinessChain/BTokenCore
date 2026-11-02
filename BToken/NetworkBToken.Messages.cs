@@ -159,7 +159,7 @@ internal partial class NetworkBToken : Network
       byte[] dataDB = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetDB(inventory.Hash));
 
       if (dataDB != null)
-        await DBMessage.SendDB(peer, dataDB);
+        await peer.SocketCommunication.SendMessage(DBMessage.Command, dataDB.Length, dataDB);
       else
         await SendInventories(peer, NotFoundMessage.Command, [inventory]);
     }
@@ -227,11 +227,6 @@ internal partial class NetworkBToken : Network
       DOSMonitor.Decrement(1);
 
       peer.StateCurrent = Peer.StateProtocol.Idle;
-    }
-
-    internal static async Task SendDB(Peer peer, byte[] dataDB)
-    {
-      await peer.SocketCommunication.SendMessage(Command, dataDB.Length, dataDB);
     }
   }
 }

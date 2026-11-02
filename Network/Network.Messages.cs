@@ -132,7 +132,7 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
-      await PongMessage.SendPong(peer, LengthDataPayload, Payload);
+      await peer.SocketCommunication.SendMessage(PongMessage.Command, LengthDataPayload, Payload);
     }
   }
 
@@ -190,11 +190,6 @@ internal partial class Network
 
       await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
     }
-
-    internal static async Task SendBlock(Peer peer, Block block)
-    {
-      await peer.SocketCommunication.SendMessage(Command, block.LengthDataPayload, block.Buffer);
-    }
   }
 
   protected class GetDataMessage : NetworkMessage
@@ -245,7 +240,7 @@ internal partial class Network
           if (tX != null)
           {
             DOSMonitorTX.Increment(tX.TXRaw.Length);
-            await TXMessage.Send(peer, tX.TXRaw);
+            await peer.SocketCommunication.SendMessage(TXMessage.Command, tX.TXRaw.Length, tX.TXRaw);
           }
           else
           {
@@ -263,7 +258,7 @@ internal partial class Network
 
           if (BlockUpload.Header != null)
           {
-            BlockMessage.SendBlock(peer, BlockUpload);
+            peer.SocketCommunication.SendMessage(BlockMessage.Command, BlockUpload.LengthDataPayload, BlockUpload.Buffer);
 
             if (BlockUpload.Header.Height > HeightBlockDownloadedLast)
               DOSMonitor.Decrement(1);
@@ -394,11 +389,6 @@ internal partial class Network
         && BitConverter.ToUInt64(Payload) == messagePing.Nonce)
         messagePing.IsPongPending = false;
     }
-
-    internal static async Task SendPong(Peer peer, int payloadLength, byte[] payload)
-    {
-      await peer.SocketCommunication.SendMessage(Command, payloadLength, payload);
-    }
   }
 
   protected abstract class TXMessage : NetworkMessage
@@ -415,11 +405,6 @@ internal partial class Network
     internal TXMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
-
-    internal static async Task Send(Peer peer, byte[] buffer)
-    {
-      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
-    }
   }
 
   protected class VerAckMessage : NetworkMessage
@@ -433,11 +418,6 @@ internal partial class Network
     internal VerAckMessage()
       : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
-
-    internal static async Task Send(Peer peer)
-    {
-      await peer.SocketCommunication.SendMessage(Command, 0, new byte[0]);
-    }
 
     internal override async Task Run(Peer peer)
     {
@@ -500,7 +480,7 @@ internal partial class Network
       if ((BitConverter.ToUInt64(Payload, 4) & networkServicesRequired) != networkServicesRequired)
         throw new ProtocolException($"Peer lacks network services {networkServicesRequired}.");
 
-      VerAckMessage.Send(peer);
+      peer.SocketCommunication.SendMessage(VerAckMessage.Command, 0, new byte[0]);
 
       if (peer.Connection == Peer.ConnectionType.INBOUND)
         SendVersion(peer, await Blockchain.RunLocked(Blockchain.GetHeight));
