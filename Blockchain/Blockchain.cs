@@ -326,21 +326,12 @@ internal abstract partial class Blockchain
       if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
         throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded for rollback.");
 
-      Database.BeginTrans();
-
-      try
+      RunInTransaction(() =>
       {
         RollBackBlock(block);
 
         DatabaseBlockCollection.Delete(header.Height);
-      }
-      catch
-      {
-        Database.Rollback();
-        throw;
-      }
-
-      Database.Commit();
+      });
 
       OnBlockRolledBack.Announce(block);
 
