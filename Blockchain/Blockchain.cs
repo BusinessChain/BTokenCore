@@ -76,7 +76,7 @@ internal abstract partial class Blockchain
 
   internal abstract TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase = false);
 
-  internal abstract Task<TX> GetTX(byte[] hash);
+  internal abstract TX GetTX(byte[] hash);
 
   protected void ParseBlockHeader(Block block, ref int startIndex)
   {
@@ -171,11 +171,9 @@ internal abstract partial class Blockchain
     return true;
   }
 
-  internal async Task GetBlock(byte[] hash, Block blockLoad)
+  internal void GetBlock(byte[] hash, Block blockLoad)
   {
-    Header header = null;
-
-    if (await RunLocked(() => ChainRoot.TryGetHeader(hash, out header))
+    if (ChainRoot.TryGetHeader(hash, out Header header)
       && TryLoadBlock(header.Height, blockLoad))
       TryParseBlockStored(header, blockLoad);
   }

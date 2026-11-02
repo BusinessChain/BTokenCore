@@ -140,15 +140,12 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal Task<byte[]> GetDB(byte[] hash)
+  internal byte[] GetDB(byte[] hash)
   {
-    return RunLocked(() =>
-    {
-      if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Accounts.Exists())
-        return Accounts.Serialize();
+    if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Accounts.Exists())
+      return Accounts.Serialize();
 
-      return null;
-    });
+    return null;
   }
 
   internal byte[] GetHashDBMissing()
@@ -202,14 +199,11 @@ internal partial class BlockchainBToken : Blockchain
     return RunLocked(() => TXPool.AddTX(tX));
   }
 
-  internal override Task<TX> GetTX(byte[] hash)
+  internal override TX GetTX(byte[] hash)
   {
-    return RunLocked<TX>(() =>
-    {
-      TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem);
+    TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem);
 
-      return tXsByHashItem.tX;
-    });
+    return tXsByHashItem.tX;
   }
 
   internal Task<List<byte[]>> GetHashesTXNotInPool(List<byte[]> hashes)

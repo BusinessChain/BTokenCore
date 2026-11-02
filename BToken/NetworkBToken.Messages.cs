@@ -156,7 +156,7 @@ internal partial class NetworkBToken : Network
     {
       DOSMonitor.Increment(1);
 
-      byte[] dataDB = await BlockchainBToken.GetDB(inventory.Hash);
+      byte[] dataDB = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetDB(inventory.Hash));
 
       if (dataDB != null)
         await DBMessage.SendDB(peer, dataDB);

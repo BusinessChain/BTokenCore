@@ -241,7 +241,7 @@ internal partial class Network
 
         if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
-          TX tX = await Blockchain.GetTX(inventory.Hash);
+          TX tX = await Blockchain.RunLocked(() => Blockchain.GetTX(inventory.Hash));
 
           if (tX != null)
           {
@@ -260,7 +260,7 @@ internal partial class Network
 
           BlockUpload.Header = null;
 
-          await Blockchain.GetBlock(inventory.Hash, BlockUpload);
+          await Blockchain.RunLocked(() => Blockchain.GetBlock(inventory.Hash, BlockUpload));
 
           if (BlockUpload.Header != null)
           {

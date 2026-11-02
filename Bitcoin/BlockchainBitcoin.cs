@@ -164,15 +164,12 @@ internal partial class BlockchainBitcoin : Blockchain
     }
   }
 
-  internal override Task<TX> GetTX(byte[] hash)
+  internal override TX GetTX(byte[] hash)
   {
-    return RunLocked<TX>(() =>
-    {
-      if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
-        return TXAnchorOpen;
+    if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
+      return TXAnchorOpen;
 
-      return null;
-    });
+    return null;
   }
 
   internal bool IsTXAnchorOpen()
