@@ -9,7 +9,6 @@ internal partial class BlockchainBToken : Blockchain
     const long BLOCK_REWARD_INITIAL = 200000000000000; // 200 BTK
     const int PERIOD_HALVENING_BLOCK_REWARD = 105000;
 
-    internal uint Version;
     internal byte[] HashDatabase = new byte[32];
 
 
@@ -34,18 +33,9 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     internal HeaderBToken(byte[] buffer, ref int index)
-      : this()
+      : base(buffer, ref index, COUNT_HEADER_BYTES)
     {
-      Hash = Crypto.ComputeHash256(buffer.AsSpan(index, COUNT_HEADER_BYTES));
-
-      Version = BitConverter.ToUInt32(buffer, index);
-      index += 4;
-
-      Array.Copy(buffer, index, HashPrevious, 0, 32);
-      index += 32;
-
-      Array.Copy(buffer, index, MerkleRoot, 0, 32);
-      index += 32;
+      Difficulty = 1;
 
       Array.Copy(buffer, index, HashDatabase, 0, 32);
       index += 32;
@@ -56,13 +46,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal override byte[] Serialize()
     {
-      byte[] buffer = new byte[COUNT_HEADER_BYTES];
-
-      BitConverter.GetBytes(Version).CopyTo(buffer, 0);
-
-      HashPrevious.CopyTo(buffer, 4);
-
-      MerkleRoot.CopyTo(buffer, 36);
+      byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);
 
       HashDatabase.CopyTo(buffer, 68);
 

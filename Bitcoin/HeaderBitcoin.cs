@@ -6,7 +6,6 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     internal const int COUNT_HEADER_BYTES = 80;
 
-    internal uint Version;
     internal uint NBits;
 
     internal uint UnixTimeSeconds;
@@ -40,18 +39,8 @@ internal partial class BlockchainBitcoin : Blockchain
     }
 
     internal HeaderBitcoin(byte[] buffer, ref int index)
+      : base(buffer, ref index, COUNT_HEADER_BYTES)
     {
-      Hash = Crypto.ComputeHash256(buffer.AsSpan(index, COUNT_HEADER_BYTES));
-
-      Version = BitConverter.ToUInt32(buffer, index);
-      index += 4;
-
-      Array.Copy(buffer, index, HashPrevious, 0, 32);
-      index += 32;
-
-      Array.Copy(buffer, index, MerkleRoot, 0, 32);
-      index += 32;
-
       UnixTimeSeconds = BitConverter.ToUInt32(buffer, index);
       index += 4;
 
@@ -161,13 +150,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     internal override byte[] Serialize()
     {
-      byte[] buffer = new byte[COUNT_HEADER_BYTES];
-
-      BitConverter.GetBytes(Version).CopyTo(buffer, 0);
-
-      HashPrevious.CopyTo(buffer, 4);
-
-      MerkleRoot.CopyTo(buffer, 36);
+      byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);
 
       BitConverter.GetBytes(UnixTimeSeconds).CopyTo(buffer, 68);
 

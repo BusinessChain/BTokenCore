@@ -3,6 +3,7 @@
 public abstract class Header
 {
   internal byte[] Hash;
+  internal uint Version;
   internal byte[] HashPrevious;
   internal byte[] MerkleRoot;
   internal uint Nonce;
@@ -28,7 +29,35 @@ public abstract class Header
     MerkleRoot = new byte[32];
   }
 
+  protected Header(byte[] buffer, ref int index, int countHeaderBytes)
+    : this()
+  {
+    Hash = Crypto.ComputeHash256(buffer.AsSpan(index, countHeaderBytes));
+
+    Version = BitConverter.ToUInt32(buffer, index);
+    index += 4;
+
+    Array.Copy(buffer, index, HashPrevious, 0, 32);
+    index += 32;
+
+    Array.Copy(buffer, index, MerkleRoot, 0, 32);
+    index += 32;
+  }
+
   internal abstract byte[] Serialize();
+
+  protected byte[] SerializePrefix(int countHeaderBytes)
+  {
+    byte[] buffer = new byte[countHeaderBytes];
+
+    BitConverter.GetBytes(Version).CopyTo(buffer, 0);
+
+    HashPrevious.CopyTo(buffer, 4);
+
+    MerkleRoot.CopyTo(buffer, 36);
+
+    return buffer;
+  }
 
   internal virtual bool TryAppendToHeader(Header headerPrevious)
   {
