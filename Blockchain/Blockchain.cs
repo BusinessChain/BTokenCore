@@ -250,36 +250,47 @@ internal abstract partial class Blockchain
     }
   }
 
+  protected void RunInTransaction(Action action)
+  {
+    Database.BeginTrans();
+
+    try
+    {
+      action();
+    }
+    catch
+    {
+      Database.Rollback();
+      throw;
+    }
+
+    Database.Commit();
+  }
+
   void InsertBlocksQueued()
   {
     while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
-      Database.BeginTrans();
-
       try
       {
-        InsertBlock(block);
-
-        ChainRoot.HeaderTipBlockchain = block.Header;
-
-        DatabaseBlockCollection.Upsert(new BsonDocument
+        RunInTransaction(() =>
         {
-          ["_id"] = block.Header.Height,
-          ["blockBytes"] = SerializeBlockStored(block)
+          InsertBlock(block);
+
+          ChainRoot.HeaderTipBlockchain = block.Header;
+
+          DatabaseBlockCollection.Upsert(new BsonDocument
+          {
+            ["_id"] = block.Header.Height,
+            ["blockBytes"] = SerializeBlockStored(block)
+          });
         });
       }
-      catch (Exception exception)
+      catch (ProtocolException)
       {
-        Database.Rollback();
-
-        if (exception is not ProtocolException)
-          throw;
-
         ChainRoot.CutOff(block.Header);
         continue;
       }
-
-      Database.Commit();
 
       OnBlockInserted.Announce(block);
     }
