@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -78,7 +77,7 @@ public static class StringExtensionMethods
   {
     byte[] bb = base58.Base58ToByteArray();
 
-    byte[] checksum = SHA256.HashData(SHA256.HashData(bb.AsSpan(0, bb.Length - 4)));
+    byte[] checksum = Crypto.ComputeHash256(bb.AsSpan(0, bb.Length - 4));
 
     for (int i = 0; i < 4; i++)
       if (checksum[i] != bb[bb.Length - 4 + i])

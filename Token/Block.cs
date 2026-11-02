@@ -1,7 +1,4 @@
-﻿using System.Security.Cryptography;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 public class Block
 {
@@ -58,7 +55,7 @@ public class Block
         merkleList[i2].CopyTo(leafPair, 0);
         merkleList[i2 + 1].CopyTo(leafPair, HASH_BYTE_SIZE);
 
-        merkleList[i] = SHA256.HashData(SHA256.HashData(leafPair));
+        merkleList[i] = Crypto.ComputeHash256(leafPair);
       }
 
       if (merkleIndex == 1)

@@ -39,7 +39,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
       index += 4; //BYTE_LENGTH_LOCK_TIME
 
-      Hash = SHA256.HashData(SHA256.HashData(buffer.AsSpan(indexTxStart, index - indexTxStart)));
+      Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
     }
 
 
@@ -68,7 +68,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
       TXRaw = tXRaw.ToArray();
 
-      Hash = SHA256.HashData(SHA256.HashData(TXRaw));
+      Hash = Crypto.ComputeHash256(TXRaw);
     }
 
     void SignTX(List<byte> tXRaw, Wallet wallet)

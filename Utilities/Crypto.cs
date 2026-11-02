@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-
-using Org.BouncyCastle.Asn1.Sec;
+﻿using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Crypto.Digests;
 using Org.BouncyCastle.Math;
+using Org.BouncyCastle.Asn1.X9;
 
 using System.Security.Cryptography;
-using Org.BouncyCastle.Asn1.X9;
-using System.Linq;
 
 
 namespace BTokenCore;
@@ -100,5 +96,10 @@ public static class Crypto
     RIPEMD160.DoFinal(publicKeyHash160, 0);
 
     return publicKeyHash160;
+  }
+
+  public static byte[] ComputeHash256(ReadOnlySpan<byte> data)
+  {
+    return SHA256.HashData(SHA256.HashData(data));
   }
 }

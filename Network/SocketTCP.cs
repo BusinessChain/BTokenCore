@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -71,7 +70,7 @@ internal class SocketTCP : ISocketCommunication
       byte[] payloadLength = BitConverter.GetBytes(lengthDataPayload);
       NetworkStream.Write(payloadLength, 0, payloadLength.Length);
 
-      byte[] checksum = SHA256.HashData(SHA256.HashData(payload.AsSpan(0, lengthDataPayload)));
+      byte[] checksum = Crypto.ComputeHash256(payload.AsSpan(0, lengthDataPayload));
 
       NetworkStream.Write(checksum, 0, ChecksumSize);
 

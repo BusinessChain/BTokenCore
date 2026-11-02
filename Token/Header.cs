@@ -1,7 +1,4 @@
-﻿using System.Security.Cryptography;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 public abstract class Header
 {
@@ -55,6 +52,6 @@ public abstract class Header
 
   internal void ComputeHash()
   {
-    Hash = SHA256.HashData(SHA256.HashData(Serialize()));
+    Hash = Crypto.ComputeHash256(Serialize());
   }
 }

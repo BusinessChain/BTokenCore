@@ -1,7 +1,4 @@
-﻿using System.Security.Cryptography;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal partial class BlockchainBitcoin : Blockchain
 {
@@ -44,7 +41,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     internal HeaderBitcoin(byte[] buffer, ref int index)
     {
-      Hash = SHA256.HashData(SHA256.HashData(buffer.AsSpan(index, COUNT_HEADER_BYTES)));
+      Hash = Crypto.ComputeHash256(buffer.AsSpan(index, COUNT_HEADER_BYTES));
 
       Version = BitConverter.ToUInt32(buffer, index);
       index += 4;

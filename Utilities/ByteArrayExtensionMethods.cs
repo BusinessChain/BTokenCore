@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -23,7 +22,7 @@ public static class ByteArrayExtensionMethods
     List<byte> pubKey = byteArray.ToList();
     pubKey.Insert(0, 0x00);
 
-    byte[] checksum = SHA256.HashData(SHA256.HashData(pubKey.ToArray()));
+    byte[] checksum = Crypto.ComputeHash256(pubKey.ToArray());
 
     pubKey.AddRange(checksum.Take(4));
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -76,7 +75,7 @@ internal partial class BlockchainBToken : Blockchain
         TXOutputs.Add(tXOutput);
       }
 
-      Hash = SHA256.HashData(SHA256.HashData(buffer.AsSpan(indexTxStart, index - indexTxStart)));
+      Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
 
       if (!flagIsCoinbase)
         VerifySignatureTX(indexTxStart, buffer, ref index);
@@ -121,7 +120,7 @@ internal partial class BlockchainBToken : Blockchain
 
       TXRaw = tXRaw.ToArray();
 
-      Hash = SHA256.HashData(SHA256.HashData(TXRaw));
+      Hash = Crypto.ComputeHash256(TXRaw);
     }
   }
 }
