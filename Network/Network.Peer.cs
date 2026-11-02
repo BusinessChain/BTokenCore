@@ -64,6 +64,11 @@ internal partial class Network
       return !HashesBlockRefused.Contains(header.Hash);
     }
 
+    internal virtual Task RelayTXs()
+    {
+      return Task.CompletedTask;
+    }
+
     internal async Task Start(int heightBlockchainTip)
     {
       await SocketCommunication.Start();

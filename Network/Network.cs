@@ -174,11 +174,6 @@ internal abstract partial class Network
     ISocketCommunication socketCommunication,
     Peer.ConnectionType connection);
 
-  protected virtual Task RelayTXs(Peer peer)
-  {
-    return Task.CompletedTask;
-  }
-
   async Task StartBlockDownloadDispatcher()
   {
     while (true)
@@ -200,7 +195,7 @@ internal abstract partial class Network
           {
             await ((PingMessage)peer.ProtocolStateMachine[PingMessage.Command]).Ping(peer);
 
-            await RelayTXs(peer);
+            await peer.RelayTXs();
           }
           catch
           {
