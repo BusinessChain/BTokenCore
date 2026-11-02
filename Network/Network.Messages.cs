@@ -168,7 +168,7 @@ internal partial class Network
 
       BlockDownload.LengthDataPayload = LengthDataPayload;
 
-      if (await Blockchain.TryInsertBlock(BlockDownload))
+      if (await Blockchain.RunLocked(() => Blockchain.TryInsertBlock(BlockDownload)))
         BlockDownload = Blockchain.TakeBlockFromPool();
 
       DOSMonitor.Decrement(1);
@@ -178,7 +178,7 @@ internal partial class Network
 
     internal virtual async Task RequestBlockNext(Peer peer)
     {
-      BlockDownload.Header = await Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock);
+      BlockDownload.Header = await Blockchain.RunLocked(() => Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock));
 
       if (BlockDownload.Header == null)
       {

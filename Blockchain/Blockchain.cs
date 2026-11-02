@@ -227,21 +227,18 @@ internal abstract partial class Blockchain
 
   protected virtual void OnTipChanged() { }
 
-  internal Task<bool> TryInsertBlock(Block block)
+  internal bool TryInsertBlock(Block block)
   {
-    return RunLocked(() =>
-    {
-      if (!ChainRoot.TryRemoveHeaderAwaited(block.Header.Hash, out Header headerAwaited, out Chain chainAwaiting))
-        return false;
+    if (!ChainRoot.TryRemoveHeaderAwaited(block.Header.Hash, out Header headerAwaited, out Chain chainAwaiting))
+      return false;
 
-      block.Header = headerAwaited;
-      ParseBlock(block);
-      chainAwaiting.Blocks.Add(headerAwaited.Height, block);
+    block.Header = headerAwaited;
+    ParseBlock(block);
+    chainAwaiting.Blocks.Add(headerAwaited.Height, block);
 
-      UpdateTipBlockchain(chainAwaiting);
+    UpdateTipBlockchain(chainAwaiting);
 
-      return true;
-    });
+    return true;
   }
 
   protected void UpdateTipBlockchain(Chain chain)
@@ -369,11 +366,11 @@ internal abstract partial class Blockchain
     return headerLastInTree;
   }
 
-  internal Task<Header> FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
+  internal Header FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
   {
-    return RunLocked(() => ChainRoot.FetchHeaderBlockMissingNextInTree(
+    return ChainRoot.FetchHeaderBlockMissingNextInTree(
       ChainRoot.HeaderTipBlockchain.Height,
-      canSupplierDeliverBlock));
+      canSupplierDeliverBlock);
   }
 
   internal List<byte[]> GetLocator()
