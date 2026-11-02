@@ -227,7 +227,12 @@ internal abstract partial class Blockchain
 
   internal bool TryInsertBlock(Block block)
   {
-    if (!ChainRoot.TryRemoveHeaderAwaited(block.Header.Hash, out Header headerAwaited, out Chain chainAwaiting))
+    Header headerAwaited = null;
+
+    Chain chainAwaiting = ChainRoot.FindInTree(chain =>
+      chain.HeadersAwaitingBlock.Remove(block.Header.Hash, out headerAwaited) ? chain : null);
+
+    if (chainAwaiting == null)
       return false;
 
     block.Header = headerAwaited;

@@ -13,7 +13,7 @@ internal partial class Blockchain
     internal Chain ChainParent;
     List<Chain> ChainsChild = new();
 
-    Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
+    internal Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
 
     const int HEIGHT_GAP_MAX_BlockMissing = 20;
     internal Dictionary<int, Block> Blocks = new();
@@ -306,22 +306,6 @@ internal partial class Blockchain
           return headerChild;
 
       return null;
-    }
-
-    internal bool TryRemoveHeaderAwaited(byte[] hash, out Header headerAwaited, out Chain chainAwaiting)
-    {
-      if (HeadersAwaitingBlock.Remove(hash, out headerAwaited))
-      {
-        chainAwaiting = this;
-        return true;
-      }
-
-      foreach (Chain chainChild in ChainsChild)
-        if (chainChild.TryRemoveHeaderAwaited(hash, out headerAwaited, out chainAwaiting))
-          return true;
-
-      chainAwaiting = null;
-      return false;
     }
 
     internal void AdvanceTipChain()
