@@ -165,20 +165,15 @@ internal partial class BlockchainBToken : Blockchain
 
     RollBack(heightAfterRollBack: header.Height);
 
-    Database.BeginTrans();
-
     try
     {
-      Accounts.Install(buffer, length);
+      RunInTransaction(() => Accounts.Install(buffer, length));
     }
     catch
     {
-      Database.Rollback();
       Accounts.Drop();
       throw;
     }
-
-    Database.Commit();
 
     RollBack(heightAfterRollBack: GetHeightBlockStoredOldest());
 
