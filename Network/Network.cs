@@ -19,8 +19,8 @@ internal abstract partial class Network
   const int TIMESPAN_MEAN_INV_SECONDS = 5;
   const int TIMEOUT_REQUEST_SECONDS = 60;
 
-  object LOCK_Peers = new();
-  List<Peer> Peers = new();
+  protected object LOCK_Peers = new();
+  protected List<Peer> Peers = new();
 
   List<string> IPAddresses = new();
 
@@ -56,13 +56,6 @@ internal abstract partial class Network
     await Blockchain.AddTX(tX);
 
     QueueTXAnnouncement(tX);
-  }
-
-  internal void Broadcast(TX tX)
-  {
-    lock (LOCK_Peers)
-      foreach (Peer peer in Peers)
-        NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
   }
 
   void QueueTXAnnouncement(TX tX)

@@ -23,6 +23,13 @@ internal partial class NetworkBitcoin : Network
       })
   { }
 
+  internal void Broadcast(TX tX)
+  {
+    lock (LOCK_Peers)
+      foreach (Peer peer in Peers)
+        NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
+  }
+
   protected override Peer CreatePeer(
     ISocketCommunication socketCommunication,
     Peer.ConnectionType connection)
