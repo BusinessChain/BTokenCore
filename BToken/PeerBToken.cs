@@ -16,6 +16,7 @@ internal partial class NetworkBToken : Network
       ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(network.Blockchain));
       ProtocolStateMachine.Add(TXMessage.Command, new TXMessage(network.Blockchain, network));
       ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(network.Blockchain));
+      ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBToken(network.Blockchain));
     }
 
     internal override bool CanDeliverBlock(Header header)

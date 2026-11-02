@@ -57,8 +57,7 @@ internal partial class Network
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
         { NotFoundMessage.Command, new NotFoundMessage() },
-        { UnknownMessage.Command, new UnknownMessage() },
-        { InvMessage.Command, new InvMessage(network.Blockchain) }
+        { UnknownMessage.Command, new UnknownMessage() }
       };
 
       SocketCommunication = socketCommunication;

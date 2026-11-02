@@ -211,7 +211,7 @@ internal partial class Network
     }
   }
 
-  class GetDataMessage : NetworkMessage
+  protected class GetDataMessage : NetworkMessage
   {
     internal const string Command = "getdata";
 
@@ -516,11 +516,11 @@ internal partial class Network
     }
   }
 
-  class InvMessage : NetworkMessage
+  protected abstract class InvMessage : NetworkMessage
   {
     internal const string Command = "inv";
 
-    Blockchain Blockchain;
+    protected Blockchain Blockchain;
 
     internal const int MAX_COUNT_INVENTORIES = 100;
 
@@ -533,47 +533,6 @@ internal partial class Network
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
-    }
-
-    internal override async Task Run(Peer peer)
-    {
-      int startIndex = 0;
-
-      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
-
-      if (peer.ConfigurationNetwork.IsProtocolBitcoin)
-      {
-        for (int i = 0; i < inventoryCount; i++)
-          if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
-          {
-            await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
-            return;
-          }
-
-        return;
-      }
-
-      List<byte[]> hashesTX = new();
-
-      for (int i = 0; i < inventoryCount; i++)
-      {
-        Inventory inventory = Inventory.Parse(Payload, ref startIndex);
-
-        if (inventory.Type == Inventory.InventoryType.MSG_TX)
-          hashesTX.Add(inventory.Hash);
-      }
-
-      List<byte[]> hashesTXNotInPool = await Blockchain.GetHashesTXNotInPool(hashesTX);
-
-      lock (peer.HashesTXRequested)
-        foreach (byte[] hashTX in hashesTXNotInPool)
-          peer.HashesTXRequested.TryAdd(hashTX, DateTime.UtcNow);
-
-      if (hashesTXNotInPool.Count > 0)
-        await SendInventories(
-          peer,
-          GetDataMessage.Command,
-          hashesTXNotInPool.Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h)).ToList());
     }
   }
 
