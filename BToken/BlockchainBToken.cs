@@ -356,7 +356,7 @@ internal partial class BlockchainBToken : Blockchain
       while (headerRoot.Height > ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED)
         headerRoot = headerRoot.HeaderPrevious;
 
-      ChainRoot.ReRoot(headerRoot, PoolBlocks);
+      ChainRoot.ReRoot(headerRoot);
 
       UpdateTipBlockchain(ChainRoot);
     }
@@ -418,7 +418,7 @@ internal partial class BlockchainBToken : Blockchain
     if (chain == ChainRoot)
       RollBack(heightAfterRollBack: header.Height - 1);
 
-    chain.CutOff(header, PoolBlocks);
+    chain.CutOff(header);
 
     UpdateTipBlockchain(ChainRoot);
   }

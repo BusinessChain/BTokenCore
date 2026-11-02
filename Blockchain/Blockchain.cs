@@ -252,7 +252,7 @@ internal abstract partial class Blockchain
     do
     {
       InsertBlocksQueued();
-      ChainRoot.DropForksDeep(GetHeightBlockStoredOldest(), PoolBlocks);
+      ChainRoot.DropForksDeep(GetHeightBlockStoredOldest());
     }
     while (TryReorgToForkStrongest());
 
@@ -289,7 +289,7 @@ internal abstract partial class Blockchain
           throw;
 
         PoolBlocks.Add(block);
-        ChainRoot.CutOff(block.Header, PoolBlocks);
+        ChainRoot.CutOff(block.Header);
         continue;
       }
 
