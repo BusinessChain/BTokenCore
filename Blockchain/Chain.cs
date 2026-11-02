@@ -65,11 +65,6 @@ internal partial class Blockchain
       headerLastInTree = headers[^1];
     }
 
-    internal int GetHeightPruning()
-    {
-      return HeaderTipBlockchain.Height - MAX_COUNT_BLOCKS_STORED + 1;
-    }
-
     static bool TrySearchHeaderAncestor(
       List<Header> headers,
       ref Chain chain,

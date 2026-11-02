@@ -129,7 +129,10 @@ internal abstract partial class Blockchain
     ParseBlock(block);
   }
 
-  protected abstract byte[] SerializeBlockStored(Block block);
+  protected virtual byte[] SerializeBlockStored(Block block)
+  {
+    return block.Buffer[..block.LengthDataPayload];
+  }
 
   protected Block LoadBlock(int height)
   {

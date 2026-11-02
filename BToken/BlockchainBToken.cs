@@ -70,16 +70,11 @@ internal partial class BlockchainBToken : Blockchain
     return new TXBToken(buffer, ref index, flagIsCoinbase);
   }
 
-  protected override byte[] SerializeBlockStored(Block block)
-  {
-    DatabaseBlockCollection.DeleteMany(
-      Query.LT("_id", ChainRoot.GetHeightPruning()));
-
-    return block.Buffer[..block.LengthDataPayload];
-  }
-
   protected override void InsertBlock(Block block)
   {
+    DatabaseBlockCollection.DeleteMany(
+      Query.LT("_id", block.Header.Height - MAX_COUNT_BLOCKS_STORED + 1));
+
     if (!Accounts.Exists())
       return;
 
