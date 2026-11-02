@@ -377,7 +377,7 @@ internal partial class BlockchainBToken : Blockchain
 
     DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
 
-    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
+    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain))
       return;
 
     if (block == null)
@@ -400,7 +400,6 @@ internal partial class BlockchainBToken : Blockchain
       return;
     }
 
-    Chain chain = ChainRoot.FindChain(headerPlaceholder);
     chain.Blocks.Add(headerPlaceholder.Height, block);
 
     UpdateTipBlockchain(chain);
@@ -408,10 +407,10 @@ internal partial class BlockchainBToken : Blockchain
 
   void RemoveHeaderPlaceholder(Block blockParent)
   {
-    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder))
+    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain))
       return;
 
-    RemoveHeader(ChainRoot.FindChain(headerPlaceholder), headerPlaceholder);
+    RemoveHeader(chain, headerPlaceholder);
   }
 
   void RemoveHeader(Chain chain, Header header)

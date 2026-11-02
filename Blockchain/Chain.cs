@@ -131,22 +131,39 @@ internal partial class Blockchain
       return header != null;
     }
 
-    internal bool TryGetHeaderPlaceholder(Header headerParent, out Header headerPlaceholder)
+    internal T FindInTree<T>(Func<Chain, T> search) where T : class
     {
-      Header headerFork = HeaderRoot.HeaderPrevious;
-      headerPlaceholder = HeaderTip;
-
-      while (headerPlaceholder != headerFork && headerPlaceholder.HeaderParent != headerParent)
-        headerPlaceholder = headerPlaceholder.HeaderPrevious;
-
-      if (headerPlaceholder != headerFork)
-        return true;
+      if (search(this) is T result)
+        return result;
 
       foreach (Chain chainChild in ChainsChild)
-        if (chainChild.TryGetHeaderPlaceholder(headerParent, out headerPlaceholder))
-          return true;
+        if (chainChild.FindInTree(search) is T resultChild)
+          return resultChild;
 
-      return false;
+      return null;
+    }
+
+    internal bool TryGetHeaderPlaceholder(Header headerParent, out Header headerPlaceholder, out Chain chainPlaceholder)
+    {
+      Header headerFound = null;
+
+      chainPlaceholder = FindInTree(chain =>
+      {
+        Header headerFork = chain.HeaderRoot.HeaderPrevious;
+        Header header = chain.HeaderTip;
+
+        while (header != headerFork && header.HeaderParent != headerParent)
+          header = header.HeaderPrevious;
+
+        if (header == headerFork)
+          return null;
+
+        headerFound = header;
+        return chain;
+      });
+
+      headerPlaceholder = headerFound;
+      return chainPlaceholder != null;
     }
 
     internal void CutOff(Header headerRemove, ConcurrentBag<Block> poolBlocks)
@@ -242,31 +259,6 @@ internal partial class Blockchain
       HeaderTip.HeaderNext = header;
       HeaderTip = header;
       return true;
-    }
-
-    internal Chain FindChain(Header header)
-    {
-      if (ContainsHeader(header))
-        return this;
-
-      foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FindChain(header) is Chain chain)
-          return chain;
-
-      return null;
-    }
-
-    bool ContainsHeader(Header header)
-    {
-      if (header.Height < HeaderRoot.Height || HeaderTip.Height < header.Height)
-        return false;
-
-      Header headerInChain = HeaderTip;
-
-      while (headerInChain.Height > header.Height)
-        headerInChain = headerInChain.HeaderPrevious;
-
-      return headerInChain == header;
     }
 
     internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)
