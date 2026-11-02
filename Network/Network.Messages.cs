@@ -480,7 +480,7 @@ internal partial class Network
     }
   }
 
-  class HeadersMessage : NetworkMessage
+  protected abstract class HeadersMessage : NetworkMessage
   {
     internal const int MAX_COUNT_HEADERS = 2000;
     internal const string Command = "headers";
@@ -489,62 +489,13 @@ internal partial class Network
     const int MAX_LEVEL_DOS = 20;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 2;
 
-    Blockchain Blockchain;
+    protected Blockchain Blockchain;
 
 
     internal HeadersMessage(Blockchain blockchain)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
-    }
-
-    internal override async Task Run(Peer peer)
-    {
-      int startIndex = 0;
-      int countHeaders = VarInt.GetInt(Payload, ref startIndex);
-
-      if (!peer.ConfigurationNetwork.IsProtocolBitcoin)
-      {
-        if (countHeaders == 1)
-          peer.HashBlockAnnounced = Blockchain.ParseHeader(Payload, ref startIndex).Hash;
-
-        return;
-      }
-
-      if (countHeaders > MAX_COUNT_HEADERS)
-        throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
-
-      if (countHeaders == 0)
-      {
-        if (peer.StateCurrent == Peer.StateProtocol.HeaderDownload)
-          peer.StateCurrent = Peer.StateProtocol.Idle;
-
-        return;
-      }
-
-      List<Header> headers = new();
-
-      for (int i = 0; i < countHeaders; i++)
-      {
-        headers.Add(Blockchain.ParseHeader(Payload, ref startIndex));
-        VarInt.GetInt(Payload, ref startIndex);
-      }
-
-      Header headerTipReceivedLast = await Blockchain.TryInsertHeadersInTree(headers);
-
-      if (headerTipReceivedLast != null)
-        peer.HeaderTipReceivedLast = headerTipReceivedLast;
-
-      if (peer.StateCurrent == Peer.StateProtocol.HeaderDownload)
-      {
-        if (headerTipReceivedLast != null)
-        {
-          DOSMonitor.Decrement(1);
-          await GetHeadersMessage.SendGetHeaders(peer, [headerTipReceivedLast.Hash]);
-        }
-        else
-          peer.StateCurrent = Peer.StateProtocol.Idle;
-      }
     }
 
     internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)

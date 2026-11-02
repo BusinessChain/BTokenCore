@@ -4,6 +4,9 @@ internal partial class NetworkBToken : Network
 {
   class PeerBToken : Peer
   {
+    internal byte[] HashBlockAnnounced;
+
+
     internal PeerBToken(
       NetworkBToken network,
       ISocketCommunication socketCommunication,
@@ -12,6 +15,7 @@ internal partial class NetworkBToken : Network
     {
       ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(network.Blockchain));
       ProtocolStateMachine.Add(TXMessage.Command, new TXMessage(network.Blockchain, network));
+      ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(network.Blockchain));
     }
 
     internal override bool CanDeliverBlock(Header header)

@@ -37,10 +37,6 @@ internal partial class Network
       TXMessage.MAX_LEVEL_ANNOUNCED,
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 
-    internal byte[] HashBlockAnnounced;
-
-    internal Header HeaderTipReceivedLast;
-
 
     protected Peer(
       Network network,
@@ -55,7 +51,6 @@ internal partial class Network
       ProtocolStateMachine = new()
       {
         { GetDataMessage.Command, new GetDataMessage(network.Blockchain, blockUpload) },
-        { HeadersMessage.Command, new HeadersMessage(network.Blockchain) },
         { BlockMessage.Command, new BlockMessage(network.Blockchain, blockDownload) },
         { VerAckMessage.Command, new VerAckMessage(network.Blockchain) },
         { VersionMessage.Command, new VersionMessage(network.Blockchain) },
