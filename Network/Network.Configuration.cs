@@ -15,6 +15,5 @@ internal partial class Network
     internal string[] SeedAddresses = [];
     internal bool EnableInboundConnections;
     internal bool EnableRelay;
-    internal bool IsProtocolBitcoin;
   }
 }

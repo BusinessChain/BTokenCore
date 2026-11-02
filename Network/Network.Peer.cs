@@ -52,7 +52,6 @@ internal partial class Network
       {
         { GetDataMessage.Command, new GetDataMessage(network.Blockchain, blockUpload) },
         { BlockMessage.Command, new BlockMessage(network.Blockchain, blockDownload) },
-        { VerAckMessage.Command, new VerAckMessage(network.Blockchain) },
         { VersionMessage.Command, new VersionMessage(network.Blockchain) },
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },

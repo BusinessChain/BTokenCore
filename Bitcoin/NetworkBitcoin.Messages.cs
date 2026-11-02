@@ -70,4 +70,23 @@ internal partial class NetworkBitcoin : Network
         }
     }
   }
+
+  class VerAckMessageBitcoin : VerAckMessage
+  {
+    Blockchain Blockchain;
+
+
+    internal VerAckMessageBitcoin(Blockchain blockchain)
+    {
+      Blockchain = blockchain;
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      await base.Run(peer);
+
+      if (peer.Connection == Peer.ConnectionType.OUTBOUND)
+        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
+    }
+  }
 }

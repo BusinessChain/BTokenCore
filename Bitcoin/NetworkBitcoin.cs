@@ -11,7 +11,6 @@ internal partial class NetworkBitcoin : Network
       new Configuration()
       {
         Port = 8333,
-        IsProtocolBitcoin = true,
         NetworkServicesRemote = Configuration.NODE_NETWORK,
         SeedAddresses =
           [

@@ -622,21 +622,17 @@ internal partial class Network
     }
   }
 
-  class VerAckMessage : NetworkMessage
+  protected class VerAckMessage : NetworkMessage
   {
     internal const string Command = "verack";
-
-    Blockchain Blockchain;
 
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal VerAckMessage(Blockchain blockchain)
+    internal VerAckMessage()
       : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Blockchain = blockchain;
-    }
+    { }
 
     internal static async Task Send(Peer peer)
     {
@@ -646,9 +642,6 @@ internal partial class Network
     internal override async Task Run(Peer peer)
     {
       peer.StateCurrent = Peer.StateProtocol.Idle;
-
-      if (peer.ConfigurationNetwork.IsProtocolBitcoin && peer.Connection == Peer.ConnectionType.OUTBOUND)
-        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.GetLocator());
     }
   }
 
