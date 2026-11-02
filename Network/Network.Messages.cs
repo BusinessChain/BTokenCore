@@ -136,7 +136,7 @@ internal partial class Network
     }
   }
 
-  class BlockMessage : NetworkMessage
+  protected class BlockMessage : NetworkMessage
   {
     internal const string Command = "block";
 
@@ -149,11 +149,11 @@ internal partial class Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
 
-    internal BlockMessage(Blockchain blockchain, Block blockDownload)
+    internal BlockMessage(Blockchain blockchain)
       : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
-      BlockDownload = blockDownload;
+      BlockDownload = new(blockchain.SizeBlockMax);
     }
 
     internal override byte[] GetPayloadBuffer()
@@ -176,33 +176,20 @@ internal partial class Network
       await RequestBlockNext(peer);
     }
 
-    internal async Task RequestBlockNext(Peer peer) 
+    internal virtual async Task RequestBlockNext(Peer peer)
     {
       BlockDownload.Header = await Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock);
 
-      if (BlockDownload.Header != null)
-      {
-        TimeRequest = DateTime.UtcNow;
-        peer.StateCurrent = Peer.StateProtocol.BlockDownload;
-
-        await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
-        return;
-      }
-
-      byte[] hashDBMissing = await Blockchain.GetHashDBMissing();
-
-      if (hashDBMissing == null)
+      if (BlockDownload.Header == null)
       {
         peer.StateCurrent = Peer.StateProtocol.Idle;
         return;
       }
 
-      ((DBMessage)peer.ProtocolStateMachine[DBMessage.Command]).HashDBRequested = hashDBMissing;
-
       TimeRequest = DateTime.UtcNow;
-      peer.StateCurrent = Peer.StateProtocol.DBDownload;
+      peer.StateCurrent = Peer.StateProtocol.BlockDownload;
 
-      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
+      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
     }
 
     internal static async Task SendBlock(Peer peer, Block block)

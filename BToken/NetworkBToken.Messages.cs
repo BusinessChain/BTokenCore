@@ -151,4 +151,36 @@ internal partial class NetworkBToken : Network
         await SendInventories(peer, NotFoundMessage.Command, [inventory]);
     }
   }
+
+  class BlockMessageBToken : BlockMessage
+  {
+    BlockchainBToken BlockchainBToken;
+
+
+    internal BlockMessageBToken(BlockchainBToken blockchain)
+      : base(blockchain)
+    {
+      BlockchainBToken = blockchain;
+    }
+
+    internal override async Task RequestBlockNext(Peer peer)
+    {
+      await base.RequestBlockNext(peer);
+
+      if (BlockDownload.Header != null)
+        return;
+
+      byte[] hashDBMissing = await BlockchainBToken.GetHashDBMissing();
+
+      if (hashDBMissing == null)
+        return;
+
+      ((DBMessage)peer.ProtocolStateMachine[DBMessage.Command]).HashDBRequested = hashDBMissing;
+
+      TimeRequest = DateTime.UtcNow;
+      peer.StateCurrent = Peer.StateProtocol.DBDownload;
+
+      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
+    }
+  }
 }

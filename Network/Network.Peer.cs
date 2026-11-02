@@ -40,11 +40,8 @@ internal partial class Network
     {
       ConfigurationNetwork = network.ConfigurationNetwork;
 
-      Block blockDownload = new(network.Blockchain.SizeBlockMax);
-
       ProtocolStateMachine = new()
       {
-        { BlockMessage.Command, new BlockMessage(network.Blockchain, blockDownload) },
         { VersionMessage.Command, new VersionMessage(network.Blockchain) },
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
