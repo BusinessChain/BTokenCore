@@ -75,8 +75,11 @@ internal abstract partial class Blockchain
 
   internal abstract TX GetTX(byte[] hash);
 
-  protected void ParseBlockHeader(Block block, ref int startIndex)
+  protected int ParseBlockHeader(Block block)
   {
+    block.TXs.Clear();
+    int startIndex = 0;
+
     Header header = ParseHeader(block.Buffer, ref startIndex);
 
     if (block.Header == null)
@@ -85,14 +88,13 @@ internal abstract partial class Blockchain
       header.CopyTo(block.Header);
     else
       throw new ProtocolException($"Received unexpected block {header} expected was {block.Header}.");
+
+    return startIndex;
   }
 
   void ParseBlock(Block block)
   {
-    block.TXs.Clear();
-    int startIndex = 0;
-
-    ParseBlockHeader(block, ref startIndex);
+    int startIndex = ParseBlockHeader(block);
 
     block.Header.CountTXs = VarInt.GetInt(block.Buffer, ref startIndex);
 

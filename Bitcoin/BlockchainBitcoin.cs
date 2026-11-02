@@ -63,10 +63,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
   protected override void ParseBlockStored(Block block)
   {
-    block.TXs.Clear();
-    int startIndex = 0;
-
-    ParseBlockHeader(block, ref startIndex);
+    int startIndex = ParseBlockHeader(block);
 
     int countAnchors = VarInt.GetInt(block.Buffer, ref startIndex);
 
