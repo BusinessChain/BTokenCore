@@ -196,4 +196,42 @@ internal partial class NetworkBToken : Network
       await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
     }
   }
+
+  class DBMessage : NetworkMessage
+  {
+    internal const string Command = "db";
+
+    internal byte[] HashDBRequested;
+
+    BlockchainBToken BlockchainBToken;
+
+    const int MAX_COUNT_ACCOUNTS = 1_000_000;
+    const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
+    const int MAX_LEVEL_DOS = 1;
+    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
+
+
+    internal DBMessage(BlockchainBToken blockchain)
+      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
+    {
+      BlockchainBToken = blockchain;
+    }
+
+    internal override async Task Run(Peer peer)
+    {
+      if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
+        throw new ProtocolException($"Received unrequested db message.");
+
+      await BlockchainBToken.InstallDB(HashDBRequested, Payload, LengthDataPayload);
+
+      DOSMonitor.Decrement(1);
+
+      peer.StateCurrent = Peer.StateProtocol.Idle;
+    }
+
+    internal static async Task SendDB(Peer peer, byte[] dataDB)
+    {
+      await peer.SocketCommunication.SendMessage(Command, dataDB.Length, dataDB);
+    }
+  }
 }
