@@ -43,7 +43,7 @@ internal partial class NetworkBToken : Network
       return base.CanDeliverBlock(header) && (hasBlockHadTimeToSpread || isAnnouncedByPeer);
     }
 
-    internal override async Task RelayTXs()
+    protected override async Task RelayTXs()
     {
       lock (HashesTXRequested)
         if (HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))

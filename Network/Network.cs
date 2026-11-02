@@ -15,9 +15,6 @@ internal abstract partial class Network
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
   const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
 
-  const int TIMESPAN_LOOP_DISPATCHER_MILLISECONDS = 1000;
-  protected const int TIMEOUT_REQUEST_SECONDS = 60;
-
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
 
@@ -42,8 +39,6 @@ internal abstract partial class Network
 
     if (ConfigurationNetwork.EnableInboundConnections)
       StartPeerConnectorInbound();
-
-    StartBlockDownloadDispatcher();
   }
 
   void HandleBlockInserted(Block block)
@@ -173,61 +168,4 @@ internal abstract partial class Network
   protected abstract Peer CreatePeer(
     ISocketCommunication socketCommunication,
     Peer.ConnectionType connection);
-
-  async Task StartBlockDownloadDispatcher()
-  {
-    while (true)
-    {
-      await Task.Delay(TIMESPAN_LOOP_DISPATCHER_MILLISECONDS).ConfigureAwait(false);
-
-      List<Peer> peers;
-
-      lock (LOCK_Peers)
-        peers = Peers.ToList();
-
-      foreach (Peer peer in peers)
-      {
-        if (peer.IsDisposed())
-          continue;
-
-        if (peer.StateCurrent != Peer.StateProtocol.Handshake)
-          try
-          {
-            await ((PingMessage)peer.ProtocolStateMachine[PingMessage.Command]).Ping(peer);
-
-            await peer.RelayTXs();
-          }
-          catch
-          {
-            peer.SocketCommunication.Dispose();
-          }
-
-        if (!peer.SemaphorePeer.Wait(0))
-          continue;
-
-        try
-        {
-          BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
-
-          if (blockMessage.BlockDownload.Header == null && peer.StateCurrent != Peer.StateProtocol.DBDownload)
-          {
-            if (peer.StateCurrent != Peer.StateProtocol.Idle)
-              continue;
-
-            await blockMessage.RequestBlockNext(peer);
-          }
-          else if (DateTime.UtcNow - blockMessage.TimeRequest > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS))
-            peer.SocketCommunication.Dispose();
-        }
-        catch
-        {
-          peer.SocketCommunication.Dispose();
-        }
-        finally
-        {
-          peer.SemaphorePeer.Release();
-        }
-      }
-    }
-  }
 }

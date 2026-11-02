@@ -4,6 +4,9 @@ internal partial class Network
 {
   protected abstract class Peer
   {
+    const int TIMESPAN_HEARTBEAT_MILLISECONDS = 1000;
+    protected const int TIMEOUT_REQUEST_SECONDS = 60;
+
     internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
 
     internal Configuration ConfigurationNetwork;
@@ -64,7 +67,7 @@ internal partial class Network
       return !HashesBlockRefused.Contains(header.Hash);
     }
 
-    internal virtual Task RelayTXs()
+    protected virtual Task RelayTXs()
     {
       return Task.CompletedTask;
     }
@@ -74,6 +77,7 @@ internal partial class Network
       await SocketCommunication.Start();
 
       StartMessageReceiver();
+      StartHeartbeat();
 
       if (Connection == ConnectionType.OUTBOUND)
         VersionMessage.SendVersion(this, heightBlockchainTip);
@@ -116,6 +120,53 @@ internal partial class Network
       {
         StateCurrent = StateProtocol.Disposed;
         SocketCommunication.Dispose();
+      }
+    }
+
+    async Task StartHeartbeat()
+    {
+      while (true)
+      {
+        await Task.Delay(TIMESPAN_HEARTBEAT_MILLISECONDS).ConfigureAwait(false);
+
+        if (IsDisposed())
+          return;
+
+        try
+        {
+          if (StateCurrent != StateProtocol.Handshake)
+          {
+            await ((PingMessage)ProtocolStateMachine[PingMessage.Command]).Ping(this);
+
+            await RelayTXs();
+          }
+
+          if (!SemaphorePeer.Wait(0))
+            continue;
+
+          try
+          {
+            BlockMessage blockMessage = (BlockMessage)ProtocolStateMachine[BlockMessage.Command];
+
+            if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.DBDownload)
+            {
+              if (StateCurrent != StateProtocol.Idle)
+                continue;
+
+              await blockMessage.RequestBlockNext(this);
+            }
+            else if (DateTime.UtcNow - blockMessage.TimeRequest > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS))
+              SocketCommunication.Dispose();
+          }
+          finally
+          {
+            SemaphorePeer.Release();
+          }
+        }
+        catch
+        {
+          SocketCommunication.Dispose();
+        }
       }
     }
   }
