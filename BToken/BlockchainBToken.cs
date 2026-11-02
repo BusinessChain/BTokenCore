@@ -130,7 +130,7 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal override Task<byte[]> GetDB(byte[] hash)
+  internal Task<byte[]> GetDB(byte[] hash)
   {
     return RunLocked(() =>
     {
@@ -141,7 +141,7 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  internal override Task<byte[]> GetHashDBMissing()
+  internal Task<byte[]> GetHashDBMissing()
   {
     return RunLocked(() =>
     {
@@ -152,7 +152,7 @@ internal partial class BlockchainBToken : Blockchain
     });
   }
 
-  internal override Task InstallDB(byte[] hash, byte[] buffer, int length)
+  internal Task InstallDB(byte[] hash, byte[] buffer, int length)
   {
     return RunLocked(() =>
     {

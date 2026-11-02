@@ -356,21 +356,6 @@ internal abstract partial class Blockchain
     }
   }
 
-  internal virtual Task<byte[]> GetDB(byte[] hash)
-  {
-    return Task.FromResult<byte[]>(null);
-  }
-
-  internal virtual Task<byte[]> GetHashDBMissing()
-  {
-    return Task.FromResult<byte[]>(null);
-  }
-
-  internal virtual Task InstallDB(byte[] hash, byte[] buffer, int length)
-  {
-    return Task.CompletedTask;
-  }
-
   internal int GetHeight()
   {
     return ChainRoot.HeaderTipBlockchain.Height;
