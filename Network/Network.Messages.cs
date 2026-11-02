@@ -178,11 +178,7 @@ internal partial class Network
 
     internal async Task RequestBlockNext(Peer peer) 
     {
-      HeadersMessage headersMessage = (HeadersMessage)peer.ProtocolStateMachine[HeadersMessage.Command];
-
-      BlockDownload.Header = await Blockchain.FetchHeaderBlockMissingNext(
-        headersMessage.HeaderTipReceivedLast,
-        peer.CanDeliverBlock);
+      BlockDownload.Header = await Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock);
 
       if (BlockDownload.Header != null)
       {
@@ -494,7 +490,6 @@ internal partial class Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 2;
 
     Blockchain Blockchain;
-    internal Header HeaderTipReceivedLast;
 
 
     internal HeadersMessage(Blockchain blockchain)
@@ -538,7 +533,7 @@ internal partial class Network
       Header headerTipReceivedLast = await Blockchain.TryInsertHeadersInTree(headers);
 
       if (headerTipReceivedLast != null)
-        HeaderTipReceivedLast = headerTipReceivedLast;
+        peer.HeaderTipReceivedLast = headerTipReceivedLast;
 
       if (peer.StateCurrent == Peer.StateProtocol.HeaderDownload)
       {

@@ -13,5 +13,13 @@ internal partial class NetworkBToken : Network
       ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(network.Blockchain));
       ProtocolStateMachine.Add(TXMessage.Command, new TXMessage(network.Blockchain, network));
     }
+
+    internal override bool CanDeliverBlock(Header header)
+    {
+      bool isAnnouncedByPeer = HashBlockAnnounced != null && header.Hash.IsAllBytesEqual(HashBlockAnnounced);
+      bool hasBlockHadTimeToSpread = !header.IsParentNewest();
+
+      return base.CanDeliverBlock(header) && (hasBlockHadTimeToSpread || isAnnouncedByPeer);
+    }
   }
 }

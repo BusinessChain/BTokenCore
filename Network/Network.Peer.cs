@@ -39,6 +39,8 @@ internal partial class Network
 
     internal byte[] HashBlockAnnounced;
 
+    internal Header HeaderTipReceivedLast;
+
 
     protected Peer(
       Network network,
@@ -73,13 +75,9 @@ internal partial class Network
       return StateCurrent == StateProtocol.Disposed;
     }
 
-    internal bool CanDeliverBlock(Header header)
+    internal virtual bool CanDeliverBlock(Header header)
     {
-      bool isRefusedByPeer = HashesBlockRefused.Contains(header.Hash);
-      bool isAnnouncedByPeer = HashBlockAnnounced != null && header.Hash.IsAllBytesEqual(HashBlockAnnounced);
-      bool hasBlockHadTimeToSpread = !header.IsParentNewest();
-
-      return !isRefusedByPeer && (hasBlockHadTimeToSpread || isAnnouncedByPeer);
+      return !HashesBlockRefused.Contains(header.Hash);
     }
 
     internal async Task Start(int heightBlockchainTip)

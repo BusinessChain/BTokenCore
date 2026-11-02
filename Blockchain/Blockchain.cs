@@ -401,26 +401,11 @@ internal abstract partial class Blockchain
     });
   }
 
-  internal Task<Header> FetchHeaderBlockMissingNext(
-    Header headerTipSupplier,
-    Func<Header, bool> canSupplierDeliverBlock)
+  internal Task<Header> FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
   {
-    return RunLocked(() =>
-    {
-      if (headerTipSupplier == null)
-        return ChainRoot.FetchHeaderBlockMissingNextInTree(
-          ChainRoot.HeaderTipBlockchain.Height,
-          canSupplierDeliverBlock);
-
-      bool isTipSupplierAhead = headerTipSupplier.Height > ChainRoot.HeaderTipBlockchain.Height;
-
-      if (!isTipSupplierAhead)
-        return null;
-
-      return ChainRoot.FindChain(headerTipSupplier)?.FetchHeaderBlockMissingNextInChain(
-        headerTipSupplier.Height,
-        canSupplierDeliverBlock);
-    });
+    return RunLocked(() => ChainRoot.FetchHeaderBlockMissingNextInTree(
+      ChainRoot.HeaderTipBlockchain.Height,
+      canSupplierDeliverBlock));
   }
 
   internal Task<List<byte[]>> GetLocator()
