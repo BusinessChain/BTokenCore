@@ -33,7 +33,7 @@ internal partial class NetworkBToken : Network
     await Blockchain.AddTX(tX);
 
     lock (LOCK_Peers)
-      foreach (Peer peer in Peers)
+      foreach (PeerBToken peer in Peers)
       {
         lock (peer.HashesTXRequested)
           if (peer.HashesTXRequested.ContainsKey(tX.Hash))
@@ -53,17 +53,19 @@ internal partial class NetworkBToken : Network
 
   protected override async Task RelayTXs(Peer peer)
   {
-    lock (peer.HashesTXRequested)
-      if (peer.HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))
+    PeerBToken peerBToken = (PeerBToken)peer;
+
+    lock (peerBToken.HashesTXRequested)
+      if (peerBToken.HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))
         throw new ProtocolException($"Peer did not answer a TX request within {TIMEOUT_REQUEST_SECONDS} seconds.");
 
-    if (DateTime.UtcNow < peer.TimeInvNext)
+    if (DateTime.UtcNow < peerBToken.TimeInvNext)
       return;
 
     HashSet<byte[]> hashesQueued;
 
-    lock (peer.HashesTXQueued)
-      hashesQueued = new(peer.HashesTXQueued, new EqualityComparerByteArray());
+    lock (peerBToken.HashesTXQueued)
+      hashesQueued = new(peerBToken.HashesTXQueued, new EqualityComparerByteArray());
 
     List<byte[]> hashesTX = new();
 
@@ -73,7 +75,7 @@ internal partial class NetworkBToken : Network
 
       foreach (TX tX in tXsRanked)
       {
-        if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !peer.ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
+        if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !peerBToken.ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
           break;
 
         hashesTX.Add(tX.Hash);
@@ -81,8 +83,8 @@ internal partial class NetworkBToken : Network
 
       hashesQueued.ExceptWith(tXsRanked.Skip(hashesTX.Count).Select(t => t.Hash));
 
-      lock (peer.HashesTXQueued)
-        peer.HashesTXQueued.ExceptWith(hashesQueued);
+      lock (peerBToken.HashesTXQueued)
+        peerBToken.HashesTXQueued.ExceptWith(hashesQueued);
     }
 
     if (hashesTX.Count > 0)
@@ -92,7 +94,7 @@ internal partial class NetworkBToken : Network
         InvMessage.Command,
         hashesTX.Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h)).ToList());
 
-      peer.TimeInvNext = DateTime.UtcNow.AddSeconds(
+      peerBToken.TimeInvNext = DateTime.UtcNow.AddSeconds(
         -TIMESPAN_MEAN_INV_SECONDS * Math.Log(1 - Random.Shared.NextDouble()));
     }
   }

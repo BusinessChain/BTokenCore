@@ -306,7 +306,7 @@ internal partial class Network
 
   }
 
-  class NotFoundMessage : NetworkMessage
+  protected class NotFoundMessage : NetworkMessage
   {
     internal const string Command = "notfound";
 
@@ -323,25 +323,8 @@ internal partial class Network
     {
       int startIndex = 0;
 
-      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
-      int startIndexInventories = startIndex;
+      VarInt.GetInt(Payload, ref startIndex);
       Inventory inventory = Inventory.Parse(Payload, ref startIndex);
-
-      if (inventory.Type == Inventory.InventoryType.MSG_TX)
-      {
-        startIndex = startIndexInventories;
-        bool isRequestAnswered = false;
-
-        lock (peer.HashesTXRequested)
-          for (int i = 0; i < inventoryCount; i++)
-            if (peer.HashesTXRequested.Remove(Inventory.Parse(Payload, ref startIndex).Hash))
-              isRequestAnswered = true;
-
-        if (isRequestAnswered)
-          DOSMonitor.Decrement(1);
-
-        return;
-      }
 
       if (inventory.Type == Inventory.InventoryType.MSG_DB)
       {

@@ -29,14 +29,6 @@ internal partial class Network
 
     internal HashSet<byte[]> HashesBlockRefused = new(new EqualityComparerByteArray());
 
-    internal Dictionary<byte[], DateTime> HashesTXRequested = new(new EqualityComparerByteArray());
-
-    internal HashSet<byte[]> HashesTXQueued = new(new EqualityComparerByteArray());
-    internal DateTime TimeInvNext;
-    internal DOSMonitor ThrottleTXAnnouncedToPeer = new(
-      TXMessage.MAX_LEVEL_ANNOUNCED,
-      TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
-
 
     protected Peer(
       Network network,
@@ -55,7 +47,6 @@ internal partial class Network
         { VersionMessage.Command, new VersionMessage(network.Blockchain) },
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
-        { NotFoundMessage.Command, new NotFoundMessage() },
         { UnknownMessage.Command, new UnknownMessage() }
       };
 

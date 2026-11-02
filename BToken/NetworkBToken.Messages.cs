@@ -42,9 +42,11 @@ internal partial class NetworkBToken : Network
 
       List<byte[]> hashesTXNotInPool = await Blockchain.GetHashesTXNotInPool(hashesTX);
 
-      lock (peer.HashesTXRequested)
+      Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
+
+      lock (hashesTXRequested)
         foreach (byte[] hashTX in hashesTXNotInPool)
-          peer.HashesTXRequested.TryAdd(hashTX, DateTime.UtcNow);
+          hashesTXRequested.TryAdd(hashTX, DateTime.UtcNow);
 
       if (hashesTXNotInPool.Count > 0)
         await SendInventories(
@@ -85,8 +87,40 @@ internal partial class NetworkBToken : Network
       catch (ProtocolException)
       { }
 
-      lock (peer.HashesTXRequested)
-        peer.HashesTXRequested.Remove(tX.Hash);
+      Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
+
+      lock (hashesTXRequested)
+        hashesTXRequested.Remove(tX.Hash);
+    }
+  }
+
+  class NotFoundMessageBToken : NotFoundMessage
+  {
+    internal override async Task Run(Peer peer)
+    {
+      int startIndex = 0;
+
+      int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
+      int startIndexInventories = startIndex;
+
+      if (Inventory.Parse(Payload, ref startIndex).Type != Inventory.InventoryType.MSG_TX)
+      {
+        await base.Run(peer);
+        return;
+      }
+
+      startIndex = startIndexInventories;
+      bool isRequestAnswered = false;
+
+      Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
+
+      lock (hashesTXRequested)
+        for (int i = 0; i < inventoryCount; i++)
+          if (hashesTXRequested.Remove(Inventory.Parse(Payload, ref startIndex).Hash))
+            isRequestAnswered = true;
+
+      if (isRequestAnswered)
+        DOSMonitor.Decrement(1);
     }
   }
 }
