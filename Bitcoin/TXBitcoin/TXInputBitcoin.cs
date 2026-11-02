@@ -19,10 +19,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     internal TXInputBitcoin(byte[] buffer, ref int index)
     {
-      TXIDOutput = new byte[HASH_BYTE_SIZE];
-
-      Array.Copy(buffer, index, TXIDOutput, 0, HASH_BYTE_SIZE);
-      index += HASH_BYTE_SIZE;
+      TXIDOutput = buffer.ReadBytes(ref index, HASH_BYTE_SIZE);
 
       OutputIndex = BitConverter.ToInt32(buffer, index);
       index += 4;

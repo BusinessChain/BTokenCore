@@ -30,18 +30,15 @@ public abstract class Header
   }
 
   protected Header(byte[] buffer, ref int index, int countHeaderBytes)
-    : this()
   {
     Hash = Crypto.ComputeHash256(buffer.AsSpan(index, countHeaderBytes));
 
     Version = BitConverter.ToUInt32(buffer, index);
     index += 4;
 
-    Array.Copy(buffer, index, HashPrevious, 0, 32);
-    index += 32;
+    HashPrevious = buffer.ReadBytes(ref index, 32);
 
-    Array.Copy(buffer, index, MerkleRoot, 0, 32);
-    index += 32;
+    MerkleRoot = buffer.ReadBytes(ref index, 32);
   }
 
   internal abstract byte[] Serialize();

@@ -19,11 +19,7 @@ internal class UInt256
 
   internal UInt256(byte[] byteStream, ref int startIndex)
   {
-    byte[] tempByteArray = new byte[BYTE_LENGTH];
-    Array.Copy(byteStream, startIndex, tempByteArray, 0, BYTE_LENGTH);
-    startIndex += BYTE_LENGTH;
-
-    WriteToInternalData(tempByteArray);
+    WriteToInternalData(byteStream.ReadBytes(ref startIndex, BYTE_LENGTH));
   }
 
   internal UInt256(byte[] dataBytes)

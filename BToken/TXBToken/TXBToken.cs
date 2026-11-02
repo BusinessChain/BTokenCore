@@ -43,8 +43,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       int indexTxStart = index;
 
-      Array.Copy(buffer, index, KeyPublic, 0, KeyPublic.Length);
-      index += KeyPublic.Length;
+      KeyPublic = buffer.ReadBytes(ref index, LENGTH_PUBKEYCOMPRESSED);
 
       IDAccountSource = Crypto.ComputeHash160(KeyPublic);
 
@@ -90,9 +89,7 @@ internal partial class BlockchainBToken : Blockchain
       int lengthMessage = index - indexTxStart;
 
       int lengthSig = buffer[index++];
-      byte[] signature = new byte[lengthSig];
-      Array.Copy(buffer, index, signature, 0, lengthSig);
-      index += lengthSig;
+      byte[] signature = buffer.ReadBytes(ref index, lengthSig);
 
       if (!Crypto.VerifySignature(buffer, indexTxStart, lengthMessage, KeyPublic, signature))
         throw new ProtocolException($"TX {this} contains invalid signature.");

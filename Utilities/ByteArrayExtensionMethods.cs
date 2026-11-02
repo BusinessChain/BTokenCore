@@ -61,6 +61,13 @@ public static class ByteArrayExtensionMethods
     return true;
   }
 
+  public static byte[] ReadBytes(this byte[] buffer, ref int index, int length)
+  {
+    byte[] bytes = buffer[index..(index + length)];
+    index += length;
+    return bytes;
+  }
+
   public static bool IsGreaterThan(this byte[] array, uint nBits)
   {
     int expBits = ((int)nBits & 0x7F000000) >> 24;

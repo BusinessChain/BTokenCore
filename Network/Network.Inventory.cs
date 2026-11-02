@@ -43,9 +43,7 @@ internal partial class Network
       uint type = BitConverter.ToUInt32(buffer, startIndex);
       startIndex += 4;
 
-      byte[] hash = new byte[32];
-      Array.Copy(buffer, startIndex, hash, 0, 32);
-      startIndex += 32;
+      byte[] hash = buffer.ReadBytes(ref startIndex, 32);
 
       return new Inventory(
         (InventoryType)type,

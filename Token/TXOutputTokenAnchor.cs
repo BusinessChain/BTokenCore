@@ -31,14 +31,11 @@ public class TXOutputTokenAnchor : TXOutput
   {
     startIndex += PREFIX_ANCHOR_TOKEN.Length;
 
-    Array.Copy(buffer, startIndex, IDToken, 0, LENGTH_ID_TOKEN);
-    startIndex += LENGTH_ID_TOKEN;
+    IDToken = buffer.ReadBytes(ref startIndex, LENGTH_ID_TOKEN);
 
-    Array.Copy(buffer, startIndex, HashBlockReferenced, 0, HashBlockReferenced.Length);
-    startIndex += HashBlockReferenced.Length;
+    HashBlockReferenced = buffer.ReadBytes(ref startIndex, 32);
 
-    Array.Copy(buffer, startIndex, HashBlockPreviousReferenced, 0, HashBlockPreviousReferenced.Length);
-    startIndex += HashBlockPreviousReferenced.Length;
+    HashBlockPreviousReferenced = buffer.ReadBytes(ref startIndex, 32);
   }
 
   internal void Serialize()

@@ -33,8 +33,7 @@ internal partial class Network
       UInt64 networkServices = BitConverter.ToUInt64(buffer, startIndex);
       startIndex += 8;
 
-      IPAddress iPAddress = new IPAddress(buffer.Skip(startIndex).Take(16).ToArray());
-      startIndex += 16;
+      IPAddress iPAddress = new IPAddress(buffer.ReadBytes(ref startIndex, 16));
 
       UInt16 port = BitConverter.ToUInt16(buffer, startIndex);
       startIndex += 2;

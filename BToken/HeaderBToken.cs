@@ -37,8 +37,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       Difficulty = 1;
 
-      Array.Copy(buffer, index, HashDatabase, 0, 32);
-      index += 32;
+      HashDatabase = buffer.ReadBytes(ref index, 32);
 
       Nonce = BitConverter.ToUInt32(buffer, index);
       index += 4;

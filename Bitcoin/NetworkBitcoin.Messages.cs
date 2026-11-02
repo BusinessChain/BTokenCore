@@ -25,9 +25,7 @@ internal partial class NetworkBitcoin : Network
     {
       int startIndex = 0;
 
-      byte[] version = new byte[4];
-      Array.Copy(Payload, startIndex, version, 0, version.Length);
-      startIndex += version.Length;
+      byte[] version = Payload.ReadBytes(ref startIndex, 4);
 
       int countHeaderLocator = VarInt.GetInt(Payload, ref startIndex);
 
@@ -37,13 +35,7 @@ internal partial class NetworkBitcoin : Network
       List<byte[]> hashesLocator = new();
 
       for (int i = 0; i < countHeaderLocator; i += 1)
-      {
-        byte[] hashLocator = new byte[32];
-        Array.Copy(Payload, startIndex, hashLocator, 0, hashLocator.Length);
-        startIndex += hashLocator.Length;
-
-        hashesLocator.Add(hashLocator);
-      }
+        hashesLocator.Add(Payload.ReadBytes(ref startIndex, 32));
 
       (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
         await Blockchain.RunLocked(() => Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.MAX_COUNT_HEADERS));
