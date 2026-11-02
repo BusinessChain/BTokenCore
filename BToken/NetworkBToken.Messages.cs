@@ -107,7 +107,20 @@ internal partial class NetworkBToken : Network
       int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
       int startIndexInventories = startIndex;
 
-      if (Inventory.Parse(Payload, ref startIndex).Type != Inventory.InventoryType.MSG_TX)
+      Inventory.InventoryType typeInventory = Inventory.Parse(Payload, ref startIndex).Type;
+
+      if (typeInventory == Inventory.InventoryType.MSG_DB)
+      {
+        if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
+          return;
+
+        DOSMonitor.Decrement(1);
+
+        peer.StateCurrent = Peer.StateProtocol.Idle;
+        return;
+      }
+
+      if (typeInventory != Inventory.InventoryType.MSG_TX)
       {
         await base.Run(peer);
         return;

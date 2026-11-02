@@ -308,17 +308,6 @@ internal partial class Network
       VarInt.GetInt(Payload, ref startIndex);
       Inventory inventory = Inventory.Parse(Payload, ref startIndex);
 
-      if (inventory.Type == Inventory.InventoryType.MSG_DB)
-      {
-        if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
-          return;
-
-        DOSMonitor.Decrement(1);
-
-        peer.StateCurrent = Peer.StateProtocol.Idle;
-        return;
-      }
-
       BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
 
       if (blockMessage.BlockDownload.Header?.Hash.IsAllBytesEqual(inventory.Hash) != true)
