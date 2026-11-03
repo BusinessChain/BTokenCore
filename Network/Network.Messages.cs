@@ -94,8 +94,8 @@ internal partial class Network
       {
         Address address = Address.ParseAddress(Payload, ref startIndex);
 
-        if (address.IPAddress.IsIPv4MappedToIPv6 && address.Port == Network.ConfigurationNetwork.Port)
-          iPs.Add(address.IPAddress.MapToIPv4().ToString());
+        if (address.Port == Network.ConfigurationNetwork.Port)
+          iPs.Add((address.IPAddress.IsIPv4MappedToIPv6 ? address.IPAddress.MapToIPv4() : address.IPAddress).ToString());
       }
 
       lock (Network.LOCK_Peers)

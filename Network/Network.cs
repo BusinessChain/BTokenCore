@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
 
 
 namespace BTokenCore;
@@ -77,9 +76,7 @@ internal abstract partial class Network
             IPAddress[] addresses = await Dns.GetHostAddressesAsync(seedAddress).ConfigureAwait(false);
 
             lock (LOCK_Peers)
-              IPAddresses.UnionWith(addresses
-                .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
-                .Select(x => x.ToString()));
+              IPAddresses.UnionWith(addresses.Select(x => x.ToString()));
           }
           catch
           { }
