@@ -43,7 +43,7 @@ internal partial class BlockchainBToken : Blockchain
     blockchainParent.OnBlockInserted += blockParent =>
     {
       if (!BlockchainBitcoin.IsTXAnchorOpen())
-        OnTipChanged();
+        MineBlock();
     };
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
 
@@ -260,7 +260,7 @@ internal partial class BlockchainBToken : Blockchain
     FeePerByte = feePerByte;
     IsMining = true;
 
-    OnTipChanged();
+    MineBlock();
   }
 
   internal void StopMining()
@@ -284,7 +284,7 @@ internal partial class BlockchainBToken : Blockchain
     return tXCoinbase;
   }
 
-  protected override void OnTipChanged()
+  protected override void MineBlock()
   {
     if (!IsMining || !Accounts.Exists())
       return;

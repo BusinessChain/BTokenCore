@@ -250,7 +250,7 @@ internal abstract partial class Blockchain
 
   protected virtual void RollBackBlock(Block block) { }
 
-  protected virtual void OnTipChanged() { }
+  protected virtual void MineBlock() { }
 
   internal void ReceiveBlock(Block blockReceived)
   {
@@ -288,7 +288,7 @@ internal abstract partial class Blockchain
     if (ChainRoot.HeaderTipBlockchain != HeaderTipBlockchainAnnounced)
     {
       HeaderTipBlockchainAnnounced = ChainRoot.HeaderTipBlockchain;
-      OnTipChanged();
+      MineBlock();
     }
   }
 
