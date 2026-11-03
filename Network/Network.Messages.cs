@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Buffers.Binary;
+using System.Net;
 
 
 namespace BTokenCore;
@@ -144,7 +145,7 @@ internal partial class Network
         payload.AddRange(timeUnixSeconds);
         payload.AddRange(BitConverter.GetBytes(c.NetworkServicesRemote));
         payload.AddRange(IPAddress.Parse(iP).MapToIPv6().GetAddressBytes());
-        payload.AddRange(VersionMessage.GetBytes((ushort)c.Port));
+        payload.AddRange(BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness((ushort)c.Port)));
       }
 
       byte[] buffer = payload.ToArray();
@@ -512,13 +513,6 @@ internal partial class Network
       Network = network;
     }
 
-    internal static byte[] GetBytes(UInt16 uint16)
-    {
-      byte[] byteArray = BitConverter.GetBytes(uint16);
-      Array.Reverse(byteArray);
-      return byteArray;
-    }
-
     internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
     {
       Configuration c = peer.ConfigurationNetwork;
@@ -530,7 +524,7 @@ internal partial class Network
         .. BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
         .. BitConverter.GetBytes(c.NetworkServicesRemote),
         .. IPAddress.Parse(peer.GetIP()).MapToIPv6().GetAddressBytes(),
-        .. GetBytes((ushort)c.Port),
+        .. BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness((ushort)c.Port)),
         .. new byte[26],
         .. BitConverter.GetBytes((ulong)0),
         .. VarString.GetBytes(c.UserAgent),

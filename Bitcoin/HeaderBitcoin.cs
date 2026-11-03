@@ -115,9 +115,10 @@ internal class HeaderBitcoin : Header
     while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
       headerIntervalStart = headerIntervalStart.HeaderPrevious as HeaderBitcoin;
 
-    ulong actualTimespan = Limit(
-      header.UnixTimeSeconds -
-      headerIntervalStart.UnixTimeSeconds);
+    ulong actualTimespan = Math.Clamp(
+      header.UnixTimeSeconds - headerIntervalStart.UnixTimeSeconds,
+      RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4,
+      RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4);
 
     UInt256 targetOld = UInt256.ParseFromCompact(header.NBits);
 
@@ -126,21 +127,6 @@ internal class HeaderBitcoin : Header
       .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
 
     return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
-  }
-
-  static ulong Limit(ulong actualTimespan)
-  {
-    if (actualTimespan < RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4)
-    {
-      return RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4;
-    }
-
-    if (actualTimespan > RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4)
-    {
-      return RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4;
-    }
-
-    return actualTimespan;
   }
 
   internal override byte[] Serialize()

@@ -16,6 +16,14 @@ public static class Crypto
   internal const int LENGTH_HASH256 = 32;
   internal const int LENGTH_HASH160 = 20;
 
+  static readonly X9ECParameters CURVE_SECP256K1 = SecNamedCurves.GetByName("secp256k1");
+
+  static readonly ECDomainParameters DOMAIN_SECP256K1 = new(
+    CURVE_SECP256K1.Curve,
+    CURVE_SECP256K1.G,
+    CURVE_SECP256K1.N,
+    CURVE_SECP256K1.H);
+
   public static bool VerifySignature(
     byte[] buffer,
     int startIndexMessage,
@@ -23,11 +31,9 @@ public static class Crypto
     byte[] pubKeyX,
     byte[] signature)
   {
-    X9ECParameters curve = SecNamedCurves.GetByName("secp256k1");
-
     ECPublicKeyParameters keyParameters = new(
-      curve.Curve.DecodePoint(pubKeyX),
-      new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H));
+      DOMAIN_SECP256K1.Curve.DecodePoint(pubKeyX),
+      DOMAIN_SECP256K1);
 
     ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
 
@@ -39,11 +45,7 @@ public static class Crypto
 
   public static byte[] GetSignature(string privateKey, byte[] message)
   {
-    var curve = SecNamedCurves.GetByName("secp256k1");
-
-    ECPrivateKeyParameters keyParameters = new(
-      new BigInteger(privateKey),
-      new ECDomainParameters(curve.Curve, curve.G, curve.N, curve.H));
+    ECPrivateKeyParameters keyParameters = new(new BigInteger(privateKey), DOMAIN_SECP256K1);
 
     ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
 
@@ -63,18 +65,10 @@ public static class Crypto
 
   public static byte[] GetPubKeyFromPrivKey(string privKey)
   {
-    var curve = SecNamedCurves.GetByName("secp256k1");
-
-    var domain = new ECDomainParameters(
-      curve.Curve,
-      curve.G,
-      curve.N,
-      curve.H);
-
     var d = new BigInteger(privKey);
-    var q = domain.G.Multiply(d);
+    var q = DOMAIN_SECP256K1.G.Multiply(d);
 
-    var publicKey = new ECPublicKeyParameters(q, domain);
+    var publicKey = new ECPublicKeyParameters(q, DOMAIN_SECP256K1);
 
     List<byte> pubKeyX = publicKey.Q.XCoord.GetEncoded().ToList();
 
