@@ -135,19 +135,10 @@ internal partial class BlockchainBToken : Blockchain
     internal void RemoveTXs(Block block)
     {
       foreach (TX tXConfirmed in block.TXs)
-      {
-        if (!TXsByHash.TryGetValue(tXConfirmed.Hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
-          continue;
+        if (TXsByHash.TryGetValue(tXConfirmed.Hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
+          RemoveTXFromIndexes(tXsByHashItem.tX);
 
-        TXBToken tX = tXsByHashItem.tX;
-
-        if (!TXsByIDAccountSource[tX.IDAccountSource][0].Hash.IsAllBytesEqual(tXConfirmed.Hash))
-          throw new ProtocolException($"Removal of tX {tXConfirmed.Hash.ToHexString()} from pool not in expected order of nonce.");
-
-        RemoveTXFromIndexes(tX);
-
-        SortTXBundlesByFee();
-      }
+      DropTXsNoLongerCoveredByBalance();
     }
 
     void DropTXsNoLongerCoveredByBalance()
