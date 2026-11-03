@@ -48,8 +48,10 @@ internal partial class BlockchainBToken : Blockchain
 
       Fee = buffer.Read<long>(ref index);
 
-      if (Fee < 0)
-        throw new ProtocolException($"Fee {Fee} of TX smaller than zero.");
+      if (Fee < 0 || Fee > HeaderBToken.SUPPLY_MAX)
+        throw new ProtocolException($"Fee {Fee} of TX out of range.");
+
+      long valueTX = Fee;
 
       int countOutputs = VarInt.GetInt(buffer, ref index);
 
@@ -60,8 +62,10 @@ internal partial class BlockchainBToken : Blockchain
         if (tXOutput.GetType() == typeof(TXOutput))
           throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
 
-        if (tXOutput.Value < 0)
-          throw new ProtocolException($"Value {tXOutput.Value} of TX output smaller than zero.");
+        if (tXOutput.Value < 0 || tXOutput.Value > HeaderBToken.SUPPLY_MAX - valueTX)
+          throw new ProtocolException($"Value {tXOutput.Value} of TX output out of range.");
+
+        valueTX += tXOutput.Value;
 
         TXOutputs.Add(tXOutput);
       }

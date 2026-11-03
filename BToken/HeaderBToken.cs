@@ -4,8 +4,9 @@ public class HeaderBToken : Header
 {
   internal const int COUNT_HEADER_BYTES = 104;
 
-  const long BLOCK_REWARD_INITIAL = 20000000000; // 200 BTK
+  const long BLOCK_REWARD_INITIAL = 20_000_000_000;
   const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
+  internal const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
 
   internal byte[] HashDatabase = new byte[32];
 
