@@ -2,6 +2,9 @@ namespace BTokenCore;
 
 internal partial class NetworkBitcoin : Network
 {
+  BlockchainBitcoin BlockchainBitcoin;
+
+
   internal NetworkBitcoin(
     BlockchainBitcoin blockchain,
     ICommunication communication)
@@ -24,14 +27,7 @@ internal partial class NetworkBitcoin : Network
           ]
       })
   {
-    blockchain.OnTXAnchorCreated += Broadcast;
-  }
-
-  void Broadcast(TX tX)
-  {
-    lock (LOCK_Peers)
-      foreach (Peer peer in Peers)
-        NetworkMessage.SendInventories(peer, InvMessage.Command, [new(Inventory.InventoryType.MSG_TX, tX.Hash)]);
+    BlockchainBitcoin = blockchain;
   }
 
   protected override Peer CreatePeer(

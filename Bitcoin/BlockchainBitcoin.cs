@@ -20,9 +20,6 @@ internal partial class BlockchainBitcoin : Blockchain
   ILiteCollection<BsonDocument> AnchorsOwned;
   TXBitcoin TXAnchorOpen;
 
-  internal event Action<TX> OnTXAnchorCreated;
-
-
   internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
     : base("TokenBitcoin", blockchainParent: null, semaphoreBlockchain)
   {
@@ -167,6 +164,11 @@ internal partial class BlockchainBitcoin : Blockchain
     return TXAnchorOpen != null;
   }
 
+  internal byte[] GetHashTXAnchorOpen()
+  {
+    return TXAnchorOpen?.Hash;
+  }
+
   internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
   {
     TXBitcoin tXAnchor = new();
@@ -238,8 +240,6 @@ internal partial class BlockchainBitcoin : Blockchain
     });
 
     TXAnchorOpen = tXAnchor;
-
-    OnTXAnchorCreated.Announce(tXAnchor);
 
     return true;
   }
