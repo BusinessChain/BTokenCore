@@ -61,73 +61,58 @@ internal abstract partial class Network
         countPeers = Peers.Count;
       }
 
-      if (countPeers < COUNT_MAX_OUTBOUND_CONNECTIONS)
+      if (countPeers >= COUNT_MAX_OUTBOUND_CONNECTIONS)
       {
-        Peer peer = await GetPeer();
-
-        lock (LOCK_Peers)
-          Peers.Add(peer);
-      }
-      else
         await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
-    }
-  }
+        continue;
+      }
 
-  async Task<Peer> GetPeer()
-  {
-    while (true)
-    {
+      if (IPAddresses.Count == 0)
+      {
+        foreach (string seedAddress in ConfigurationNetwork.SeedAddresses)
+        {
+          try
+          {
+            IPAddress[] addresses = await Dns.GetHostAddressesAsync(seedAddress).ConfigureAwait(false);
+
+            IPAddresses.AddRange(addresses
+              .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
+              .Select(x => x.ToString()));
+          }
+          catch
+          { }
+        }
+
+        IPAddresses = IPAddresses.Distinct().ToList();
+
+        if (IPAddresses.Count == 0)
+        {
+          await Task.Delay(1000).ConfigureAwait(false);
+          continue;
+        }
+      }
+
+      int index = Random.Shared.Next(IPAddresses.Count);
+
+      string iP = IPAddresses[index];
+      IPAddresses.RemoveAt(index);
+
       try
       {
-        //string iP = GetIPAddress();
-
-        string iP = "83.229.86.158"; // 84.74.69.100
-
         ISocketCommunication socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
 
         Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
 
         await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
-        return peer;
+        lock (LOCK_Peers)
+          Peers.Add(peer);
       }
       catch
       {
-        await Task.Delay(1000);
+        await Task.Delay(1000).ConfigureAwait(false);
       }
     }
-  }
-
-  string GetIPAddress()
-  {
-    while (IPAddresses.Count == 0)
-    {
-      foreach (string dnsSeed in ConfigurationNetwork.SeedAddresses)
-      {
-        try
-        {
-          IPAddress[] addresses = Dns.GetHostAddresses(dnsSeed);
-
-          IPAddresses.AddRange(addresses
-            .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
-            .Select(x => x.ToString()));
-        }
-        catch
-        { }
-      }
-
-      IPAddresses = IPAddresses.Distinct().ToList();
-
-      if (IPAddresses.Count == 0)
-        Thread.Sleep(1000);
-    }
-
-    int index = Random.Shared.Next(IPAddresses.Count);
-
-    string ip = IPAddresses[index];
-    IPAddresses.RemoveAt(index);
-
-    return ip;
   }
 
   async Task StartPeerConnectorInbound()
