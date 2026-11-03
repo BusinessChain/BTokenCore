@@ -50,15 +50,13 @@ public abstract class Header
     return buffer;
   }
 
-  internal virtual bool TryAppendToHeader(Header headerPrevious)
+  internal virtual void AppendToHeader(Header headerPrevious)
   {
     if (!HashPrevious.IsAllBytesEqual(headerPrevious.Hash))
       throw new ProtocolException($"Header {this} references header previous {HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
 
     Height = headerPrevious.Height + 1;
     HeaderPrevious = headerPrevious;
-
-    return true;
   }
 
   internal bool IsParentNewest()

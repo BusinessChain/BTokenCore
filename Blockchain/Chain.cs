@@ -45,22 +45,21 @@ internal partial class Blockchain
         return;
       }
 
+      int indexAppendNext = 0;
+
       if (headerAncestor != chain.HeaderTip)
       {
-        if (!headers[0].TryAppendToHeader(headerAncestor))
-          return;
+        headers[0].AppendToHeader(headerAncestor);
 
         Chain chainChild = new(chain, headers[0], isRoot: false);
         chain.ChainsChild.Add(chainChild);
         chain = chainChild;
-      }
-      else
-        if (!chain.TryAppendHeader(headers[0]))
-          return;
 
-      for (int i = 1; i < headers.Count; i++)
-        if (!chain.TryAppendHeader(headers[i]))
-          return;
+        indexAppendNext = 1;
+      }
+
+      for (int i = indexAppendNext; i < headers.Count; i++)
+        chain.AppendHeader(headers[i]);
 
       headerLastInTree = headers[^1];
     }
@@ -222,14 +221,12 @@ internal partial class Blockchain
         chainChild.CutOff(chainChild.HeaderRoot);
     }
 
-    internal bool TryAppendHeader(Header header)
+    internal void AppendHeader(Header header)
     {
-      if (!header.TryAppendToHeader(HeaderTip))
-        return false;
+      header.AppendToHeader(HeaderTip);
 
       HeaderTip.HeaderNext = header;
       HeaderTip = header;
-      return true;
     }
 
     internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)

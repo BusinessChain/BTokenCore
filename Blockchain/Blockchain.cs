@@ -219,7 +219,7 @@ internal abstract partial class Blockchain
         Header header = blockLoad.Header;
 
         if (header.HashPrevious.IsAllBytesEqual(ChainRoot.HeaderTipBlockchain.Hash))
-          ChainRoot.TryAppendHeader(header);
+          ChainRoot.AppendHeader(header);
         else
         {
           header.Height = bsonDocumentBlock["_id"].AsInt32;
