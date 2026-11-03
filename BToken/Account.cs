@@ -11,10 +11,9 @@ internal partial class BlockchainBToken : Blockchain
   internal class Account
   {
     internal const int LENGTH_ACCOUNT = 36;
-    internal const int LENGTH_ID = 20;
 
     [BsonId]
-    internal byte[] ID = new byte[LENGTH_ID];
+    internal byte[] ID;
 
     [BsonField]
     internal int BlockHeightAccountCreated;

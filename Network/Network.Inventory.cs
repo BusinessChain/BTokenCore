@@ -42,7 +42,7 @@ internal partial class Network
     {
       uint type = buffer.Read<uint>(ref startIndex);
 
-      byte[] hash = buffer.ReadBytes(ref startIndex, 32);
+      byte[] hash = buffer.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256);
 
       return new Inventory(
         (InventoryType)type,

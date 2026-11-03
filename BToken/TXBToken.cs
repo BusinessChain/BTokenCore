@@ -15,12 +15,10 @@ internal partial class BlockchainBToken : Blockchain
     /// </summary>
     internal byte[] KeyPublic = new byte[LENGTH_PUBKEYCOMPRESSED];
 
-    internal const int LENGTH_IDACCOUNT = 20;
-
     /// <summary>
     /// IDAccountSource is derived from the PublicKey and is used to address the account in the database.
     /// </summary>
-    internal byte[] IDAccountSource = new byte[LENGTH_IDACCOUNT];
+    internal byte[] IDAccountSource;
 
     /// <summary>
     /// In order for the transaction to be valid, the nonce must be equal to the nonce of the 
@@ -125,4 +123,3 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 }
-

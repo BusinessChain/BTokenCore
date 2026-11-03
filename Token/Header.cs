@@ -22,9 +22,6 @@ public abstract class Header
 
   internal Header()
   {
-    Hash = new byte[32];
-    HashPrevious = new byte[32];
-    MerkleRoot = new byte[32];
   }
 
   protected Header(byte[] buffer, ref int index, int countHeaderBytes)
@@ -33,9 +30,9 @@ public abstract class Header
 
     Version = buffer.Read<uint>(ref index);
 
-    HashPrevious = buffer.ReadBytes(ref index, 32);
+    HashPrevious = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
 
-    MerkleRoot = buffer.ReadBytes(ref index, 32);
+    MerkleRoot = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
   }
 
   internal abstract byte[] Serialize();

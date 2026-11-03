@@ -9,7 +9,7 @@ internal class TXOutputOwned
   internal byte[] ID;
 
   [BsonField]
-  internal byte[] TXID = new byte[32];
+  internal byte[] TXID;
 
   [BsonField]
   internal int Index;

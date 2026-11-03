@@ -68,7 +68,7 @@ internal partial class BlockchainBToken : Blockchain
       {
         Account account = new();
 
-        account.ID = buffer.ReadBytes(ref index, Account.LENGTH_ID);
+        account.ID = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH160);
 
         account.BlockHeightAccountCreated = buffer.Read<int>(ref index);
 

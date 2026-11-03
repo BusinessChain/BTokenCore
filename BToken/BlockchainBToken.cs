@@ -366,8 +366,8 @@ internal partial class BlockchainBToken : Blockchain
       Header headerPlaceholderNew = new HeaderBToken(
         headerHash: anchorWinner.HashBlockReferenced,
         hashPrevious: anchorWinner.HashBlockPreviousReferenced,
-        merkleRootHash: new byte[32],
-        hashDatabase: new byte[32],
+        merkleRootHash: new byte[Crypto.LENGTH_HASH256],
+        hashDatabase: new byte[Crypto.LENGTH_HASH256],
         nonce: 0)
       {
         HeaderParent = blockParent.Header

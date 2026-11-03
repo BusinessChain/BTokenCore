@@ -8,7 +8,7 @@ public class HeaderBToken : Header
   const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
   internal const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
 
-  internal byte[] HashDatabase = new byte[32];
+  internal byte[] HashDatabase;
 
 
   internal HeaderBToken()
@@ -36,7 +36,7 @@ public class HeaderBToken : Header
   {
     Difficulty = 1;
 
-    HashDatabase = buffer.ReadBytes(ref index, 32);
+    HashDatabase = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
 
     Nonce = buffer.Read<uint>(ref index);
   }

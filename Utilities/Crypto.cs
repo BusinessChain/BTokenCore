@@ -13,6 +13,9 @@ namespace BTokenCore;
 
 public static class Crypto
 {
+  internal const int LENGTH_HASH256 = 32;
+  internal const int LENGTH_HASH160 = 20;
+
   public static bool VerifySignature(
     byte[] buffer,
     int startIndexMessage,
@@ -87,7 +90,7 @@ public static class Crypto
 
   public static byte[] ComputeHash160(byte[] data)
   {
-    byte[] publicKeyHash160 = new byte[20];
+    byte[] publicKeyHash160 = new byte[LENGTH_HASH160];
 
     var hashPublicKey = SHA256.HashData(data);
 

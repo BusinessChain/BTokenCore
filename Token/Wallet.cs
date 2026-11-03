@@ -4,7 +4,7 @@ internal class Wallet
 {
   internal string KeyPrivateDecimal;
   internal byte[] KeyPublic;
-  internal byte[] Hash160PKeyPublic = new byte[20];
+  internal byte[] Hash160PKeyPublic;
   internal string AddressAccount;
 
 

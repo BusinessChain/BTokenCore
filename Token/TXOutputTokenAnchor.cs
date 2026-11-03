@@ -5,7 +5,7 @@ public class TXOutputTokenAnchor : TXOutput
 {
   internal const int LENGTH_ID_TOKEN = 4;
 
-  internal const int LENGTH_SCRIPT_ANCHOR_TOKEN = 5 + LENGTH_ID_TOKEN + 32 + 32;
+  internal const int LENGTH_SCRIPT_ANCHOR_TOKEN = 5 + LENGTH_ID_TOKEN + 2 * Crypto.LENGTH_HASH256;
 
   internal static readonly byte[] PREFIX_ANCHOR_TOKEN =
     [0x6A, LENGTH_SCRIPT_ANCHOR_TOKEN - 2, (byte)'B', (byte)'T', (byte)'K'];
@@ -26,9 +26,9 @@ public class TXOutputTokenAnchor : TXOutput
 
     IDToken = buffer.ReadBytes(ref startIndex, LENGTH_ID_TOKEN);
 
-    HashBlockReferenced = buffer.ReadBytes(ref startIndex, 32);
+    HashBlockReferenced = buffer.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256);
 
-    HashBlockPreviousReferenced = buffer.ReadBytes(ref startIndex, 32);
+    HashBlockPreviousReferenced = buffer.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256);
   }
 
   internal void Serialize()

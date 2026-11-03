@@ -28,8 +28,6 @@ public class Block
 
   internal byte[] ComputeMerkleRoot()
   {
-    const int HASH_BYTE_SIZE = 32;
-
     if (TXs.Count == 1)
       return TXs[0].Hash;
 
@@ -43,7 +41,7 @@ public class Block
     if (tXsLengthMod2 != 0)
       merkleList[TXs.Count] = merkleList[TXs.Count - 1];
 
-    byte[] leafPair = new byte[2 * HASH_BYTE_SIZE];
+    byte[] leafPair = new byte[2 * Crypto.LENGTH_HASH256];
 
     while (true)
     {
@@ -53,7 +51,7 @@ public class Block
       {
         int i2 = i << 1;
         merkleList[i2].CopyTo(leafPair, 0);
-        merkleList[i2 + 1].CopyTo(leafPair, HASH_BYTE_SIZE);
+        merkleList[i2 + 1].CopyTo(leafPair, Crypto.LENGTH_HASH256);
 
         merkleList[i] = Crypto.ComputeHash256(leafPair);
       }

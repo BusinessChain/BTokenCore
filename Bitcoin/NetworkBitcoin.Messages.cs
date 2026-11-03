@@ -35,7 +35,7 @@ internal partial class NetworkBitcoin : Network
       List<byte[]> hashesLocator = new();
 
       for (int i = 0; i < countHeaderLocator; i += 1)
-        hashesLocator.Add(Payload.ReadBytes(ref startIndex, 32));
+        hashesLocator.Add(Payload.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256));
 
       (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
         await Blockchain.RunLocked(() => Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.MAX_COUNT_HEADERS));
