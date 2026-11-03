@@ -39,8 +39,7 @@ internal partial class BlockchainBToken : Blockchain
 
       HashDatabase = buffer.ReadBytes(ref index, 32);
 
-      Nonce = BitConverter.ToUInt32(buffer, index);
-      index += 4;
+      Nonce = buffer.Read<uint>(ref index);
     }
 
     internal override byte[] Serialize()

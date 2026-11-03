@@ -1,10 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Linq;
-using System.Collections.Generic;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 public abstract class TX
 {
@@ -23,8 +17,7 @@ public abstract class TX
 
   protected TXOutput ParseTXOutput(byte[] buffer, ref int startIndex)
   {
-    long value = BitConverter.ToInt64(buffer, startIndex);
-    startIndex += 8;
+    long value = buffer.Read<long>(ref startIndex);
 
     int lengthScript = VarInt.GetInt(buffer, ref startIndex);
     int indexScript = startIndex;

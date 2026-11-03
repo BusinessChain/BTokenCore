@@ -1,9 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {

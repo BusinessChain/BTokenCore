@@ -70,14 +70,11 @@ internal partial class BlockchainBToken : Blockchain
 
         account.ID = buffer.ReadBytes(ref index, Account.LENGTH_ID);
 
-        account.BlockHeightAccountCreated = BitConverter.ToInt32(buffer, index);
-        index += 4;
+        account.BlockHeightAccountCreated = buffer.Read<int>(ref index);
 
-        account.Nonce = BitConverter.ToInt32(buffer, index);
-        index += 4;
+        account.Nonce = buffer.Read<int>(ref index);
 
-        account.Balance = BitConverter.ToInt64(buffer, index);
-        index += 8;
+        account.Balance = buffer.Read<long>(ref index);
 
         accounts.Add(account);
       }

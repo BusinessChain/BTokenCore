@@ -1,7 +1,4 @@
-﻿using System;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal partial class BlockchainBitcoin : Blockchain
 {
@@ -21,14 +18,12 @@ internal partial class BlockchainBitcoin : Blockchain
     {
       TXIDOutput = buffer.ReadBytes(ref index, HASH_BYTE_SIZE);
 
-      OutputIndex = BitConverter.ToInt32(buffer, index);
-      index += 4;
+      OutputIndex = buffer.Read<int>(ref index);
 
       int lengthScript = VarInt.GetInt(buffer, ref index);
       index += lengthScript;
 
-      Sequence = BitConverter.ToInt32(buffer, index);
-      index += 4;
+      Sequence = buffer.Read<int>(ref index);
     }
   }
 }

@@ -41,8 +41,7 @@ internal partial class BlockchainBitcoin : Blockchain
     internal HeaderBitcoin(byte[] buffer, ref int index)
       : base(buffer, ref index, COUNT_HEADER_BYTES)
     {
-      UnixTimeSeconds = BitConverter.ToUInt32(buffer, index);
-      index += 4;
+      UnixTimeSeconds = buffer.Read<uint>(ref index);
 
       bool isBlockTimePremature = UnixTimeSeconds >
         (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
@@ -50,14 +49,12 @@ internal partial class BlockchainBitcoin : Blockchain
       if (isBlockTimePremature)
         throw new ProtocolException($"Timestamp premature {new DateTime(UnixTimeSeconds).Date}.");
 
-      NBits = BitConverter.ToUInt32(buffer, index);
-      index += 4;
+      NBits = buffer.Read<uint>(ref index);
 
       if (Hash.IsGreaterThan(NBits))
         throw new ProtocolException($"Header hash {Hash.ToHexString()} greater than NBits {NBits}.");
 
-      Nonce = BitConverter.ToUInt32(buffer, index);
-      index += 4;
+      Nonce = buffer.Read<uint>(ref index);
 
       Difficulty = ComputeDifficultyFromNBits(NBits);
     }

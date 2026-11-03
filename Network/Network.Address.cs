@@ -27,16 +27,13 @@ internal partial class Network
 
     internal static Address ParseAddress(byte[] buffer, ref int startIndex)
     {
-      UInt32 unixTimeSeconds = BitConverter.ToUInt32(buffer, startIndex);
-      startIndex += 4;
+      UInt32 unixTimeSeconds = buffer.Read<UInt32>(ref startIndex);
 
-      UInt64 networkServices = BitConverter.ToUInt64(buffer, startIndex);
-      startIndex += 8;
+      UInt64 networkServices = buffer.Read<UInt64>(ref startIndex);
 
       IPAddress iPAddress = new IPAddress(buffer.ReadBytes(ref startIndex, 16));
 
-      UInt16 port = BitConverter.ToUInt16(buffer, startIndex);
-      startIndex += 2;
+      UInt16 port = buffer.Read<UInt16>(ref startIndex);
 
       return new Address(unixTimeSeconds, networkServices, iPAddress, port);
     }

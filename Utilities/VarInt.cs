@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
+﻿namespace BTokenCore;
 
-
-namespace BTokenCore;
 
 public static class VarInt
 {
@@ -75,18 +70,15 @@ public static class VarInt
     }
     else if (prefix == PREFIX_UINT16)
     {
-      value = BitConverter.ToUInt16(buffer, startIndex);
-      startIndex += 2;
+      value = buffer.Read<ushort>(ref startIndex);
     }
     else if (prefix == PREFIX_UINT32)
     {
-      value = BitConverter.ToUInt32(buffer, startIndex);
-      startIndex += 4;
+      value = buffer.Read<uint>(ref startIndex);
     }
     else // PREFIX_UINT64 (0xff)
     {
-      value = BitConverter.ToUInt64(buffer, startIndex);
-      startIndex += 8;
+      value = buffer.Read<ulong>(ref startIndex);
     }
 
     if (value > int.MaxValue)

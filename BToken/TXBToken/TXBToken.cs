@@ -1,9 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
@@ -47,14 +42,11 @@ internal partial class BlockchainBToken : Blockchain
 
       IDAccountSource = Crypto.ComputeHash160(KeyPublic);
 
-      BlockheightAccountCreated = BitConverter.ToInt32(buffer, index);
-      index += 4;
+      BlockheightAccountCreated = buffer.Read<int>(ref index);
 
-      Nonce = BitConverter.ToInt32(buffer, index);
-      index += 4;
+      Nonce = buffer.Read<int>(ref index);
 
-      Fee = BitConverter.ToInt64(buffer, index);
-      index += 8;
+      Fee = buffer.Read<long>(ref index);
 
       if (Fee < 0)
         throw new ProtocolException($"Fee {Fee} of TX smaller than zero.");

@@ -40,8 +40,7 @@ internal partial class Network
       byte[] buffer,
       ref int startIndex)
     {
-      uint type = BitConverter.ToUInt32(buffer, startIndex);
-      startIndex += 4;
+      uint type = buffer.Read<uint>(ref startIndex);
 
       byte[] hash = buffer.ReadBytes(ref startIndex, 32);
 

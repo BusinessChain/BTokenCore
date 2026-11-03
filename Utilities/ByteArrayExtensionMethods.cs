@@ -1,6 +1,5 @@
-﻿using System;
-using System.Linq;
-using System.Collections.Generic;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 
 namespace BTokenCore;
@@ -66,6 +65,13 @@ public static class ByteArrayExtensionMethods
     byte[] bytes = buffer[index..(index + length)];
     index += length;
     return bytes;
+  }
+
+  public static T Read<T>(this byte[] buffer, ref int index) where T : struct
+  {
+    T value = MemoryMarshal.Read<T>(buffer.AsSpan(index));
+    index += Unsafe.SizeOf<T>();
+    return value;
   }
 
   public static bool IsGreaterThan(this byte[] array, uint nBits)

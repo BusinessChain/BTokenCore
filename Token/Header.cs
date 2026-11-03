@@ -33,8 +33,7 @@ public abstract class Header
   {
     Hash = Crypto.ComputeHash256(buffer.AsSpan(index, countHeaderBytes));
 
-    Version = BitConverter.ToUInt32(buffer, index);
-    index += 4;
+    Version = buffer.Read<uint>(ref index);
 
     HashPrevious = buffer.ReadBytes(ref index, 32);
 
