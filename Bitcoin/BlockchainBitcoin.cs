@@ -8,7 +8,6 @@ internal partial class BlockchainBitcoin : Blockchain
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
   const string NAME_COLLECTION_OUTPUTS_OWNED = "outputsOwned";
-  const string NAME_COLLECTION_ANCHORS_OWNED = "anchorsOwned";
 
   const int LENGTH_P2PKH_INPUT = 148;
   const int LENGTH_P2PKH_OUTPUT = 34;
@@ -17,8 +16,7 @@ internal partial class BlockchainBitcoin : Blockchain
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
   ILiteCollection<TXOutputOwned> OutputsOwned;
-  ILiteCollection<BsonDocument> AnchorsOwned;
-  TXBitcoin TXAnchorOpen;
+
 
   internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
     : base("TokenBitcoin", blockchainParent: null, semaphoreBlockchain)
@@ -26,10 +24,6 @@ internal partial class BlockchainBitcoin : Blockchain
     SizeBlockMax = SIZE_BLOCK_MAX;
 
     OutputsOwned = Database.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
-    AnchorsOwned = Database.GetCollection<BsonDocument>(NAME_COLLECTION_ANCHORS_OWNED);
-
-    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
-      LoadTXAnchorOpen(documentAnchor);
   }
 
   protected override Header CreateHeaderGenesis()
@@ -91,28 +85,15 @@ internal partial class BlockchainBitcoin : Blockchain
     int heightPruning = height - MAX_COUNT_BLOCKS_STORED;
 
     OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
-    AnchorsOwned.DeleteMany(Query.Between("heightConfirmed", 1, heightPruning));
 
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)
-      {
         if (OutputsOwned.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
         {
           outputSpent.HeightSpent = height;
           OutputsOwned.Update(outputSpent);
         }
-
-        if (TXAnchorOpen != null &&
-          TXAnchorOpen.Inputs.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex))
-        {
-          BsonDocument documentAnchor = AnchorsOwned.FindById(TXAnchorOpen.Hash);
-          documentAnchor["heightConfirmed"] = height;
-          AnchorsOwned.Update(documentAnchor);
-
-          TXAnchorOpen = null;
-        }
-      }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
         if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
@@ -140,46 +121,47 @@ internal partial class BlockchainBitcoin : Blockchain
       OutputsOwned.Update(outputSpent);
     }
 
-    if (AnchorsOwned.FindOne(Query.EQ("heightConfirmed", height)) is BsonDocument documentAnchor)
-    {
-      AnchorsOwned.DeleteMany(Query.EQ("heightConfirmed", 0));
-
-      documentAnchor["heightConfirmed"] = 0;
-      AnchorsOwned.Update(documentAnchor);
-
-      LoadTXAnchorOpen(documentAnchor);
-    }
+    if (TXsOwned.Exists(Query.EQ("heightConfirmed", height)))
+      TXsOwned.DeleteMany(Query.EQ("heightConfirmed", 0));
   }
 
-  internal override TX GetTX(byte[] hash)
+  protected override bool IsTXOwnedConfirmed(TX tX, Block block)
   {
-    if (TXAnchorOpen != null && TXAnchorOpen.Hash.IsAllBytesEqual(hash))
-      return TXAnchorOpen;
+    List<TXInputBitcoin> inputsTXOwned = ((TXBitcoin)tX).Inputs;
 
-    return null;
+    return block.TXs.Any(t => ((TXBitcoin)t).Inputs.Any(tXInput =>
+      inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex)));
   }
 
   internal bool IsTXAnchorOpen()
   {
-    return TXAnchorOpen != null;
+    return TXsOwned.Exists(Query.EQ("heightConfirmed", 0));
   }
 
   internal byte[] GetHashTXAnchorOpen()
   {
-    return TXAnchorOpen?.Hash;
+    if (TXsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
+      return documentAnchor["_id"].AsBinary;
+
+    return null;
   }
 
   internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
   {
     TXBitcoin tXAnchor = new();
 
+    TXBitcoin tXAnchorOpen = null;
+
+    if (TXsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchorOpen)
+      tXAnchorOpen = (TXBitcoin)ParseTXOwned(documentAnchorOpen);
+
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
     long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
 
     List<TXOutputOwned> outputsSpendable;
 
-    if (TXAnchorOpen != null)
-      outputsSpendable = TXAnchorOpen.Inputs
+    if (tXAnchorOpen != null)
+      outputsSpendable = tXAnchorOpen.Inputs
         .Select(i => OutputsOwned.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.OutputIndex)))
         .Where(o => o != null)
         .ToList();
@@ -198,10 +180,10 @@ internal partial class BlockchainBitcoin : Blockchain
 
     long feeTX = feePerByte * lengthTX;
 
-    if (TXAnchorOpen != null)
+    if (tXAnchorOpen != null)
       feeTX = Math.Max(
         feeTX,
-        TXAnchorOpen.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
+        tXAnchorOpen.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
 
     if (valueInputs < feeTX + tokenAnchor.Value)
       return false;
@@ -228,31 +210,11 @@ internal partial class BlockchainBitcoin : Blockchain
 
     tXAnchor.Fee = valueInputs - tXAnchor.GetValueOutputs();
 
-    if (TXAnchorOpen != null)
-      AnchorsOwned.Delete(TXAnchorOpen.Hash);
+    if (tXAnchorOpen != null)
+      TXsOwned.Delete(tXAnchorOpen.Hash);
 
-    AnchorsOwned.Insert(new BsonDocument
-    {
-      ["_id"] = tXAnchor.Hash,
-      ["tXRaw"] = tXAnchor.TXRaw,
-      ["fee"] = tXAnchor.Fee,
-      ["heightConfirmed"] = 0
-    });
-
-    TXAnchorOpen = tXAnchor;
+    InsertTXOwned(tXAnchor);
 
     return true;
-  }
-
-  void LoadTXAnchorOpen(BsonDocument documentAnchor)
-  {
-    byte[] tXRaw = documentAnchor["tXRaw"].AsBinary;
-    int index = 0;
-
-    TXAnchorOpen = new TXBitcoin(tXRaw, ref index, flagIsCoinbase: false)
-    {
-      TXRaw = tXRaw,
-      Fee = documentAnchor["fee"].AsInt64
-    };
   }
 }

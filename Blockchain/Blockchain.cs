@@ -15,6 +15,7 @@ internal abstract partial class Blockchain
 
   protected LiteDatabase Database;
   protected ILiteCollection<BsonDocument> DatabaseBlockCollection;
+  protected ILiteCollection<BsonDocument> TXsOwned;
 
   SemaphoreSlim SemaphoreBlockchain;
 
@@ -40,6 +41,7 @@ internal abstract partial class Blockchain
 
     Database = new ($"Filename={nameToken + "Network"}.db;Mode=Exclusive");
     DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
+    TXsOwned = Database.GetCollection<BsonDocument>("tXsOwned");
 
     AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
   }
@@ -73,7 +75,39 @@ internal abstract partial class Blockchain
 
   internal abstract TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase = false);
 
-  internal abstract TX GetTX(byte[] hash);
+  internal virtual TX GetTX(byte[] hash)
+  {
+    if (TXsOwned.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned["heightConfirmed"].AsInt32 == 0)
+      return ParseTXOwned(documentTXOwned);
+
+    return null;
+  }
+
+  protected TX ParseTXOwned(BsonDocument documentTXOwned)
+  {
+    byte[] tXRaw = documentTXOwned["tXRaw"].AsBinary;
+    int index = 0;
+
+    TX tX = ParseTX(tXRaw, ref index, flagIsCoinbase: false);
+
+    tX.TXRaw = tXRaw;
+    tX.Fee = documentTXOwned["fee"].AsInt64;
+
+    return tX;
+  }
+
+  protected void InsertTXOwned(TX tX)
+  {
+    TXsOwned.Insert(new BsonDocument
+    {
+      ["_id"] = tX.Hash,
+      ["tXRaw"] = tX.TXRaw,
+      ["fee"] = tX.Fee,
+      ["heightConfirmed"] = 0
+    });
+  }
+
+  protected abstract bool IsTXOwnedConfirmed(TX tX, Block block);
 
   protected int ParseBlockHeader(Block block)
   {
@@ -255,7 +289,7 @@ internal abstract partial class Blockchain
     }
   }
 
-  protected void RunInTransaction(Action action)
+  protected void RunInDatabaseTransaction(Action action)
   {
     Database.BeginTrans();
 
@@ -278,9 +312,13 @@ internal abstract partial class Blockchain
     {
       try
       {
-        RunInTransaction(() =>
+        RunInDatabaseTransaction(() =>
         {
           InsertBlock(block);
+
+          MarkTXsOwnedConfirmed(block);
+
+          TXsOwned.DeleteMany(Query.Between("heightConfirmed", 1, block.Header.Height - MAX_COUNT_BLOCKS_STORED));
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
@@ -299,6 +337,16 @@ internal abstract partial class Blockchain
 
       OnBlockInserted.Announce(block);
     }
+  }
+
+  void MarkTXsOwnedConfirmed(Block block)
+  {
+    foreach (BsonDocument documentTXOwned in TXsOwned.Find(Query.EQ("heightConfirmed", 0)).ToList())
+      if (IsTXOwnedConfirmed(ParseTXOwned(documentTXOwned), block))
+      {
+        documentTXOwned["heightConfirmed"] = block.Header.Height;
+        TXsOwned.Update(documentTXOwned);
+      }
   }
 
   bool TryReorgToForkStrongest()
@@ -331,9 +379,11 @@ internal abstract partial class Blockchain
       if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
         throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded for rollback.");
 
-      RunInTransaction(() =>
+      RunInDatabaseTransaction(() =>
       {
         RollBackBlock(block);
+
+        ReopenTXsOwned(header.Height);
 
         DatabaseBlockCollection.Delete(header.Height);
       });
@@ -343,6 +393,15 @@ internal abstract partial class Blockchain
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
       ChainRoot.Blocks.Add(header.Height, block);
+    }
+  }
+
+  void ReopenTXsOwned(int height)
+  {
+    foreach (BsonDocument documentTXOwned in TXsOwned.Find(Query.EQ("heightConfirmed", height)).ToList())
+    {
+      documentTXOwned["heightConfirmed"] = 0;
+      TXsOwned.Update(documentTXOwned);
     }
   }
 

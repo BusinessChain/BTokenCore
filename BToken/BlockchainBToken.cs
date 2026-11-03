@@ -135,6 +135,18 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
+  protected override bool IsTXOwnedConfirmed(TX tX, Block block)
+  {
+    if (!Accounts.Exists())
+      return false;
+
+    TXBToken tXBToken = (TXBToken)tX;
+
+    Account account = Accounts.LoadAccount(tXBToken.IDAccountSource, blockHeightAccountCreated: 0);
+
+    return account.BlockHeightAccountCreated != tXBToken.BlockheightAccountCreated || account.Nonce > tXBToken.Nonce;
+  }
+
   internal byte[] GetDB(byte[] hash)
   {
     if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Accounts.Exists())
@@ -162,7 +174,7 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      RunInTransaction(() => Accounts.Install(buffer, length));
+      RunInDatabaseTransaction(() => Accounts.Install(buffer, length));
     }
     catch
     {
