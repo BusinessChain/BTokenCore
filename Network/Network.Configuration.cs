@@ -9,7 +9,7 @@ internal partial class Network
 
     internal int Port;
     internal byte[] MagicBytes;
-    internal UInt32 ProtocolVersion = 70015;
+    internal UInt32 ProtocolVersion;
     internal ulong NetworkServicesLocal = 0;
     internal ulong NetworkServicesRemote = 0;
     internal string UserAgent = "/BTokenCore:0.0.0/";

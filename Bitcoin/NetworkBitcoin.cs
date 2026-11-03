@@ -12,6 +12,7 @@ internal partial class NetworkBitcoin : Network
       {
         Port = 8333,
         MagicBytes = [0xF9, 0xBE, 0xB4, 0xD9],
+        ProtocolVersion = 70015,
         NetworkServicesRemote = Configuration.NODE_NETWORK,
         SeedAddresses =
           [
