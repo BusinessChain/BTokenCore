@@ -268,7 +268,7 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void OnTipChanged()
   {
-    if (!IsMining)
+    if (!IsMining || !Accounts.Exists())
       return;
 
     if (!BlockchainBitcoin.IsTXAnchorOpen())
@@ -299,17 +299,7 @@ internal partial class BlockchainBToken : Blockchain
       CountTXs = block.TXs.Count
     };
 
-    Database.BeginTrans();
-
-    try
-    {
-      InsertTXs(block);
-      ((HeaderBToken)block.Header).HashDatabase = SHA256.HashData(Accounts.Serialize());
-    }
-    finally
-    {
-      Database.Rollback();
-    }
+    ((HeaderBToken)block.Header).HashDatabase = ComputeHashDatabase(block);
 
     block.Header.ComputeHash();
 
@@ -332,6 +322,21 @@ internal partial class BlockchainBToken : Blockchain
       ["_id"] = block.Header.Hash,
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
+  }
+
+  byte[] ComputeHashDatabase(Block block)
+  {
+    Database.BeginTrans();
+
+    try
+    {
+      InsertTXs(block);
+      return SHA256.HashData(Accounts.Serialize());
+    }
+    finally
+    {
+      Database.Rollback();
+    }
   }
 
   TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)
