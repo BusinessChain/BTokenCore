@@ -29,15 +29,15 @@ internal partial class BlockchainBitcoin : Blockchain
   protected override Header CreateHeaderGenesis()
   {
     HeaderBitcoin header = new(
-       headerHash: "000000000000000000010538edbfd2d5b809a33dd83f284aeea41c6d0d96968a".ToBinary(),
-       version: 0x20aba000,
-       hashPrevious: "0000000000000000000196400396be46d0816dc462df4c3450972f589f4d7d24".ToBinary(),
-       merkleRootHash: "0cfb54e522b07bd1a381adc774ec1851590ef4c3add83958135106534569f970".ToBinary(),
-       unixTimeSeconds: 1749188499,
-       nBits: 386021236,
-       nonce: 2455752826);
+       headerHash: "000000000000000000001e39df127cbab82a824ac43cfcdbf62e59f6a08b9f0b".ToBinary(),
+       version: 0x2000e000,
+       hashPrevious: "00000000000000000001438062096e4055a0de69e2a56a3b69d3be5a140974ea".ToBinary(),
+       merkleRootHash: "933a6ea902765147f88538292bb11ef0afc77fe368c3fd1845aaf368c40cf4a8".ToBinary(),
+       unixTimeSeconds: 1791011796,
+       nBits: 386014960,
+       nonce: 161796985);
 
-    header.Height = 900000;
+    header.Height = 969696;
 
     return header;
   }
