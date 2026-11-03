@@ -376,16 +376,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
     {
-      Accounts.Drop();
-      DatabaseBlockCollection.DeleteAll();
-
-      Header headerRoot = ChainRoot.HeaderTip;
-
-      while (headerRoot.Height > ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED)
-        headerRoot = headerRoot.HeaderPrevious;
-
-      ChainRoot.ReRoot(headerRoot);
-
+      Resync(ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED);
       UpdateTipBlockchain(ChainRoot);
     }
 
@@ -440,6 +431,32 @@ internal partial class BlockchainBToken : Blockchain
     chain.CutOff(header);
 
     UpdateTipBlockchain(ChainRoot);
+  }
+
+  protected override void RollBack(int heightAfterRollBack)
+  {
+    try
+    {
+      base.RollBack(heightAfterRollBack);
+    }
+    catch (Exception exception)
+    {
+      Console.WriteLine($"Rollback of BToken to height {heightAfterRollBack} failed, resync: {exception}");
+      Resync(heightAfterRollBack);
+    }
+  }
+
+  void Resync(int heightRoot)
+  {
+    Header headerRoot = ChainRoot.HeaderTip;
+
+    while (headerRoot.Height > heightRoot)
+      headerRoot = headerRoot.HeaderPrevious;
+
+    Accounts.Drop();
+    DatabaseBlockCollection.DeleteAll();
+
+    ChainRoot.ReRoot(headerRoot);
   }
 
   internal void RollBackUnanchored()

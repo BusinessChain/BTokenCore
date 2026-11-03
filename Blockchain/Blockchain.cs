@@ -376,7 +376,7 @@ internal abstract partial class Blockchain
     }
   }
 
-  protected void RollBack(int heightAfterRollBack)
+  protected virtual void RollBack(int heightAfterRollBack)
   {
     while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {
