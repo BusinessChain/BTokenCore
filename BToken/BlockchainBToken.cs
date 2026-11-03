@@ -199,6 +199,8 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     UpdateTipBlockchain(ChainRoot);
+
+    LoadTXsOwned();
   }
 
   internal void AddTX(TX tX)
