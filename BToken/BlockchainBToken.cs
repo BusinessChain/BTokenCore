@@ -463,6 +463,7 @@ internal partial class BlockchainBToken : Blockchain
       headerRoot = headerRoot.HeaderPrevious;
 
     Accounts.Drop();
+    TXPool.Clear();
     DatabaseBlockCollection.DeleteAll();
 
     ChainRoot.ReRoot(headerRoot);

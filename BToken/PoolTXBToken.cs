@@ -46,6 +46,9 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void AddTX(TX tX)
     {
+      if (!Blockchain.Accounts.Exists())
+        throw new ProtocolException($"TX {tX.Hash.ToHexString()} cannot be verified without account database.");
+
       TXBToken tXBToken = tX as TXBToken;
 
       Account accountTrial = Blockchain.Accounts.GetCopyOfAccount(tXBToken.IDAccountSource);
@@ -74,6 +77,9 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void ReturnTXs(Block block)
     {
+      if (!Blockchain.Accounts.Exists())
+        return;
+
       for (int i = block.TXs.Count - 1; i > 0; i--)
       {
         TXBToken tX = (TXBToken)block.TXs[i];
@@ -86,6 +92,15 @@ internal partial class BlockchainBToken : Blockchain
       DropTXsNoLongerCoveredByBalance();
 
       EvictTXsOverCap();
+    }
+
+    internal void Clear()
+    {
+      TXsByHash.Clear();
+      TXsByIDAccountSource.Clear();
+      TXBundlesSortedByFee.Clear();
+      CountBytesTXs = 0;
+      SequenceNumberTX = 0;
     }
 
     void EvictTXsOverCap()
