@@ -177,10 +177,10 @@ internal partial class BlockchainBitcoin : Blockchain
         feeTX,
         tXAnchorOpen.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
 
-    if (valueInputs < feeTX + tokenAnchor.Value)
+    if (valueInputs < feeTX)
       return false;
 
-    long valueChange = valueInputs - tokenAnchor.Value - feeTX - feePerOutputP2PKH;
+    long valueChange = valueInputs - feeTX - feePerOutputP2PKH;
 
     bool flagCreateOutputChange = valueChange > feePerInputP2PKH;
 

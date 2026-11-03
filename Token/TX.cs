@@ -29,7 +29,7 @@ public abstract class TX
       TXOutputP2PKH.PREFIX_P2PKH.IsAllBytesEqual(buffer, indexScript) &&
       TXOutputP2PKH.POSTFIX_P2PKH.IsAllBytesEqual(buffer, indexScript + TXOutputP2PKH.LENGTH_SCRIPT_P2PKH - TXOutputP2PKH.POSTFIX_P2PKH.Length))
     {
-      tXOutput = new TXOutputP2PKH(buffer, indexScript);
+      tXOutput = new TXOutputP2PKH(value, buffer, indexScript);
     }
     else if (lengthScript == TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN &&
       TXOutputTokenAnchor.PREFIX_ANCHOR_TOKEN.IsAllBytesEqual(buffer, indexScript))
@@ -38,8 +38,6 @@ public abstract class TX
     }
     else
       tXOutput = new TXOutput();
-
-    tXOutput.Value = value;
 
     return tXOutput;
   }
@@ -50,7 +48,9 @@ public abstract class TX
 
     foreach (TXOutput output in TXOutputs)
     {
-      tXRaw.AddRange(BitConverter.GetBytes(output.Value));
+      long value = output is TXOutputP2PKH outputP2PKH ? outputP2PKH.Value : 0;
+
+      tXRaw.AddRange(BitConverter.GetBytes(value));
       tXRaw.AddRange(VarInt.GetBytes(output.Script.Length));
       tXRaw.AddRange(output.Script);
     }
@@ -63,6 +63,6 @@ public abstract class TX
 
   internal long GetValueOutputs()
   {
-    return TXOutputs.Sum(t => t.Value);
+    return TXOutputs.OfType<TXOutputP2PKH>().Sum(t => t.Value);
   }
 }

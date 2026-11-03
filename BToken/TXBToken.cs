@@ -62,10 +62,13 @@ internal partial class BlockchainBToken : Blockchain
         if (tXOutput.GetType() == typeof(TXOutput))
           throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
 
-        if (tXOutput.Value < 0 || tXOutput.Value > HeaderBToken.SUPPLY_MAX - valueTX)
-          throw new ProtocolException($"Value {tXOutput.Value} of TX output out of range.");
+        if (tXOutput is TXOutputP2PKH tXOutputP2PKH)
+        {
+          if (tXOutputP2PKH.Value < 0 || tXOutputP2PKH.Value > HeaderBToken.SUPPLY_MAX - valueTX)
+            throw new ProtocolException($"Value {tXOutputP2PKH.Value} of TX output out of range.");
 
-        valueTX += tXOutput.Value;
+          valueTX += tXOutputP2PKH.Value;
+        }
 
         TXOutputs.Add(tXOutput);
       }
