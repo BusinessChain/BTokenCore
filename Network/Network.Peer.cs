@@ -32,6 +32,8 @@ internal partial class Network
 
     internal HashSet<byte[]> HashesBlockRefused = new(new EqualityComparerByteArray());
 
+    internal TaskCompletionSource HandshakeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
 
     protected Peer(
       Network network,
@@ -75,7 +77,11 @@ internal partial class Network
       StartHeartbeat();
 
       if (Connection == ConnectionType.OUTBOUND)
-        VersionMessage.SendVersion(this, heightBlockchainTip);
+      {
+        await VersionMessage.SendVersion(this, heightBlockchainTip);
+
+        await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
+      }
     }
 
     internal string GetIP()
@@ -115,6 +121,7 @@ internal partial class Network
       {
         StateCurrent = StateProtocol.Disposed;
         SocketCommunication.Dispose();
+        HandshakeCompleted.TrySetCanceled();
       }
     }
 

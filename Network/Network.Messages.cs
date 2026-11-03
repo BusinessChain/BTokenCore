@@ -422,6 +422,7 @@ internal partial class Network
     internal override async Task Run(Peer peer)
     {
       peer.StateCurrent = Peer.StateProtocol.Idle;
+      peer.HandshakeCompleted.TrySetResult();
     }
   }
 

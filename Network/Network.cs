@@ -16,7 +16,7 @@ internal abstract partial class Network
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
 
-  List<string> IPAddresses = new();
+  HashSet<string> IPAddresses = new();
 
 
   protected Network(
@@ -52,11 +52,13 @@ internal abstract partial class Network
     while (true)
     {
       int countPeersOutbound;
+      List<string> iPsConnected;
 
       lock (LOCK_Peers)
       {
         Peers.RemoveAll(p => p.IsDisposed());
         countPeersOutbound = Peers.Count(p => p.Connection == Peer.ConnectionType.OUTBOUND);
+        iPsConnected = Peers.Select(p => p.GetIP()).ToList();
       }
 
       if (countPeersOutbound >= ConfigurationNetwork.CountMaxOutboundConnections)
@@ -65,7 +67,7 @@ internal abstract partial class Network
         continue;
       }
 
-      if (IPAddresses.Count == 0)
+      if (!IPAddresses.Except(iPsConnected).Any())
       {
         foreach (string seedAddress in ConfigurationNetwork.SeedAddresses)
         {
@@ -73,31 +75,30 @@ internal abstract partial class Network
           {
             IPAddress[] addresses = await Dns.GetHostAddressesAsync(seedAddress).ConfigureAwait(false);
 
-            IPAddresses.AddRange(addresses
+            IPAddresses.UnionWith(addresses
               .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
               .Select(x => x.ToString()));
           }
           catch
           { }
         }
-
-        IPAddresses = IPAddresses.Distinct().ToList();
-
-        if (IPAddresses.Count == 0)
-        {
-          await Task.Delay(1000).ConfigureAwait(false);
-          continue;
-        }
       }
 
-      int index = Random.Shared.Next(IPAddresses.Count);
+      List<string> iPsCandidate = IPAddresses.Except(iPsConnected).ToList();
 
-      string iP = IPAddresses[index];
-      IPAddresses.RemoveAt(index);
+      if (iPsCandidate.Count == 0)
+      {
+        await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
+        continue;
+      }
+
+      string iP = iPsCandidate[Random.Shared.Next(iPsCandidate.Count)];
+
+      ISocketCommunication socketCommunication = null;
 
       try
       {
-        ISocketCommunication socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
+        socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
 
         Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
 
@@ -108,6 +109,10 @@ internal abstract partial class Network
       }
       catch
       {
+        socketCommunication?.Dispose();
+
+        IPAddresses.Remove(iP);
+
         await Task.Delay(1000).ConfigureAwait(false);
       }
     }
