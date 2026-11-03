@@ -96,18 +96,18 @@ internal partial class BlockchainBToken : Blockchain
       TXBToken tX = (TXBToken)block.TXs[i];
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput.Value > 0)
-          AddToBalance(tXOutput.IDAccount, block.Header.Height, tXOutput.Value);
+        if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
+          ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, tXOutputP2PKH.Value);
 
       if (i > 0)
         SpendTXInput(tX);
     }
   }
 
-  void AddToBalance(byte[] accountID, int blockHeightAccountCreated, long value)
+  void ChangeBalance(byte[] accountID, int blockHeightAccountCreated, long valueChange)
   {
     Account account = Accounts.LoadAccount(accountID, blockHeightAccountCreated);
-    account.Balance += value;
+    account.Balance += valueChange;
     Accounts.WriteAccount(account);
   }
 
@@ -135,8 +135,8 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput.Value > 0)
-          AddToBalance(tXOutput.IDAccount, block.Header.Height, -tXOutput.Value);
+        if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
+          ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, -tXOutputP2PKH.Value);
     }
   }
 
