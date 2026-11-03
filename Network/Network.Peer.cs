@@ -48,6 +48,7 @@ internal partial class Network
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
         { AddressMessage.Command, new AddressMessage(network) },
+        { GetAddrMessage.Command, new GetAddrMessage(network) },
         { UnknownMessage.Command, new UnknownMessage() }
       };
 
@@ -82,6 +83,8 @@ internal partial class Network
         await VersionMessage.SendVersion(this, heightBlockchainTip);
 
         await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
+
+        await SocketCommunication.SendMessage(GetAddrMessage.Command, 0, Array.Empty<byte>());
       }
     }
 
