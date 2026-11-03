@@ -413,7 +413,7 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTipBlockchain.Height;
   }
 
-  internal Header TryInsertHeadersInTree(List<Header> headers)
+  internal Header InsertHeadersInTree(List<Header> headers)
   {
     ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);
 

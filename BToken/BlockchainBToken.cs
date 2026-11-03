@@ -152,15 +152,15 @@ internal partial class BlockchainBToken : Blockchain
     return account.HeightBlockAccountCreated != tXBToken.HeightBlockAccountCreated || account.Nonce > tXBToken.Nonce;
   }
 
-  internal byte[] GetDatabase(byte[] hash)
+  internal byte[] GetDatabase(byte[] hashBlock)
   {
-    if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Accounts.Exists())
+    if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hashBlock) && Accounts.Exists())
       return Accounts.Serialize();
 
     return null;
   }
 
-  internal byte[] GetHashDatabaseMissing()
+  internal byte[] GetHashBlockDatabaseMissing()
   {
     if (!Accounts.Exists())
       return ChainRoot.HeaderTipBlockchain.Hash;
@@ -168,10 +168,10 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal void InstallDatabase(byte[] hash, byte[] buffer, int length)
+  internal void InstallDatabase(byte[] hashBlock, byte[] buffer, int length)
   {
     if (Accounts.Exists()
-      || !ChainRoot.TryGetHeader(hash, out Header header)
+      || !ChainRoot.TryGetHeader(hashBlock, out Header header)
       || header.Height > ChainRoot.HeaderTipBlockchain.Height)
       return;
 

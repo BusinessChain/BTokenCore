@@ -99,7 +99,7 @@ internal partial class NetworkBitcoin : Network
         VarInt.GetInt(Payload, ref startIndex);
       }
 
-      Header headerTipReceivedLast = await Blockchain.RunLocked(() => Blockchain.TryInsertHeadersInTree(headers));
+      Header headerTipReceivedLast = await Blockchain.RunLocked(() => Blockchain.InsertHeadersInTree(headers));
 
       if (headerTipReceivedLast != null)
         ((PeerBitcoin)peer).HeaderTipReceivedLast = headerTipReceivedLast;
