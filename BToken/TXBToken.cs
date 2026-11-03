@@ -6,6 +6,10 @@ internal partial class BlockchainBToken : Blockchain
   {
     const int LENGTH_PUBKEYCOMPRESSED = 33;
 
+    internal const int LENGTH_TX_COINBASE = LENGTH_PUBKEYCOMPRESSED
+      + sizeof(int) + sizeof(int) + sizeof(long)
+      + 1 + sizeof(long) + 1 + TXOutputP2PKH.LENGTH_SCRIPT_P2PKH;
+
     /// <summary>
     /// The PublicKey specifies from which account the funds are sourced.
     /// </summary>
@@ -105,12 +109,13 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void SerializeUnsigned()
     {
-      List<byte> tXRaw = new();
-
-      tXRaw.AddRange(KeyPublic);
-      tXRaw.AddRange(BitConverter.GetBytes(BlockheightAccountCreated));
-      tXRaw.AddRange(BitConverter.GetBytes(Nonce));
-      tXRaw.AddRange(BitConverter.GetBytes(Fee));
+      List<byte> tXRaw =
+      [
+        .. KeyPublic,
+        .. BitConverter.GetBytes(BlockheightAccountCreated),
+        .. BitConverter.GetBytes(Nonce),
+        .. BitConverter.GetBytes(Fee),
+      ];
 
       SerializeTXOutputs(tXRaw);
 

@@ -268,6 +268,22 @@ internal partial class BlockchainBToken : Blockchain
     IsMining = false;
   }
 
+  TXBToken CreateTXCoinbase(int height, long fees)
+  {
+    TXOutputP2PKH outputCoinbase = new(HeaderBToken.GetBlockReward(height) + fees, Wallet.Hash160PKeyPublic);
+
+    TXBToken tXCoinbase = new()
+    {
+      BlockheightAccountCreated = height
+    };
+
+    tXCoinbase.TXOutputs.Add(outputCoinbase);
+
+    tXCoinbase.SerializeUnsigned();
+
+    return tXCoinbase;
+  }
+
   protected override void OnTipChanged()
   {
     if (!IsMining || !Accounts.Exists())
@@ -283,15 +299,14 @@ internal partial class BlockchainBToken : Blockchain
 
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
 
-    block.TXs = TXPool.GetTXs(block.Buffer.Length);
+    int countBytesTXsMax = block.Buffer.Length
+      - HeaderBToken.COUNT_HEADER_BYTES
+      - VarInt.GetBytes(int.MaxValue).Length
+      - TXBToken.LENGTH_TX_COINBASE;
 
-    long feeTXs = block.TXs.Sum(t => t.Fee);
+    block.TXs = TXPool.GetTXs(countBytesTXsMax);
 
-    long blockReward = HeaderBToken.GetBlockReward(height) + feeTXs;
-
-    TX tXCoinbase = CreateTXCoinbase(height, blockReward, Wallet.Hash160PKeyPublic);
-
-    block.TXs.Insert(0, tXCoinbase);
+    block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee)));
 
     block.Header = new HeaderBToken()
     {
@@ -339,20 +354,6 @@ internal partial class BlockchainBToken : Blockchain
     {
       Database.Rollback();
     }
-  }
-
-  TX CreateTXCoinbase(int blockHeight, long blockReward, byte[] hash160PKeyPublic)
-  {
-    TXBToken tX = new()
-    {
-      BlockheightAccountCreated = blockHeight,
-    };
-
-    tX.TXOutputs.Add(new TXOutputP2PKH(blockReward, hash160PKeyPublic));
-
-    tX.SerializeUnsigned();
-
-    return tX;
   }
 
   void HandleBlockParentInserted(Block blockParent)
