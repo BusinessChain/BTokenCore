@@ -63,6 +63,14 @@ internal partial class Network
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Network = network;
+      DOSMonitor.Increment(MAX_LEVEL_DOS - 1);
+    }
+
+    internal async Task SendGetAddr(Peer peer)
+    {
+      DOSMonitor.Decrement(MAX_LEVEL_DOS);
+
+      await peer.SocketCommunication.SendMessage(GetAddrMessage.Command, 0, Array.Empty<byte>());
     }
 
     internal override void IncrementDOSMonitor()

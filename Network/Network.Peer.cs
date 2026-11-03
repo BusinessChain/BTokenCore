@@ -84,7 +84,7 @@ internal partial class Network
 
         await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
 
-        await SocketCommunication.SendMessage(GetAddrMessage.Command, 0, Array.Empty<byte>());
+        await ((AddressMessage)ProtocolStateMachine[AddressMessage.Command]).SendGetAddr(this);
       }
     }
 
