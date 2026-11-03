@@ -263,7 +263,7 @@ internal partial class Network
 
     internal Block BlockUpload;
 
-    internal int HeightBlockDownloadedLast;
+    Header HeaderBlockDownloadedTip;
 
     const int SIZE_BUFFER_PAYLOAD = 36_003;
     const int MAX_LEVEL_DOS = 5;
@@ -323,10 +323,16 @@ internal partial class Network
           {
             peer.SocketCommunication.SendMessage(BlockMessage.Command, BlockUpload.LengthDataPayload, BlockUpload.Buffer);
 
-            if (BlockUpload.Header.Height > HeightBlockDownloadedLast)
-              DOSMonitor.Decrement(1);
+            Header headerAncestor = HeaderBlockDownloadedTip;
 
-            HeightBlockDownloadedLast = BlockUpload.Header.Height;
+            while (headerAncestor != null && headerAncestor.Height > BlockUpload.Header.Height)
+              headerAncestor = headerAncestor.HeaderPrevious;
+
+            if (headerAncestor != BlockUpload.Header)
+            {
+              DOSMonitor.Decrement(1);
+              HeaderBlockDownloadedTip = BlockUpload.Header;
+            }
           }
           else
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
