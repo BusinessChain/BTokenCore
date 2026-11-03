@@ -44,7 +44,7 @@ internal partial class Network
 
       ProtocolStateMachine = new()
       {
-        { VersionMessage.Command, new VersionMessage(network.Blockchain) },
+        { VersionMessage.Command, new VersionMessage(network) },
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
         { AddressMessage.Command, new AddressMessage(network) },

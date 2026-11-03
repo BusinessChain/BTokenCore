@@ -493,17 +493,17 @@ internal partial class Network
   {
     internal const string Command = "version";
 
-    Blockchain Blockchain;
+    Network Network;
 
     const int SIZE_BUFFER_PAYLOAD = 1_000;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal VersionMessage(Blockchain blockchain)
+    internal VersionMessage(Network network)
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
-      Blockchain = blockchain;
+      Network = network;
     }
 
     internal static byte[] GetBytes(UInt16 uint16)
@@ -547,7 +547,13 @@ internal partial class Network
       peer.SocketCommunication.SendMessage(VerAckMessage.Command, 0, new byte[0]);
 
       if (peer.Connection == Peer.ConnectionType.INBOUND)
-        SendVersion(peer, await Blockchain.RunLocked(Blockchain.GetHeight));
+      {
+        SendVersion(peer, await Network.Blockchain.RunLocked(Network.Blockchain.GetHeight));
+
+        lock (Network.LOCK_Peers)
+          if (Network.IPAddresses.Count < COUNT_MAX_IP_ADDRESSES)
+            Network.IPAddresses.Add(peer.GetIP());
+      }
     }
   }
 
