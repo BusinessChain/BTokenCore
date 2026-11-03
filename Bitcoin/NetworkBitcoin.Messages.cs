@@ -38,7 +38,7 @@ internal partial class NetworkBitcoin : Network
         hashesLocator.Add(Payload.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256));
 
       (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-        await Blockchain.RunLocked(() => Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.MAX_COUNT_HEADERS));
+        await Blockchain.RunLocked(() => Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.COUNT_MAX_HEADERS));
 
       HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
 
@@ -80,7 +80,7 @@ internal partial class NetworkBitcoin : Network
       int startIndex = 0;
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
-      if (countHeaders > MAX_COUNT_HEADERS)
+      if (countHeaders > COUNT_MAX_HEADERS)
         throw new ProtocolException($"Too many headers {countHeaders} in headers message.");
 
       if (countHeaders == 0)

@@ -30,7 +30,7 @@ internal partial class BlockchainBToken : Blockchain
     /// This has to match the block height at which the account source was created.
     /// It is in a sense an extension of the nonce.
     /// </summary>
-    internal int BlockheightAccountCreated;
+    internal int HeightBlockAccountCreated;
 
 
     internal TXBToken()
@@ -44,7 +44,7 @@ internal partial class BlockchainBToken : Blockchain
 
       IDAccountSource = Crypto.ComputeHash160(KeyPublic);
 
-      BlockheightAccountCreated = buffer.Read<int>(ref index);
+      HeightBlockAccountCreated = buffer.Read<int>(ref index);
 
       Nonce = buffer.Read<int>(ref index);
 
@@ -110,7 +110,7 @@ internal partial class BlockchainBToken : Blockchain
       List<byte> tXRaw =
       [
         .. KeyPublic,
-        .. BitConverter.GetBytes(BlockheightAccountCreated),
+        .. BitConverter.GetBytes(HeightBlockAccountCreated),
         .. BitConverter.GetBytes(Nonce),
         .. BitConverter.GetBytes(Fee),
       ];

@@ -78,7 +78,7 @@ internal partial class BlockchainBToken : Blockchain
   protected override void InsertBlock(Block block)
   {
     DatabaseBlockCollection.DeleteMany(
-      Query.LT("_id", block.Header.Height - MAX_COUNT_BLOCKS_STORED + 1));
+      Query.LT("_id", block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
 
     if (!Accounts.Exists())
       return;
@@ -129,7 +129,7 @@ internal partial class BlockchainBToken : Blockchain
 
       if (i > 0)
       {
-        Account accountSource = Accounts.LoadAccount(tX.IDAccountSource, tX.BlockheightAccountCreated);
+        Account accountSource = Accounts.LoadAccount(tX.IDAccountSource, tX.HeightBlockAccountCreated);
         accountSource.ReverseSpendTX(tX);
         Accounts.WriteAccount(accountSource);
       }
@@ -149,10 +149,10 @@ internal partial class BlockchainBToken : Blockchain
 
     Account account = Accounts.LoadAccount(tXBToken.IDAccountSource, blockHeightAccountCreated: 0);
 
-    return account.BlockHeightAccountCreated != tXBToken.BlockheightAccountCreated || account.Nonce > tXBToken.Nonce;
+    return account.HeightBlockAccountCreated != tXBToken.HeightBlockAccountCreated || account.Nonce > tXBToken.Nonce;
   }
 
-  internal byte[] GetDB(byte[] hash)
+  internal byte[] GetDatabase(byte[] hash)
   {
     if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hash) && Accounts.Exists())
       return Accounts.Serialize();
@@ -160,7 +160,7 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal byte[] GetHashDBMissing()
+  internal byte[] GetHashDatabaseMissing()
   {
     if (!Accounts.Exists())
       return ChainRoot.HeaderTipBlockchain.Hash;
@@ -168,7 +168,7 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal void InstallDB(byte[] hash, byte[] buffer, int length)
+  internal void InstallDatabase(byte[] hash, byte[] buffer, int length)
   {
     if (Accounts.Exists()
       || !ChainRoot.TryGetHeader(hash, out Header header)
@@ -274,7 +274,7 @@ internal partial class BlockchainBToken : Blockchain
 
     TXBToken tXCoinbase = new()
     {
-      BlockheightAccountCreated = height
+      HeightBlockAccountCreated = height
     };
 
     tXCoinbase.TXOutputs.Add(outputCoinbase);
@@ -386,9 +386,9 @@ internal partial class BlockchainBToken : Blockchain
 
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
-    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > MAX_COUNT_BLOCKS_STORED)
+    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED)
     {
-      Resync(ChainRoot.HeaderTip.Height - MAX_COUNT_BLOCKS_STORED);
+      Resync(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
       UpdateTipBlockchain(ChainRoot);
     }
 

@@ -386,10 +386,10 @@ internal partial class Network
 
   protected abstract class HeadersMessage : NetworkMessage
   {
-    internal const int MAX_COUNT_HEADERS = 2000;
+    internal const int COUNT_MAX_HEADERS = 2000;
     internal const string Command = "headers";
 
-    const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_HEADERS * 101;
+    const int SIZE_BUFFER_PAYLOAD = 3 + COUNT_MAX_HEADERS * 101;
     const int MAX_LEVEL_DOS = 20;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 2;
 
@@ -424,9 +424,9 @@ internal partial class Network
   {
     internal const string Command = "inv";
 
-    internal const int MAX_COUNT_INVENTORIES = 100;
+    internal const int COUNT_MAX_INVENTORIES = 100;
 
-    const int SIZE_BUFFER_PAYLOAD = 3 + MAX_COUNT_INVENTORIES * 36;
+    const int SIZE_BUFFER_PAYLOAD = 3 + COUNT_MAX_INVENTORIES * 36;
     const int MAX_LEVEL_DOS = 240;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 150;
 

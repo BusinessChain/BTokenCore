@@ -45,7 +45,7 @@ internal partial class BlockchainBToken : Blockchain
       foreach (Account account in accounts)
       {
         bytes.AddRange(account.ID);
-        bytes.AddRange(BitConverter.GetBytes(account.BlockHeightAccountCreated));
+        bytes.AddRange(BitConverter.GetBytes(account.HeightBlockAccountCreated));
         bytes.AddRange(BitConverter.GetBytes(account.Nonce));
         bytes.AddRange(BitConverter.GetBytes(account.Balance));
       }
@@ -70,7 +70,7 @@ internal partial class BlockchainBToken : Blockchain
 
         account.ID = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH160);
 
-        account.BlockHeightAccountCreated = buffer.Read<int>(ref index);
+        account.HeightBlockAccountCreated = buffer.Read<int>(ref index);
 
         account.Nonce = buffer.Read<int>(ref index);
 
@@ -91,7 +91,7 @@ internal partial class BlockchainBToken : Blockchain
       return new()
       {
         ID = accountID,
-        BlockHeightAccountCreated = blockHeightAccountCreated
+        HeightBlockAccountCreated = blockHeightAccountCreated
       };
     }
 

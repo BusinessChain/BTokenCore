@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal abstract partial class Blockchain
 {
-  internal const int MAX_COUNT_BLOCKS_STORED = 200;
+  internal const int COUNT_MAX_BLOCKS_STORED = 200;
 
   internal Wallet Wallet;
 
@@ -321,7 +321,7 @@ internal abstract partial class Blockchain
 
           MarkTXsOwnedConfirmed(block);
 
-          TXsOwned.DeleteMany(Query.Between("heightConfirmed", 1, block.Header.Height - MAX_COUNT_BLOCKS_STORED));
+          TXsOwned.DeleteMany(Query.Between("heightConfirmed", 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 

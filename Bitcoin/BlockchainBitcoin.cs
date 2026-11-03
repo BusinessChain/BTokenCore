@@ -82,7 +82,7 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     int height = block.Header.Height;
 
-    int heightPruning = height - MAX_COUNT_BLOCKS_STORED;
+    int heightPruning = height - COUNT_MAX_BLOCKS_STORED;
 
     OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
 

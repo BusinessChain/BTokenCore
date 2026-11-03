@@ -96,7 +96,7 @@ internal partial class NetworkBToken : Network
 
           if (iDsAccountSkipped.Contains(tX.IDAccountSource) || tX.GetFeePerByte() < FeeFilterReceived)
             iDsAccountSkipped.Add(tX.IDAccountSource);
-          else if (hashesTX.Count == InvMessage.MAX_COUNT_INVENTORIES || !ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
+          else if (hashesTX.Count == InvMessage.COUNT_MAX_INVENTORIES || !ThrottleTXAnnouncedToPeer.TryIncrement(tX.CountBytes))
             break;
           else
             hashesTX.Add(tX.Hash);

@@ -1,7 +1,4 @@
-﻿using System;
-using System.IO;
-
-using LiteDB;
+﻿using LiteDB;
 
 
 namespace BTokenCore;
@@ -16,7 +13,7 @@ internal partial class BlockchainBToken : Blockchain
     internal byte[] ID;
 
     [BsonField]
-    internal int BlockHeightAccountCreated;
+    internal int HeightBlockAccountCreated;
 
     [BsonField]
     internal int Nonce;
@@ -30,14 +27,14 @@ internal partial class BlockchainBToken : Blockchain
     internal Account(Account account)
     {
       ID = account.ID;
-      BlockHeightAccountCreated = account.BlockHeightAccountCreated;
+      HeightBlockAccountCreated = account.HeightBlockAccountCreated;
       Nonce = account.Nonce;
       Balance = account.Balance;
     }
 
     internal void SpendTX(TXBToken tX)
     {
-      if (BlockHeightAccountCreated != tX.BlockheightAccountCreated || Nonce != tX.Nonce)
+      if (HeightBlockAccountCreated != tX.HeightBlockAccountCreated || Nonce != tX.Nonce)
         throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or blockheightAccountInit.");
 
       if (Balance < tX.GetValueOutputs() + tX.Fee)

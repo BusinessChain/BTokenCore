@@ -158,7 +158,7 @@ internal partial class NetworkBToken : Network
     {
       DOSMonitor.Increment(1);
 
-      byte[] dataDB = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetDB(inventory.Hash));
+      byte[] dataDB = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetDatabase(inventory.Hash));
 
       if (dataDB != null)
         await peer.SocketCommunication.SendMessage(DBMessage.Command, dataDB.Length, dataDB);
@@ -185,7 +185,7 @@ internal partial class NetworkBToken : Network
       if (BlockDownload.Header != null)
         return;
 
-      byte[] hashDBMissing = await BlockchainBToken.RunLocked(BlockchainBToken.GetHashDBMissing);
+      byte[] hashDBMissing = await BlockchainBToken.RunLocked(BlockchainBToken.GetHashDatabaseMissing);
 
       if (hashDBMissing == null)
         return;
@@ -207,8 +207,8 @@ internal partial class NetworkBToken : Network
 
     BlockchainBToken BlockchainBToken;
 
-    const int MAX_COUNT_ACCOUNTS = 1_000_000;
-    const int SIZE_BUFFER_PAYLOAD = 9 + MAX_COUNT_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
+    const int COUNT_MAX_ACCOUNTS = 1_000_000;
+    const int SIZE_BUFFER_PAYLOAD = 9 + COUNT_MAX_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
@@ -224,7 +224,7 @@ internal partial class NetworkBToken : Network
       if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
         throw new ProtocolException($"Received unrequested db message.");
 
-      await BlockchainBToken.RunLocked(() => BlockchainBToken.InstallDB(HashDBRequested, Payload, LengthDataPayload));
+      await BlockchainBToken.RunLocked(() => BlockchainBToken.InstallDatabase(HashDBRequested, Payload, LengthDataPayload));
 
       DOSMonitor.Decrement(1);
 
