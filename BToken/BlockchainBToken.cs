@@ -40,6 +40,11 @@ internal partial class BlockchainBToken : Blockchain
     OnBlockRolledBack += TXPool.ReturnTXs;
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
+    blockchainParent.OnBlockInserted += blockParent =>
+    {
+      if (!BlockchainBitcoin.IsTXAnchorOpen())
+        OnTipChanged();
+    };
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
