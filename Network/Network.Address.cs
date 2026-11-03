@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.Buffers.Binary;
+using System.Net;
 
 
 namespace BTokenCore;
@@ -33,7 +34,7 @@ internal partial class Network
 
       IPAddress iPAddress = new IPAddress(buffer.ReadBytes(ref startIndex, 16));
 
-      UInt16 port = buffer.Read<UInt16>(ref startIndex);
+      UInt16 port = BinaryPrimitives.ReadUInt16BigEndian(buffer.ReadBytes(ref startIndex, 2));
 
       return new Address(unixTimeSeconds, networkServices, iPAddress, port);
     }

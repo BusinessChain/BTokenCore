@@ -17,6 +17,7 @@ internal abstract partial class Network
   protected List<Peer> Peers = new();
 
   HashSet<string> IPAddresses = new();
+  const int COUNT_MAX_IP_ADDRESSES = 10_000;
 
 
   protected Network(
@@ -52,13 +53,13 @@ internal abstract partial class Network
     while (true)
     {
       int countPeersOutbound;
-      List<string> iPsConnected;
+      List<string> iPsCandidate;
 
       lock (LOCK_Peers)
       {
         Peers.RemoveAll(p => p.IsDisposed());
         countPeersOutbound = Peers.Count(p => p.Connection == Peer.ConnectionType.OUTBOUND);
-        iPsConnected = Peers.Select(p => p.GetIP()).ToList();
+        iPsCandidate = IPAddresses.Except(Peers.Select(p => p.GetIP())).ToList();
       }
 
       if (countPeersOutbound >= ConfigurationNetwork.CountMaxOutboundConnections)
@@ -67,7 +68,7 @@ internal abstract partial class Network
         continue;
       }
 
-      if (!IPAddresses.Except(iPsConnected).Any())
+      if (iPsCandidate.Count == 0)
       {
         foreach (string seedAddress in ConfigurationNetwork.SeedAddresses)
         {
@@ -75,20 +76,16 @@ internal abstract partial class Network
           {
             IPAddress[] addresses = await Dns.GetHostAddressesAsync(seedAddress).ConfigureAwait(false);
 
-            IPAddresses.UnionWith(addresses
-              .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
-              .Select(x => x.ToString()));
+            lock (LOCK_Peers)
+              IPAddresses.UnionWith(addresses
+                .Where(x => x.AddressFamily == AddressFamily.InterNetwork)
+                .Select(x => x.ToString()));
           }
           catch
           { }
         }
-      }
 
-      List<string> iPsCandidate = IPAddresses.Except(iPsConnected).ToList();
-
-      if (iPsCandidate.Count == 0)
-      {
-        await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
+        await Task.Delay(1000).ConfigureAwait(false);
         continue;
       }
 
@@ -111,7 +108,8 @@ internal abstract partial class Network
       {
         socketCommunication?.Dispose();
 
-        IPAddresses.Remove(iP);
+        lock (LOCK_Peers)
+          IPAddresses.Remove(iP);
 
         await Task.Delay(1000).ConfigureAwait(false);
       }

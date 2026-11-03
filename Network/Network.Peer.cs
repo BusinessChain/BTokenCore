@@ -47,6 +47,7 @@ internal partial class Network
         { VersionMessage.Command, new VersionMessage(network.Blockchain) },
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
+        { AddressMessage.Command, new AddressMessage(network) },
         { UnknownMessage.Command, new UnknownMessage() }
       };
 
