@@ -11,9 +11,7 @@ internal abstract partial class Network
 
   ICommunication Communication;
 
-  const int COUNT_MAX_OUTBOUND_CONNECTIONS = 1;
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
-  const int COUNT_MAX_INBOUND_CONNECTIONS = 1;
 
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
@@ -37,7 +35,7 @@ internal abstract partial class Network
   {
     StartPeerConnectorOutbound();
 
-    if (ConfigurationNetwork.EnableInboundConnections)
+    if (ConfigurationNetwork.CountMaxInboundConnections > 0)
       StartPeerConnectorInbound();
   }
 
@@ -53,15 +51,15 @@ internal abstract partial class Network
   {
     while (true)
     {
-      int countPeers;
+      int countPeersOutbound;
 
       lock (LOCK_Peers)
       {
         Peers.RemoveAll(p => p.IsDisposed());
-        countPeers = Peers.Count;
+        countPeersOutbound = Peers.Count(p => p.Connection == Peer.ConnectionType.OUTBOUND);
       }
 
-      if (countPeers >= COUNT_MAX_OUTBOUND_CONNECTIONS)
+      if (countPeersOutbound >= ConfigurationNetwork.CountMaxOutboundConnections)
       {
         await Task.Delay(1000 * TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS).ConfigureAwait(false);
         continue;
@@ -129,7 +127,7 @@ internal abstract partial class Network
 
         lock (LOCK_Peers)
           if (Peers.Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
-            || Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + 1 > COUNT_MAX_INBOUND_CONNECTIONS)
+            || Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + 1 > ConfigurationNetwork.CountMaxInboundConnections)
           {
             throw new ProtocolException("Inbound request rejected.");
           }

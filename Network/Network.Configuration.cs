@@ -14,7 +14,8 @@ internal partial class Network
     internal ulong NetworkServicesRemote = 0;
     internal string UserAgent = "/BTokenCore:0.0.0/";
     internal string[] SeedAddresses = [];
-    internal bool EnableInboundConnections;
+    internal int CountMaxOutboundConnections = 8;
+    internal int CountMaxInboundConnections = 0;
     internal bool EnableRelay;
   }
 }
