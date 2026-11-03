@@ -138,14 +138,6 @@ internal partial class BlockchainBitcoin : Blockchain
     return TXsOwned.Exists(Query.EQ("heightConfirmed", 0));
   }
 
-  internal byte[] GetHashTXAnchorOpen()
-  {
-    if (TXsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchor)
-      return documentAnchor["_id"].AsBinary;
-
-    return null;
-  }
-
   internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
   {
     TXBitcoin tXAnchor = new();

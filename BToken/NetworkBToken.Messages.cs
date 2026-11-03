@@ -86,7 +86,9 @@ internal partial class NetworkBToken : Network
 
       try
       {
-        await Network.AddTX(tX);
+        await Network.BlockchainBToken.RunLocked(() => Network.BlockchainBToken.AddTX(tX));
+
+        Network.QueueTXForRelay(tX);
       }
       catch (ProtocolException)
       { }

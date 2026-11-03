@@ -2,9 +2,6 @@ namespace BTokenCore;
 
 internal partial class NetworkBitcoin : Network
 {
-  BlockchainBitcoin BlockchainBitcoin;
-
-
   internal NetworkBitcoin(
     BlockchainBitcoin blockchain,
     ICommunication communication)
@@ -26,9 +23,7 @@ internal partial class NetworkBitcoin : Network
             "seed.bitnodes.io"
           ]
       })
-  {
-    BlockchainBitcoin = blockchain;
-  }
+  { }
 
   protected override Peer CreatePeer(
     ISocketCommunication socketCommunication,

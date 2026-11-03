@@ -34,6 +34,10 @@ internal partial class Network
 
     internal TaskCompletionSource HandshakeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    Blockchain Blockchain;
+
+    HashSet<byte[]> HashesTXOwnedAnnounced = new(new EqualityComparerByteArray());
+
 
     protected Peer(
       Network network,
@@ -41,6 +45,7 @@ internal partial class Network
       ConnectionType connection)
     {
       ConfigurationNetwork = network.ConfigurationNetwork;
+      Blockchain = network.Blockchain;
 
       ProtocolStateMachine = new()
       {
@@ -66,9 +71,19 @@ internal partial class Network
       return !HashesBlockRefused.Contains(header.Hash);
     }
 
-    protected virtual Task RelayTXs()
+    protected virtual async Task RelayTXs()
     {
-      return Task.CompletedTask;
+      List<byte[]> hashesTXOwned = await Blockchain.RunLocked(Blockchain.GetHashesTXOwned);
+
+      List<Inventory> inventoriesTXOwnedNew = hashesTXOwned
+        .Where(h => !HashesTXOwnedAnnounced.Contains(h))
+        .Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h))
+        .ToList();
+
+      if (inventoriesTXOwnedNew.Count > 0)
+        await NetworkMessage.SendInventories(this, InvMessage.Command, inventoriesTXOwnedNew);
+
+      HashesTXOwnedAnnounced = new(hashesTXOwned, new EqualityComparerByteArray());
     }
 
     internal async Task Start(int heightBlockchainTip)

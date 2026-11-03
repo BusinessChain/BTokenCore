@@ -96,6 +96,11 @@ internal abstract partial class Blockchain
     return tX;
   }
 
+  internal List<byte[]> GetHashesTXOwned()
+  {
+    return TXsOwned.Find(Query.EQ("heightConfirmed", 0)).Select(d => d["_id"].AsBinary).ToList();
+  }
+
   protected void InsertTXOwned(TX tX)
   {
     TXsOwned.Insert(new BsonDocument

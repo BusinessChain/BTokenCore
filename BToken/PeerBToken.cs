@@ -53,6 +53,8 @@ internal partial class NetworkBToken : Network
 
     protected override async Task RelayTXs()
     {
+      await base.RelayTXs();
+
       lock (HashesTXRequested)
         if (HashesTXRequested.Values.Any(t => DateTime.UtcNow - t > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS)))
           throw new ProtocolException($"Peer did not answer a TX request within {TIMEOUT_REQUEST_SECONDS} seconds.");
