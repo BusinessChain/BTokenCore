@@ -201,11 +201,32 @@ internal partial class BlockchainBToken : Blockchain
     TXPool.AddTX(tX);
   }
 
+  internal void SubmitTX(TX tX)
+  {
+    TXPool.AddTX(tX);
+    InsertTXOwned(tX);
+  }
+
+  internal void LoadTXsOwned()
+  {
+    if (!Accounts.Exists())
+      return;
+
+    foreach (BsonDocument documentTXOwned in TXsOwned.Find(Query.EQ("heightConfirmed", 0)).ToList())
+      try
+      {
+        TXPool.AddTX(ParseTXOwned(documentTXOwned));
+      }
+      catch (ProtocolException)
+      { }
+  }
+
   internal override TX GetTX(byte[] hash)
   {
-    TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem);
+    if (TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
+      return tXsByHashItem.tX;
 
-    return tXsByHashItem.tX;
+    return base.GetTX(hash);
   }
 
   internal List<byte[]> GetHashesTXNotInPool(List<byte[]> hashes)

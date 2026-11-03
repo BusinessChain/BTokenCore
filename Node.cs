@@ -26,6 +26,7 @@ public class Node
       BlockchainBToken.LoadBlockchain();
       BlockchainBitcoin.LoadBlockchain();
       BlockchainBToken.RollBackUnanchored();
+      BlockchainBToken.LoadTXsOwned();
     });
 
     NetworkBitcoin.Start();
