@@ -72,9 +72,19 @@ public class HeaderBToken : Header
     return BLOCK_REWARD_INITIAL >> countHalvings;
   }
 
-  internal override void VerifyCoinbase(long valueOutputsTXCoinbase)
+  internal override void VerifyCoinbase(List<TX> tXs)
   {
-    if (GetBlockReward(Height) + Fee != valueOutputsTXCoinbase)
+    long fee = 0;
+
+    for (int i = 1; i < tXs.Count; i += 1)
+    {
+      if (tXs[i].Fee > SUPPLY_MAX - fee)
+        throw new ProtocolException($"Fees of block exceed supply max.");
+
+      fee += tXs[i].Fee;
+    }
+
+    if (GetBlockReward(Height) + fee != tXs[0].GetValueOutputs())
       throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
   }
 }

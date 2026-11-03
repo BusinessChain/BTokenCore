@@ -19,8 +19,6 @@ public abstract class Header
 
   internal double Difficulty;
 
-  internal long Fee;
-
 
   internal Header()
   {
@@ -73,7 +71,7 @@ public abstract class Header
 
   internal virtual void CopyTo(Header header) { }
 
-  internal virtual void VerifyCoinbase(long valueOutputsTXCoinbase) { }
+  internal virtual void VerifyCoinbase(List<TX> tXs) { }
 
   internal void ComputeHash()
   {

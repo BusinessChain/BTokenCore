@@ -291,8 +291,7 @@ internal partial class BlockchainBToken : Blockchain
       Height = height,
       HashPrevious = ChainRoot.HeaderTipBlockchain.Hash,
       MerkleRoot = block.ComputeMerkleRoot(),
-      CountTXs = block.TXs.Count,
-      Fee = feeTXs
+      CountTXs = block.TXs.Count
     };
 
     Database.BeginTrans();
