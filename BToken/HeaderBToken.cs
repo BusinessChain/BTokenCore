@@ -63,7 +63,12 @@ public class HeaderBToken : Header
 
   internal static long GetBlockReward(int height)
   {
-    return BLOCK_REWARD_INITIAL >> height / PERIOD_HALVENING_BLOCK_REWARD;
+    int countHalvings = height / PERIOD_HALVENING_BLOCK_REWARD;
+
+    if (countHalvings >= 64)
+      return 0;
+
+    return BLOCK_REWARD_INITIAL >> countHalvings;
   }
 
   internal override void VerifyCoinbase(long valueOutputsTXCoinbase)
