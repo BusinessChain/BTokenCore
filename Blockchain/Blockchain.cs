@@ -155,7 +155,7 @@ internal abstract partial class Blockchain
     if (!block.Header.MerkleRoot.IsAllBytesEqual(block.ComputeMerkleRoot()))
       throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
 
-    block.Header.Fee = block.TXs.Sum(t => t.Fee);
+    block.Header.Fee = block.TXs.Skip(1).Sum(t => t.Fee);
 
     block.Header.VerifyCoinbase(block.TXs[0].GetValueOutputs());
 
