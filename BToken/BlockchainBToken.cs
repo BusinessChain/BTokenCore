@@ -166,8 +166,12 @@ internal partial class BlockchainBToken : Blockchain
     TXPool.AddTX(tX);
   }
 
-  internal void SubmitTX(TX tX)
+  internal void SubmitTX(byte[] tXRaw)
   {
+    int index = 0;
+
+    TX tX = ParseTX(tXRaw, ref index, flagIsCoinbase: false);
+
     TXPool.AddTX(tX);
     InsertTXOwned(tX);
   }

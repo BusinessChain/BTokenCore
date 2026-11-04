@@ -46,6 +46,6 @@ public class Node
 
   public async Task SubmitTXBToken(byte[] tXRaw)
   {
-    await NetworkBToken.SubmitTX(tXRaw);
+    await BlockchainBToken.RunLocked(() => BlockchainBToken.SubmitTX(tXRaw));
   }
 }

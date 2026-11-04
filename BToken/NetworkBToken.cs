@@ -26,15 +26,6 @@ internal partial class NetworkBToken : Network
     BlockchainBToken = blockchain;
   }
 
-  internal async Task SubmitTX(byte[] tXRaw)
-  {
-    int index = 0;
-
-    TX tX = BlockchainBToken.ParseTX(tXRaw, ref index, flagIsCoinbase: false);
-
-    await BlockchainBToken.RunLocked(() => BlockchainBToken.SubmitTX(tX));
-  }
-
   void QueueTXForRelay(TX tX)
   {
     lock (LOCK_Peers)
