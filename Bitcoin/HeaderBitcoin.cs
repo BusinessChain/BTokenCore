@@ -49,7 +49,7 @@ internal class HeaderBitcoin : Header
 
     NBits = buffer.Read<uint>(ref index);
 
-    if (Hash.IsGreaterThan(NBits))
+    if (new UInt256(Hash).IsGreaterThan(UInt256.ParseFromCompact(NBits)))
       throw new ProtocolException($"Header hash {Hash.ToHexString()} greater than NBits {NBits}.");
 
     Nonce = buffer.Read<uint>(ref index);

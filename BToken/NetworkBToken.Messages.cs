@@ -4,30 +4,18 @@ internal partial class NetworkBToken : Network
 {
   class HeadersMessageBToken : HeadersMessage
   {
-    internal HeadersMessageBToken(Blockchain blockchain)
-      : base(blockchain)
-    { }
-
     internal override async Task Run(Peer peer)
     {
       int startIndex = 0;
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
       if (countHeaders == 1)
-        ((PeerBToken)peer).HashBlockAnnounced = Blockchain.ParseHeader(Payload, ref startIndex).Hash;
+        ((PeerBToken)peer).HashBlockAnnounced = peer.Network.Blockchain.ParseHeader(Payload, ref startIndex).Hash;
     }
   }
 
   class InvMessageBToken : InvMessage
   {
-    BlockchainBToken BlockchainBToken;
-
-
-    internal InvMessageBToken(BlockchainBToken blockchain)
-    {
-      BlockchainBToken = blockchain;
-    }
-
     internal override async Task Run(Peer peer)
     {
       int startIndex = 0;
@@ -44,7 +32,9 @@ internal partial class NetworkBToken : Network
           hashesTX.Add(inventory.Hash);
       }
 
-      List<byte[]> hashesTXNotInPool = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetHashesTXNotInPool(hashesTX));
+      BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+
+      List<byte[]> hashesTXNotInPool = await blockchainBToken.RunLocked(() => blockchainBToken.GetHashesTXNotInPool(hashesTX));
 
       Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
 
@@ -62,14 +52,6 @@ internal partial class NetworkBToken : Network
 
   class TXMessageBToken : TXMessage
   {
-    NetworkBToken Network;
-
-
-    internal TXMessageBToken(NetworkBToken network)
-    {
-      Network = network;
-    }
-
     internal override void IncrementDOSMonitor()
     {
       DOSMonitor.Increment(LengthDataPayload);
@@ -77,18 +59,20 @@ internal partial class NetworkBToken : Network
 
     internal override async Task Run(Peer peer)
     {
+      BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+
       int index = 0;
 
-      TX tX = Network.BlockchainBToken.ParseTX(Payload, ref index, flagIsCoinbase: false);
+      TX tX = blockchainBToken.ParseTX(Payload, ref index, flagIsCoinbase: false);
 
       if (index != LengthDataPayload)
         throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");
 
       try
       {
-        await Network.BlockchainBToken.RunLocked(() => Network.BlockchainBToken.AddTX(tX));
+        await blockchainBToken.RunLocked(() => blockchainBToken.AddTX(tX));
 
-        Network.QueueTXForRelay(tX);
+        ((NetworkBToken)peer.Network).QueueTXForRelay(tX);
       }
       catch (ProtocolException)
       { }
@@ -145,20 +129,13 @@ internal partial class NetworkBToken : Network
 
   class GetDataMessageBToken : GetDataMessage
   {
-    BlockchainBToken BlockchainBToken;
-
-
-    internal GetDataMessageBToken(BlockchainBToken blockchain)
-      : base(blockchain)
-    {
-      BlockchainBToken = blockchain;
-    }
-
     protected override async Task ServeDB(Peer peer, Inventory inventory)
     {
       DOSMonitor.Increment(1);
 
-      byte[] dataDB = await BlockchainBToken.RunLocked(() => BlockchainBToken.GetDatabase(inventory.Hash));
+      BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+
+      byte[] dataDB = await blockchainBToken.RunLocked(() => blockchainBToken.GetDatabase(inventory.Hash));
 
       if (dataDB != null)
         await peer.SocketCommunication.SendMessage(DBMessage.Command, dataDB.Length, dataDB);
@@ -169,14 +146,9 @@ internal partial class NetworkBToken : Network
 
   class BlockMessageBToken : BlockMessage
   {
-    BlockchainBToken BlockchainBToken;
-
-
-    internal BlockMessageBToken(BlockchainBToken blockchain)
+    internal BlockMessageBToken(Blockchain blockchain)
       : base(blockchain)
-    {
-      BlockchainBToken = blockchain;
-    }
+    { }
 
     internal override async Task RequestBlockNext(Peer peer)
     {
@@ -185,7 +157,9 @@ internal partial class NetworkBToken : Network
       if (BlockDownload.Header != null)
         return;
 
-      byte[] hashDBMissing = await BlockchainBToken.RunLocked(BlockchainBToken.GetHashBlockDatabaseMissing);
+      BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+
+      byte[] hashDBMissing = await blockchainBToken.RunLocked(blockchainBToken.GetHashBlockDatabaseMissing);
 
       if (hashDBMissing == null)
         return;
@@ -205,26 +179,24 @@ internal partial class NetworkBToken : Network
 
     internal byte[] HashBlockDatabaseRequested;
 
-    BlockchainBToken BlockchainBToken;
-
     const int COUNT_MAX_ACCOUNTS = 1_000_000;
     const int SIZE_BUFFER_PAYLOAD = 9 + COUNT_MAX_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal DBMessage(BlockchainBToken blockchain)
+    internal DBMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      BlockchainBToken = blockchain;
-    }
+    { }
 
     internal override async Task Run(Peer peer)
     {
       if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
         throw new ProtocolException($"Received unrequested db message.");
 
-      await BlockchainBToken.RunLocked(() => BlockchainBToken.InstallDatabase(HashBlockDatabaseRequested, Payload, LengthDataPayload));
+      BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+
+      await blockchainBToken.RunLocked(() => blockchainBToken.InstallDatabase(HashBlockDatabaseRequested, Payload, LengthDataPayload));
 
       DOSMonitor.Decrement(1);
 

@@ -73,43 +73,4 @@ public static class ByteArrayExtensionMethods
     index += Unsafe.SizeOf<T>();
     return value;
   }
-
-  public static bool IsGreaterThan(this byte[] array, uint nBits)
-  {
-    int expBits = ((int)nBits & 0x7F000000) >> 24;
-    UInt32 factorBits = nBits & 0x00FFFFFF;
-
-    if (expBits < 3)
-      factorBits >>= (3 - expBits) * 8;
-
-    var bytes = new List<byte>();
-
-    for (int i = expBits - 3; i > 0; i--)
-      bytes.Add(0x00);
-
-    bytes.Add((byte)(factorBits & 0xFF));
-    bytes.Add((byte)((factorBits & 0xFF00) >> 8));
-    bytes.Add((byte)((factorBits & 0xFF0000) >> 16));
-
-    return array.IsGreaterThan(bytes.ToArray());
-  }
-
-  public static bool IsGreaterThan(this byte[] a1, byte[] a2)
-  {
-    int i = a1.Length;
-
-    while (i-- > a2.Length)
-      if (a1[i] > 0)
-        return true;
-
-    while (a1[i] == a2[i])
-    {
-      i -= 1;
-
-      if (i < 0)
-        return false;
-    }
-
-    return a1[i] > a2[i];
-  }
 }

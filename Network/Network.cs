@@ -5,8 +5,8 @@ namespace BTokenCore;
 
 internal abstract partial class Network
 {
-  protected Blockchain Blockchain;
-  Configuration ConfigurationNetwork;
+  internal Blockchain Blockchain;
+  internal Configuration ConfigurationNetwork;
 
   ICommunication Communication;
 

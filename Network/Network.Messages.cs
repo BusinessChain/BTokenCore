@@ -52,18 +52,15 @@ internal partial class Network
   {
     internal const string Command = "addr";
 
-    Network Network;
-
     const int LENGTH_ADDRESS = 30;
     const int SIZE_BUFFER_PAYLOAD = 30_003;
     const int MAX_LEVEL_DOS = 1000;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 60;
 
 
-    internal AddressMessage(Network network)
+    internal AddressMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
-      Network = network;
       DOSMonitor.Increment(MAX_LEVEL_DOS - 1);
     }
 
@@ -95,12 +92,12 @@ internal partial class Network
       {
         Address address = Address.ParseAddress(Payload, ref startIndex);
 
-        if (address.Port == Network.ConfigurationNetwork.Port)
+        if (address.Port == peer.Network.ConfigurationNetwork.Port)
           iPs.Add((address.IPAddress.IsIPv4MappedToIPv6 ? address.IPAddress.MapToIPv4() : address.IPAddress).ToString());
       }
 
-      lock (Network.LOCK_Peers)
-        Network.IPAddresses.UnionWith(iPs.Take(COUNT_MAX_IP_ADDRESSES - Network.IPAddresses.Count));
+      lock (peer.Network.LOCK_Peers)
+        peer.Network.IPAddresses.UnionWith(iPs.Take(COUNT_MAX_IP_ADDRESSES - peer.Network.IPAddresses.Count));
     }
   }
 
@@ -108,18 +105,14 @@ internal partial class Network
   {
     internal const string Command = "getaddr";
 
-    Network Network;
-
     const int COUNT_MAX_ADDRESSES = 1000;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal GetAddrMessage(Network network)
+    internal GetAddrMessage()
       : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Network = network;
-    }
+    { }
 
     internal override void IncrementDOSMonitor()
     { }
@@ -131,10 +124,10 @@ internal partial class Network
 
       List<string> iPs;
 
-      lock (Network.LOCK_Peers)
-        iPs = Network.IPAddresses.OrderBy(i => Random.Shared.Next()).Take(COUNT_MAX_ADDRESSES).ToList();
+      lock (peer.Network.LOCK_Peers)
+        iPs = peer.Network.IPAddresses.OrderBy(i => Random.Shared.Next()).Take(COUNT_MAX_ADDRESSES).ToList();
 
-      Configuration c = Network.ConfigurationNetwork;
+      Configuration c = peer.Network.ConfigurationNetwork;
 
       byte[] timeUnixSeconds = BitConverter.GetBytes((UInt32)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
@@ -207,8 +200,6 @@ internal partial class Network
     internal Block BlockDownload;
     internal DateTime TimeRequest;
 
-    Blockchain Blockchain;
-
     const int MAX_LEVEL_DOS = 5;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
@@ -216,7 +207,6 @@ internal partial class Network
     internal BlockMessage(Blockchain blockchain)
       : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
-      Blockchain = blockchain;
       BlockDownload = new(blockchain.SizeBlockMax);
     }
 
@@ -232,7 +222,7 @@ internal partial class Network
 
       BlockDownload.LengthDataPayload = LengthDataPayload;
 
-      await Blockchain.RunLocked(() => Blockchain.ReceiveBlock(BlockDownload));
+      await peer.Network.Blockchain.RunLocked(() => peer.Network.Blockchain.ReceiveBlock(BlockDownload));
 
       DOSMonitor.Decrement(1);
 
@@ -241,7 +231,8 @@ internal partial class Network
 
     internal virtual async Task RequestBlockNext(Peer peer)
     {
-      BlockDownload.Header = await Blockchain.RunLocked(() => Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock));
+      BlockDownload.Header = await peer.Network.Blockchain.RunLocked(() =>
+        peer.Network.Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock));
 
       if (BlockDownload.Header == null)
       {
@@ -260,8 +251,6 @@ internal partial class Network
   {
     internal const string Command = "getdata";
 
-    Blockchain Blockchain;
-
     Header HeaderBlockDownloadedTip;
 
     const int SIZE_BUFFER_PAYLOAD = 36_003;
@@ -273,11 +262,9 @@ internal partial class Network
       TXMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
 
 
-    internal GetDataMessage(Blockchain blockchain)
+    internal GetDataMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Blockchain = blockchain;
-    }
+    { }
 
     internal override void IncrementDOSMonitor()
     { }
@@ -296,7 +283,7 @@ internal partial class Network
 
         if (inventory.Type == Inventory.InventoryType.MSG_TX)
         {
-          TX tX = await Blockchain.RunLocked(() => Blockchain.GetTX(inventory.Hash));
+          TX tX = await peer.Network.Blockchain.RunLocked(() => peer.Network.Blockchain.GetTX(inventory.Hash));
 
           if (tX != null)
           {
@@ -313,19 +300,14 @@ internal partial class Network
         {
           DOSMonitor.Increment(1);
 
-          (Block blockUpload, bool isBlockBehindTipDownloaded) = await Blockchain.RunLocked(() =>
+          (Block blockUpload, bool isBlockBehindTipDownloaded) = await peer.Network.Blockchain.RunLocked(() =>
           {
-            Block block = Blockchain.GetBlock(inventory.Hash);
+            Block block = peer.Network.Blockchain.GetBlock(inventory.Hash);
 
             if (block == null)
               return (block, false);
 
-            Header headerAncestor = HeaderBlockDownloadedTip;
-
-            while (headerAncestor != null && headerAncestor.Height > block.Header.Height)
-              headerAncestor = headerAncestor.HeaderPrevious;
-
-            return (block, headerAncestor == block.Header);
+            return (block, HeaderBlockDownloadedTip?.GetHeaderAncestor(block.Header.Height) == block.Header);
           });
 
           if (blockUpload != null)
@@ -397,14 +379,10 @@ internal partial class Network
     const int MAX_LEVEL_DOS = 20;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 2;
 
-    protected Blockchain Blockchain;
 
-
-    internal HeadersMessage(Blockchain blockchain)
+    internal HeadersMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Blockchain = blockchain;
-    }
+    { }
 
     internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
     {
@@ -503,22 +481,18 @@ internal partial class Network
   {
     internal const string Command = "version";
 
-    Network Network;
-
     const int SIZE_BUFFER_PAYLOAD = 1_000;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal VersionMessage(Network network)
+    internal VersionMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Network = network;
-    }
+    { }
 
     internal static async Task SendVersion(Peer peer, int heightBlockchainTip)
     {
-      Configuration c = peer.ConfigurationNetwork;
+      Configuration c = peer.Network.ConfigurationNetwork;
 
       byte[] buffer =
       [
@@ -540,7 +514,7 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
-      ulong networkServicesRequired = peer.ConfigurationNetwork.NetworkServicesRemote;
+      ulong networkServicesRequired = peer.Network.ConfigurationNetwork.NetworkServicesRemote;
 
       if ((BitConverter.ToUInt64(Payload, 4) & networkServicesRequired) != networkServicesRequired)
         throw new ProtocolException($"Peer lacks network services {networkServicesRequired}.");
@@ -549,11 +523,11 @@ internal partial class Network
 
       if (peer.Connection == Peer.ConnectionType.INBOUND)
       {
-        SendVersion(peer, await Network.Blockchain.RunLocked(Network.Blockchain.GetHeight));
+        SendVersion(peer, await peer.Network.Blockchain.RunLocked(peer.Network.Blockchain.GetHeight));
 
-        lock (Network.LOCK_Peers)
-          if (Network.IPAddresses.Count < COUNT_MAX_IP_ADDRESSES)
-            Network.IPAddresses.Add(peer.GetIP());
+        lock (peer.Network.LOCK_Peers)
+          if (peer.Network.IPAddresses.Count < COUNT_MAX_IP_ADDRESSES)
+            peer.Network.IPAddresses.Add(peer.GetIP());
       }
     }
   }

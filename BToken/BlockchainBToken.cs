@@ -416,10 +416,7 @@ internal partial class BlockchainBToken : Blockchain
 
   void Resync(int heightRoot)
   {
-    Header headerRoot = ChainRoot.HeaderTip;
-
-    while (headerRoot.Height > heightRoot)
-      headerRoot = headerRoot.HeaderPrevious;
+    Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(heightRoot);
 
     Accounts.Drop();
     TXPool.Clear();

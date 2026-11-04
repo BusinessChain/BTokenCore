@@ -6,8 +6,6 @@ internal partial class NetworkBitcoin : Network
   {
     internal const string Command = "getheaders";
 
-    Blockchain Blockchain;
-
     internal int HeightAncestorSentLast;
 
     const int SIZE_BUFFER_PAYLOAD = 3_300;
@@ -15,11 +13,9 @@ internal partial class NetworkBitcoin : Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
 
-    internal GetHeadersMessage(Blockchain blockchain)
+    internal GetHeadersMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    {
-      Blockchain = blockchain;
-    }
+    { }
 
     internal override async Task Run(Peer peer)
     {
@@ -38,7 +34,7 @@ internal partial class NetworkBitcoin : Network
         hashesLocator.Add(Payload.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256));
 
       (List<byte[]> headers, int heightAncestor) tupleHeadersSerialized =
-        await Blockchain.RunLocked(() => Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.COUNT_MAX_HEADERS));
+        await peer.Network.Blockchain.RunLocked(() => peer.Network.Blockchain.GetHeadersSerialized(hashesLocator, HeadersMessage.COUNT_MAX_HEADERS));
 
       HeadersMessage.SendHeaders(peer, tupleHeadersSerialized.headers);
 
@@ -53,7 +49,7 @@ internal partial class NetworkBitcoin : Network
     {
       List<byte> payload = new();
 
-      payload.AddRange(BitConverter.GetBytes(peer.ConfigurationNetwork.ProtocolVersion));
+      payload.AddRange(BitConverter.GetBytes(peer.Network.ConfigurationNetwork.ProtocolVersion));
       payload.AddRange(VarInt.GetBytes(locator.Count()));
 
       foreach (byte[] locatorHash in locator)
@@ -71,10 +67,6 @@ internal partial class NetworkBitcoin : Network
 
   class HeadersMessageBitcoin : HeadersMessage
   {
-    internal HeadersMessageBitcoin(Blockchain blockchain)
-      : base(blockchain)
-    { }
-
     internal override async Task Run(Peer peer)
     {
       int startIndex = 0;
@@ -95,11 +87,11 @@ internal partial class NetworkBitcoin : Network
 
       for (int i = 0; i < countHeaders; i++)
       {
-        headers.Add(Blockchain.ParseHeader(Payload, ref startIndex));
+        headers.Add(peer.Network.Blockchain.ParseHeader(Payload, ref startIndex));
         VarInt.GetInt(Payload, ref startIndex);
       }
 
-      Header headerTipReceivedLast = await Blockchain.RunLocked(() => Blockchain.InsertHeadersInTree(headers));
+      Header headerTipReceivedLast = await peer.Network.Blockchain.RunLocked(() => peer.Network.Blockchain.InsertHeadersInTree(headers));
 
       if (headerTipReceivedLast != null)
         ((PeerBitcoin)peer).HeaderTipReceivedLast = headerTipReceivedLast;
@@ -119,14 +111,6 @@ internal partial class NetworkBitcoin : Network
 
   class InvMessageBitcoin : InvMessage
   {
-    Blockchain Blockchain;
-
-
-    internal InvMessageBitcoin(Blockchain blockchain)
-    {
-      Blockchain = blockchain;
-    }
-
     internal override async Task Run(Peer peer)
     {
       int startIndex = 0;
@@ -136,7 +120,7 @@ internal partial class NetworkBitcoin : Network
       for (int i = 0; i < inventoryCount; i++)
         if (Inventory.Parse(Payload, ref startIndex).Type == Inventory.InventoryType.MSG_BLOCK)
         {
-          await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.RunLocked(Blockchain.GetLocator));
+          await GetHeadersMessage.SendGetHeaders(peer, await peer.Network.Blockchain.RunLocked(peer.Network.Blockchain.GetLocator));
           return;
         }
     }
@@ -144,20 +128,12 @@ internal partial class NetworkBitcoin : Network
 
   class VerAckMessageBitcoin : VerAckMessage
   {
-    Blockchain Blockchain;
-
-
-    internal VerAckMessageBitcoin(Blockchain blockchain)
-    {
-      Blockchain = blockchain;
-    }
-
     internal override async Task Run(Peer peer)
     {
       await base.Run(peer);
 
       if (peer.Connection == Peer.ConnectionType.OUTBOUND)
-        await GetHeadersMessage.SendGetHeaders(peer, await Blockchain.RunLocked(Blockchain.GetLocator));
+        await GetHeadersMessage.SendGetHeaders(peer, await peer.Network.Blockchain.RunLocked(peer.Network.Blockchain.GetLocator));
     }
   }
 }

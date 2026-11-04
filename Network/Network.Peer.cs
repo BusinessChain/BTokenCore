@@ -9,7 +9,7 @@ internal partial class Network
 
     internal Dictionary<string, NetworkMessage> MessagesByCommand;
 
-    internal Configuration ConfigurationNetwork;
+    internal Network Network;
 
     internal ISocketCommunication SocketCommunication;
 
@@ -34,8 +34,6 @@ internal partial class Network
 
     internal TaskCompletionSource HandshakeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    Blockchain Blockchain;
-
     HashSet<byte[]> HashesTXOwnedAnnounced = new(new EqualityComparerByteArray());
 
 
@@ -44,16 +42,15 @@ internal partial class Network
       ISocketCommunication socketCommunication,
       ConnectionType connection)
     {
-      ConfigurationNetwork = network.ConfigurationNetwork;
-      Blockchain = network.Blockchain;
+      Network = network;
 
       MessagesByCommand = new()
       {
-        { VersionMessage.Command, new VersionMessage(network) },
+        { VersionMessage.Command, new VersionMessage() },
         { PingMessage.Command, new PingMessage() },
         { PongMessage.Command, new PongMessage() },
-        { AddressMessage.Command, new AddressMessage(network) },
-        { GetAddrMessage.Command, new GetAddrMessage(network) },
+        { AddressMessage.Command, new AddressMessage() },
+        { GetAddrMessage.Command, new GetAddrMessage() },
         { UnknownMessage.Command, new UnknownMessage() }
       };
 
@@ -73,7 +70,7 @@ internal partial class Network
 
     protected virtual async Task RelayTXs()
     {
-      List<byte[]> hashesTXOwned = await Blockchain.RunLocked(Blockchain.GetHashesTXOwned);
+      List<byte[]> hashesTXOwned = await Network.Blockchain.RunLocked(Network.Blockchain.GetHashesTXOwned);
 
       List<Inventory> inventoriesTXOwnedNew = hashesTXOwned
         .Where(h => !HashesTXOwnedAnnounced.Contains(h))
@@ -88,7 +85,7 @@ internal partial class Network
 
     internal async Task Start(int heightBlockchainTip)
     {
-      await SocketCommunication.Start(ConfigurationNetwork.MagicBytes);
+      await SocketCommunication.Start(Network.ConfigurationNetwork.MagicBytes);
 
       StartMessageReceiver();
       StartHeartbeat();

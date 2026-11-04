@@ -64,6 +64,16 @@ public abstract class Header
     return HeaderParent != null && HeaderParent.HeaderNext == null;
   }
 
+  internal Header GetHeaderAncestor(int height)
+  {
+    Header header = this;
+
+    while (header != null && header.Height > height)
+      header = header.HeaderPrevious;
+
+    return header;
+  }
+
   internal virtual void CopyTo(Header header) { }
 
   internal virtual void VerifyCoinbase(List<TX> tXs) { }
