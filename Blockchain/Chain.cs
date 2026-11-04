@@ -198,7 +198,7 @@ internal partial class Blockchain
       chainForkAtTip.MoveBlockDownloadsAndForksTo(this, int.MaxValue);
 
       if (ChainTrunk != null)
-        AdvanceTipChain();
+        AdvanceTipBlockchain();
     }
 
     internal void ReRoot(Header headerRoot)
@@ -266,7 +266,7 @@ internal partial class Blockchain
         .MinBy(h => h.Height);
     }
 
-    internal void AdvanceTipChain()
+    internal void AdvanceTipBlockchain()
     {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -354,11 +354,11 @@ internal partial class Blockchain
       if (chainTrunk.ChainTrunk != null)
       {
         chainTrunk.HeaderTipBlockchain = null;
-        chainTrunk.AdvanceTipChain();
+        chainTrunk.AdvanceTipBlockchain();
       }
 
       HeaderTipBlockchain = null;
-      AdvanceTipChain();
+      AdvanceTipBlockchain();
     }
 
     void MoveBlockDownloadsAndForksTo(Chain chainTarget, int heightMax)

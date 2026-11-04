@@ -287,7 +287,7 @@ internal abstract partial class Blockchain
   protected void UpdateTipBlockchain(Chain chain)
   {
     if (chain != ChainRoot)
-      chain.AdvanceTipChain();
+      chain.AdvanceTipBlockchain();
 
     do
     {
