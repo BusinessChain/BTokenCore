@@ -141,21 +141,26 @@ internal partial class Blockchain
 
       chainPlaceholder = FindInTree(chain =>
       {
-        Header headerFork = chain.HeaderRoot.HeaderPrevious;
-        Header header = chain.HeaderTip;
-
-        while (header != headerFork && header.HeaderParent != headerParent)
-          header = header.HeaderPrevious;
-
-        if (header == headerFork)
-          return null;
-
-        headerFound = header;
-        return chain;
+        headerFound = chain.FindHeaderAnchoredIn(headerParent);
+        return headerFound != null ? chain : null;
       });
 
       headerPlaceholder = headerFound;
       return chainPlaceholder != null;
+    }
+
+    Header FindHeaderAnchoredIn(Header headerParent)
+    {
+      Header headerFork = HeaderRoot.HeaderPrevious;
+      Header header = HeaderTip;
+
+      while (header != headerFork && header.HeaderParent != headerParent)
+        header = header.HeaderPrevious;
+
+      if (header == headerFork)
+        return null;
+
+      return header;
     }
 
     internal void CutOff(Header headerRemove)
