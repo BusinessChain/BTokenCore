@@ -63,7 +63,7 @@ internal partial class NetworkBToken : Network
 
       int index = 0;
 
-      TX tX = blockchainBToken.ParseTX(Payload, ref index, flagIsCoinbase: false);
+      TX tX = blockchainBToken.ParseTX(Payload, ref index, isCoinbase: false);
 
       if (index != LengthDataPayload)
         throw new ProtocolException($"Length {index} of parsed TX not equal to payload length {LengthDataPayload}.");

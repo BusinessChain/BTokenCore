@@ -76,7 +76,7 @@ internal abstract partial class Blockchain
 
   internal abstract Header ParseHeader(byte[] buffer, ref int index);
 
-  internal abstract TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase = false);
+  internal abstract TX ParseTX(byte[] buffer, ref int index, bool isCoinbase = false);
 
   internal virtual TX GetTX(byte[] hash)
   {
@@ -91,7 +91,7 @@ internal abstract partial class Blockchain
     byte[] tXRaw = documentTXOwned["tXRaw"].AsBinary;
     int index = 0;
 
-    TX tX = ParseTX(tXRaw, ref index, flagIsCoinbase: false);
+    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false);
 
     tX.TXRaw = tXRaw;
     tX.Fee = documentTXOwned["fee"].AsInt64;
@@ -149,7 +149,7 @@ internal abstract partial class Blockchain
 
     for (int t = 0; t < block.Header.CountTXs; t += 1)
     {
-      TX tX = ParseTX(block.Buffer, ref startIndex, flagIsCoinbase: t == 0);
+      TX tX = ParseTX(block.Buffer, ref startIndex, isCoinbase: t == 0);
 
       if (!hashesTX.Add(tX.Hash))
         throw new ProtocolException($"Block {block.Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");

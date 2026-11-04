@@ -13,7 +13,7 @@ internal partial class BlockchainBitcoin : Blockchain
     internal TXBitcoin()
     { }
 
-    internal TXBitcoin(byte[] buffer, ref int index, bool flagIsCoinbase)
+    internal TXBitcoin(byte[] buffer, ref int index, bool isCoinbase)
     {
       int indexTxStart = index;
 

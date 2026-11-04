@@ -36,7 +36,7 @@ internal partial class BlockchainBToken : Blockchain
     internal TXBToken()
     { }
 
-    internal TXBToken(byte[] buffer, ref int index, bool flagIsCoinbase)
+    internal TXBToken(byte[] buffer, ref int index, bool isCoinbase)
     {
       int indexTxStart = index;
 
@@ -77,7 +77,7 @@ internal partial class BlockchainBToken : Blockchain
 
       Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
 
-      if (!flagIsCoinbase)
+      if (!isCoinbase)
         VerifySignatureTX(indexTxStart, buffer, ref index);
 
       CountBytes = index - indexTxStart;

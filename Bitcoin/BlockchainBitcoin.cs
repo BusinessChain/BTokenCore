@@ -45,9 +45,9 @@ internal partial class BlockchainBitcoin : Blockchain
     return new HeaderBitcoin(buffer, ref index);
   }
 
-  internal override TX ParseTX(byte[] buffer, ref int index, bool flagIsCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, bool isCoinbase)
   {
-    return new TXBitcoin(buffer, ref index, flagIsCoinbase);
+    return new TXBitcoin(buffer, ref index, isCoinbase);
   }
 
   protected override void ParseBlockStored(Block block)

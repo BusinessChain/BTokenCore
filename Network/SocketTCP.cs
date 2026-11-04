@@ -15,14 +15,14 @@ internal class SocketTCP : ISocketCommunication
   string IP;
   int Port;
 
-  internal const int CommandSize = 12;
-  internal const int ChecksumSize = 4;
+  internal const int SIZE_COMMAND = 12;
+  internal const int SIZE_CHECKSUM = 4;
 
   byte[] MagicBytes;
   byte[] MagicBytesRead = new byte[4];
-  byte[] CommandRead = new byte[CommandSize];
+  byte[] CommandRead = new byte[SIZE_COMMAND];
   byte[] LengthRead = new byte[4];
-  byte[] ChecksumRead = new byte[ChecksumSize];
+  byte[] ChecksumRead = new byte[SIZE_CHECKSUM];
 
   SemaphoreSlim SemaphoreSendMessage = new(1);
 
@@ -64,7 +64,7 @@ internal class SocketTCP : ISocketCommunication
     {
       NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
 
-      byte[] command = Encoding.ASCII.GetBytes(commandString.PadRight(CommandSize, '\0'));
+      byte[] command = Encoding.ASCII.GetBytes(commandString.PadRight(SIZE_COMMAND, '\0'));
       NetworkStream.Write(command, 0, command.Length);
 
       byte[] payloadLength = BitConverter.GetBytes(lengthDataPayload);
@@ -72,7 +72,7 @@ internal class SocketTCP : ISocketCommunication
 
       byte[] checksum = Crypto.ComputeHash256(payload.AsSpan(0, lengthDataPayload));
 
-      NetworkStream.Write(checksum, 0, ChecksumSize);
+      NetworkStream.Write(checksum, 0, SIZE_CHECKSUM);
 
       NetworkStream.Write(payload, 0, lengthDataPayload);
     }

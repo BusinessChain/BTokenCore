@@ -65,7 +65,7 @@ internal partial class BlockchainBToken : Blockchain
         tXBToken.GetFeePerByte() < TXBundlesSortedByFee[^1].FeePerByte + FEE_PER_BYTE_INCREMENT)
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} does not outbid the full pool by the fee increment.");
 
-      InsertTX(tXBToken, flagAhead: false);
+      InsertTX(tXBToken, isFromBlockRolledBack: false);
 
       InsertTXInTXBundlesSortedByFee(tXBToken);
 
@@ -84,7 +84,7 @@ internal partial class BlockchainBToken : Blockchain
       {
         TXBToken tX = (TXBToken)block.TXs[i];
 
-        InsertTX(tX, flagAhead: true);
+        InsertTX(tX, isFromBlockRolledBack: true);
 
         SortTXBundlesByFee();
       }
@@ -105,7 +105,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void EvictTXsOverCap()
     {
-      bool flagTXEvicted = false;
+      bool isTXEvicted = false;
 
       while (CountBytesTXs > COUNT_BYTES_MAX_POOL)
       {
@@ -119,16 +119,16 @@ internal partial class BlockchainBToken : Blockchain
 
         RemoveTXFromIndexes(tXEvicted);
 
-        flagTXEvicted = true;
+        isTXEvicted = true;
       }
 
-      if (flagTXEvicted)
+      if (isTXEvicted)
         SortTXBundlesByFee();
     }
 
-    void InsertTX(TXBToken tX, bool flagAhead)
+    void InsertTX(TXBToken tX, bool isFromBlockRolledBack)
     {
-      if (flagAhead)
+      if (isFromBlockRolledBack)
         TXsByHash.Add(tX.Hash, (tX, -1));
       else
         TXsByHash.Add(tX.Hash, (tX, SequenceNumberTX++));
@@ -141,7 +141,7 @@ internal partial class BlockchainBToken : Blockchain
         TXsByIDAccountSource.Add(tX.IDAccountSource, tXsInPool);
       }
 
-      if (flagAhead)
+      if (isFromBlockRolledBack)
         tXsInPool.Insert(0, tX);
       else
         tXsInPool.Add(tX);

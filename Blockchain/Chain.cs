@@ -13,7 +13,7 @@ internal partial class Blockchain
 
     internal Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
 
-    const int HEIGHT_GAP_MAX_BlockMissing = 20;
+    const int HEIGHT_GAP_MAX_BlOCK_MISSING = 20;
     internal Dictionary<int, Block> Blocks = new();
 
 
@@ -251,7 +251,7 @@ internal partial class Blockchain
 
       while (headerCandidate != null
         && headerCandidate.Height <= heightTarget
-        && headerCandidate.Height <= heightBlockNext + HEIGHT_GAP_MAX_BlockMissing)
+        && headerCandidate.Height <= heightBlockNext + HEIGHT_GAP_MAX_BlOCK_MISSING)
       {
         if (!Blocks.ContainsKey(headerCandidate.Height)
           && canSupplierDeliverBlock(headerCandidate)
