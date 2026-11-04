@@ -90,12 +90,12 @@ internal partial class BlockchainBToken : Blockchain
       };
     }
 
-    internal Account GetCopyOfAccount(byte[] iDAccount)
+    internal Account LoadAccountExisting(byte[] iDAccount)
     {
       if (AccountsStored.FindById(iDAccount) is Account accountStored)
-        return new(accountStored);
-      else
-        throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
+        return accountStored;
+
+      throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
     }
 
     void WriteAccount(Account account)
@@ -118,7 +118,7 @@ internal partial class BlockchainBToken : Blockchain
 
         if (i > 0)
         {
-          Account accountSource = GetCopyOfAccount(tX.IDAccountSource);
+          Account accountSource = LoadAccountExisting(tX.IDAccountSource);
           accountSource.SpendTX(tX);
           WriteAccount(accountSource);
         }

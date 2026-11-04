@@ -24,14 +24,6 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account() { }
 
-    internal Account(Account account)
-    {
-      ID = account.ID;
-      HeightAccountCreated = account.HeightAccountCreated;
-      Nonce = account.Nonce;
-      Balance = account.Balance;
-    }
-
     internal void SpendTX(TXBToken tX)
     {
       if (HeightAccountCreated != tX.HeightAccountCreated || Nonce != tX.Nonce)

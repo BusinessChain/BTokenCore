@@ -51,7 +51,7 @@ internal partial class BlockchainBToken : Blockchain
 
       TXBToken tXBToken = tX as TXBToken;
 
-      Account accountTrial = Blockchain.Accounts.GetCopyOfAccount(tXBToken.IDAccountSource);
+      Account accountTrial = Blockchain.Accounts.LoadAccountExisting(tXBToken.IDAccountSource);
 
       if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBToken> tXsInPool))
       {
