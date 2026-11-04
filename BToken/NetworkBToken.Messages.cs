@@ -95,9 +95,9 @@ internal partial class NetworkBToken : Network
 
       Inventory.InventoryType typeInventory = Inventory.Parse(Payload, ref startIndex).Type;
 
-      if (typeInventory == Inventory.InventoryType.MSG_DB)
+      if (typeInventory == Inventory.InventoryType.MSG_ACCOUNTS)
       {
-        if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
+        if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload)
           return;
 
         DOSMonitor.Decrement(1);
@@ -129,16 +129,16 @@ internal partial class NetworkBToken : Network
 
   class GetDataMessageBToken : GetDataMessage
   {
-    protected override async Task ServeDB(Peer peer, Inventory inventory)
+    protected override async Task ServeAccounts(Peer peer, Inventory inventory)
     {
       DOSMonitor.Increment(1);
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      byte[] dataDB = await blockchainBToken.RunLocked(() => blockchainBToken.GetAccountsSerializedAtBlock(inventory.Hash));
+      byte[] accountsSerialized = await blockchainBToken.RunLocked(() => blockchainBToken.GetAccountsSerializedAtBlock(inventory.Hash));
 
-      if (dataDB != null)
-        await peer.SocketCommunication.SendMessage(DBMessage.Command, dataDB.Length, dataDB);
+      if (accountsSerialized != null)
+        await peer.SocketCommunication.SendMessage(AccountsMessage.Command, accountsSerialized.Length, accountsSerialized);
       else
         await SendInventories(peer, NotFoundMessage.Command, [inventory]);
     }
@@ -159,25 +159,25 @@ internal partial class NetworkBToken : Network
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      byte[] hashDBMissing = await blockchainBToken.RunLocked(blockchainBToken.GetHashBlockDatabaseMissing);
+      byte[] hashBlockAccountsMissing = await blockchainBToken.RunLocked(blockchainBToken.GetHashBlockAccountsMissing);
 
-      if (hashDBMissing == null)
+      if (hashBlockAccountsMissing == null)
         return;
 
-      ((DBMessage)peer.MessagesByCommand[DBMessage.Command]).HashBlockDatabaseRequested = hashDBMissing;
+      ((AccountsMessage)peer.MessagesByCommand[AccountsMessage.Command]).HashBlockAccountsRequested = hashBlockAccountsMissing;
 
       TimeRequest = DateTime.UtcNow;
-      peer.StateCurrent = Peer.StateProtocol.DBDownload;
+      peer.StateCurrent = Peer.StateProtocol.AccountsDownload;
 
-      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_DB, hashDBMissing)]);
+      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_ACCOUNTS, hashBlockAccountsMissing)]);
     }
   }
 
-  class DBMessage : NetworkMessage
+  class AccountsMessage : NetworkMessage
   {
-    internal const string Command = "db";
+    internal const string Command = "accounts";
 
-    internal byte[] HashBlockDatabaseRequested;
+    internal byte[] HashBlockAccountsRequested;
 
     const int COUNT_MAX_ACCOUNTS = 1_000_000;
     const int SIZE_BUFFER_PAYLOAD = 9 + COUNT_MAX_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
@@ -185,18 +185,18 @@ internal partial class NetworkBToken : Network
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal DBMessage()
+    internal AccountsMessage()
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     { }
 
     internal override async Task Run(Peer peer)
     {
-      if (peer.StateCurrent != Peer.StateProtocol.DBDownload)
-        throw new ProtocolException($"Received unrequested db message.");
+      if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload)
+        throw new ProtocolException($"Received unrequested accounts message.");
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      await blockchainBToken.RunLocked(() => blockchainBToken.InstallAccountsAtBlock(HashBlockDatabaseRequested, Payload, LengthDataPayload));
+      await blockchainBToken.RunLocked(() => blockchainBToken.InstallAccountsAtBlock(HashBlockAccountsRequested, Payload, LengthDataPayload));
 
       DOSMonitor.Decrement(1);
 

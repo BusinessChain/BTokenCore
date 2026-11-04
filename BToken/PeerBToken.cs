@@ -32,7 +32,7 @@ internal partial class NetworkBToken : Network
     {
       BlockchainBToken = network.BlockchainBToken;
 
-      MessagesByCommand.Add(DBMessage.Command, new DBMessage());
+      MessagesByCommand.Add(AccountsMessage.Command, new AccountsMessage());
       MessagesByCommand.Add(TXMessage.Command, new TXMessageBToken());
       MessagesByCommand.Add(FeeFilterMessage.Command, new FeeFilterMessage());
       MessagesByCommand.Add(HeadersMessage.Command, new HeadersMessageBToken());

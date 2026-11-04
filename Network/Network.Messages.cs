@@ -323,15 +323,15 @@ internal partial class Network
           else
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
-        else if (inventory.Type == Inventory.InventoryType.MSG_DB)
-          await ServeDB(peer, inventory);
+        else if (inventory.Type == Inventory.InventoryType.MSG_ACCOUNTS)
+          await ServeAccounts(peer, inventory);
       }
 
       if (inventoriesTXNotFound.Count > 0)
         await SendInventories(peer, NotFoundMessage.Command, inventoriesTXNotFound);
     }
 
-    protected virtual Task ServeDB(Peer peer, Inventory inventory)
+    protected virtual Task ServeAccounts(Peer peer, Inventory inventory)
     {
       return Task.CompletedTask;
     }

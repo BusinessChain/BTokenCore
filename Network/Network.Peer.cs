@@ -22,7 +22,7 @@ internal partial class Network
       Idle,
       HeaderDownload,
       BlockDownload,
-      DBDownload,
+      AccountsDownload,
       Disposed
     }
 
@@ -166,7 +166,7 @@ internal partial class Network
           {
             BlockMessage blockMessage = (BlockMessage)MessagesByCommand[BlockMessage.Command];
 
-            if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.DBDownload)
+            if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.AccountsDownload)
             {
               if (StateCurrent != StateProtocol.Idle)
                 continue;

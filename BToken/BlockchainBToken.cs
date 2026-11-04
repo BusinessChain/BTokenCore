@@ -115,7 +115,7 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal byte[] GetHashBlockDatabaseMissing()
+  internal byte[] GetHashBlockAccountsMissing()
   {
     if (!Accounts.Exists())
       return ChainRoot.HeaderTipBlockchain.Hash;

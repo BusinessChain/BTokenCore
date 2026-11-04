@@ -12,7 +12,7 @@ internal partial class Network
       MSG_BLOCK = 2,
       MSG_FILTERED_BLOCK = 3,
       MSG_CMPCT_BLOCK = 4,
-      MSG_DB = 5
+      MSG_ACCOUNTS = 5
     }
 
     internal const int LENGTH = 36;
