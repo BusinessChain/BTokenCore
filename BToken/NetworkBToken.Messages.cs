@@ -190,7 +190,7 @@ internal partial class NetworkBToken : Network
       if (hashDBMissing == null)
         return;
 
-      ((DBMessage)peer.ProtocolStateMachine[DBMessage.Command]).HashBlockDatabaseRequested = hashDBMissing;
+      ((DBMessage)peer.MessagesByCommand[DBMessage.Command]).HashBlockDatabaseRequested = hashDBMissing;
 
       TimeRequest = DateTime.UtcNow;
       peer.StateCurrent = Peer.StateProtocol.DBDownload;

@@ -13,13 +13,13 @@ internal partial class NetworkBitcoin : Network
       ConnectionType connection)
       : base(network, socketCommunication, connection)
     {
-      ProtocolStateMachine.Add(GetHeadersMessage.Command, new GetHeadersMessage(network.Blockchain));
-      ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBitcoin(network.Blockchain));
-      ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBitcoin(network.Blockchain));
-      ProtocolStateMachine.Add(VerAckMessage.Command, new VerAckMessageBitcoin(network.Blockchain));
-      ProtocolStateMachine.Add(NotFoundMessage.Command, new NotFoundMessage());
-      ProtocolStateMachine.Add(GetDataMessage.Command, new GetDataMessage(network.Blockchain));
-      ProtocolStateMachine.Add(BlockMessage.Command, new BlockMessage(network.Blockchain));
+      MessagesByCommand.Add(GetHeadersMessage.Command, new GetHeadersMessage(network.Blockchain));
+      MessagesByCommand.Add(HeadersMessage.Command, new HeadersMessageBitcoin(network.Blockchain));
+      MessagesByCommand.Add(InvMessage.Command, new InvMessageBitcoin(network.Blockchain));
+      MessagesByCommand.Add(VerAckMessage.Command, new VerAckMessageBitcoin(network.Blockchain));
+      MessagesByCommand.Add(NotFoundMessage.Command, new NotFoundMessage());
+      MessagesByCommand.Add(GetDataMessage.Command, new GetDataMessage(network.Blockchain));
+      MessagesByCommand.Add(BlockMessage.Command, new BlockMessage(network.Blockchain));
     }
 
     internal override bool CanDeliverBlock(Header header)

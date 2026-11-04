@@ -7,7 +7,7 @@ internal partial class Network
     const int TIMESPAN_HEARTBEAT_MILLISECONDS = 1000;
     protected const int TIMEOUT_REQUEST_SECONDS = 60;
 
-    internal Dictionary<string, NetworkMessage> ProtocolStateMachine;
+    internal Dictionary<string, NetworkMessage> MessagesByCommand;
 
     internal Configuration ConfigurationNetwork;
 
@@ -47,7 +47,7 @@ internal partial class Network
       ConfigurationNetwork = network.ConfigurationNetwork;
       Blockchain = network.Blockchain;
 
-      ProtocolStateMachine = new()
+      MessagesByCommand = new()
       {
         { VersionMessage.Command, new VersionMessage(network) },
         { PingMessage.Command, new PingMessage() },
@@ -99,7 +99,7 @@ internal partial class Network
 
         await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
 
-        await ((AddressMessage)ProtocolStateMachine[AddressMessage.Command]).SendGetAddr(this);
+        await ((AddressMessage)MessagesByCommand[AddressMessage.Command]).SendGetAddr(this);
       }
     }
 
@@ -120,9 +120,9 @@ internal partial class Network
 
           try
           {
-            NetworkMessage message = ProtocolStateMachine.GetValueOrDefault(
+            NetworkMessage message = MessagesByCommand.GetValueOrDefault(
               commandMessage,
-              ProtocolStateMachine[UnknownMessage.Command]);
+              MessagesByCommand[UnknownMessage.Command]);
 
             message.LengthDataPayload = await SocketCommunication.ReceivePayloadNext(message.GetPayloadBuffer());
 
@@ -157,7 +157,7 @@ internal partial class Network
         {
           if (StateCurrent != StateProtocol.Handshake)
           {
-            await ((PingMessage)ProtocolStateMachine[PingMessage.Command]).Ping(this);
+            await ((PingMessage)MessagesByCommand[PingMessage.Command]).Ping(this);
 
             await RelayTXs();
           }
@@ -167,7 +167,7 @@ internal partial class Network
 
           try
           {
-            BlockMessage blockMessage = (BlockMessage)ProtocolStateMachine[BlockMessage.Command];
+            BlockMessage blockMessage = (BlockMessage)MessagesByCommand[BlockMessage.Command];
 
             if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.DBDownload)
             {

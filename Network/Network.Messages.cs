@@ -375,7 +375,7 @@ internal partial class Network
       VarInt.GetInt(Payload, ref startIndex);
       Inventory inventory = Inventory.Parse(Payload, ref startIndex);
 
-      BlockMessage blockMessage = (BlockMessage)peer.ProtocolStateMachine[BlockMessage.Command];
+      BlockMessage blockMessage = (BlockMessage)peer.MessagesByCommand[BlockMessage.Command];
 
       if (blockMessage.BlockDownload.Header?.Hash.IsAllBytesEqual(inventory.Hash) != true)
         return;
@@ -455,7 +455,7 @@ internal partial class Network
 
     internal override async Task Run(Peer peer)
     {
-      PingMessage messagePing = (PingMessage)peer.ProtocolStateMachine[PingMessage.Command];
+      PingMessage messagePing = (PingMessage)peer.MessagesByCommand[PingMessage.Command];
 
       if (messagePing.IsPongPending
         && LengthDataPayload == SIZE_BUFFER_PAYLOAD

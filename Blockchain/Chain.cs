@@ -21,9 +21,9 @@ internal partial class Blockchain
       : this(null, headerGenesis, isRoot)
     { }
 
-    Chain(Chain blockchainParent, Header headerRoot, bool isRoot)
+    Chain(Chain chainParent, Header headerRoot, bool isRoot)
     {
-      ChainParent = blockchainParent;
+      ChainParent = chainParent;
       HeaderRoot = headerRoot;
       HeaderTip = headerRoot;
 
@@ -375,10 +375,10 @@ internal partial class Blockchain
       }
     }
 
-    internal bool IsStrongerThan(Chain blockchain)
+    internal bool IsStrongerThan(Chain chain)
     {
       return HeaderTipBlockchain != null
-        && HeaderTipBlockchain.Height > blockchain.HeaderTipBlockchain.Height;
+        && HeaderTipBlockchain.Height > chain.HeaderTipBlockchain.Height;
     }
 
     internal Chain FindForkStrongest()

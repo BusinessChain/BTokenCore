@@ -32,15 +32,15 @@ internal partial class NetworkBToken : Network
     {
       BlockchainBToken = network.BlockchainBToken;
 
-      ProtocolStateMachine.Add(DBMessage.Command, new DBMessage(BlockchainBToken));
-      ProtocolStateMachine.Add(TXMessage.Command, new TXMessageBToken(network));
-      ProtocolStateMachine.Add(FeeFilterMessage.Command, new FeeFilterMessage());
-      ProtocolStateMachine.Add(HeadersMessage.Command, new HeadersMessageBToken(BlockchainBToken));
-      ProtocolStateMachine.Add(InvMessage.Command, new InvMessageBToken(BlockchainBToken));
-      ProtocolStateMachine.Add(VerAckMessage.Command, new VerAckMessage());
-      ProtocolStateMachine.Add(NotFoundMessage.Command, new NotFoundMessageBToken());
-      ProtocolStateMachine.Add(GetDataMessage.Command, new GetDataMessageBToken(BlockchainBToken));
-      ProtocolStateMachine.Add(BlockMessage.Command, new BlockMessageBToken(BlockchainBToken));
+      MessagesByCommand.Add(DBMessage.Command, new DBMessage(BlockchainBToken));
+      MessagesByCommand.Add(TXMessage.Command, new TXMessageBToken(network));
+      MessagesByCommand.Add(FeeFilterMessage.Command, new FeeFilterMessage());
+      MessagesByCommand.Add(HeadersMessage.Command, new HeadersMessageBToken(BlockchainBToken));
+      MessagesByCommand.Add(InvMessage.Command, new InvMessageBToken(BlockchainBToken));
+      MessagesByCommand.Add(VerAckMessage.Command, new VerAckMessage());
+      MessagesByCommand.Add(NotFoundMessage.Command, new NotFoundMessageBToken());
+      MessagesByCommand.Add(GetDataMessage.Command, new GetDataMessageBToken(BlockchainBToken));
+      MessagesByCommand.Add(BlockMessage.Command, new BlockMessageBToken(BlockchainBToken));
     }
 
     internal override bool CanDeliverBlock(Header header)
