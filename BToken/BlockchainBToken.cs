@@ -135,23 +135,19 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      LiteDatabase.RunTransaction(() => Accounts.Install(buffer, length));
+      LiteDatabase.RunTransaction(() =>
+      {
+        Accounts.Install(buffer, length);
+
+        if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)header).HashAccounts))
+          throw new ProtocolException($"Hash of DB not equal to HashAccounts of block {header.Hash.ToHexString()}.");
+      });
     }
     catch
     {
       Accounts.Drop();
-      throw;
-    }
-
-    RollBack(heightAfterRollBack: GetHeightBlockStoredOldest());
-
-    if (!SHA256.HashData(Accounts.Serialize())
-      .IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashAccounts))
-    {
-      Accounts.Drop();
       UpdateTipBlockchain(ChainRoot);
-
-      throw new ProtocolException($"Hash of DB not equal to HashAccounts of oldest stored block.");
+      throw;
     }
 
     UpdateTipBlockchain(ChainRoot);
