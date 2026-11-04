@@ -91,24 +91,8 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void RollBackBlock(Block block)
   {
-    if (!Accounts.Exists())
-      return;
-
-    for (int i = block.TXs.Count - 1; i >= 0; i--)
-    {
-      TXBToken tX = block.TXs[i] as TXBToken;
-
-      if (i > 0)
-      {
-        Account accountSource = Accounts.LoadAccount(tX.IDAccountSource, tX.HeightBlockAccountCreated);
-        accountSource.ReverseSpendTX(tX);
-        Accounts.WriteAccount(accountSource);
-      }
-
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
-          Accounts.ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, -tXOutputP2PKH.Value);
-    }
+    if (Accounts.Exists())
+      Accounts.RollBackTXs(block);
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)

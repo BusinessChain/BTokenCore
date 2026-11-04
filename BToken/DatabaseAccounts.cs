@@ -104,7 +104,7 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
     }
 
-    internal void WriteAccount(Account account)
+    void WriteAccount(Account account)
     {
       if (account.Balance > 0)
         AccountsStored.Upsert(account);
@@ -127,7 +127,26 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    internal void ChangeBalance(byte[] accountID, int blockHeightAccountCreated, long valueChange)
+    internal void RollBackTXs(Block block)
+    {
+      for (int i = block.TXs.Count - 1; i >= 0; i--)
+      {
+        TXBToken tX = (TXBToken)block.TXs[i];
+
+        if (i > 0)
+        {
+          Account accountSource = LoadAccount(tX.IDAccountSource, tX.HeightBlockAccountCreated);
+          accountSource.ReverseSpendTX(tX);
+          WriteAccount(accountSource);
+        }
+
+        foreach (TXOutput tXOutput in tX.TXOutputs)
+          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
+            ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, -tXOutputP2PKH.Value);
+      }
+    }
+
+    void ChangeBalance(byte[] accountID, int blockHeightAccountCreated, long valueChange)
     {
       Account account = LoadAccount(accountID, blockHeightAccountCreated);
       account.Balance += valueChange;

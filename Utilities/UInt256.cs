@@ -1,6 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Numerics;
+﻿using System.Numerics;
 
 
 namespace BTokenCore;
@@ -36,7 +34,7 @@ internal class UInt256
 
   static void AddUnsignedPostfix(ref byte[] dataBytes)
   {
-    byte[] unsignedPostfix = new byte[] { 0x00 };
+    byte[] unsignedPostfix = [0x00];
     dataBytes = dataBytes.Concat(unsignedPostfix).ToArray();
   }
 
@@ -65,17 +63,13 @@ internal class UInt256
     uint mantissa = 0;
 
     for (int i = bytes.Length - 1; i >= 0; i--)
-    {
       if (bytes[i] == 0x00)
-      {
         numberOfBytesUnused++;
-      }
       else
       {
         mantissa = ParseMantissa(bytes, i);
         break;
       }
-    }
 
     numberOfBytesUsed = (uint)bytes.Length - numberOfBytesUnused;
 
