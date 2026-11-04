@@ -7,6 +7,12 @@ internal abstract partial class Blockchain
 {
   internal const int COUNT_MAX_BLOCKS_STORED = 200;
 
+  protected const string NAME_FIELD_ID = "_id";
+  protected const string NAME_FIELD_BLOCK_BYTES = "blockBytes";
+  protected const string NAME_FIELD_HEIGHT_CONFIRMED = "heightConfirmed";
+  const string NAME_FIELD_TX_RAW = "tXRaw";
+  const string NAME_FIELD_FEE = "fee";
+
   internal Wallet Wallet;
 
   internal readonly int SizeBlockMax;
@@ -80,7 +86,7 @@ internal abstract partial class Blockchain
 
   internal virtual TX GetTX(byte[] hash)
   {
-    if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned["heightConfirmed"].AsInt32 == 0)
+    if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED].AsInt32 == 0)
       return ParseTXOwned(documentTXOwned);
 
     return null;
@@ -88,30 +94,30 @@ internal abstract partial class Blockchain
 
   protected TX ParseTXOwned(BsonDocument documentTXOwned)
   {
-    byte[] tXRaw = documentTXOwned["tXRaw"].AsBinary;
+    byte[] tXRaw = documentTXOwned[NAME_FIELD_TX_RAW].AsBinary;
     int index = 0;
 
     TX tX = ParseTX(tXRaw, ref index, isCoinbase: false);
 
     tX.TXRaw = tXRaw;
-    tX.Fee = documentTXOwned["fee"].AsInt64;
+    tX.Fee = documentTXOwned[NAME_FIELD_FEE].AsInt64;
 
     return tX;
   }
 
   internal List<byte[]> GetHashesTXOwned()
   {
-    return TXsOwnedStored.Find(Query.EQ("heightConfirmed", 0)).Select(d => d["_id"].AsBinary).ToList();
+    return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).Select(d => d[NAME_FIELD_ID].AsBinary).ToList();
   }
 
   protected void InsertTXOwned(TX tX)
   {
     TXsOwnedStored.Insert(new BsonDocument
     {
-      ["_id"] = tX.Hash,
-      ["tXRaw"] = tX.TXRaw,
-      ["fee"] = tX.Fee,
-      ["heightConfirmed"] = 0
+      [NAME_FIELD_ID] = tX.Hash,
+      [NAME_FIELD_TX_RAW] = tX.TXRaw,
+      [NAME_FIELD_FEE] = tX.Fee,
+      [NAME_FIELD_HEIGHT_CONFIRMED] = 0
     });
   }
 
@@ -181,7 +187,7 @@ internal abstract partial class Blockchain
   protected Block LoadBlock(int height)
   {
     if (BlocksStored.FindById(height) is BsonDocument bsonDocumentBlock)
-      return new Block(bsonDocumentBlock["blockBytes"].AsBinary);
+      return new Block(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
     return null;
   }
@@ -218,7 +224,7 @@ internal abstract partial class Blockchain
     foreach (BsonDocument bsonDocumentBlock in BlocksStored.Find(Query.All(Query.Ascending)))
       try
       {
-        Block blockLoad = new(bsonDocumentBlock["blockBytes"].AsBinary);
+        Block blockLoad = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
         ParseBlockStored(blockLoad);
 
         Header header = blockLoad.Header;
@@ -227,7 +233,7 @@ internal abstract partial class Blockchain
           ChainRoot.AppendHeader(header);
         else
         {
-          header.Height = bsonDocumentBlock["_id"].AsInt32;
+          header.Height = bsonDocumentBlock[NAME_FIELD_ID].AsInt32;
           ChainRoot = new(header, isRoot: true);
         }
 
@@ -243,12 +249,12 @@ internal abstract partial class Blockchain
 
   protected int GetHeightBlockStoredOldest()
   {
-    BsonDocument bsonDocumentBlockOldest = BlocksStored.Query().OrderBy("_id").Select("_id").FirstOrDefault();
+    BsonDocument bsonDocumentBlockOldest = BlocksStored.Query().OrderBy(NAME_FIELD_ID).Select(NAME_FIELD_ID).FirstOrDefault();
 
     if (bsonDocumentBlockOldest == null)
       return ChainRoot.HeaderRoot.Height;
 
-    return bsonDocumentBlockOldest["_id"].AsInt32;
+    return bsonDocumentBlockOldest[NAME_FIELD_ID].AsInt32;
   }
 
   protected abstract void InsertBlock(Block block);
@@ -309,14 +315,14 @@ internal abstract partial class Blockchain
 
           MarkTXsOwnedConfirmed(block);
 
-          TXsOwnedStored.DeleteMany(Query.Between("heightConfirmed", 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
+          TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
           BlocksStored.Upsert(new BsonDocument
           {
-            ["_id"] = block.Header.Height,
-            ["blockBytes"] = SerializeBlockStored(block)
+            [NAME_FIELD_ID] = block.Header.Height,
+            [NAME_FIELD_BLOCK_BYTES] = SerializeBlockStored(block)
           });
         });
       }
@@ -332,10 +338,10 @@ internal abstract partial class Blockchain
 
   void MarkTXsOwnedConfirmed(Block block)
   {
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ("heightConfirmed", 0)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
       if (IsTXOwnedConfirmed(ParseTXOwned(documentTXOwned), block))
       {
-        documentTXOwned["heightConfirmed"] = block.Header.Height;
+        documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED] = block.Header.Height;
         TXsOwnedStored.Update(documentTXOwned);
       }
   }
@@ -389,9 +395,9 @@ internal abstract partial class Blockchain
 
   void ReopenTXsOwned(int height)
   {
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ("heightConfirmed", height)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, height)).ToList())
     {
-      documentTXOwned["heightConfirmed"] = 0;
+      documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED] = 0;
       TXsOwnedStored.Update(documentTXOwned);
     }
   }

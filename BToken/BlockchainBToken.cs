@@ -79,7 +79,7 @@ internal partial class BlockchainBToken : Blockchain
   protected override void InsertBlock(Block block)
   {
     BlocksStored.DeleteMany(
-      Query.LT("_id", block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
+      Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
 
     if (!Accounts.Exists())
       return;
@@ -187,7 +187,7 @@ internal partial class BlockchainBToken : Blockchain
     if (!Accounts.Exists())
       return;
 
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ("heightConfirmed", 0)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
       try
       {
         TXPool.AddTX(ParseTXOwned(documentTXOwned));
@@ -325,8 +325,8 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksMinedStored.Insert(new BsonDocument
     {
-      ["_id"] = block.Header.Hash,
-      ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
+      [NAME_FIELD_ID] = block.Header.Hash,
+      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload]
     });
   }
 
@@ -372,7 +372,7 @@ internal partial class BlockchainBToken : Blockchain
     Block block = null;
 
     if (BlocksMinedStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
-      block = new(bsonDocumentBlock["blockBytes"].AsBinary);
+      block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
     BlocksMinedStored.Delete(anchorWinner.HashBlockReferenced);
 
