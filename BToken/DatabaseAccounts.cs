@@ -9,9 +9,13 @@ internal partial class BlockchainBToken : Blockchain
   class DatabaseAccounts
   {
     const string NAME_COLLECTION = "accounts";
+    const string NAME_COLLECTION_UNDO = "accountsUndo";
+    const string NAME_FIELD_ACCOUNTS = "accounts";
 
     LiteDatabase LiteDatabase;
     ILiteCollection<Account> AccountsStored;
+    ILiteCollection<BsonDocument> UndoStored;
+    Dictionary<byte[], Account> AccountsUndo = new(new EqualityComparerByteArray());
 
 
     internal bool TryLoad(LiteDatabase storage)
@@ -20,6 +24,7 @@ internal partial class BlockchainBToken : Blockchain
 
       bool isStored = LiteDatabase.CollectionExists(NAME_COLLECTION);
       AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+      UndoStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_UNDO);
 
       return isStored;
     }
@@ -27,6 +32,7 @@ internal partial class BlockchainBToken : Blockchain
     internal void Drop()
     {
       LiteDatabase.DropCollection(NAME_COLLECTION);
+      LiteDatabase.DropCollection(NAME_COLLECTION_UNDO);
       AccountsStored = null;
     }
 
@@ -37,8 +43,11 @@ internal partial class BlockchainBToken : Blockchain
 
     internal byte[] Serialize()
     {
-      List<Account> accounts = AccountsStored.Find(Query.All(Query.Ascending)).ToList();
+      return SerializeAccounts(AccountsStored.Find(Query.All(Query.Ascending)).ToList());
+    }
 
+    static byte[] SerializeAccounts(ICollection<Account> accounts)
+    {
       List<byte> bytes = new();
 
       bytes.AddRange(VarInt.GetBytes(accounts.Count));
@@ -55,6 +64,14 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     internal void Install(byte[] buffer, int length)
+    {
+      List<Account> accounts = ParseAccounts(buffer, length);
+
+      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+      AccountsStored.InsertBulk(accounts);
+    }
+
+    static List<Account> ParseAccounts(byte[] buffer, int length)
     {
       int index = 0;
 
@@ -74,8 +91,7 @@ internal partial class BlockchainBToken : Blockchain
           Balance = buffer.Read<long>(ref index)
         });
 
-      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
-      AccountsStored.InsertBulk(accounts);
+      return accounts;
     }
 
     internal Account LoadAccount(byte[] iDAccount, int heightAccountCreated)
@@ -100,6 +116,9 @@ internal partial class BlockchainBToken : Blockchain
 
     void WriteAccount(Account account)
     {
+      if (!AccountsUndo.ContainsKey(account.ID))
+        AccountsUndo.Add(account.ID, AccountsStored.FindById(account.ID) ?? new Account { ID = account.ID });
+
       if (account.Balance > 0)
         AccountsStored.Upsert(account);
       else
@@ -108,6 +127,8 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void InsertTXs(Block block)
     {
+      AccountsUndo.Clear();
+
       for (int i = 0; i < block.TXs.Count; i += 1)
       {
         TXBToken tX = (TXBToken)block.TXs[i];
@@ -123,25 +144,27 @@ internal partial class BlockchainBToken : Blockchain
           WriteAccount(accountSource);
         }
       }
+
+      UndoStored.Upsert(new BsonDocument
+      {
+        [NAME_FIELD_ID] = block.Header.Height,
+        [NAME_FIELD_ACCOUNTS] = SerializeAccounts(AccountsUndo.Values)
+      });
+
+      UndoStored.DeleteMany(Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
     }
 
-    internal void RollBackTXs(Block block)
+    internal void RollBack(int height)
     {
-      for (int i = block.TXs.Count - 1; i >= 0; i--)
-      {
-        TXBToken tX = (TXBToken)block.TXs[i];
+      if (UndoStored.FindById(height) is not BsonDocument documentUndo)
+        throw new InvalidOperationException($"No undo data for block at height {height}.");
 
-        if (i > 0)
-        {
-          Account accountSource = LoadAccount(tX.IDAccountSource, tX.HeightAccountCreated);
-          accountSource.ReverseSpendTX(tX);
-          WriteAccount(accountSource);
-        }
+      byte[] accountsUndo = documentUndo[NAME_FIELD_ACCOUNTS].AsBinary;
 
-        foreach (TXOutput tXOutput in tX.TXOutputs)
-          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
-            ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, -tXOutputP2PKH.Value);
-      }
+      foreach (Account account in ParseAccounts(accountsUndo, accountsUndo.Length))
+        WriteAccount(account);
+
+      UndoStored.Delete(height);
     }
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)

@@ -35,11 +35,5 @@ internal partial class BlockchainBToken : Blockchain
       Nonce += 1;
       Balance -= tX.GetValueOutputs() + tX.Fee;
     }
-
-    internal void ReverseSpendTX(TXBToken tX)
-    {
-      Nonce = tX.Nonce;
-      Balance += tX.GetValueOutputs() + tX.Fee;
-    }
   }
 }

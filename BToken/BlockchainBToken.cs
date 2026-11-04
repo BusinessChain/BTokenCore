@@ -93,7 +93,7 @@ internal partial class BlockchainBToken : Blockchain
   protected override void RollBackBlock(Block block)
   {
     if (Accounts.Exists())
-      Accounts.RollBackTXs(block);
+      Accounts.RollBack(block.Header.Height);
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
