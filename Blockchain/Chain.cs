@@ -8,8 +8,8 @@ internal partial class Blockchain
     internal Header HeaderRoot;
     internal Header HeaderTipBlockchain;
 
-    internal Chain ChainParent;
-    List<Chain> ChainsChild = new();
+    internal Chain ChainTrunk;
+    List<Chain> ChainsFork = new();
 
     internal Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
 
@@ -21,9 +21,9 @@ internal partial class Blockchain
       : this(null, headerGenesis, isRoot)
     { }
 
-    Chain(Chain chainParent, Header headerRoot, bool isRoot)
+    Chain(Chain chainTrunk, Header headerRoot, bool isRoot)
     {
-      ChainParent = chainParent;
+      ChainTrunk = chainTrunk;
       HeaderRoot = headerRoot;
       HeaderTip = headerRoot;
 
@@ -51,9 +51,9 @@ internal partial class Blockchain
       {
         headers[0].AppendToHeader(headerAncestor);
 
-        Chain chainChild = new(chain, headers[0], isRoot: false);
-        chain.ChainsChild.Add(chainChild);
-        chain = chainChild;
+        Chain chainFork = new(chain, headers[0], isRoot: false);
+        chain.ChainsFork.Add(chainFork);
+        chain = chainFork;
 
         indexAppendNext = 1;
       }
@@ -76,9 +76,9 @@ internal partial class Blockchain
       {
         if (headerAncestor == chain.HeaderRoot || headerAncestor.Height <= heightBlockStoredOldest)
         {
-          foreach (Chain chainChild in chain.ChainsChild)
+          foreach (Chain chainFork in chain.ChainsFork)
           {
-            chain = chainChild;
+            chain = chainFork;
 
             if (TrySearchHeaderAncestor(headers, ref chain, heightBlockStoredOldest, out headerAncestor))
               return true;
@@ -95,12 +95,12 @@ internal partial class Blockchain
         if (headerAncestor.HeaderNext?.Hash.IsAllBytesEqual(headers[0].Hash) == true)
           headerAncestor = headerAncestor.HeaderNext;
         else
-          foreach (Chain chainChild in chain.ChainsChild)
-            if (chainChild.HeaderRoot.HeaderPrevious == headerAncestor
-              && chainChild.HeaderRoot.Hash.IsAllBytesEqual(headers[0].Hash))
+          foreach (Chain chainFork in chain.ChainsFork)
+            if (chainFork.HeaderRoot.HeaderPrevious == headerAncestor
+              && chainFork.HeaderRoot.Hash.IsAllBytesEqual(headers[0].Hash))
             {
-              chain = chainChild;
-              headerAncestor = chainChild.HeaderRoot;
+              chain = chainFork;
+              headerAncestor = chainFork.HeaderRoot;
               break;
             }
 
@@ -128,9 +128,9 @@ internal partial class Blockchain
       if (search(this) is T result)
         return result;
 
-      foreach (Chain chainChild in ChainsChild)
-        if (chainChild.FindInTree(search) is T resultChild)
-          return resultChild;
+      foreach (Chain chainFork in ChainsFork)
+        if (chainFork.FindInTree(search) is T resultFork)
+          return resultFork;
 
       return null;
     }
@@ -167,7 +167,7 @@ internal partial class Blockchain
     {
       Header headerPrevious = headerRemove.HeaderPrevious;
 
-      ChainsChild.RemoveAll(c => c.HeaderRoot.Height > headerRemove.Height);
+      ChainsFork.RemoveAll(c => c.HeaderRoot.Height > headerRemove.Height);
 
       RemoveBlocksAndHeadersAwaitingBlock(h => h >= headerRemove.Height);
 
@@ -176,28 +176,28 @@ internal partial class Blockchain
 
       if (headerRemove == HeaderRoot)
       {
-        ChainParent.ChainsChild.Remove(this);
+        ChainTrunk.ChainsFork.Remove(this);
         return;
       }
 
       headerPrevious.HeaderNext = null;
       HeaderTip = headerPrevious;
 
-      Chain chainForkAtTip = ChainsChild
+      Chain chainForkAtTip = ChainsFork
         .Where(c => c.HeaderRoot.HeaderPrevious == HeaderTip)
         .MaxBy(c => c.HeaderTipBlockchain != null ? c.HeaderTipBlockchain.Height : HeaderTip.Height);
 
       if (chainForkAtTip == null)
         return;
 
-      ChainsChild.Remove(chainForkAtTip);
+      ChainsFork.Remove(chainForkAtTip);
 
       HeaderTip.HeaderNext = chainForkAtTip.HeaderRoot;
       HeaderTip = chainForkAtTip.HeaderTip;
 
       chainForkAtTip.MoveBlockDownloadsAndForksTo(this, int.MaxValue);
 
-      if (ChainParent != null)
+      if (ChainTrunk != null)
         AdvanceTipChain();
     }
 
@@ -222,8 +222,8 @@ internal partial class Blockchain
 
     internal void DropForksDeep(int heightBlockStoredOldest)
     {
-      foreach (Chain chainChild in ChainsChild.Where(c => c.HeaderRoot.HeaderPrevious.Height < heightBlockStoredOldest).ToList())
-        chainChild.CutOff(chainChild.HeaderRoot);
+      foreach (Chain chainFork in ChainsFork.Where(c => c.HeaderRoot.HeaderPrevious.Height < heightBlockStoredOldest).ToList())
+        chainFork.CutOff(chainFork.HeaderRoot);
     }
 
     internal void AppendHeader(Header header)
@@ -236,12 +236,12 @@ internal partial class Blockchain
 
     internal Header FetchHeaderBlockMissingNextInChain(int heightTarget, Func<Header, bool> canSupplierDeliverBlock)
     {
-      bool isChainParentLagging = ChainParent != null
-        && (ChainParent.HeaderTipBlockchain == null
-          || ChainParent.HeaderTipBlockchain.Height < HeaderRoot.Height - 1);
+      bool isChainTrunkLagging = ChainTrunk != null
+        && (ChainTrunk.HeaderTipBlockchain == null
+          || ChainTrunk.HeaderTipBlockchain.Height < HeaderRoot.Height - 1);
 
-      if (isChainParentLagging)
-        return ChainParent.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, canSupplierDeliverBlock);
+      if (isChainTrunkLagging)
+        return ChainTrunk.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, canSupplierDeliverBlock);
 
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
@@ -331,30 +331,30 @@ internal partial class Blockchain
       return (headers, heightAncestor);
     }
 
-    internal void SwitchWithParent()
+    internal void SwitchWithTrunk()
     {
-      Chain chainParent = ChainParent;
+      Chain chainTrunk = ChainTrunk;
       Header headerFork = HeaderRoot.HeaderPrevious;
       int heightFork = headerFork.Height;
 
-      (Blocks, chainParent.Blocks) = (chainParent.Blocks, Blocks);
-      (HeadersAwaitingBlock, chainParent.HeadersAwaitingBlock) = (chainParent.HeadersAwaitingBlock, HeadersAwaitingBlock);
-      (ChainsChild, chainParent.ChainsChild) = (chainParent.ChainsChild, ChainsChild);
+      (Blocks, chainTrunk.Blocks) = (chainTrunk.Blocks, Blocks);
+      (HeadersAwaitingBlock, chainTrunk.HeadersAwaitingBlock) = (chainTrunk.HeadersAwaitingBlock, HeadersAwaitingBlock);
+      (ChainsFork, chainTrunk.ChainsFork) = (chainTrunk.ChainsFork, ChainsFork);
 
-      MoveBlockDownloadsAndForksTo(chainParent, heightFork);
+      MoveBlockDownloadsAndForksTo(chainTrunk, heightFork);
 
-      foreach (Chain chainChild in ChainsChild)
-        chainChild.ChainParent = this;
+      foreach (Chain chainFork in ChainsFork)
+        chainFork.ChainTrunk = this;
 
-      Header headerRootChild = headerFork.HeaderNext;
+      Header headerRootFork = headerFork.HeaderNext;
       headerFork.HeaderNext = HeaderRoot;
-      HeaderRoot = headerRootChild;
-      (HeaderTip, chainParent.HeaderTip) = (chainParent.HeaderTip, HeaderTip);
+      HeaderRoot = headerRootFork;
+      (HeaderTip, chainTrunk.HeaderTip) = (chainTrunk.HeaderTip, HeaderTip);
 
-      if (chainParent.ChainParent != null)
+      if (chainTrunk.ChainTrunk != null)
       {
-        chainParent.HeaderTipBlockchain = null;
-        chainParent.AdvanceTipChain();
+        chainTrunk.HeaderTipBlockchain = null;
+        chainTrunk.AdvanceTipChain();
       }
 
       HeaderTipBlockchain = null;
@@ -365,10 +365,10 @@ internal partial class Blockchain
     {
       MoveItems(Blocks, chainTarget.Blocks, b => b.Key <= heightMax);
       MoveItems(HeadersAwaitingBlock, chainTarget.HeadersAwaitingBlock, h => h.Value.Height <= heightMax);
-      MoveItems(ChainsChild, chainTarget.ChainsChild, c => c.HeaderRoot.HeaderPrevious.Height <= heightMax);
+      MoveItems(ChainsFork, chainTarget.ChainsFork, c => c.HeaderRoot.HeaderPrevious.Height <= heightMax);
 
-      foreach (Chain chainChild in chainTarget.ChainsChild)
-        chainChild.ChainParent = chainTarget;
+      foreach (Chain chainFork in chainTarget.ChainsFork)
+        chainFork.ChainTrunk = chainTarget;
     }
 
     static void MoveItems<T>(ICollection<T> source, ICollection<T> target, Func<T, bool> predicate)
@@ -390,22 +390,22 @@ internal partial class Blockchain
     {
       Chain chainStrongest = null;
 
-      foreach (Chain chainChild in ChainsChild)
+      foreach (Chain chainFork in ChainsFork)
       {
-        bool isConnected = chainChild.HeaderTipBlockchain != null
-          && chainChild.HeaderRoot.HeaderPrevious.Height <= HeaderTipBlockchain.Height;
+        bool isConnected = chainFork.HeaderTipBlockchain != null
+          && chainFork.HeaderRoot.HeaderPrevious.Height <= HeaderTipBlockchain.Height;
 
         if (!isConnected)
           continue;
 
-        Chain chainStrongestBelowChild = chainChild.FindForkStrongest();
+        Chain chainStrongestBelowFork = chainFork.FindForkStrongest();
 
-        Chain chainStrongestOfChild = chainStrongestBelowChild != null
-          && chainStrongestBelowChild.IsStrongerThan(chainChild)
-          ? chainStrongestBelowChild : chainChild;
+        Chain chainStrongestOfFork = chainStrongestBelowFork != null
+          && chainStrongestBelowFork.IsStrongerThan(chainFork)
+          ? chainStrongestBelowFork : chainFork;
 
-        if (chainStrongest == null || chainStrongestOfChild.IsStrongerThan(chainStrongest))
-          chainStrongest = chainStrongestOfChild;
+        if (chainStrongest == null || chainStrongestOfFork.IsStrongerThan(chainStrongest))
+          chainStrongest = chainStrongestOfFork;
       }
 
       return chainStrongest;

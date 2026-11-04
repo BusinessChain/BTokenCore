@@ -349,11 +349,11 @@ internal abstract partial class Blockchain
   {
     while (chain != ChainRoot)
     {
-      if(chain.ChainParent == ChainRoot)
+      if(chain.ChainTrunk == ChainRoot)
         RollBack(heightAfterRollBack: chain.HeaderRoot.Height - 1);
 
-      chain.SwitchWithParent();
-      chain = chain.ChainParent;
+      chain.SwitchWithTrunk();
+      chain = chain.ChainTrunk;
     }
   }
 
