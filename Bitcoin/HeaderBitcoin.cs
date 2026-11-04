@@ -8,7 +8,6 @@ internal class HeaderBitcoin : Header
 
   internal uint UnixTimeSeconds;
 
-  const double MAX_TARGET = 2.695994666715064E67;
   const int RETARGETING_BLOCK_INTERVAL = 2016;
   const ulong RETARGETING_TIMESPAN_INTERVAL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -32,8 +31,6 @@ internal class HeaderBitcoin : Header
     UnixTimeSeconds = unixTimeSeconds;
     NBits = nBits;
     Nonce = nonce;
-
-    Difficulty = ComputeDifficultyFromNBits(nBits);
   }
 
   internal HeaderBitcoin(byte[] buffer, ref int index)
@@ -53,13 +50,6 @@ internal class HeaderBitcoin : Header
       throw new ProtocolException($"Header hash {Hash.ToHexString()} greater than NBits {NBits}.");
 
     Nonce = buffer.Read<uint>(ref index);
-
-    Difficulty = ComputeDifficultyFromNBits(NBits);
-  }
-
-  internal static double ComputeDifficultyFromNBits(uint nBits)
-  {
-    return MAX_TARGET / (double)UInt256.ParseFromCompact(nBits);
   }
 
   internal override void AppendToHeader(Header headerPrevious)

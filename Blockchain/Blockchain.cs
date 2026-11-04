@@ -146,14 +146,14 @@ internal abstract partial class Blockchain
   {
     int startIndex = ParseBlockHeader(block);
 
-    block.Header.CountTXs = VarInt.GetInt(block.Buffer, ref startIndex);
+    int countTXs = VarInt.GetInt(block.Buffer, ref startIndex);
 
-    if (block.Header.CountTXs == 0)
+    if (countTXs == 0)
       throw new ProtocolException($"Block {block} lacks coinbase transaction.");
 
     HashSet<byte[]> hashesTX = new(new EqualityComparerByteArray());
 
-    for (int t = 0; t < block.Header.CountTXs; t += 1)
+    for (int t = 0; t < countTXs; t += 1)
     {
       TX tX = ParseTX(block.Buffer, ref startIndex, isCoinbase: t == 0);
 

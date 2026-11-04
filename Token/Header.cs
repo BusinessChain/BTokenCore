@@ -15,9 +15,6 @@ public abstract class Header
   internal Dictionary<byte[], TXOutputTokenAnchor> AnchorsWinner = new(new EqualityComparerByteArray());
 
   internal int Height;
-  internal int CountTXs;
-
-  internal double Difficulty;
 
 
   internal Header()

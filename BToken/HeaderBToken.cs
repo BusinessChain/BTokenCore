@@ -8,9 +8,7 @@ public class HeaderBToken : Header
 
 
   internal HeaderBToken()
-  {
-    Difficulty = 1;
-  }
+  { }
 
   internal HeaderBToken(
     byte[] headerHash,
@@ -18,7 +16,6 @@ public class HeaderBToken : Header
     byte[] merkleRootHash,
     byte[] hashAccounts,
     uint nonce)
-    : this()
   {
     Hash = headerHash;
     HashPrevious = hashPrevious;
@@ -30,8 +27,6 @@ public class HeaderBToken : Header
   internal HeaderBToken(byte[] buffer, ref int index)
     : base(buffer, ref index, COUNT_HEADER_BYTES)
   {
-    Difficulty = 1;
-
     HashAccounts = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
 
     Nonce = buffer.Read<uint>(ref index);

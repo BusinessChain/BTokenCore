@@ -153,9 +153,4 @@ internal class UInt256
   {
     return Data.GetHashCode();
   }
-
-  public static explicit operator double(UInt256 d)
-  {
-    return (double)d.Data;
-  }
 }
