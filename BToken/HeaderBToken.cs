@@ -8,7 +8,7 @@ public class HeaderBToken : Header
   const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
   internal const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
 
-  internal byte[] HashDatabase;
+  internal byte[] HashAccounts;
 
 
   internal HeaderBToken()
@@ -20,14 +20,14 @@ public class HeaderBToken : Header
     byte[] headerHash,
     byte[] hashPrevious,
     byte[] merkleRootHash,
-    byte[] hashDatabase,
+    byte[] hashAccounts,
     uint nonce)
     : this()
   {
     Hash = headerHash;
     HashPrevious = hashPrevious;
     MerkleRoot = merkleRootHash;
-    HashDatabase = hashDatabase;
+    HashAccounts = hashAccounts;
     Nonce = nonce;
   }
 
@@ -36,7 +36,7 @@ public class HeaderBToken : Header
   {
     Difficulty = 1;
 
-    HashDatabase = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
+    HashAccounts = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
 
     Nonce = buffer.Read<uint>(ref index);
   }
@@ -45,7 +45,7 @@ public class HeaderBToken : Header
   {
     byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);
 
-    HashDatabase.CopyTo(buffer, 68);
+    HashAccounts.CopyTo(buffer, 68);
 
     BitConverter.GetBytes(Nonce).CopyTo(buffer, 100);
 
@@ -59,7 +59,7 @@ public class HeaderBToken : Header
     headerBToken.MerkleRoot = MerkleRoot;
     headerBToken.Nonce = Nonce;
     headerBToken.Version = Version;
-    headerBToken.HashDatabase = HashDatabase;
+    headerBToken.HashAccounts = HashAccounts;
   }
 
   internal static long GetBlockReward(int height)

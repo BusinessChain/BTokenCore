@@ -59,7 +59,7 @@ internal partial class BlockchainBToken : Blockchain
       headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
       hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
       merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
-      hashDatabase: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+      hashAccounts: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
       nonce: 0);
 
     return header;
@@ -85,8 +85,8 @@ internal partial class BlockchainBToken : Blockchain
 
     Accounts.InsertTXs(block);
 
-    if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)block.Header).HashDatabase))
-      throw new ProtocolException($"Hash of DB not equal to HashDatabase of block {block.Header.Hash.ToHexString()}.");
+    if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)block.Header).HashAccounts))
+      throw new ProtocolException($"Hash of DB not equal to HashAccounts of block {block.Header.Hash.ToHexString()}.");
   }
 
   protected override void RollBackBlock(Block block)
@@ -107,7 +107,7 @@ internal partial class BlockchainBToken : Blockchain
     return account.HeightBlockAccountCreated != tXBToken.HeightBlockAccountCreated || account.Nonce > tXBToken.Nonce;
   }
 
-  internal byte[] GetDatabase(byte[] hashBlock)
+  internal byte[] GetAccountsSerializedAtBlock(byte[] hashBlock)
   {
     if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hashBlock) && Accounts.Exists())
       return Accounts.Serialize();
@@ -123,7 +123,7 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal void InstallDatabase(byte[] hashBlock, byte[] buffer, int length)
+  internal void InstallAccountsAtBlock(byte[] hashBlock, byte[] buffer, int length)
   {
     if (Accounts.Exists()
       || !ChainRoot.TryGetHeader(hashBlock, out Header header)
@@ -145,12 +145,12 @@ internal partial class BlockchainBToken : Blockchain
     RollBack(heightAfterRollBack: GetHeightBlockStoredOldest());
 
     if (!SHA256.HashData(Accounts.Serialize())
-      .IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashDatabase))
+      .IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashAccounts))
     {
       Accounts.Drop();
       UpdateTipBlockchain(ChainRoot);
 
-      throw new ProtocolException($"Hash of DB not equal to HashDatabase of oldest stored block.");
+      throw new ProtocolException($"Hash of DB not equal to HashAccounts of oldest stored block.");
     }
 
     UpdateTipBlockchain(ChainRoot);
@@ -271,7 +271,7 @@ internal partial class BlockchainBToken : Blockchain
       CountTXs = block.TXs.Count
     };
 
-    ((HeaderBToken)block.Header).HashDatabase = Accounts.ComputeHash(block);
+    ((HeaderBToken)block.Header).HashAccounts = Accounts.ComputeHash(block);
 
     block.Header.ComputeHash();
 
@@ -307,7 +307,7 @@ internal partial class BlockchainBToken : Blockchain
         headerHash: anchorWinner.HashBlockReferenced,
         hashPrevious: anchorWinner.HashBlockPreviousReferenced,
         merkleRootHash: new byte[Crypto.LENGTH_HASH256],
-        hashDatabase: new byte[Crypto.LENGTH_HASH256],
+        hashAccounts: new byte[Crypto.LENGTH_HASH256],
         nonce: 0)
       {
         HeaderParent = blockParent.Header

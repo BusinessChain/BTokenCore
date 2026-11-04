@@ -135,7 +135,7 @@ internal partial class NetworkBToken : Network
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      byte[] dataDB = await blockchainBToken.RunLocked(() => blockchainBToken.GetDatabase(inventory.Hash));
+      byte[] dataDB = await blockchainBToken.RunLocked(() => blockchainBToken.GetAccountsSerializedAtBlock(inventory.Hash));
 
       if (dataDB != null)
         await peer.SocketCommunication.SendMessage(DBMessage.Command, dataDB.Length, dataDB);
@@ -196,7 +196,7 @@ internal partial class NetworkBToken : Network
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      await blockchainBToken.RunLocked(() => blockchainBToken.InstallDatabase(HashBlockDatabaseRequested, Payload, LengthDataPayload));
+      await blockchainBToken.RunLocked(() => blockchainBToken.InstallAccountsAtBlock(HashBlockDatabaseRequested, Payload, LengthDataPayload));
 
       DOSMonitor.Decrement(1);
 
