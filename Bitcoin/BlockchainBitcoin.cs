@@ -89,7 +89,7 @@ internal partial class BlockchainBitcoin : Blockchain
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)
-        if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
+        if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.IndexOutput)) is TXOutputOwned outputSpent)
         {
           outputSpent.HeightSpent = height;
           OutputsOwnedStored.Update(outputSpent);
@@ -130,7 +130,7 @@ internal partial class BlockchainBitcoin : Blockchain
     List<TXInputBitcoin> inputsTXOwned = ((TXBitcoin)tX).Inputs;
 
     return block.TXs.Any(t => ((TXBitcoin)t).Inputs.Any(tXInput =>
-      inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.OutputIndex == tXInput.OutputIndex)));
+      inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.IndexOutput == tXInput.IndexOutput)));
   }
 
   internal bool IsTXAnchorOpen()
@@ -154,7 +154,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     if (tXAnchorOpen != null)
       outputsSpendable = tXAnchorOpen.Inputs
-        .Select(i => OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.OutputIndex)))
+        .Select(i => OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)))
         .Where(o => o != null)
         .ToList();
     else
@@ -189,7 +189,7 @@ internal partial class BlockchainBitcoin : Blockchain
       tXAnchor.Inputs.Add(new TXInputBitcoin
       {
         TXIDOutput = outputSpendable.TXID,
-        OutputIndex = outputSpendable.Index
+        IndexOutput = outputSpendable.Index
       });
     }
 

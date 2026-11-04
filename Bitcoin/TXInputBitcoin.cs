@@ -5,7 +5,7 @@ internal partial class BlockchainBitcoin : Blockchain
   internal class TXInputBitcoin
   {
     internal byte[] TXIDOutput;
-    internal int OutputIndex;
+    internal int IndexOutput;
     internal int Sequence;
 
 
@@ -16,7 +16,7 @@ internal partial class BlockchainBitcoin : Blockchain
     {
       TXIDOutput = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
 
-      OutputIndex = buffer.Read<int>(ref index);
+      IndexOutput = buffer.Read<int>(ref index);
 
       int lengthScript = VarInt.GetInt(buffer, ref index);
       index += lengthScript;

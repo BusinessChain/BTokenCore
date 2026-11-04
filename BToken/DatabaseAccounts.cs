@@ -78,24 +78,24 @@ internal partial class BlockchainBToken : Blockchain
       AccountsStored.InsertBulk(accounts);
     }
 
-    internal Account LoadAccount(byte[] accountID, int heightAccountCreated)
+    internal Account LoadAccount(byte[] iDAccount, int heightAccountCreated)
     {
-      if (AccountsStored.FindById(accountID) is Account accountStored)
+      if (AccountsStored.FindById(iDAccount) is Account accountStored)
         return accountStored;
 
       return new()
       {
-        ID = accountID,
+        ID = iDAccount,
         HeightAccountCreated = heightAccountCreated
       };
     }
 
-    internal Account GetCopyOfAccount(byte[] accountID)
+    internal Account GetCopyOfAccount(byte[] iDAccount)
     {
-      if (AccountsStored.FindById(accountID) is Account accountStored)
+      if (AccountsStored.FindById(iDAccount) is Account accountStored)
         return new(accountStored);
       else
-        throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
+        throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
     }
 
     void WriteAccount(Account account)
@@ -140,9 +140,9 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    void ChangeBalance(byte[] accountID, int heightAccountCreated, long valueChange)
+    void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
     {
-      Account account = LoadAccount(accountID, heightAccountCreated);
+      Account account = LoadAccount(iDAccount, heightAccountCreated);
       account.Balance += valueChange;
       WriteAccount(account);
     }

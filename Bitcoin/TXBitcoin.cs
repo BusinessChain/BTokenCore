@@ -51,7 +51,7 @@ internal partial class BlockchainBitcoin : Blockchain
       foreach (TXInputBitcoin input in Inputs)
       {
         tXRaw.AddRange(input.TXIDOutput);
-        tXRaw.AddRange(BitConverter.GetBytes(input.OutputIndex));
+        tXRaw.AddRange(BitConverter.GetBytes(input.IndexOutput));
         tXRaw.Add(0x00); // length empty script
         tXRaw.AddRange(BitConverter.GetBytes(input.Sequence));
       }
