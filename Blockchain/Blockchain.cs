@@ -45,7 +45,7 @@ internal abstract partial class Blockchain
 
     SemaphoreBlockchain = semaphoreBlockchain;
 
-    ChainRoot = new(CreateHeaderGenesis(), isRoot: true);
+    ChainRoot = new(CreateHeaderRoot(), isRoot: true);
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     LiteDatabase = new ($"Filename={nameToken + "Network"}.db;Mode=Exclusive");
@@ -78,7 +78,7 @@ internal abstract partial class Blockchain
     });
   }
 
-  protected abstract Header CreateHeaderGenesis();
+  protected abstract Header CreateHeaderRoot();
 
   internal abstract Header ParseHeader(byte[] buffer, ref int index);
 

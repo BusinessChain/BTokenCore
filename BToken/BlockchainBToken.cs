@@ -54,7 +54,7 @@ internal partial class BlockchainBToken : Blockchain
       BlocksStored.DeleteAll();
   }
 
-  protected override Header CreateHeaderGenesis()
+  protected override Header CreateHeaderRoot()
   {
     HeaderBToken header = new(
       headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),

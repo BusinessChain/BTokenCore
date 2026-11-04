@@ -17,8 +17,8 @@ internal partial class Blockchain
     internal Dictionary<int, Block> BlocksQueued = new();
 
 
-    internal Chain(Header headerGenesis, bool isRoot)
-      : this(null, headerGenesis, isRoot)
+    internal Chain(Header headerRoot, bool isRoot)
+      : this(null, headerRoot, isRoot)
     { }
 
     Chain(Chain chainTrunk, Header headerRoot, bool isRoot)

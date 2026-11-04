@@ -24,7 +24,7 @@ internal partial class BlockchainBitcoin : Blockchain
     OutputsOwnedStored = LiteDatabase.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
   }
 
-  protected override Header CreateHeaderGenesis()
+  protected override Header CreateHeaderRoot()
   {
     HeaderBitcoin header = new(
        headerHash: "000000000000000000001e39df127cbab82a824ac43cfcdbf62e59f6a08b9f0b".ToBinary(),
