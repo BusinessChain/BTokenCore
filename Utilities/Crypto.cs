@@ -28,11 +28,11 @@ public static class Crypto
     byte[] buffer,
     int startIndexMessage,
     int lengthMessage,
-    byte[] pubKeyX,
+    byte[] keyPublic,
     byte[] signature)
   {
     ECPublicKeyParameters keyParameters = new(
-      DOMAIN_SECP256K1.Curve.DecodePoint(pubKeyX),
+      DOMAIN_SECP256K1.Curve.DecodePoint(keyPublic),
       DOMAIN_SECP256K1);
 
     ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
@@ -43,9 +43,9 @@ public static class Crypto
     return signer.VerifySignature(signature);
   }
 
-  public static byte[] GetSignature(string privateKey, byte[] message)
+  public static byte[] GetSignature(string keyPrivate, byte[] message)
   {
-    ECPrivateKeyParameters keyParameters = new(new BigInteger(privateKey), DOMAIN_SECP256K1);
+    ECPrivateKeyParameters keyParameters = new(new BigInteger(keyPrivate), DOMAIN_SECP256K1);
 
     ISigner signer = SignerUtilities.GetSigner("SHA-256withECDSA");
 
@@ -63,36 +63,36 @@ public static class Crypto
     }
   }
 
-  public static byte[] GetPubKeyFromPrivKey(string privKey)
+  public static byte[] GetKeyPublic(string keyPrivate)
   {
-    var d = new BigInteger(privKey);
+    var d = new BigInteger(keyPrivate);
     var q = DOMAIN_SECP256K1.G.Multiply(d);
 
-    var publicKey = new ECPublicKeyParameters(q, DOMAIN_SECP256K1);
+    var keyParameters = new ECPublicKeyParameters(q, DOMAIN_SECP256K1);
 
-    List<byte> pubKeyX = publicKey.Q.XCoord.GetEncoded().ToList();
+    List<byte> keyPublic = keyParameters.Q.XCoord.GetEncoded().ToList();
 
-    byte lasbByteY = publicKey.Q.YCoord.GetEncoded().Last();
+    byte lastByteY = keyParameters.Q.YCoord.GetEncoded().Last();
 
-    if ((lasbByteY & 0x01) == 0x00)
-      pubKeyX.Insert(0, 0x02);
+    if ((lastByteY & 0x01) == 0x00)
+      keyPublic.Insert(0, 0x02);
     else
-      pubKeyX.Insert(0, 0x03);
+      keyPublic.Insert(0, 0x03);
 
-    return pubKeyX.ToArray();
+    return keyPublic.ToArray();
   }
 
   public static byte[] ComputeHash160(byte[] data)
   {
-    byte[] publicKeyHash160 = new byte[LENGTH_HASH160];
+    byte[] hash160 = new byte[LENGTH_HASH160];
 
-    var hashPublicKey = SHA256.HashData(data);
+    var hashSHA256 = SHA256.HashData(data);
 
     RipeMD160Digest RIPEMD160 = new();
-    RIPEMD160.BlockUpdate(hashPublicKey, 0, hashPublicKey.Length);
-    RIPEMD160.DoFinal(publicKeyHash160, 0);
+    RIPEMD160.BlockUpdate(hashSHA256, 0, hashSHA256.Length);
+    RIPEMD160.DoFinal(hash160, 0);
 
-    return publicKeyHash160;
+    return hash160;
   }
 
   public static byte[] ComputeHash256(ReadOnlySpan<byte> data)

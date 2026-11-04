@@ -12,7 +12,7 @@ internal class Wallet
   {
     KeyPrivateDecimal = privKeyDec;
 
-    KeyPublic = Crypto.GetPubKeyFromPrivKey(KeyPrivateDecimal);
+    KeyPublic = Crypto.GetKeyPublic(KeyPrivateDecimal);
 
     Hash160PKeyPublic = Crypto.ComputeHash160(KeyPublic);
 
