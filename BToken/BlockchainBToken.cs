@@ -23,7 +23,6 @@ internal partial class BlockchainBToken : Blockchain
 
   bool IsMining;
   long FeePerByte;
-  List<Block> BlocksMinedCache = new();
   ILiteCollection<BsonDocument> BlocksMinedStored;
 
 
@@ -275,10 +274,7 @@ internal partial class BlockchainBToken : Blockchain
       return;
 
     if (!BlockchainBitcoin.IsTXAnchorOpen())
-    {
-      BlocksMinedCache.Clear();
       BlocksMinedStored.DeleteAll();
-    }
 
     Block block = new(SizeBlockMax);
 
@@ -316,8 +312,6 @@ internal partial class BlockchainBToken : Blockchain
       return;
 
     block.Serialize();
-
-    BlocksMinedCache.Add(block);
 
     BlocksMinedStored.Insert(new BsonDocument
     {
@@ -365,12 +359,9 @@ internal partial class BlockchainBToken : Blockchain
     if (!hasAnchorWinner)
       return;
 
-    Block block = BlocksMinedCache
-      .Find(b => b.Header.Hash.IsAllBytesEqual(anchorWinner.HashBlockReferenced));
+    Block block = null;
 
-    if (block != null)
-      BlocksMinedCache.Remove(block);
-    else if (BlocksMinedStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
+    if (BlocksMinedStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
       block = new(bsonDocumentBlock["blockBytes"].AsBinary);
 
     BlocksMinedStored.Delete(anchorWinner.HashBlockReferenced);
