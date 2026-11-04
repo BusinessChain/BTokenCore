@@ -1,11 +1,12 @@
 using LiteDB;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
-  internal class DatabaseAccounts
+  class DatabaseAccounts
   {
     const string NAME_COLLECTION = "accounts";
 
@@ -109,6 +110,50 @@ internal partial class BlockchainBToken : Blockchain
         AccountsStored.Upsert(account);
       else
         AccountsStored.Delete(account.ID);
+    }
+
+    internal void InsertTXs(Block block)
+    {
+      for (int i = 0; i < block.TXs.Count; i += 1)
+      {
+        TXBToken tX = (TXBToken)block.TXs[i];
+
+        foreach (TXOutput tXOutput in tX.TXOutputs)
+          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
+            ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, tXOutputP2PKH.Value);
+
+        if (i > 0)
+          SpendTXInput(tX);
+      }
+    }
+
+    internal void ChangeBalance(byte[] accountID, int blockHeightAccountCreated, long valueChange)
+    {
+      Account account = LoadAccount(accountID, blockHeightAccountCreated);
+      account.Balance += valueChange;
+      WriteAccount(account);
+    }
+
+    void SpendTXInput(TXBToken tX)
+    {
+      Account account = GetCopyOfAccount(tX.IDAccountSource);
+      account.SpendTX(tX);
+      WriteAccount(account);
+    }
+
+    internal byte[] ComputeHash(Block block)
+    {
+      LiteDatabase.BeginTrans();
+
+      try
+      {
+        InsertTXs(block);
+        return SHA256.HashData(Serialize());
+      }
+      finally
+      {
+        LiteDatabase.Rollback();
+      }
     }
   }
 }

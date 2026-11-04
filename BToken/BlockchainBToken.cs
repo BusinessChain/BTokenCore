@@ -9,11 +9,11 @@ internal partial class BlockchainBToken : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
-  internal DatabaseAccounts Accounts = new();
+  DatabaseAccounts Accounts = new();
 
   PoolTXBToken TXPool;
 
-  internal byte[] IDToken = new byte[TXOutputTokenAnchor.LENGTH_ID_TOKEN];
+  byte[] IDToken = new byte[TXOutputTokenAnchor.LENGTH_ID_TOKEN];
 
   BlockchainBitcoin BlockchainBitcoin;
 
@@ -83,39 +83,10 @@ internal partial class BlockchainBToken : Blockchain
     if (!Accounts.Exists())
       return;
 
-    InsertTXs(block);
+    Accounts.InsertTXs(block);
 
     if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)block.Header).HashDatabase))
       throw new ProtocolException($"Hash of DB not equal to HashDatabase of block {block.Header.Hash.ToHexString()}.");
-  }
-
-  void InsertTXs(Block block)
-  {
-    for (int i = 0; i < block.TXs.Count; i += 1)
-    {
-      TXBToken tX = (TXBToken)block.TXs[i];
-
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
-          ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, tXOutputP2PKH.Value);
-
-      if (i > 0)
-        SpendTXInput(tX);
-    }
-  }
-
-  void ChangeBalance(byte[] accountID, int blockHeightAccountCreated, long valueChange)
-  {
-    Account account = Accounts.LoadAccount(accountID, blockHeightAccountCreated);
-    account.Balance += valueChange;
-    Accounts.WriteAccount(account);
-  }
-
-  void SpendTXInput(TXBToken tX)
-  {
-    Account account = Accounts.GetCopyOfAccount(tX.IDAccountSource);
-    account.SpendTX(tX);
-    Accounts.WriteAccount(account);
   }
 
   protected override void RollBackBlock(Block block)
@@ -136,7 +107,7 @@ internal partial class BlockchainBToken : Blockchain
 
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
-          ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, -tXOutputP2PKH.Value);
+          Accounts.ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, -tXOutputP2PKH.Value);
     }
   }
 
@@ -316,7 +287,7 @@ internal partial class BlockchainBToken : Blockchain
       CountTXs = block.TXs.Count
     };
 
-    ((HeaderBToken)block.Header).HashDatabase = ComputeHashDatabase(block);
+    ((HeaderBToken)block.Header).HashDatabase = Accounts.ComputeHash(block);
 
     block.Header.ComputeHash();
 
@@ -339,21 +310,6 @@ internal partial class BlockchainBToken : Blockchain
       ["_id"] = block.Header.Hash,
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
     });
-  }
-
-  byte[] ComputeHashDatabase(Block block)
-  {
-    LiteDatabase.BeginTrans();
-
-    try
-    {
-      InsertTXs(block);
-      return SHA256.HashData(Accounts.Serialize());
-    }
-    finally
-    {
-      LiteDatabase.Rollback();
-    }
   }
 
   void HandleBlockParentInserted(Block blockParent)
