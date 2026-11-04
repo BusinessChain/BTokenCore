@@ -60,7 +60,7 @@ internal partial class BlockchainBToken : Blockchain
       headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
       hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
       merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
-      hashAccounts: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
+      hashAccounts: "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d".ToBinary(),
       nonce: 0);
 
     return header;
@@ -94,6 +94,20 @@ internal partial class BlockchainBToken : Blockchain
   {
     if (Accounts.Exists())
       Accounts.RollBack(block.Header.Height);
+  }
+
+  protected override void VerifyDatabase()
+  {
+    if (!Accounts.Exists()
+      || SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashAccounts))
+      return;
+
+    Console.WriteLine(
+      $"Accounts database is corrupt, its hash is not equal to HashAccounts of tip " +
+      $"{ChainRoot.HeaderTipBlockchain.Hash.ToHexString()}. Node halts.");
+
+    // Later: instead of the console log and Environment.Exit, enter a fail state that reports through the RPC interface and recovers on the operator's instructions.
+    Environment.Exit(1);
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
