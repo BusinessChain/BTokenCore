@@ -31,9 +31,7 @@ internal partial class Network
       return [.. BitConverter.GetBytes((uint)Type), .. Hash];
     }
 
-    internal static Inventory Parse(
-      byte[] buffer,
-      ref int startIndex)
+    internal static Inventory Parse(byte[] buffer, ref int startIndex)
     {
       uint type = buffer.Read<uint>(ref startIndex);
 

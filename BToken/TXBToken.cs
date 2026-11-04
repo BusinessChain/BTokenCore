@@ -50,7 +50,7 @@ internal partial class BlockchainBToken : Blockchain
 
       Fee = buffer.Read<long>(ref index);
 
-      if (Fee < 0 || Fee > HeaderBToken.SUPPLY_MAX)
+      if (Fee < 0 || Fee > SUPPLY_MAX)
         throw new ProtocolException($"Fee {Fee} of TX out of range.");
 
       long valueTX = Fee;
@@ -66,7 +66,7 @@ internal partial class BlockchainBToken : Blockchain
 
         if (tXOutput is TXOutputP2PKH tXOutputP2PKH)
         {
-          if (tXOutputP2PKH.Value < 0 || tXOutputP2PKH.Value > HeaderBToken.SUPPLY_MAX - valueTX)
+          if (tXOutputP2PKH.Value < 0 || tXOutputP2PKH.Value > SUPPLY_MAX - valueTX)
             throw new ProtocolException($"Value {tXOutputP2PKH.Value} of TX output out of range.");
 
           valueTX += tXOutputP2PKH.Value;

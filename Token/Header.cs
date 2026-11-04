@@ -76,8 +76,6 @@ public abstract class Header
 
   internal virtual void CopyTo(Header header) { }
 
-  internal virtual void VerifyCoinbase(List<TX> tXs) { }
-
   internal void ComputeHash()
   {
     Hash = Crypto.ComputeHash256(Serialize());

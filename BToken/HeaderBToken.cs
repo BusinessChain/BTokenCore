@@ -4,10 +4,6 @@ public class HeaderBToken : Header
 {
   internal const int COUNT_HEADER_BYTES = 104;
 
-  const long BLOCK_REWARD_INITIAL = 20_000_000_000;
-  const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
-  internal const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
-
   internal byte[] HashAccounts;
 
 
@@ -60,31 +56,5 @@ public class HeaderBToken : Header
     headerBToken.Nonce = Nonce;
     headerBToken.Version = Version;
     headerBToken.HashAccounts = HashAccounts;
-  }
-
-  internal static long GetBlockReward(int height)
-  {
-    int countHalvings = height / PERIOD_HALVENING_BLOCK_REWARD;
-
-    if (countHalvings >= 64)
-      return 0;
-
-    return BLOCK_REWARD_INITIAL >> countHalvings;
-  }
-
-  internal override void VerifyCoinbase(List<TX> tXs)
-  {
-    long fee = 0;
-
-    for (int i = 1; i < tXs.Count; i += 1)
-    {
-      if (tXs[i].Fee > SUPPLY_MAX - fee)
-        throw new ProtocolException($"Fees of block exceed supply max.");
-
-      fee += tXs[i].Fee;
-    }
-
-    if (GetBlockReward(Height) + fee != tXs[0].GetValueOutputs())
-      throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
   }
 }

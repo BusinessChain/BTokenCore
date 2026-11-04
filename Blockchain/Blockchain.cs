@@ -131,6 +131,8 @@ internal abstract partial class Blockchain
     return startIndex;
   }
 
+  protected virtual void VerifyCoinbase(Block block) { }
+
   void ParseBlock(Block block)
   {
     int startIndex = ParseBlockHeader(block);
@@ -155,7 +157,7 @@ internal abstract partial class Blockchain
     if (!block.Header.MerkleRoot.IsAllBytesEqual(block.ComputeMerkleRoot()))
       throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
 
-    block.Header.VerifyCoinbase(block.TXs);
+    VerifyCoinbase(block);
 
     foreach (TX tX in block.TXs)
       foreach (TXOutput tXOutput in tX.TXOutputs)

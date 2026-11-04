@@ -9,6 +9,10 @@ internal partial class BlockchainBToken : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
+  const long BLOCK_REWARD_INITIAL = 20_000_000_000;
+  const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
+  const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
+
   DatabaseAccounts Accounts = new();
 
   PoolTXBToken TXPool;
@@ -223,9 +227,35 @@ internal partial class BlockchainBToken : Blockchain
     IsMining = false;
   }
 
+  static long GetBlockReward(int height)
+  {
+    int countHalvings = height / PERIOD_HALVENING_BLOCK_REWARD;
+
+    if (countHalvings >= 64)
+      return 0;
+
+    return BLOCK_REWARD_INITIAL >> countHalvings;
+  }
+
+  protected override void VerifyCoinbase(Block block)
+  {
+    long fee = 0;
+
+    for (int i = 1; i < block.TXs.Count; i += 1)
+    {
+      if (block.TXs[i].Fee > SUPPLY_MAX - fee)
+        throw new ProtocolException($"Fees of block exceed supply max.");
+
+      fee += block.TXs[i].Fee;
+    }
+
+    if (GetBlockReward(block.Header.Height) + fee != block.TXs[0].GetValueOutputs())
+      throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
+  }
+
   TXBToken CreateTXCoinbase(int height, long fees)
   {
-    TXOutputP2PKH outputCoinbase = new(HeaderBToken.GetBlockReward(height) + fees, Wallet.Hash160PKeyPublic);
+    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees, Wallet.Hash160PKeyPublic);
 
     TXBToken tXCoinbase = new()
     {
