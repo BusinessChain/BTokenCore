@@ -19,10 +19,8 @@ internal partial class BlockchainBitcoin : Blockchain
 
 
   internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
-    : base("TokenBitcoin", blockchainParent: null, semaphoreBlockchain)
+    : base("TokenBitcoin", SIZE_BLOCK_MAX, blockchainParent: null, semaphoreBlockchain)
   {
-    SizeBlockMax = SIZE_BLOCK_MAX;
-
     OutputsOwnedStored = LiteDatabase.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
   }
 

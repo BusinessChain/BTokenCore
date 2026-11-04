@@ -29,10 +29,8 @@ internal partial class BlockchainBToken : Blockchain
   internal BlockchainBToken(
     BlockchainBitcoin blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
-    : base("TokenBToken", blockchainParent, semaphoreBlockchain)
+    : base("TokenBToken", SIZE_BLOCK_MAX, blockchainParent, semaphoreBlockchain)
   {
-    SizeBlockMax = SIZE_BLOCK_MAX;
-
     BlockchainBitcoin = blockchainParent;
 
     BlocksMinedStored = LiteDatabase.GetCollection<BsonDocument>("blocksMined");

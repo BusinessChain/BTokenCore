@@ -9,7 +9,7 @@ internal abstract partial class Blockchain
 
   internal Wallet Wallet;
 
-  internal int SizeBlockMax;
+  internal readonly int SizeBlockMax;
 
   protected Chain ChainRoot;
 
@@ -27,12 +27,15 @@ internal abstract partial class Blockchain
 
   protected Blockchain(
     string nameToken,
+    int sizeBlockMax,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
     Directory.CreateDirectory(nameToken);
 
     Wallet = new Wallet(File.ReadAllText($"Wallet{nameToken}/wallet"));
+
+    SizeBlockMax = sizeBlockMax;
 
     SemaphoreBlockchain = semaphoreBlockchain;
 
