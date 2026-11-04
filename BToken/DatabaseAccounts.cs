@@ -66,19 +66,13 @@ internal partial class BlockchainBToken : Blockchain
       List<Account> accounts = new();
 
       for (int i = 0; i < countAccounts; i += 1)
-      {
-        Account account = new();
-
-        account.ID = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH160);
-
-        account.HeightBlockAccountCreated = buffer.Read<int>(ref index);
-
-        account.Nonce = buffer.Read<int>(ref index);
-
-        account.Balance = buffer.Read<long>(ref index);
-
-        accounts.Add(account);
-      }
+        accounts.Add(new()
+        {
+          ID = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH160),
+          HeightBlockAccountCreated = buffer.Read<int>(ref index),
+          Nonce = buffer.Read<int>(ref index),
+          Balance = buffer.Read<long>(ref index)
+        });
 
       AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
       AccountsStored.InsertBulk(accounts);
