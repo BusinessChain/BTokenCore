@@ -54,10 +54,8 @@ internal partial class BlockchainBToken : Blockchain
       Account accountTrial = Blockchain.Accounts.LoadAccountExisting(tXBToken.IDAccountSource);
 
       if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBToken> tXsInPool))
-      {
-        accountTrial.Balance -= tXsInPool.Sum(t => t.GetValueOutputs() + t.Fee);
-        accountTrial.Nonce += tXsInPool.Count;
-      }
+        foreach (TXBToken tXInPool in tXsInPool)
+          accountTrial.SpendTX(tXInPool);
 
       accountTrial.SpendTX(tXBToken);
 
