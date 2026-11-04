@@ -20,7 +20,7 @@ internal partial class BlockchainBToken : Blockchain
   bool IsMining;
   long FeePerByte;
   List<Block> BlocksMinedCache = new();
-  ILiteCollection<BsonDocument> DatabaseBlocksMinedCollection;
+  ILiteCollection<BsonDocument> BlocksMinedStored;
 
 
   internal BlockchainBToken(
@@ -32,7 +32,7 @@ internal partial class BlockchainBToken : Blockchain
 
     BlockchainBitcoin = blockchainParent;
 
-    DatabaseBlocksMinedCollection = Database.GetCollection<BsonDocument>("blocksMined");
+    BlocksMinedStored = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
 
     TXPool = new PoolTXBToken(this);
 
@@ -49,8 +49,8 @@ internal partial class BlockchainBToken : Blockchain
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
 
-    if (!Accounts.TryLoad(Database))
-      DatabaseBlockCollection.DeleteAll();
+    if (!Accounts.TryLoad(LiteDatabase))
+      BlocksStored.DeleteAll();
   }
 
   protected override Header CreateHeaderGenesis()
@@ -77,7 +77,7 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void InsertBlock(Block block)
   {
-    DatabaseBlockCollection.DeleteMany(
+    BlocksStored.DeleteMany(
       Query.LT("_id", block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
 
     if (!Accounts.Exists())
@@ -179,7 +179,7 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      RunInDatabaseTransaction(() => Accounts.Install(buffer, length));
+      LiteDatabase.RunTransaction(() => Accounts.Install(buffer, length));
     }
     catch
     {
@@ -219,7 +219,7 @@ internal partial class BlockchainBToken : Blockchain
     if (!Accounts.Exists())
       return;
 
-    foreach (BsonDocument documentTXOwned in TXsOwned.Find(Query.EQ("heightConfirmed", 0)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ("heightConfirmed", 0)).ToList())
       try
       {
         TXPool.AddTX(ParseTXOwned(documentTXOwned));
@@ -292,7 +292,7 @@ internal partial class BlockchainBToken : Blockchain
     if (!BlockchainBitcoin.IsTXAnchorOpen())
     {
       BlocksMinedCache.Clear();
-      DatabaseBlocksMinedCollection.DeleteAll();
+      BlocksMinedStored.DeleteAll();
     }
 
     Block block = new(SizeBlockMax);
@@ -334,7 +334,7 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksMinedCache.Add(block);
 
-    DatabaseBlocksMinedCollection.Insert(new BsonDocument
+    BlocksMinedStored.Insert(new BsonDocument
     {
       ["_id"] = block.Header.Hash,
       ["blockBytes"] = block.Buffer[..block.LengthDataPayload]
@@ -343,7 +343,7 @@ internal partial class BlockchainBToken : Blockchain
 
   byte[] ComputeHashDatabase(Block block)
   {
-    Database.BeginTrans();
+    LiteDatabase.BeginTrans();
 
     try
     {
@@ -352,7 +352,7 @@ internal partial class BlockchainBToken : Blockchain
     }
     finally
     {
-      Database.Rollback();
+      LiteDatabase.Rollback();
     }
   }
 
@@ -400,10 +400,10 @@ internal partial class BlockchainBToken : Blockchain
 
     if (block != null)
       BlocksMinedCache.Remove(block);
-    else if (DatabaseBlocksMinedCollection.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
+    else if (BlocksMinedStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
       block = new(bsonDocumentBlock["blockBytes"].AsBinary);
 
-    DatabaseBlocksMinedCollection.Delete(anchorWinner.HashBlockReferenced);
+    BlocksMinedStored.Delete(anchorWinner.HashBlockReferenced);
 
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain))
       return;
@@ -467,7 +467,7 @@ internal partial class BlockchainBToken : Blockchain
 
     Accounts.Drop();
     TXPool.Clear();
-    DatabaseBlockCollection.DeleteAll();
+    BlocksStored.DeleteAll();
 
     ChainRoot.ReRoot(headerRoot);
   }

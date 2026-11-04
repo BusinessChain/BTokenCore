@@ -13,9 +13,9 @@ internal abstract partial class Blockchain
 
   protected Chain ChainRoot;
 
-  protected LiteDatabase Database;
-  protected ILiteCollection<BsonDocument> DatabaseBlockCollection;
-  protected ILiteCollection<BsonDocument> TXsOwned;
+  protected LiteDatabase LiteDatabase;
+  protected ILiteCollection<BsonDocument> BlocksStored;
+  protected ILiteCollection<BsonDocument> TXsOwnedStored;
 
   SemaphoreSlim SemaphoreBlockchain;
 
@@ -39,11 +39,11 @@ internal abstract partial class Blockchain
     ChainRoot = new(CreateHeaderGenesis(), isRoot: true);
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
-    Database = new ($"Filename={nameToken + "Network"}.db;Mode=Exclusive");
-    DatabaseBlockCollection = Database.GetCollection<BsonDocument>("blocks");
-    TXsOwned = Database.GetCollection<BsonDocument>("tXsOwned");
+    LiteDatabase = new ($"Filename={nameToken + "Network"}.db;Mode=Exclusive");
+    BlocksStored = LiteDatabase.GetCollection<BsonDocument>("blocks");
+    TXsOwnedStored = LiteDatabase.GetCollection<BsonDocument>("tXsOwned");
 
-    AppDomain.CurrentDomain.ProcessExit += (s, e) => { Database.Dispose(); };
+    AppDomain.CurrentDomain.ProcessExit += (s, e) => { LiteDatabase.Dispose(); };
   }
 
   internal async Task<T> RunLocked<T>(Func<T> function)
@@ -77,7 +77,7 @@ internal abstract partial class Blockchain
 
   internal virtual TX GetTX(byte[] hash)
   {
-    if (TXsOwned.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned["heightConfirmed"].AsInt32 == 0)
+    if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned["heightConfirmed"].AsInt32 == 0)
       return ParseTXOwned(documentTXOwned);
 
     return null;
@@ -98,12 +98,12 @@ internal abstract partial class Blockchain
 
   internal List<byte[]> GetHashesTXOwned()
   {
-    return TXsOwned.Find(Query.EQ("heightConfirmed", 0)).Select(d => d["_id"].AsBinary).ToList();
+    return TXsOwnedStored.Find(Query.EQ("heightConfirmed", 0)).Select(d => d["_id"].AsBinary).ToList();
   }
 
   protected void InsertTXOwned(TX tX)
   {
-    TXsOwned.Insert(new BsonDocument
+    TXsOwnedStored.Insert(new BsonDocument
     {
       ["_id"] = tX.Hash,
       ["tXRaw"] = tX.TXRaw,
@@ -175,7 +175,7 @@ internal abstract partial class Blockchain
 
   protected Block LoadBlock(int height)
   {
-    if (DatabaseBlockCollection.FindById(height) is BsonDocument bsonDocumentBlock)
+    if (BlocksStored.FindById(height) is BsonDocument bsonDocumentBlock)
       return new Block(bsonDocumentBlock["blockBytes"].AsBinary);
 
     return null;
@@ -210,7 +210,7 @@ internal abstract partial class Blockchain
 
   internal void LoadBlockchain()
   {
-    foreach (BsonDocument bsonDocumentBlock in DatabaseBlockCollection.Find(Query.All(Query.Ascending)))
+    foreach (BsonDocument bsonDocumentBlock in BlocksStored.Find(Query.All(Query.Ascending)))
       try
       {
         Block blockLoad = new(bsonDocumentBlock["blockBytes"].AsBinary);
@@ -238,7 +238,7 @@ internal abstract partial class Blockchain
 
   protected int GetHeightBlockStoredOldest()
   {
-    BsonDocument bsonDocumentBlockOldest = DatabaseBlockCollection.Query().OrderBy("_id").Select("_id").FirstOrDefault();
+    BsonDocument bsonDocumentBlockOldest = BlocksStored.Query().OrderBy("_id").Select("_id").FirstOrDefault();
 
     if (bsonDocumentBlockOldest == null)
       return ChainRoot.HeaderRoot.Height;
@@ -292,40 +292,23 @@ internal abstract partial class Blockchain
     }
   }
 
-  protected void RunInDatabaseTransaction(Action action)
-  {
-    Database.BeginTrans();
-
-    try
-    {
-      action();
-    }
-    catch
-    {
-      Database.Rollback();
-      throw;
-    }
-
-    Database.Commit();
-  }
-
   void InsertBlocksQueued()
   {
     while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
       try
       {
-        RunInDatabaseTransaction(() =>
+        LiteDatabase.RunTransaction(() =>
         {
           InsertBlock(block);
 
           MarkTXsOwnedConfirmed(block);
 
-          TXsOwned.DeleteMany(Query.Between("heightConfirmed", 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
+          TXsOwnedStored.DeleteMany(Query.Between("heightConfirmed", 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
-          DatabaseBlockCollection.Upsert(new BsonDocument
+          BlocksStored.Upsert(new BsonDocument
           {
             ["_id"] = block.Header.Height,
             ["blockBytes"] = SerializeBlockStored(block)
@@ -344,11 +327,11 @@ internal abstract partial class Blockchain
 
   void MarkTXsOwnedConfirmed(Block block)
   {
-    foreach (BsonDocument documentTXOwned in TXsOwned.Find(Query.EQ("heightConfirmed", 0)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ("heightConfirmed", 0)).ToList())
       if (IsTXOwnedConfirmed(ParseTXOwned(documentTXOwned), block))
       {
         documentTXOwned["heightConfirmed"] = block.Header.Height;
-        TXsOwned.Update(documentTXOwned);
+        TXsOwnedStored.Update(documentTXOwned);
       }
   }
 
@@ -382,13 +365,13 @@ internal abstract partial class Blockchain
       if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
         throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded for rollback.");
 
-      RunInDatabaseTransaction(() =>
+      LiteDatabase.RunTransaction(() =>
       {
         RollBackBlock(block);
 
         ReopenTXsOwned(header.Height);
 
-        DatabaseBlockCollection.Delete(header.Height);
+        BlocksStored.Delete(header.Height);
       });
 
       OnBlockRolledBack.Announce(block);
@@ -401,10 +384,10 @@ internal abstract partial class Blockchain
 
   void ReopenTXsOwned(int height)
   {
-    foreach (BsonDocument documentTXOwned in TXsOwned.Find(Query.EQ("heightConfirmed", height)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ("heightConfirmed", height)).ToList())
     {
       documentTXOwned["heightConfirmed"] = 0;
-      TXsOwned.Update(documentTXOwned);
+      TXsOwnedStored.Update(documentTXOwned);
     }
   }
 

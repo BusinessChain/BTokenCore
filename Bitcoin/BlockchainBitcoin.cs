@@ -15,7 +15,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
-  ILiteCollection<TXOutputOwned> OutputsOwned;
+  ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
 
   internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
@@ -23,7 +23,7 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     SizeBlockMax = SIZE_BLOCK_MAX;
 
-    OutputsOwned = Database.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
+    OutputsOwnedStored = LiteDatabase.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
   }
 
   protected override Header CreateHeaderGenesis()
@@ -84,21 +84,21 @@ internal partial class BlockchainBitcoin : Blockchain
 
     int heightPruning = height - COUNT_MAX_BLOCKS_STORED;
 
-    OutputsOwned.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
+    OutputsOwnedStored.DeleteMany(Query.Between("HeightSpent", 1, heightPruning));
 
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)
-        if (OutputsOwned.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
+        if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.OutputIndex)) is TXOutputOwned outputSpent)
         {
           outputSpent.HeightSpent = height;
-          OutputsOwned.Update(outputSpent);
+          OutputsOwnedStored.Update(outputSpent);
         }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
         if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
           tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
-          OutputsOwned.Insert(new TXOutputOwned
+          OutputsOwnedStored.Insert(new TXOutputOwned
           {
             ID = TXOutputOwned.CreateID(tX.Hash, i),
             TXID = tX.Hash,
@@ -113,16 +113,16 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     int height = block.Header.Height;
 
-    OutputsOwned.DeleteMany(Query.EQ("HeightCreated", height));
+    OutputsOwnedStored.DeleteMany(Query.EQ("HeightCreated", height));
 
-    foreach (TXOutputOwned outputSpent in OutputsOwned.Find(Query.EQ("HeightSpent", height)).ToList())
+    foreach (TXOutputOwned outputSpent in OutputsOwnedStored.Find(Query.EQ("HeightSpent", height)).ToList())
     {
       outputSpent.HeightSpent = 0;
-      OutputsOwned.Update(outputSpent);
+      OutputsOwnedStored.Update(outputSpent);
     }
 
-    if (TXsOwned.Exists(Query.EQ("heightConfirmed", height)))
-      TXsOwned.DeleteMany(Query.EQ("heightConfirmed", 0));
+    if (TXsOwnedStored.Exists(Query.EQ("heightConfirmed", height)))
+      TXsOwnedStored.DeleteMany(Query.EQ("heightConfirmed", 0));
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
@@ -135,7 +135,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
   internal bool IsTXAnchorOpen()
   {
-    return TXsOwned.Exists(Query.EQ("heightConfirmed", 0));
+    return TXsOwnedStored.Exists(Query.EQ("heightConfirmed", 0));
   }
 
   internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
@@ -144,7 +144,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     TXBitcoin tXAnchorOpen = null;
 
-    if (TXsOwned.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchorOpen)
+    if (TXsOwnedStored.FindOne(Query.EQ("heightConfirmed", 0)) is BsonDocument documentAnchorOpen)
       tXAnchorOpen = (TXBitcoin)ParseTXOwned(documentAnchorOpen);
 
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
@@ -154,11 +154,11 @@ internal partial class BlockchainBitcoin : Blockchain
 
     if (tXAnchorOpen != null)
       outputsSpendable = tXAnchorOpen.Inputs
-        .Select(i => OutputsOwned.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.OutputIndex)))
+        .Select(i => OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.OutputIndex)))
         .Where(o => o != null)
         .ToList();
     else
-      outputsSpendable = OutputsOwned.Find(Query.EQ("HeightSpent", 0))
+      outputsSpendable = OutputsOwnedStored.Find(Query.EQ("HeightSpent", 0))
         .Where(o => o.Value > feePerInputP2PKH)
         .Take(VarInt.PREFIX_UINT16 - 1).ToList();
 
@@ -203,7 +203,7 @@ internal partial class BlockchainBitcoin : Blockchain
     tXAnchor.Fee = valueInputs - tXAnchor.GetValueOutputs();
 
     if (tXAnchorOpen != null)
-      TXsOwned.Delete(tXAnchorOpen.Hash);
+      TXsOwnedStored.Delete(tXAnchorOpen.Hash);
 
     InsertTXOwned(tXAnchor);
 

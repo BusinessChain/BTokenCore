@@ -9,34 +9,34 @@ internal partial class BlockchainBToken : Blockchain
   {
     const string NAME_COLLECTION = "accounts";
 
-    LiteDatabase Database;
-    ILiteCollection<Account> Collection;
+    LiteDatabase LiteDatabase;
+    ILiteCollection<Account> AccountsStored;
 
 
-    internal bool TryLoad(LiteDatabase database)
+    internal bool TryLoad(LiteDatabase storage)
     {
-      Database = database;
+      LiteDatabase = storage;
 
-      bool isStored = Database.CollectionExists(NAME_COLLECTION);
-      Collection = Database.GetCollection<Account>(NAME_COLLECTION);
+      bool isStored = LiteDatabase.CollectionExists(NAME_COLLECTION);
+      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
 
       return isStored;
     }
 
     internal void Drop()
     {
-      Database.DropCollection(NAME_COLLECTION);
-      Collection = null;
+      LiteDatabase.DropCollection(NAME_COLLECTION);
+      AccountsStored = null;
     }
 
     internal bool Exists()
     {
-      return Collection != null;
+      return AccountsStored != null;
     }
 
     internal byte[] Serialize()
     {
-      List<Account> accounts = Collection.Find(Query.All(Query.Ascending)).ToList();
+      List<Account> accounts = AccountsStored.Find(Query.All(Query.Ascending)).ToList();
 
       List<byte> bytes = new();
 
@@ -79,13 +79,13 @@ internal partial class BlockchainBToken : Blockchain
         accounts.Add(account);
       }
 
-      Collection = Database.GetCollection<Account>(NAME_COLLECTION);
-      Collection.InsertBulk(accounts);
+      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+      AccountsStored.InsertBulk(accounts);
     }
 
     internal Account LoadAccount(byte[] accountID, int blockHeightAccountCreated)
     {
-      if (Collection.FindById(accountID) is Account accountStored)
+      if (AccountsStored.FindById(accountID) is Account accountStored)
         return accountStored;
 
       return new()
@@ -97,7 +97,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account GetCopyOfAccount(byte[] accountID)
     {
-      if (Collection.FindById(accountID) is Account accountStored)
+      if (AccountsStored.FindById(accountID) is Account accountStored)
         return new(accountStored);
       else
         throw new ProtocolException($"Account {accountID.ToHexString()} not found in database.");
@@ -106,9 +106,9 @@ internal partial class BlockchainBToken : Blockchain
     internal void WriteAccount(Account account)
     {
       if (account.Balance > 0)
-        Collection.Upsert(account);
+        AccountsStored.Upsert(account);
       else
-        Collection.Delete(account.ID);
+        AccountsStored.Delete(account.ID);
     }
   }
 }
