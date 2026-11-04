@@ -198,14 +198,14 @@ internal abstract partial class Blockchain
     return true;
   }
 
-  internal void GetBlock(byte[] hash, Block blockLoad)
+  internal Block GetBlock(byte[] hash)
   {
     if (ChainRoot.TryGetHeader(hash, out Header header)
-      && LoadBlock(header.Height) is Block block)
-    {
-      blockLoad.LoadBuffer(block.Buffer);
-      TryParseBlockStored(header, blockLoad);
-    }
+      && LoadBlock(header.Height) is Block block
+      && TryParseBlockStored(header, block))
+      return block;
+
+    return null;
   }
 
   internal void LoadBlockchain()

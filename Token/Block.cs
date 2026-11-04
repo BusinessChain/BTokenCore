@@ -20,12 +20,6 @@ public class Block
     LengthDataPayload = bytes.Length;
   }
 
-  internal void LoadBuffer(byte[] bytes)
-  {
-    bytes.CopyTo(Buffer, 0);
-    LengthDataPayload = bytes.Length;
-  }
-
   internal byte[] ComputeMerkleRoot()
   {
     if (TXs.Count == 1)

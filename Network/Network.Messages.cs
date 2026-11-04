@@ -262,8 +262,6 @@ internal partial class Network
 
     Blockchain Blockchain;
 
-    internal Block BlockUpload;
-
     Header HeaderBlockDownloadedTip;
 
     const int SIZE_BUFFER_PAYLOAD = 36_003;
@@ -279,7 +277,6 @@ internal partial class Network
       : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       Blockchain = blockchain;
-      BlockUpload = new(blockchain.SizeBlockMax);
     }
 
     internal override void IncrementDOSMonitor()
@@ -316,31 +313,29 @@ internal partial class Network
         {
           DOSMonitor.Increment(1);
 
-          BlockUpload.Header = null;
-
-          bool isBlockBehindTipDownloaded = await Blockchain.RunLocked(() =>
+          (Block blockUpload, bool isBlockBehindTipDownloaded) = await Blockchain.RunLocked(() =>
           {
-            Blockchain.GetBlock(inventory.Hash, BlockUpload);
+            Block block = Blockchain.GetBlock(inventory.Hash);
 
-            if (BlockUpload.Header == null)
-              return false;
+            if (block == null)
+              return (block, false);
 
             Header headerAncestor = HeaderBlockDownloadedTip;
 
-            while (headerAncestor != null && headerAncestor.Height > BlockUpload.Header.Height)
+            while (headerAncestor != null && headerAncestor.Height > block.Header.Height)
               headerAncestor = headerAncestor.HeaderPrevious;
 
-            return headerAncestor == BlockUpload.Header;
+            return (block, headerAncestor == block.Header);
           });
 
-          if (BlockUpload.Header != null)
+          if (blockUpload != null)
           {
-            peer.SocketCommunication.SendMessage(BlockMessage.Command, BlockUpload.LengthDataPayload, BlockUpload.Buffer);
+            peer.SocketCommunication.SendMessage(BlockMessage.Command, blockUpload.LengthDataPayload, blockUpload.Buffer);
 
             if (!isBlockBehindTipDownloaded)
             {
               DOSMonitor.Decrement(1);
-              HeaderBlockDownloadedTip = BlockUpload.Header;
+              HeaderBlockDownloadedTip = blockUpload.Header;
             }
           }
           else
