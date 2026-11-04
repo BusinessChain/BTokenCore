@@ -43,7 +43,7 @@ internal partial class BlockchainBToken : Blockchain
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockInserted += blockParent =>
     {
-      if (!BlockchainBitcoin.IsTXAnchorOpen())
+      if (!BlockchainBitcoin.IsTXAnchorUnconfirmed())
         MineBlock();
     };
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
@@ -156,7 +156,7 @@ internal partial class BlockchainBToken : Blockchain
 
     UpdateTipBlockchain(ChainRoot);
 
-    LoadTXsOwned();
+    LoadTXsOwnedUnconfirmed();
   }
 
   internal void AddTX(TX tX)
@@ -179,10 +179,10 @@ internal partial class BlockchainBToken : Blockchain
     LoadBlockchain();
     BlockchainBitcoin.LoadBlockchain();
     RollBackUnanchored();
-    LoadTXsOwned();
+    LoadTXsOwnedUnconfirmed();
   }
 
-  void LoadTXsOwned()
+  void LoadTXsOwnedUnconfirmed()
   {
     if (!Accounts.Exists())
       return;
@@ -283,7 +283,7 @@ internal partial class BlockchainBToken : Blockchain
     if (!IsMining || !Accounts.Exists())
       return;
 
-    if (!BlockchainBitcoin.IsTXAnchorOpen())
+    if (!BlockchainBitcoin.IsTXAnchorUnconfirmed())
       BlocksMinedStored.DeleteAll();
 
     Block block = new(SizeBlockMax);

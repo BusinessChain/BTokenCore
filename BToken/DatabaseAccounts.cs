@@ -117,7 +117,11 @@ internal partial class BlockchainBToken : Blockchain
             ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, tXOutputP2PKH.Value);
 
         if (i > 0)
-          SpendTXInput(tX);
+        {
+          Account accountSource = GetCopyOfAccount(tX.IDAccountSource);
+          accountSource.SpendTX(tX);
+          WriteAccount(accountSource);
+        }
       }
     }
 
@@ -144,13 +148,6 @@ internal partial class BlockchainBToken : Blockchain
     {
       Account account = LoadAccount(iDAccount, heightAccountCreated);
       account.Balance += valueChange;
-      WriteAccount(account);
-    }
-
-    void SpendTXInput(TXBToken tX)
-    {
-      Account account = GetCopyOfAccount(tX.IDAccountSource);
-      account.SpendTX(tX);
       WriteAccount(account);
     }
 

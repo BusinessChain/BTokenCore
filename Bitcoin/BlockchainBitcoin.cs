@@ -131,7 +131,7 @@ internal partial class BlockchainBitcoin : Blockchain
       inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.IndexOutput == tXInput.IndexOutput)));
   }
 
-  internal bool IsTXAnchorOpen()
+  internal bool IsTXAnchorUnconfirmed()
   {
     return TXsOwnedStored.Exists(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0));
   }
@@ -140,18 +140,18 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     TXBitcoin tXAnchor = new();
 
-    TXBitcoin tXAnchorOpen = null;
+    TXBitcoin tXAnchorUnconfirmed = null;
 
-    if (TXsOwnedStored.FindOne(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)) is BsonDocument documentAnchorOpen)
-      tXAnchorOpen = (TXBitcoin)ParseTXOwned(documentAnchorOpen);
+    if (TXsOwnedStored.FindOne(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)) is BsonDocument documentAnchorUnconfirmed)
+      tXAnchorUnconfirmed = (TXBitcoin)ParseTXOwned(documentAnchorUnconfirmed);
 
     long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
     long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
 
     List<TXOutputOwned> outputsSpendable;
 
-    if (tXAnchorOpen != null)
-      outputsSpendable = tXAnchorOpen.Inputs
+    if (tXAnchorUnconfirmed != null)
+      outputsSpendable = tXAnchorUnconfirmed.Inputs
         .Select(i => OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)))
         .Where(o => o != null)
         .ToList();
@@ -170,10 +170,10 @@ internal partial class BlockchainBitcoin : Blockchain
 
     long feeTX = feePerByte * lengthTX;
 
-    if (tXAnchorOpen != null)
+    if (tXAnchorUnconfirmed != null)
       feeTX = Math.Max(
         feeTX,
-        tXAnchorOpen.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
+        tXAnchorUnconfirmed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
 
     if (valueInputs < feeTX)
       return false;
@@ -200,8 +200,8 @@ internal partial class BlockchainBitcoin : Blockchain
 
     tXAnchor.Fee = valueInputs - tXAnchor.GetValueOutputs();
 
-    if (tXAnchorOpen != null)
-      TXsOwnedStored.Delete(tXAnchorOpen.Hash);
+    if (tXAnchorUnconfirmed != null)
+      TXsOwnedStored.Delete(tXAnchorUnconfirmed.Hash);
 
     InsertTXOwned(tXAnchor);
 

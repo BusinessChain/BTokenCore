@@ -105,7 +105,7 @@ internal abstract partial class Blockchain
     return tX;
   }
 
-  internal List<byte[]> GetHashesTXOwned()
+  internal List<byte[]> GetHashesTXOwnedUnconfirmed()
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).Select(d => d[NAME_FIELD_ID].AsBinary).ToList();
   }
