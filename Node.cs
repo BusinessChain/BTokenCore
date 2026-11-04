@@ -21,13 +21,7 @@ public class Node
 
   public async Task Start()
   {
-    await BlockchainBToken.RunLocked(() =>
-    {
-      BlockchainBToken.LoadBlockchain();
-      BlockchainBitcoin.LoadBlockchain();
-      BlockchainBToken.RollBackUnanchored();
-      BlockchainBToken.LoadTXsOwned();
-    });
+    await BlockchainBToken.RunLocked(BlockchainBToken.Load);
 
     NetworkBitcoin.Start();
 

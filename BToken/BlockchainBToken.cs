@@ -174,7 +174,15 @@ internal partial class BlockchainBToken : Blockchain
     InsertTXOwned(tX);
   }
 
-  internal void LoadTXsOwned()
+  internal void Load()
+  {
+    LoadBlockchain();
+    BlockchainBitcoin.LoadBlockchain();
+    RollBackUnanchored();
+    LoadTXsOwned();
+  }
+
+  void LoadTXsOwned()
   {
     if (!Accounts.Exists())
       return;
@@ -432,7 +440,7 @@ internal partial class BlockchainBToken : Blockchain
     ChainRoot.ReRoot(headerRoot);
   }
 
-  internal void RollBackUnanchored()
+  void RollBackUnanchored()
   {
     Header header = ChainRoot.HeaderRoot;
 
