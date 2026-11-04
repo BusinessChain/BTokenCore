@@ -13,7 +13,7 @@ internal partial class BlockchainBToken : Blockchain
     internal byte[] ID;
 
     [BsonField]
-    internal int HeightBlockAccountCreated;
+    internal int HeightAccountCreated;
 
     [BsonField]
     internal int Nonce;
@@ -27,15 +27,15 @@ internal partial class BlockchainBToken : Blockchain
     internal Account(Account account)
     {
       ID = account.ID;
-      HeightBlockAccountCreated = account.HeightBlockAccountCreated;
+      HeightAccountCreated = account.HeightAccountCreated;
       Nonce = account.Nonce;
       Balance = account.Balance;
     }
 
     internal void SpendTX(TXBToken tX)
     {
-      if (HeightBlockAccountCreated != tX.HeightBlockAccountCreated || Nonce != tX.Nonce)
-        throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or blockheightAccountInit.");
+      if (HeightAccountCreated != tX.HeightAccountCreated || Nonce != tX.Nonce)
+        throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or heightAccountCreated.");
 
       if (Balance < tX.GetValueOutputs() + tX.Fee)
         throw new ProtocolException($"Staged account {this} referenced by TX {tX} does not have enough fund.");

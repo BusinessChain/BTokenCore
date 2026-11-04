@@ -46,7 +46,7 @@ internal partial class BlockchainBToken : Blockchain
       foreach (Account account in accounts)
       {
         bytes.AddRange(account.ID);
-        bytes.AddRange(BitConverter.GetBytes(account.HeightBlockAccountCreated));
+        bytes.AddRange(BitConverter.GetBytes(account.HeightAccountCreated));
         bytes.AddRange(BitConverter.GetBytes(account.Nonce));
         bytes.AddRange(BitConverter.GetBytes(account.Balance));
       }
@@ -69,7 +69,7 @@ internal partial class BlockchainBToken : Blockchain
         accounts.Add(new()
         {
           ID = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH160),
-          HeightBlockAccountCreated = buffer.Read<int>(ref index),
+          HeightAccountCreated = buffer.Read<int>(ref index),
           Nonce = buffer.Read<int>(ref index),
           Balance = buffer.Read<long>(ref index)
         });
@@ -78,7 +78,7 @@ internal partial class BlockchainBToken : Blockchain
       AccountsStored.InsertBulk(accounts);
     }
 
-    internal Account LoadAccount(byte[] accountID, int blockHeightAccountCreated)
+    internal Account LoadAccount(byte[] accountID, int heightAccountCreated)
     {
       if (AccountsStored.FindById(accountID) is Account accountStored)
         return accountStored;
@@ -86,7 +86,7 @@ internal partial class BlockchainBToken : Blockchain
       return new()
       {
         ID = accountID,
-        HeightBlockAccountCreated = blockHeightAccountCreated
+        HeightAccountCreated = heightAccountCreated
       };
     }
 
@@ -129,7 +129,7 @@ internal partial class BlockchainBToken : Blockchain
 
         if (i > 0)
         {
-          Account accountSource = LoadAccount(tX.IDAccountSource, tX.HeightBlockAccountCreated);
+          Account accountSource = LoadAccount(tX.IDAccountSource, tX.HeightAccountCreated);
           accountSource.ReverseSpendTX(tX);
           WriteAccount(accountSource);
         }
@@ -140,9 +140,9 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    void ChangeBalance(byte[] accountID, int blockHeightAccountCreated, long valueChange)
+    void ChangeBalance(byte[] accountID, int heightAccountCreated, long valueChange)
     {
-      Account account = LoadAccount(accountID, blockHeightAccountCreated);
+      Account account = LoadAccount(accountID, heightAccountCreated);
       account.Balance += valueChange;
       WriteAccount(account);
     }

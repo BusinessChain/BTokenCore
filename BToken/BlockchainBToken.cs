@@ -106,9 +106,9 @@ internal partial class BlockchainBToken : Blockchain
 
     TXBToken tXBToken = (TXBToken)tX;
 
-    Account account = Accounts.LoadAccount(tXBToken.IDAccountSource, blockHeightAccountCreated: 0);
+    Account account = Accounts.LoadAccount(tXBToken.IDAccountSource, heightAccountCreated: 0);
 
-    return account.HeightBlockAccountCreated != tXBToken.HeightBlockAccountCreated || account.Nonce > tXBToken.Nonce;
+    return account.HeightAccountCreated != tXBToken.HeightAccountCreated || account.Nonce > tXBToken.Nonce;
   }
 
   internal byte[] GetAccountsSerializedAtBlock(byte[] hashBlock)
@@ -259,7 +259,7 @@ internal partial class BlockchainBToken : Blockchain
 
     TXBToken tXCoinbase = new()
     {
-      HeightBlockAccountCreated = height
+      HeightAccountCreated = height
     };
 
     tXCoinbase.TXOutputs.Add(outputCoinbase);
