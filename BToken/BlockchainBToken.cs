@@ -393,7 +393,7 @@ internal partial class BlockchainBToken : Blockchain
     if (!TryParseBlockStored(headerPlaceholder, block))
       return;
 
-    chain.Blocks.Add(headerPlaceholder.Height, block);
+    chain.BlocksQueued.Add(headerPlaceholder.Height, block);
 
     UpdateTipBlockchain(chain);
   }

@@ -22,7 +22,7 @@ internal abstract partial class Blockchain
   internal event Action<Block> OnBlockInserted;
   internal event Action<Block> OnBlockRolledBack;
 
-  Header HeaderTipBlockchainAnnounced;
+  Header HeaderTipBlockchainMined;
 
 
   protected Blockchain(
@@ -273,7 +273,7 @@ internal abstract partial class Blockchain
     };
 
     ParseBlock(block);
-    chainAwaiting.Blocks.Add(headerAwaited.Height, block);
+    chainAwaiting.BlocksQueued.Add(headerAwaited.Height, block);
 
     UpdateTipBlockchain(chainAwaiting);
   }
@@ -290,16 +290,16 @@ internal abstract partial class Blockchain
     }
     while (TryReorgToForkStrongest());
 
-    if (ChainRoot.HeaderTipBlockchain != HeaderTipBlockchainAnnounced)
+    if (ChainRoot.HeaderTipBlockchain != HeaderTipBlockchainMined)
     {
-      HeaderTipBlockchainAnnounced = ChainRoot.HeaderTipBlockchain;
+      HeaderTipBlockchainMined = ChainRoot.HeaderTipBlockchain;
       MineBlock();
     }
   }
 
   void InsertBlocksQueued()
   {
-    while (ChainRoot.Blocks.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
+    while (ChainRoot.BlocksQueued.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
       try
       {
@@ -383,7 +383,7 @@ internal abstract partial class Blockchain
 
       ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
-      ChainRoot.Blocks.Add(header.Height, block);
+      ChainRoot.BlocksQueued.Add(header.Height, block);
     }
   }
 

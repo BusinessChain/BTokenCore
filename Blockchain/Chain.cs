@@ -14,7 +14,7 @@ internal partial class Blockchain
     internal Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
 
     const int HEIGHT_GAP_MAX_BLOCK_MISSING = 20;
-    internal Dictionary<int, Block> Blocks = new();
+    internal Dictionary<int, Block> BlocksQueued = new();
 
 
     internal Chain(Header headerGenesis, bool isRoot)
@@ -169,7 +169,7 @@ internal partial class Blockchain
 
       ChainsFork.RemoveAll(c => c.HeaderRoot.Height > headerRemove.Height);
 
-      RemoveBlocksAndHeadersAwaitingBlock(h => h >= headerRemove.Height);
+      RemoveBlocksQueuedAndHeadersAwaitingBlock(h => h >= headerRemove.Height);
 
       if (HeaderTipBlockchain != null && HeaderTipBlockchain.Height >= headerRemove.Height)
         HeaderTipBlockchain = headerPrevious;
@@ -204,17 +204,17 @@ internal partial class Blockchain
     internal void ReRoot(Header headerRoot)
     {
       DropForksDeep(headerRoot.Height);
-      RemoveBlocksAndHeadersAwaitingBlock(h => h <= headerRoot.Height);
+      RemoveBlocksQueuedAndHeadersAwaitingBlock(h => h <= headerRoot.Height);
 
       headerRoot.HeaderPrevious = null;
       HeaderRoot = headerRoot;
       HeaderTipBlockchain = headerRoot;
     }
 
-    void RemoveBlocksAndHeadersAwaitingBlock(Func<int, bool> isHeightRemoved)
+    void RemoveBlocksQueuedAndHeadersAwaitingBlock(Func<int, bool> isHeightRemoved)
     {
-      foreach (int height in Blocks.Keys.Where(isHeightRemoved).ToList())
-        Blocks.Remove(height);
+      foreach (int height in BlocksQueued.Keys.Where(isHeightRemoved).ToList())
+        BlocksQueued.Remove(height);
 
       foreach (Header header in HeadersAwaitingBlock.Values.Where(h => isHeightRemoved(h.Height)).ToList())
         HeadersAwaitingBlock.Remove(header.Hash);
@@ -253,7 +253,7 @@ internal partial class Blockchain
         && headerCandidate.Height <= heightTarget
         && headerCandidate.Height <= heightBlockNext + HEIGHT_GAP_MAX_BLOCK_MISSING)
       {
-        if (!Blocks.ContainsKey(headerCandidate.Height)
+        if (!BlocksQueued.ContainsKey(headerCandidate.Height)
           && canSupplierDeliverBlock(headerCandidate)
           && HeadersAwaitingBlock.TryAdd(headerCandidate.Hash, headerCandidate))
           return headerCandidate;
@@ -271,7 +271,7 @@ internal partial class Blockchain
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      while (Blocks.TryGetValue(heightBlockNext, out Block block))
+      while (BlocksQueued.TryGetValue(heightBlockNext, out Block block))
       {
         HeaderTipBlockchain = block.Header;
         heightBlockNext += 1;
@@ -337,7 +337,7 @@ internal partial class Blockchain
       Header headerFork = HeaderRoot.HeaderPrevious;
       int heightFork = headerFork.Height;
 
-      (Blocks, chainTrunk.Blocks) = (chainTrunk.Blocks, Blocks);
+      (BlocksQueued, chainTrunk.BlocksQueued) = (chainTrunk.BlocksQueued, BlocksQueued);
       (HeadersAwaitingBlock, chainTrunk.HeadersAwaitingBlock) = (chainTrunk.HeadersAwaitingBlock, HeadersAwaitingBlock);
       (ChainsFork, chainTrunk.ChainsFork) = (chainTrunk.ChainsFork, ChainsFork);
 
@@ -363,7 +363,7 @@ internal partial class Blockchain
 
     void MoveBlockDownloadsAndForksTo(Chain chainTarget, int heightMax)
     {
-      MoveItems(Blocks, chainTarget.Blocks, b => b.Key <= heightMax);
+      MoveItems(BlocksQueued, chainTarget.BlocksQueued, b => b.Key <= heightMax);
       MoveItems(HeadersAwaitingBlock, chainTarget.HeadersAwaitingBlock, h => h.Value.Height <= heightMax);
       MoveItems(ChainsFork, chainTarget.ChainsFork, c => c.HeaderRoot.HeaderPrevious.Height <= heightMax);
 
