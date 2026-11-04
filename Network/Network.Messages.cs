@@ -33,18 +33,16 @@ internal partial class Network
 
     internal abstract Task Run(Peer peer);
 
-    internal static async Task SendInventories(Peer peer, string command, List<Inventory> inventories)
+    internal static async Task SendItems(Peer peer, string command, List<byte[]> items)
     {
-      List<byte> payload = new();
-
-      payload.AddRange(VarInt.GetBytes(inventories.Count));
-
-      foreach (Inventory inventory in inventories)
-        payload.AddRange(inventory.GetBytes());
-
-      byte[] buffer = payload.ToArray();
+      byte[] buffer = [.. VarInt.GetBytes(items.Count), .. items.SelectMany(i => i)];
 
       await peer.SocketCommunication.SendMessage(command, buffer.Length, buffer);
+    }
+
+    internal static async Task SendInventories(Peer peer, string command, List<Inventory> inventories)
+    {
+      await SendItems(peer, command, inventories.Select(i => i.GetBytes()).ToList());
     }
   }
 
@@ -131,19 +129,13 @@ internal partial class Network
 
       byte[] timeUnixSeconds = BitConverter.GetBytes((UInt32)DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
-      List<byte> payload = new(VarInt.GetBytes(iPs.Count));
-
-      foreach (string iP in iPs)
-      {
-        payload.AddRange(timeUnixSeconds);
-        payload.AddRange(BitConverter.GetBytes(c.NetworkServicesRemote));
-        payload.AddRange(IPAddress.Parse(iP).MapToIPv6().GetAddressBytes());
-        payload.AddRange(BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness((ushort)c.Port)));
-      }
-
-      byte[] buffer = payload.ToArray();
-
-      await peer.SocketCommunication.SendMessage(AddressMessage.Command, buffer.Length, buffer);
+      await SendItems(peer, AddressMessage.Command, iPs.Select(byte[] (iP) =>
+      [
+        .. timeUnixSeconds,
+        .. BitConverter.GetBytes(c.NetworkServicesRemote),
+        .. IPAddress.Parse(iP).MapToIPv6().GetAddressBytes(),
+        .. BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness((ushort)c.Port))
+      ]).ToList());
     }
   }
 
@@ -386,19 +378,7 @@ internal partial class Network
 
     internal static async Task SendHeaders(Peer peer, List<byte[]> headersSerialized)
     {
-      List<byte> bufferList = new();
-
-      foreach (byte[] headerSerialized in headersSerialized)
-      {
-        bufferList.AddRange(headerSerialized);
-        bufferList.Add(0x00);
-      }
-
-      bufferList.InsertRange(0, VarInt.GetBytes(headersSerialized.Count));
-
-      byte[] buffer = bufferList.ToArray();
-
-      await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
+      await SendItems(peer, Command, headersSerialized.Select(byte[] (h) => [.. h, 0x00]).ToList());
     }
   }
 

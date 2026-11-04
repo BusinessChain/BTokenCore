@@ -26,14 +26,9 @@ internal partial class Network
       Hash = hash;
     }
 
-    internal List<byte> GetBytes()
+    internal byte[] GetBytes()
     {
-      List<byte> bytes = new List<byte>();
-
-      bytes.AddRange(BitConverter.GetBytes((uint)Type));
-      bytes.AddRange(Hash);
-
-      return bytes;
+      return [.. BitConverter.GetBytes((uint)Type), .. Hash];
     }
 
     internal static Inventory Parse(
@@ -44,9 +39,7 @@ internal partial class Network
 
       byte[] hash = buffer.ReadBytes(ref startIndex, Crypto.LENGTH_HASH256);
 
-      return new Inventory(
-        (InventoryType)type,
-        hash);
+      return new Inventory((InventoryType)type, hash);
     }
   }
 }
