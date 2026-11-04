@@ -112,32 +112,4 @@ public static class ByteArrayExtensionMethods
 
     return a1[i] > a2[i];
   }
-
-  public static void Increment(this byte[] array, int startIndex, int length)
-  {
-    int offset = 0;
-    int index;
-
-    while (offset < length)
-    {
-      index = startIndex + offset;
-
-      array[index] += 1;
-
-      if (array[index] != 0)
-        return;
-
-      offset += 1;
-    }
-  }
-
-  public static byte[] SubtractByteWise(this byte[] array1, byte[] array2)
-  {
-    byte[] difference = new byte[array1.Length];
-
-    for (int i = 0; i < array1.Length; i++)
-      difference[i] = (byte)(array1[i] - array2[i]);
-
-    return difference;
-  }
 }

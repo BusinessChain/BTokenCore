@@ -48,10 +48,5 @@ internal partial class Network
         (InventoryType)type,
         hash);
     }
-
-    internal bool IsTX()
-    {
-      return Type == InventoryType.MSG_TX;
-    }
   }
 }

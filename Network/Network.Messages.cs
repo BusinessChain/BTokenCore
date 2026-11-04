@@ -318,18 +318,26 @@ internal partial class Network
 
           BlockUpload.Header = null;
 
-          await Blockchain.RunLocked(() => Blockchain.GetBlock(inventory.Hash, BlockUpload));
-
-          if (BlockUpload.Header != null)
+          bool isBlockBehindTipDownloaded = await Blockchain.RunLocked(() =>
           {
-            peer.SocketCommunication.SendMessage(BlockMessage.Command, BlockUpload.LengthDataPayload, BlockUpload.Buffer);
+            Blockchain.GetBlock(inventory.Hash, BlockUpload);
+
+            if (BlockUpload.Header == null)
+              return false;
 
             Header headerAncestor = HeaderBlockDownloadedTip;
 
             while (headerAncestor != null && headerAncestor.Height > BlockUpload.Header.Height)
               headerAncestor = headerAncestor.HeaderPrevious;
 
-            if (headerAncestor != BlockUpload.Header)
+            return headerAncestor == BlockUpload.Header;
+          });
+
+          if (BlockUpload.Header != null)
+          {
+            peer.SocketCommunication.SendMessage(BlockMessage.Command, BlockUpload.LengthDataPayload, BlockUpload.Buffer);
+
+            if (!isBlockBehindTipDownloaded)
             {
               DOSMonitor.Decrement(1);
               HeaderBlockDownloadedTip = BlockUpload.Header;

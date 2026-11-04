@@ -141,12 +141,4 @@ internal class HeaderBitcoin : Header
 
     return buffer;
   }
-
-  internal void IncrementNonce(uint nonceSeed)
-  {
-    Nonce += 1;
-
-    if (Nonce == 0)
-      Nonce = nonceSeed;
-  }
 }
