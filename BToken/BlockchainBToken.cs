@@ -96,20 +96,6 @@ internal partial class BlockchainBToken : Blockchain
       Accounts.RollBack(block.Header.Height);
   }
 
-  protected override void VerifyDatabase()
-  {
-    if (!Accounts.Exists()
-      || SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)ChainRoot.HeaderTipBlockchain).HashAccounts))
-      return;
-
-    Console.WriteLine(
-      $"Accounts database is corrupt, its hash is not equal to HashAccounts of tip " +
-      $"{ChainRoot.HeaderTipBlockchain.Hash.ToHexString()}. Node halts.");
-
-    // Later: instead of the console log and Environment.Exit, enter a fail state that reports through the RPC interface and recovers on the operator's instructions.
-    Environment.Exit(1);
-  }
-
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
   {
     if (!Accounts.Exists())

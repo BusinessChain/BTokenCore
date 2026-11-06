@@ -261,8 +261,6 @@ internal abstract partial class Blockchain
 
   protected virtual void RollBackBlock(Block block) { }
 
-  protected virtual void VerifyDatabase() { }
-
   protected virtual void MineBlock() { }
 
   internal void ReceiveBlock(Block blockReceived)
@@ -330,7 +328,6 @@ internal abstract partial class Blockchain
       }
       catch (ProtocolException)
       {
-        VerifyDatabase();
         ChainRoot.CutOff(block.Header);
         continue;
       }
