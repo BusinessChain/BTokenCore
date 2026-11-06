@@ -11,6 +11,7 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
     const string NAME_FIELD_ACCOUNTS = "accounts";
+    const int COUNT_SEGMENTS = 256;
 
     LiteDatabase LiteDatabase;
     ILiteCollection<Account> AccountsStored;
@@ -181,12 +182,33 @@ internal partial class BlockchainBToken : Blockchain
       try
       {
         InsertTXs(block);
-        return SHA256.HashData(Serialize());
+        return HashSegment(block.Header.Height);
       }
       finally
       {
         LiteDatabase.Rollback();
       }
+    }
+
+    internal void VerifyHashAccounts(HeaderBToken header)
+    {
+      if (!HashSegment(header.Height).IsAllBytesEqual(header.HashAccounts))
+        throw new ProtocolException($"Hash of segment {header.Height % COUNT_SEGMENTS} not equal to HashAccounts of block {header.Hash.ToHexString()}.");
+    }
+
+    byte[] HashSegment(int height)
+    {
+      byte[] iDFirst = new byte[Crypto.LENGTH_HASH160];
+      byte[] iDLast = Enumerable.Repeat((byte)0xFF, Crypto.LENGTH_HASH160).ToArray();
+
+      iDFirst[0] = iDLast[0] = (byte)(height % COUNT_SEGMENTS);
+
+      List<Account> accountsSegment = AccountsStored.Query()
+        .Where(Query.Between(NAME_FIELD_ID, iDFirst, iDLast))
+        .OrderBy(NAME_FIELD_ID)
+        .ToList();
+
+      return SHA256.HashData(SerializeAccounts(accountsSegment));
     }
   }
 }

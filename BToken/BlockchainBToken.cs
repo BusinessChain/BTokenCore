@@ -1,5 +1,4 @@
 using LiteDB;
-using System.Security.Cryptography;
 using System.Text;
 
 
@@ -86,8 +85,7 @@ internal partial class BlockchainBToken : Blockchain
 
     Accounts.InsertTXs(block);
 
-    if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)block.Header).HashAccounts))
-      throw new ProtocolException($"Hash of DB not equal to HashAccounts of block {block.Header.Hash.ToHexString()}.");
+    Accounts.VerifyHashAccounts((HeaderBToken)block.Header);
   }
 
   protected override void RollBackBlock(Block block)
@@ -139,8 +137,7 @@ internal partial class BlockchainBToken : Blockchain
       {
         Accounts.Install(buffer, length);
 
-        if (!SHA256.HashData(Accounts.Serialize()).IsAllBytesEqual(((HeaderBToken)header).HashAccounts))
-          throw new ProtocolException($"Hash of DB not equal to HashAccounts of block {header.Hash.ToHexString()}.");
+        Accounts.VerifyHashAccounts((HeaderBToken)header);
       });
     }
     catch
