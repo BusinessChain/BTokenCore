@@ -11,6 +11,8 @@ internal partial class NetworkBToken : Network
 
     internal byte[] HashBlockAnnounced;
 
+    internal Inventory InventoryAccountsRequested;
+
     internal Dictionary<byte[], DateTime> HashesTXRequested = new(new EqualityComparerByteArray());
 
     internal HashSet<byte[]> HashesTXQueued = new(new EqualityComparerByteArray());
@@ -32,7 +34,8 @@ internal partial class NetworkBToken : Network
     {
       BlockchainBToken = network.BlockchainBToken;
 
-      MessagesByCommand.Add(AccountsMessage.Command, new AccountsMessage());
+      MessagesByCommand.Add(AccountsMessage.CommandHashesSegment, new AccountsMessage(Inventory.InventoryType.MSG_SEGMENT_HASHES));
+      MessagesByCommand.Add(AccountsMessage.CommandSegment, new AccountsMessage(Inventory.InventoryType.MSG_SEGMENT));
       MessagesByCommand.Add(TXMessage.Command, new TXMessageBToken());
       MessagesByCommand.Add(FeeFilterMessage.Command, new FeeFilterMessage());
       MessagesByCommand.Add(HeadersMessage.Command, new HeadersMessageBToken());

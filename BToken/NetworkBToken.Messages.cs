@@ -95,12 +95,18 @@ internal partial class NetworkBToken : Network
 
       Inventory.InventoryType typeInventory = Inventory.Parse(Payload, ref startIndex).Type;
 
-      if (typeInventory == Inventory.InventoryType.MSG_ACCOUNTS)
+      if (typeInventory is Inventory.InventoryType.MSG_SEGMENT_HASHES or Inventory.InventoryType.MSG_SEGMENT)
       {
         if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload)
           return;
 
         DOSMonitor.Decrement(1);
+
+        if (typeInventory == Inventory.InventoryType.MSG_SEGMENT)
+        {
+          BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+          await blockchainBToken.RunLocked(blockchainBToken.DiscardAccountsDownload);
+        }
 
         peer.StateCurrent = Peer.StateProtocol.Idle;
         return;
@@ -129,18 +135,36 @@ internal partial class NetworkBToken : Network
 
   class GetDataMessageBToken : GetDataMessage
   {
+    HashSet<byte[]> HashesAccountsServed = new(new EqualityComparerByteArray());
+
+
     protected override async Task ServeAccounts(Peer peer, Inventory inventory)
     {
       DOSMonitor.Increment(1);
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
+      bool isHashesSegment = inventory.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES;
 
-      byte[] accountsSerialized = await blockchainBToken.RunLocked(() => blockchainBToken.GetAccountsSerializedAtBlock(inventory.Hash));
+      byte[] payload = await blockchainBToken.RunLocked(() => isHashesSegment
+        ? blockchainBToken.GetHashesSegmentAtBlock(inventory.Hash)
+        : blockchainBToken.GetSegmentServed(inventory.Hash));
 
-      if (accountsSerialized != null)
-        await peer.SocketCommunication.SendMessage(AccountsMessage.Command, accountsSerialized.Length, accountsSerialized);
-      else
+      if (payload == null)
+      {
         await SendInventories(peer, NotFoundMessage.Command, [inventory]);
+        return;
+      }
+
+      if (isHashesSegment && !HashesAccountsServed.Contains(inventory.Hash))
+        HashesAccountsServed.Clear();
+
+      if (HashesAccountsServed.Add(inventory.Hash))
+        DOSMonitor.Decrement(1);
+
+      await peer.SocketCommunication.SendMessage(
+        isHashesSegment ? AccountsMessage.CommandHashesSegment : AccountsMessage.CommandSegment,
+        payload.Length,
+        payload);
     }
   }
 
@@ -159,44 +183,65 @@ internal partial class NetworkBToken : Network
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      byte[] hashBlockAccountsMissing = await blockchainBToken.RunLocked(blockchainBToken.GetHashBlockAccountsMissing);
+      Inventory inventoryAccountsMissing = await blockchainBToken.RunLocked(() =>
+        blockchainBToken.GetHashSegmentMissing() is byte[] hashSegment
+          ? new Inventory(Inventory.InventoryType.MSG_SEGMENT, hashSegment)
+          : blockchainBToken.GetHashBlockAccountsMissing() is byte[] hashBlock
+            ? new Inventory(Inventory.InventoryType.MSG_SEGMENT_HASHES, hashBlock)
+            : null);
 
-      if (hashBlockAccountsMissing == null)
+      if (inventoryAccountsMissing == null)
         return;
 
-      ((AccountsMessage)peer.MessagesByCommand[AccountsMessage.Command]).HashBlockAccountsRequested = hashBlockAccountsMissing;
+      ((PeerBToken)peer).InventoryAccountsRequested = inventoryAccountsMissing;
 
       TimeRequest = DateTime.UtcNow;
       peer.StateCurrent = Peer.StateProtocol.AccountsDownload;
 
-      await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_ACCOUNTS, hashBlockAccountsMissing)]);
+      await SendInventories(peer, GetDataMessage.Command, [inventoryAccountsMissing]);
     }
   }
 
   class AccountsMessage : NetworkMessage
   {
-    internal const string Command = "accounts";
+    internal const string CommandHashesSegment = "seghashes";
+    internal const string CommandSegment = "segment";
 
-    internal byte[] HashBlockAccountsRequested;
+    Inventory.InventoryType TypeInventory;
 
     const int COUNT_MAX_ACCOUNTS = 1_000_000;
-    const int SIZE_BUFFER_PAYLOAD = 9 + COUNT_MAX_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
+    const int SIZE_BUFFER_SEGMENT = 9 + COUNT_MAX_ACCOUNTS * BlockchainBToken.Account.LENGTH_ACCOUNT;
     const int MAX_LEVEL_DOS = 1;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1;
 
 
-    internal AccountsMessage()
-      : base(new byte[SIZE_BUFFER_PAYLOAD], MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
-    { }
+    internal AccountsMessage(Inventory.InventoryType typeInventory)
+      : base(
+          new byte[typeInventory == Inventory.InventoryType.MSG_SEGMENT_HASHES ? BlockchainBToken.LENGTH_HASHES_SEGMENT : SIZE_BUFFER_SEGMENT],
+          MAX_LEVEL_DOS,
+          AMOUNT_DRAIN_DOS_PER_10_MINUTES)
+    {
+      TypeInventory = typeInventory;
+    }
 
     internal override async Task Run(Peer peer)
     {
-      if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload)
-        throw new ProtocolException($"Received unrequested accounts message.");
+      Inventory inventoryRequested = ((PeerBToken)peer).InventoryAccountsRequested;
+
+      if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload || inventoryRequested.Type != TypeInventory)
+        throw new ProtocolException($"Received unrequested {TypeInventory} message.");
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      await blockchainBToken.RunLocked(() => blockchainBToken.InstallAccountsAtBlock(HashBlockAccountsRequested, Payload, LengthDataPayload));
+      if (TypeInventory == Inventory.InventoryType.MSG_SEGMENT_HASHES)
+      {
+        if (LengthDataPayload != Payload.Length)
+          throw new ProtocolException($"Length {LengthDataPayload} of segment hashes not equal to {Payload.Length}.");
+
+        await blockchainBToken.RunLocked(() => blockchainBToken.SetHashesSegmentDownload(inventoryRequested.Hash, Payload));
+      }
+      else
+        await blockchainBToken.RunLocked(() => blockchainBToken.AddSegmentDownload(inventoryRequested.Hash, Payload, LengthDataPayload));
 
       DOSMonitor.Decrement(1);
 

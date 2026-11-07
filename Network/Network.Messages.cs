@@ -315,7 +315,7 @@ internal partial class Network
           else
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
-        else if (inventory.Type == Inventory.InventoryType.MSG_ACCOUNTS)
+        else if (inventory.Type is Inventory.InventoryType.MSG_SEGMENT_HASHES or Inventory.InventoryType.MSG_SEGMENT)
           await ServeAccounts(peer, inventory);
       }
 

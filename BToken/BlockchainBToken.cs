@@ -1,4 +1,5 @@
 using LiteDB;
+using System.Security.Cryptography;
 using System.Text;
 
 
@@ -15,10 +16,17 @@ internal partial class BlockchainBToken : Blockchain
   const int COUNT_SEGMENTS = 256;
   const int DEPTH_MARGIN_INSTALL = 6;
   const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
+  internal const int LENGTH_HASHES_SEGMENT = COUNT_SEGMENTS * Crypto.LENGTH_HASH256;
 
   DatabaseAccounts Accounts = new();
+
   Header HeaderTipAccountsServed;
-  byte[] AccountsServed;
+  byte[] HashesSegmentServed;
+  Dictionary<byte[], byte[]> SegmentsServed;
+
+  byte[] HashBlockAccountsDownload;
+  byte[][] HashesSegmentDownload;
+  byte[][] SegmentsDownload;
 
   PoolTXBToken TXPool;
 
@@ -117,7 +125,7 @@ internal partial class BlockchainBToken : Blockchain
     return GetHeightBlockStoredOldest() <= ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED + 1;
   }
 
-  internal byte[] GetAccountsSerializedAtBlock(byte[] hashBlock)
+  internal byte[] GetHashesSegmentAtBlock(byte[] hashBlock)
   {
     Header headerTip = ChainRoot.HeaderTipBlockchain;
 
@@ -126,22 +134,87 @@ internal partial class BlockchainBToken : Blockchain
 
     if (HeaderTipAccountsServed != headerTip)
     {
-      AccountsServed = Accounts.SerializeBelowWindow(headerTip.Height);
+      List<byte> hashesSegment = new();
+      SegmentsServed = new(new EqualityComparerByteArray());
+
+      foreach (byte[] segment in Accounts.SerializeSegmentsBelowWindow(headerTip.Height))
+      {
+        byte[] hashSegment = SHA256.HashData(segment);
+
+        hashesSegment.AddRange(hashSegment);
+        SegmentsServed.TryAdd(hashSegment, segment);
+      }
+
+      HashesSegmentServed = hashesSegment.ToArray();
       HeaderTipAccountsServed = headerTip;
     }
 
-    return AccountsServed;
+    return HashesSegmentServed;
+  }
+
+  internal byte[] GetSegmentServed(byte[] hashSegment)
+  {
+    return SegmentsServed?.GetValueOrDefault(hashSegment);
   }
 
   internal byte[] GetHashBlockAccountsMissing()
   {
-    if (!Accounts.Exists() && IsWindowStoredForAccountsExchange())
+    if (!Accounts.Exists() && HashesSegmentDownload == null && IsWindowStoredForAccountsExchange())
       return ChainRoot.HeaderTipBlockchain.Hash;
 
     return null;
   }
 
-  internal void InstallAccountsAtBlock(byte[] hashBlock, byte[] buffer, int length)
+  internal byte[] GetHashSegmentMissing()
+  {
+    if (HashesSegmentDownload == null)
+      return null;
+
+    return HashesSegmentDownload[Array.IndexOf(SegmentsDownload, null)];
+  }
+
+  internal void SetHashesSegmentDownload(byte[] hashBlock, byte[] hashesSegment)
+  {
+    if (Accounts.Exists() || HashesSegmentDownload != null)
+      return;
+
+    HashBlockAccountsDownload = hashBlock;
+    HashesSegmentDownload = hashesSegment.Chunk(Crypto.LENGTH_HASH256).ToArray();
+    SegmentsDownload = new byte[COUNT_SEGMENTS][];
+  }
+
+  internal void AddSegmentDownload(byte[] hashSegment, byte[] buffer, int length)
+  {
+    if (HashesSegmentDownload == null || !SHA256.HashData(buffer.AsSpan(0, length)).IsAllBytesEqual(hashSegment))
+      return;
+
+    byte[] segment = buffer[..length];
+
+    for (int i = 0; i < COUNT_SEGMENTS; i += 1)
+      if (HashesSegmentDownload[i].IsAllBytesEqual(hashSegment))
+        SegmentsDownload[i] = segment;
+
+    if (SegmentsDownload.Contains(null))
+      return;
+
+    try
+    {
+      InstallAccountsAtBlock(HashBlockAccountsDownload, SegmentsDownload.ToList());
+    }
+    finally
+    {
+      DiscardAccountsDownload();
+    }
+  }
+
+  internal void DiscardAccountsDownload()
+  {
+    HashBlockAccountsDownload = null;
+    HashesSegmentDownload = null;
+    SegmentsDownload = null;
+  }
+
+  void InstallAccountsAtBlock(byte[] hashBlock, List<byte[]> segments)
   {
     if (Accounts.Exists()
       || !ChainRoot.TryGetHeader(hashBlock, out Header headerRequested)
@@ -153,7 +226,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       LiteDatabase.RunTransaction(() =>
       {
-        Accounts.Install(buffer, length);
+        Accounts.Install(segments);
 
         Header headerReplay = header;
 

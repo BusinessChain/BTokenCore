@@ -43,7 +43,7 @@ internal partial class BlockchainBToken : Blockchain
       return AccountsStored != null;
     }
 
-    internal byte[] SerializeBelowWindow(int heightTip)
+    internal List<byte[]> SerializeSegmentsBelowWindow(int heightTip)
     {
       Dictionary<byte[], Account> accountsBelowWindow = new(new EqualityComparerByteArray());
 
@@ -59,7 +59,22 @@ internal partial class BlockchainBToken : Blockchain
         .OrderBy(a => a.ID, ComparerID)
         .ToList();
 
-      return SerializeAccounts(MergeByID(accountsStoredUnchanged, accountsUndoExisting));
+      using IEnumerator<Account> accounts = MergeByID(accountsStoredUnchanged, accountsUndoExisting).GetEnumerator();
+
+      bool hasAccount = accounts.MoveNext();
+      List<byte[]> segments = new();
+
+      for (int segment = 0; segment < COUNT_SEGMENTS; segment += 1)
+      {
+        List<Account> accountsSegment = new();
+
+        for (; hasAccount && accounts.Current.ID[0] == segment; hasAccount = accounts.MoveNext())
+          accountsSegment.Add(accounts.Current);
+
+        segments.Add(SerializeAccounts(accountsSegment));
+      }
+
+      return segments;
     }
 
     static IEnumerable<Account> MergeByID(IEnumerable<Account> accountsSorted, List<Account> accountsSortedInsert)
@@ -96,12 +111,12 @@ internal partial class BlockchainBToken : Blockchain
       return [.. VarInt.GetBytes(countAccounts), .. bytes];
     }
 
-    internal void Install(byte[] buffer, int length)
+    internal void Install(List<byte[]> segments)
     {
-      List<Account> accounts = ParseAccounts(buffer, length);
-
       AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
-      AccountsStored.InsertBulk(accounts);
+
+      foreach (byte[] segment in segments)
+        AccountsStored.InsertBulk(ParseAccounts(segment, segment.Length));
     }
 
     static List<Account> ParseAccounts(byte[] buffer, int length)
