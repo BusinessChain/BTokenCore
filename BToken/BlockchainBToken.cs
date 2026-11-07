@@ -12,6 +12,10 @@ internal partial class BlockchainBToken : Blockchain
   const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
   const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
 
+  const int COUNT_SEGMENTS = 256;
+  const int DEPTH_MARGIN_INSTALL = 6;
+  const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
+
   DatabaseAccounts Accounts = new();
 
   PoolTXBToken TXPool;
@@ -79,6 +83,8 @@ internal partial class BlockchainBToken : Blockchain
   {
     BlocksStored.DeleteMany(
       Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
+
+    TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
     if (!Accounts.Exists())
       return;

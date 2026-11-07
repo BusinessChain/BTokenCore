@@ -11,7 +11,6 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
     const string NAME_FIELD_ACCOUNTS = "accounts";
-    const int COUNT_SEGMENTS = 256;
 
     LiteDatabase LiteDatabase;
     ILiteCollection<Account> AccountsStored;

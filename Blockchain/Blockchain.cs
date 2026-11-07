@@ -5,8 +5,6 @@ namespace BTokenCore;
 
 internal abstract partial class Blockchain
 {
-  internal const int COUNT_MAX_BLOCKS_STORED = 200;
-
   protected const string NAME_FIELD_ID = "_id";
   protected const string NAME_FIELD_BLOCK_BYTES = "blockBytes";
   protected const string NAME_FIELD_HEIGHT_CONFIRMED = "heightConfirmed";
@@ -314,8 +312,6 @@ internal abstract partial class Blockchain
           InsertBlock(block);
 
           MarkTXsOwnedConfirmed(block);
-
-          TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 

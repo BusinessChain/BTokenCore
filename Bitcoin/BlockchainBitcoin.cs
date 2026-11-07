@@ -80,10 +80,6 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     int height = block.Header.Height;
 
-    int heightPruning = height - COUNT_MAX_BLOCKS_STORED;
-
-    OutputsOwnedStored.DeleteMany(Query.Between(nameof(TXOutputOwned.HeightSpent), 1, heightPruning));
-
     foreach (TXBitcoin tX in block.TXs)
     {
       foreach (TXInputBitcoin tXInput in tX.Inputs)
