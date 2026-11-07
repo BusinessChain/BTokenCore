@@ -376,27 +376,38 @@ internal abstract partial class Blockchain
     }
   }
 
-  protected virtual void RollBack(int heightAfterRollBack)
+  protected void RollBack(int heightAfterRollBack)
   {
-    while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
+    try
     {
-      Header header = ChainRoot.HeaderTipBlockchain;
-      Block block = LoadBlockParsed(header);
-
-      LiteDatabase.RunTransaction(() =>
+      while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
       {
-        RollBackBlock(block);
+        Header header = ChainRoot.HeaderTipBlockchain;
+        Block block = LoadBlockParsed(header);
 
-        ReopenTXsOwned(header.Height);
+        LiteDatabase.RunTransaction(() =>
+        {
+          RollBackBlock(block);
 
-        BlocksStored.Delete(header.Height);
-      });
+          ReopenTXsOwned(header.Height);
 
-      OnBlockRolledBack.Announce(block);
+          BlocksStored.Delete(header.Height);
+        });
 
-      ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
+        OnBlockRolledBack.Announce(block);
 
-      ChainRoot.BlocksQueued.Add(header.Height, block);
+        ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
+
+        ChainRoot.BlocksQueued.Add(header.Height, block);
+      }
+    }
+    catch (Exception exception)
+    {
+      Console.WriteLine(
+        $"Rollback of {GetType().Name} to height {heightAfterRollBack} failed, " +
+        $"the local database is corrupt and the operator must delete it: {exception}");
+
+      throw;
     }
   }
 
