@@ -125,7 +125,13 @@ internal partial class BlockchainBToken : Blockchain
         AccountsStored.Delete(account.ID);
     }
 
-    internal void InsertTXs(Block block)
+    internal void InsertBlock(Block block)
+    {
+      InsertTXs(block);
+      VerifyHashAccounts((HeaderBToken)block.Header);
+    }
+
+    void InsertTXs(Block block)
     {
       AccountsUndo.Clear();
 

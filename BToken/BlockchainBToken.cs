@@ -81,17 +81,15 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void InsertBlock(Block block)
   {
-    BlocksStored.DeleteMany(
-      Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
-
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
     if (!Accounts.Exists())
       return;
 
-    Accounts.InsertTXs(block);
+    BlocksStored.DeleteMany(
+      Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
 
-    Accounts.VerifyHashAccounts((HeaderBToken)block.Header);
+    Accounts.InsertBlock(block);
   }
 
   protected override void RollBackBlock(Block block)
@@ -135,8 +133,6 @@ internal partial class BlockchainBToken : Blockchain
       || header.Height > ChainRoot.HeaderTipBlockchain.Height)
       return;
 
-    RollBack(heightAfterRollBack: header.Height);
-
     try
     {
       LiteDatabase.RunTransaction(() =>
@@ -144,18 +140,25 @@ internal partial class BlockchainBToken : Blockchain
         Accounts.Install(buffer, length);
 
         Accounts.VerifyHashAccounts((HeaderBToken)header);
+
+        Header headerReplay = header;
+
+        while (headerReplay != ChainRoot.HeaderTipBlockchain)
+        {
+          headerReplay = headerReplay.HeaderNext;
+          Accounts.InsertBlock(LoadBlockParsed(headerReplay));
+        }
       });
     }
     catch
     {
       Accounts.Drop();
-      UpdateTipBlockchain(ChainRoot);
       throw;
     }
 
-    UpdateTipBlockchain(ChainRoot);
-
     LoadTXsOwnedUnconfirmed();
+
+    MineBlock();
   }
 
   internal void AddTX(TX tX)

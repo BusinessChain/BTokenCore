@@ -207,6 +207,14 @@ internal abstract partial class Blockchain
     return true;
   }
 
+  protected Block LoadBlockParsed(Header header)
+  {
+    if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
+      throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded.");
+
+    return block;
+  }
+
   internal Block GetBlock(byte[] hash)
   {
     if (ChainRoot.TryGetHeader(hash, out Header header)
@@ -373,8 +381,7 @@ internal abstract partial class Blockchain
     while (ChainRoot.HeaderTipBlockchain.Height > heightAfterRollBack)
     {
       Header header = ChainRoot.HeaderTipBlockchain;
-      if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
-        throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded for rollback.");
+      Block block = LoadBlockParsed(header);
 
       LiteDatabase.RunTransaction(() =>
       {
