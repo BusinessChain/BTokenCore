@@ -356,7 +356,7 @@ internal partial class Network
 
       DOSMonitor.Decrement(1);
 
-      peer.HashesBlockRefused.Add(inventory.Hash);
+      peer.HashesRefused.Add(inventory.Hash);
       blockMessage.BlockDownload.Header = null;
       peer.StateCurrent = Peer.StateProtocol.Idle;
     }

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace BTokenCore;
 
 internal partial class NetworkBToken : Network
@@ -93,17 +95,19 @@ internal partial class NetworkBToken : Network
       int inventoryCount = VarInt.GetInt(Payload, ref startIndex);
       int startIndexInventories = startIndex;
 
-      Inventory.InventoryType typeInventory = Inventory.Parse(Payload, ref startIndex).Type;
+      Inventory inventory = Inventory.Parse(Payload, ref startIndex);
 
-      if (typeInventory is Inventory.InventoryType.MSG_SEGMENT_HASHES or Inventory.InventoryType.MSG_SEGMENT)
+      if (inventory.Type is Inventory.InventoryType.MSG_SEGMENT_HASHES or Inventory.InventoryType.MSG_SEGMENT)
       {
         if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload)
           return;
 
         DOSMonitor.Decrement(1);
 
-        if (typeInventory == Inventory.InventoryType.MSG_SEGMENT)
+        if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT)
         {
+          peer.HashesRefused.Add(inventory.Hash);
+
           BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
           await blockchainBToken.RunLocked(blockchainBToken.MoveAccountsDownloadToTip);
         }
@@ -112,24 +116,25 @@ internal partial class NetworkBToken : Network
         return;
       }
 
-      if (typeInventory != Inventory.InventoryType.MSG_TX)
+      if (inventory.Type == Inventory.InventoryType.MSG_TX)
       {
-        await base.Run(peer);
+        startIndex = startIndexInventories;
+        bool isRequestAnswered = false;
+
+        Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
+
+        lock (hashesTXRequested)
+          for (int i = 0; i < inventoryCount; i++)
+            if (hashesTXRequested.Remove(Inventory.Parse(Payload, ref startIndex).Hash))
+              isRequestAnswered = true;
+
+        if (isRequestAnswered)
+          DOSMonitor.Decrement(1);
+
         return;
       }
 
-      startIndex = startIndexInventories;
-      bool isRequestAnswered = false;
-
-      Dictionary<byte[], DateTime> hashesTXRequested = ((PeerBToken)peer).HashesTXRequested;
-
-      lock (hashesTXRequested)
-        for (int i = 0; i < inventoryCount; i++)
-          if (hashesTXRequested.Remove(Inventory.Parse(Payload, ref startIndex).Hash))
-            isRequestAnswered = true;
-
-      if (isRequestAnswered)
-        DOSMonitor.Decrement(1);
+      await base.Run(peer);
     }
   }
 
@@ -184,7 +189,7 @@ internal partial class NetworkBToken : Network
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
       Inventory inventoryAccountsMissing = await blockchainBToken.RunLocked(() =>
-        blockchainBToken.GetHashSegmentMissing() is byte[] hashSegment
+        blockchainBToken.GetHashSegmentMissing(h => !peer.HashesRefused.Contains(h)) is byte[] hashSegment
           ? new Inventory(Inventory.InventoryType.MSG_SEGMENT, hashSegment)
           : blockchainBToken.GetHashBlockAccountsMissing() is byte[] hashBlock
             ? new Inventory(Inventory.InventoryType.MSG_SEGMENT_HASHES, hashBlock)
@@ -240,6 +245,8 @@ internal partial class NetworkBToken : Network
 
         await blockchainBToken.RunLocked(() => blockchainBToken.SetHashesSegmentDownload(inventoryRequested.Hash, Payload));
       }
+      else if (!SHA256.HashData(Payload.AsSpan(0, LengthDataPayload)).IsAllBytesEqual(inventoryRequested.Hash))
+        peer.HashesRefused.Add(inventoryRequested.Hash);
       else
         await blockchainBToken.RunLocked(() => blockchainBToken.AddSegmentDownload(inventoryRequested.Hash, Payload, LengthDataPayload));
 

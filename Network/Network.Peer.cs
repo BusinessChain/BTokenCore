@@ -30,7 +30,7 @@ internal partial class Network
 
     internal SemaphoreSlim SemaphorePeer = new(1);
 
-    internal HashSet<byte[]> HashesBlockRefused = new(new EqualityComparerByteArray());
+    internal HashSet<byte[]> HashesRefused = new(new EqualityComparerByteArray());
 
     internal TaskCompletionSource HandshakeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -65,7 +65,7 @@ internal partial class Network
 
     internal virtual bool CanDeliverBlock(Header header)
     {
-      return !HashesBlockRefused.Contains(header.Hash);
+      return !HashesRefused.Contains(header.Hash);
     }
 
     protected virtual async Task RelayTXs()

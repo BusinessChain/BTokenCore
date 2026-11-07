@@ -172,12 +172,14 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal byte[] GetHashSegmentMissing()
+  internal byte[] GetHashSegmentMissing(Func<byte[], bool> canSupplierDeliverSegment)
   {
     if (HashesSegmentDownload == null)
       return null;
 
-    return HashesSegmentDownload[Array.IndexOf(SegmentsDownload, null)];
+    return HashesSegmentDownload
+      .Where((h, i) => SegmentsDownload[i] == null && canSupplierDeliverSegment(h))
+      .FirstOrDefault();
   }
 
   internal void SetHashesSegmentDownload(byte[] hashBlock, byte[] hashesSegment)
@@ -234,7 +236,7 @@ internal partial class BlockchainBToken : Blockchain
 
   internal void AddSegmentDownload(byte[] hashSegment, byte[] buffer, int length)
   {
-    if (HashesSegmentDownload == null || !SHA256.HashData(buffer.AsSpan(0, length)).IsAllBytesEqual(hashSegment))
+    if (HashesSegmentDownload == null)
       return;
 
     byte[] segment = buffer[..length];
