@@ -20,6 +20,7 @@ internal partial class BlockchainBToken : Blockchain
 
   DatabaseAccounts Accounts = new();
   Header HeaderAccountsReplayed;
+  int HeightAccountsInstalled;
 
   Header HeaderTipAccountsServed;
   byte[] HashesSegmentServed;
@@ -276,6 +277,7 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     HeaderAccountsReplayed = header;
+    HeightAccountsInstalled = header.Height;
 
     Task.Run(RunFullCheck);
   }
@@ -300,19 +302,28 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
 
       Header header = HeaderAccountsReplayed.HeaderNext;
+      Block block = LoadBlockParsed(header);
 
-      LiteDatabase.RunTransaction(() =>
+      try
       {
-        Accounts.InsertBlock(LoadBlockParsed(header));
+        LiteDatabase.RunTransaction(() =>
+        {
+          Accounts.InsertBlock(block);
 
-        if (header == headerTip)
-          Accounts.MarkComplete();
-      });
+          if (header == headerTip)
+            Accounts.MarkComplete();
+        });
 
-      HeaderAccountsReplayed = header;
+        HeaderAccountsReplayed = header;
 
-      if (header != headerTip)
-        return true;
+        if (header != headerTip)
+          return true;
+      }
+      catch (ProtocolException exception) when (header.Height - HeightAccountsInstalled > COUNT_SEGMENTS)
+      {
+        RejectBlock(block, exception);
+        Accounts.MarkComplete();
+      }
     }
     catch (Exception exception)
     {
@@ -324,6 +335,8 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     HeaderAccountsReplayed = null;
+
+    UpdateTipBlockchain(ChainRoot);
 
     LoadTXsOwnedUnconfirmed();
 

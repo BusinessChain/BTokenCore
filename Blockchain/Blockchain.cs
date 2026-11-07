@@ -332,16 +332,21 @@ internal abstract partial class Blockchain
       }
       catch (ProtocolException ex)
       {
-        Console.WriteLine(
-          $"Block {block.Header.Hash.ToHexString()} at height {block.Header.Height} was rejected: {ex.Message} " +
-          $"If the network builds on it, the local database may be corrupt.");
-
-        ChainRoot.CutOff(block.Header);
+        RejectBlock(block, ex);
         continue;
       }
 
       OnBlockInserted.Announce(block);
     }
+  }
+
+  protected void RejectBlock(Block block, ProtocolException exception)
+  {
+    Console.WriteLine(
+      $"Block {block.Header.Hash.ToHexString()} at height {block.Header.Height} was rejected: {exception.Message} " +
+      $"If the network builds on it, the local database may be corrupt.");
+
+    ChainRoot.CutOff(block.Header);
   }
 
   void MarkTXsOwnedConfirmed(Block block)
