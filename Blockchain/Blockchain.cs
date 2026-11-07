@@ -248,17 +248,18 @@ internal abstract partial class Blockchain
       try
       {
         Block blockLoad = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
-        ParseBlockStored(blockLoad);
 
-        Header header = blockLoad.Header;
+        int index = 0;
+        Header header = ParseHeader(blockLoad.Buffer, ref index);
+        header.Height = bsonDocumentBlock[NAME_FIELD_ID].AsInt32;
+
+        if (!TryParseBlockStored(header, blockLoad))
+          continue;
 
         if (header.HashPrevious.IsAllBytesEqual(ChainRoot.HeaderTipBlockchain.Hash))
           ChainRoot.AppendHeader(header);
         else
-        {
-          header.Height = bsonDocumentBlock[NAME_FIELD_ID].AsInt32;
           ChainRoot = new(header, isRoot: true);
-        }
 
         ChainRoot.HeaderTipBlockchain = header;
 

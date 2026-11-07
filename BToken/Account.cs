@@ -26,6 +26,9 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void SpendTX(TXBToken tX)
     {
+      if (Balance == 0)
+        throw new ProtocolException($"Staged account {this} referenced by TX {tX} is spent to zero and no longer exists.");
+
       if (HeightAccountCreated != tX.HeightAccountCreated || Nonce != tX.Nonce)
         throw new ProtocolException($"Staged account {this} referenced by TX {tX} has unequal nonce or heightAccountCreated.");
 
