@@ -12,6 +12,8 @@ internal partial class NetworkBToken : Network
     internal byte[] HashBlockAnnounced;
 
     internal Inventory InventoryAccountsRequested;
+    internal byte[] HashBlockAccountsAsked;
+    internal byte[] HashBlockAccountsRefused;
 
     internal Dictionary<byte[], DateTime> HashesTXRequested = new(new EqualityComparerByteArray());
 

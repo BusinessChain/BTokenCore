@@ -173,9 +173,9 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal byte[] FetchHashSegmentMissingNext(Func<byte[], bool> canSupplierDeliverSegment)
+  internal byte[] FetchHashSegmentMissingNext(Func<byte[], bool> canSupplierDeliverSegment, byte[] hashBlockAccountsRefused)
   {
-    if (HashesSegmentDownload == null)
+    if (HashesSegmentDownload == null || hashBlockAccountsRefused?.IsAllBytesEqual(HashBlockAccountsDownload) == true)
       return null;
 
     return FetchItemMissingNext(
