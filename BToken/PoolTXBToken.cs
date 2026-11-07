@@ -46,7 +46,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void AddTX(TX tX)
     {
-      if (!Blockchain.Accounts.Exists())
+      if (!Blockchain.IsAccountsAtTip())
         throw new ProtocolException($"TX {tX.Hash.ToHexString()} cannot be verified without account database.");
 
       TXBToken tXBToken = tX as TXBToken;
@@ -75,7 +75,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void ReturnTXs(Block block)
     {
-      if (!Blockchain.Accounts.Exists())
+      if (!Blockchain.IsAccountsAtTip())
         return;
 
       for (int i = block.TXs.Count - 1; i > 0; i--)

@@ -10,6 +10,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
+    const string NAME_COLLECTION_COMPLETE = "accountsComplete";
     const string NAME_FIELD_ACCOUNTS = "accounts";
 
     LiteDatabase LiteDatabase;
@@ -23,18 +24,31 @@ internal partial class BlockchainBToken : Blockchain
     internal bool TryLoad(LiteDatabase storage)
     {
       LiteDatabase = storage;
-
-      bool isStored = LiteDatabase.CollectionExists(NAME_COLLECTION);
-      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
       UndoStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_UNDO);
 
-      return isStored;
+      bool isComplete = LiteDatabase.CollectionExists(NAME_COLLECTION_COMPLETE);
+
+      if (!isComplete)
+      {
+        Drop();
+        MarkComplete();
+      }
+
+      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+
+      return isComplete;
+    }
+
+    internal void MarkComplete()
+    {
+      LiteDatabase.GetCollection(NAME_COLLECTION_COMPLETE).Upsert(new BsonDocument { [NAME_FIELD_ID] = 0 });
     }
 
     internal void Drop()
     {
       LiteDatabase.DropCollection(NAME_COLLECTION);
       LiteDatabase.DropCollection(NAME_COLLECTION_UNDO);
+      LiteDatabase.DropCollection(NAME_COLLECTION_COMPLETE);
       AccountsStored = null;
     }
 

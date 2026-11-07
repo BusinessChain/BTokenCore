@@ -19,6 +19,7 @@ internal partial class BlockchainBToken : Blockchain
   internal const int LENGTH_HASHES_SEGMENT = COUNT_SEGMENTS * Crypto.LENGTH_HASH256;
 
   DatabaseAccounts Accounts = new();
+  Header HeaderAccountsReplayed;
 
   Header HeaderTipAccountsServed;
   byte[] HashesSegmentServed;
@@ -93,7 +94,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
-    if (!Accounts.Exists())
+    if (!IsAccountsAtTip())
       return;
 
     BlocksStored.DeleteMany(
@@ -104,13 +105,18 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void RollBackBlock(Block block)
   {
-    if (Accounts.Exists())
+    if (IsAccountsAtTip())
       Accounts.RollBack(block.Header.Height);
+  }
+
+  bool IsAccountsAtTip()
+  {
+    return Accounts.Exists() && HeaderAccountsReplayed == null;
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
   {
-    if (!Accounts.Exists())
+    if (!IsAccountsAtTip())
       return false;
 
     TXBToken tXBToken = (TXBToken)tX;
@@ -129,7 +135,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     Header headerTip = ChainRoot.HeaderTipBlockchain;
 
-    if (!headerTip.Hash.IsAllBytesEqual(hashBlock) || !Accounts.Exists() || !IsWindowStoredForAccountsExchange())
+    if (!headerTip.Hash.IsAllBytesEqual(hashBlock) || !IsAccountsAtTip() || !IsWindowStoredForAccountsExchange())
       return null;
 
     if (HeaderTipAccountsServed != headerTip)
@@ -261,18 +267,7 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      LiteDatabase.RunTransaction(() =>
-      {
-        Accounts.Install(segments);
-
-        Header headerReplay = header;
-
-        while (headerReplay != ChainRoot.HeaderTipBlockchain)
-        {
-          headerReplay = headerReplay.HeaderNext;
-          Accounts.InsertBlock(LoadBlockParsed(headerReplay));
-        }
-      });
+      LiteDatabase.RunTransaction(() => Accounts.Install(segments));
     }
     catch
     {
@@ -280,9 +275,65 @@ internal partial class BlockchainBToken : Blockchain
       throw;
     }
 
+    HeaderAccountsReplayed = header;
+
+    Task.Run(RunFullCheck);
+  }
+
+  async Task RunFullCheck()
+  {
+    while (await RunLocked(ReplayBlockNext))
+    { }
+  }
+
+  bool ReplayBlockNext()
+  {
+    if (HeaderAccountsReplayed == null)
+      return false;
+
+    Header headerTip = ChainRoot.HeaderTipBlockchain;
+
+    try
+    {
+      if (headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
+        throw new ProtocolException($"Replayed block {HeaderAccountsReplayed.Hash.ToHexString()} left the main chain.");
+
+      if (HeaderAccountsReplayed != headerTip)
+      {
+        Header header = HeaderAccountsReplayed.HeaderNext;
+
+        LiteDatabase.RunTransaction(() =>
+        {
+          Accounts.InsertBlock(LoadBlockParsed(header));
+
+          if (header == headerTip)
+            Accounts.MarkComplete();
+        });
+
+        HeaderAccountsReplayed = header;
+
+        if (header != headerTip)
+          return true;
+      }
+      else
+        Accounts.MarkComplete();
+    }
+    catch (Exception exception)
+    {
+      Console.WriteLine($"Full check of the account database failed, the database is downloaded again: {exception.Message}");
+
+      Accounts.Drop();
+      HeaderAccountsReplayed = null;
+      return false;
+    }
+
+    HeaderAccountsReplayed = null;
+
     LoadTXsOwnedUnconfirmed();
 
     MineBlock();
+
+    return false;
   }
 
   internal void AddTX(TX tX)
@@ -310,7 +361,7 @@ internal partial class BlockchainBToken : Blockchain
 
   void LoadTXsOwnedUnconfirmed()
   {
-    if (!Accounts.Exists())
+    if (!IsAccountsAtTip())
       return;
 
     foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
@@ -406,7 +457,7 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void MineBlock()
   {
-    if (!IsMining || !Accounts.Exists())
+    if (!IsMining || !IsAccountsAtTip())
       return;
 
     if (!BlockchainBitcoin.IsTXAnchorUnconfirmed())
@@ -546,6 +597,7 @@ internal partial class BlockchainBToken : Blockchain
     Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
 
     Accounts.Drop();
+    HeaderAccountsReplayed = null;
     TXPool.Clear();
     BlocksStored.DeleteAll();
 
