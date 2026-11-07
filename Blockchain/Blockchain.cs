@@ -1,4 +1,5 @@
 ﻿using LiteDB;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -166,10 +167,26 @@ internal abstract partial class Blockchain
 
     VerifyCoinbase(block);
 
+    DrawAnchorsWinner(block);
+  }
+
+  static void DrawAnchorsWinner(Block block)
+  {
+    Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
+
     foreach (TX tX in block.TXs)
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-          block.Header.AnchorsWinner.TryAdd(tokenAnchor.IDToken, tokenAnchor);
+        {
+          byte[] scoreAnchor = SHA256.HashData([.. block.Header.Hash, .. tokenAnchor.HashBlockReferenced]);
+
+          if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
+            || scoreAnchor.IsLessThan(scoreAnchorWinner))
+          {
+            scoresAnchorWinner[tokenAnchor.IDToken] = scoreAnchor;
+            block.Header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
+          }
+        }
   }
 
   protected virtual void ParseBlockStored(Block block)

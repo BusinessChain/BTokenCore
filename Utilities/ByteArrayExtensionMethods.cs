@@ -60,6 +60,11 @@ public static class ByteArrayExtensionMethods
     return true;
   }
 
+  public static bool IsLessThan(this byte[] arr1, byte[] arr2)
+  {
+    return arr1.AsSpan().SequenceCompareTo(arr2) < 0;
+  }
+
   public static byte[] ReadBytes(this byte[] buffer, ref int index, int length)
   {
     byte[] bytes = buffer[index..(index + length)];
