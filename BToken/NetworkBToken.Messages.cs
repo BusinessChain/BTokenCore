@@ -105,7 +105,7 @@ internal partial class NetworkBToken : Network
         if (typeInventory == Inventory.InventoryType.MSG_SEGMENT)
         {
           BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
-          await blockchainBToken.RunLocked(blockchainBToken.DiscardAccountsDownload);
+          await blockchainBToken.RunLocked(blockchainBToken.MoveAccountsDownloadToTip);
         }
 
         peer.StateCurrent = Peer.StateProtocol.Idle;

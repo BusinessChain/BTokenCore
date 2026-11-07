@@ -178,9 +178,51 @@ internal partial class BlockchainBToken : Blockchain
     if (Accounts.Exists() || HashesSegmentDownload != null)
       return;
 
-    HashBlockAccountsDownload = hashBlock;
-    HashesSegmentDownload = hashesSegment.Chunk(Crypto.LENGTH_HASH256).ToArray();
+    byte[][] hashesSegmentNew = hashesSegment.Chunk(Crypto.LENGTH_HASH256).ToArray();
+    byte[][] segmentsKept = AdvanceSegmentsDownload(hashBlock) ?? new byte[COUNT_SEGMENTS][];
+
     SegmentsDownload = new byte[COUNT_SEGMENTS][];
+
+    for (int i = 0; i < COUNT_SEGMENTS; i += 1)
+      if (segmentsKept[i] != null && SHA256.HashData(segmentsKept[i]).IsAllBytesEqual(hashesSegmentNew[i]))
+        SegmentsDownload[i] = segmentsKept[i];
+
+    HashBlockAccountsDownload = hashBlock;
+    HashesSegmentDownload = hashesSegmentNew;
+  }
+
+  byte[][] AdvanceSegmentsDownload(byte[] hashBlockNew)
+  {
+    if (SegmentsDownload == null
+      || !ChainRoot.TryGetHeader(HashBlockAccountsDownload, out Header headerTipOld)
+      || !ChainRoot.TryGetHeader(hashBlockNew, out Header headerTipNew)
+      || headerTipNew.GetHeaderAncestor(headerTipOld.Height) != headerTipOld)
+      return null;
+
+    List<Block> blocks = new();
+
+    for (
+      Header header = headerTipNew.GetHeaderAncestor(headerTipNew.Height - COUNT_MAX_BLOCKS_STORED);
+      header.Height > headerTipOld.Height - COUNT_MAX_BLOCKS_STORED;
+      header = header.HeaderPrevious)
+      blocks.Insert(0, LoadBlockParsed(header));
+
+    if (blocks.Count == 0)
+      return SegmentsDownload;
+
+    try
+    {
+      return Accounts.AdvanceSegments(SegmentsDownload, blocks);
+    }
+    catch (ProtocolException)
+    {
+      return null;
+    }
+  }
+
+  internal void MoveAccountsDownloadToTip()
+  {
+    HashesSegmentDownload = null;
   }
 
   internal void AddSegmentDownload(byte[] hashSegment, byte[] buffer, int length)
@@ -203,15 +245,10 @@ internal partial class BlockchainBToken : Blockchain
     }
     finally
     {
-      DiscardAccountsDownload();
+      HashBlockAccountsDownload = null;
+      HashesSegmentDownload = null;
+      SegmentsDownload = null;
     }
-  }
-
-  internal void DiscardAccountsDownload()
-  {
-    HashBlockAccountsDownload = null;
-    HashesSegmentDownload = null;
-    SegmentsDownload = null;
   }
 
   void InstallAccountsAtBlock(byte[] hashBlock, List<byte[]> segments)

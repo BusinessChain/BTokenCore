@@ -111,12 +111,32 @@ internal partial class BlockchainBToken : Blockchain
       return [.. VarInt.GetBytes(countAccounts), .. bytes];
     }
 
-    internal void Install(List<byte[]> segments)
+    internal void Install(IEnumerable<byte[]> segments)
     {
       AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
 
-      foreach (byte[] segment in segments)
+      foreach (byte[] segment in segments.Where(s => s != null))
         AccountsStored.InsertBulk(ParseAccounts(segment, segment.Length));
+    }
+
+    internal byte[][] AdvanceSegments(byte[][] segments, List<Block> blocks)
+    {
+      LiteDatabase.BeginTrans();
+
+      try
+      {
+        Install(segments);
+
+        foreach (Block block in blocks)
+          InsertTXs(block, iD => segments[iD[0]] != null);
+
+        return segments.Select((s, i) => s == null ? null : SerializeSegment(i)).ToArray();
+      }
+      finally
+      {
+        LiteDatabase.Rollback();
+        Drop();
+      }
     }
 
     static List<Account> ParseAccounts(byte[] buffer, int length)
@@ -175,11 +195,11 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void InsertBlock(Block block)
     {
-      InsertTXs(block);
+      InsertTXs(block, iD => true);
       VerifyHashAccounts((HeaderBToken)block.Header);
     }
 
-    void InsertTXs(Block block)
+    void InsertTXs(Block block, Func<byte[], bool> isAccountApplied)
     {
       AccountsUndo.Clear();
 
@@ -188,10 +208,10 @@ internal partial class BlockchainBToken : Blockchain
         TXBToken tX = (TXBToken)block.TXs[i];
 
         foreach (TXOutput tXOutput in tX.TXOutputs)
-          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0)
+          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0 && isAccountApplied(tXOutputP2PKH.IDAccount))
             ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, tXOutputP2PKH.Value);
 
-        if (i > 0)
+        if (i > 0 && isAccountApplied(tX.IDAccountSource))
         {
           Account accountSource = LoadAccountExisting(tX.IDAccountSource);
           accountSource.SpendTX(tX);
@@ -239,8 +259,8 @@ internal partial class BlockchainBToken : Blockchain
 
       try
       {
-        InsertTXs(block);
-        return HashSegment(block.Header.Height);
+        InsertTXs(block, iD => true);
+        return SHA256.HashData(SerializeSegment(block.Header.Height % COUNT_SEGMENTS));
       }
       finally
       {
@@ -250,23 +270,25 @@ internal partial class BlockchainBToken : Blockchain
 
     void VerifyHashAccounts(HeaderBToken header)
     {
-      if (!HashSegment(header.Height).IsAllBytesEqual(header.HashAccounts))
-        throw new ProtocolException($"Hash of segment {header.Height % COUNT_SEGMENTS} not equal to HashAccounts of block {header.Hash.ToHexString()}.");
+      int indexSegment = header.Height % COUNT_SEGMENTS;
+
+      if (!SHA256.HashData(SerializeSegment(indexSegment)).IsAllBytesEqual(header.HashAccounts))
+        throw new ProtocolException($"Hash of segment {indexSegment} not equal to HashAccounts of block {header.Hash.ToHexString()}.");
     }
 
-    byte[] HashSegment(int height)
+    byte[] SerializeSegment(int indexSegment)
     {
       byte[] iDFirst = new byte[Crypto.LENGTH_HASH160];
       byte[] iDLast = Enumerable.Repeat((byte)0xFF, Crypto.LENGTH_HASH160).ToArray();
 
-      iDFirst[0] = iDLast[0] = (byte)(height % COUNT_SEGMENTS);
+      iDFirst[0] = iDLast[0] = (byte)indexSegment;
 
       IEnumerable<Account> accountsSegment = AccountsStored.Query()
         .Where(Query.Between(NAME_FIELD_ID, iDFirst, iDLast))
         .OrderBy(NAME_FIELD_ID)
         .ToEnumerable();
 
-      return SHA256.HashData(SerializeAccounts(accountsSegment));
+      return SerializeAccounts(accountsSegment);
     }
   }
 }
