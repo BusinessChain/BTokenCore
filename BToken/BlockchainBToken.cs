@@ -360,7 +360,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED)
     {
-      Resync(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
+      Resync(ChainRoot.HeaderTip.Height);
       UpdateTipBlockchain(ChainRoot);
     }
 
@@ -427,9 +427,10 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  void Resync(int heightRoot)
+  void Resync(int heightTarget)
   {
-    Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(heightRoot);
+    Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(
+      Math.Max(heightTarget - COUNT_MAX_BLOCKS_STORED, ChainRoot.HeaderRoot.Height));
 
     Accounts.Drop();
     TXPool.Clear();
