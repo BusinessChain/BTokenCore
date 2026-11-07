@@ -29,6 +29,7 @@ internal partial class BlockchainBToken : Blockchain
   byte[] HashBlockAccountsDownload;
   byte[][] HashesSegmentDownload;
   byte[][] SegmentsDownload;
+  Dictionary<byte[], byte[]> HashesSegmentAwaited = new(new EqualityComparerByteArray());
 
   PoolTXBToken TXPool;
 
@@ -172,14 +173,16 @@ internal partial class BlockchainBToken : Blockchain
     return null;
   }
 
-  internal byte[] GetHashSegmentMissing(Func<byte[], bool> canSupplierDeliverSegment)
+  internal byte[] FetchHashSegmentMissingNext(Func<byte[], bool> canSupplierDeliverSegment)
   {
     if (HashesSegmentDownload == null)
       return null;
 
-    return HashesSegmentDownload
-      .Where((h, i) => SegmentsDownload[i] == null && canSupplierDeliverSegment(h))
-      .FirstOrDefault();
+    return FetchItemMissingNext(
+      HashesSegmentDownload.Where((h, i) => SegmentsDownload[i] == null),
+      HashesSegmentAwaited,
+      h => h,
+      canSupplierDeliverSegment);
   }
 
   internal void SetHashesSegmentDownload(byte[] hashBlock, byte[] hashesSegment)
@@ -198,6 +201,7 @@ internal partial class BlockchainBToken : Blockchain
 
     HashBlockAccountsDownload = hashBlock;
     HashesSegmentDownload = hashesSegmentNew;
+    HashesSegmentAwaited.Clear();
   }
 
   byte[][] AdvanceSegmentsDownload(byte[] hashBlockNew)
