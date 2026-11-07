@@ -295,28 +295,24 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      if (headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
-        throw new ProtocolException($"Replayed block {HeaderAccountsReplayed.Hash.ToHexString()} left the main chain.");
+      if (HeaderAccountsReplayed == headerTip
+        || headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
+        throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
 
-      if (HeaderAccountsReplayed != headerTip)
+      Header header = HeaderAccountsReplayed.HeaderNext;
+
+      LiteDatabase.RunTransaction(() =>
       {
-        Header header = HeaderAccountsReplayed.HeaderNext;
+        Accounts.InsertBlock(LoadBlockParsed(header));
 
-        LiteDatabase.RunTransaction(() =>
-        {
-          Accounts.InsertBlock(LoadBlockParsed(header));
+        if (header == headerTip)
+          Accounts.MarkComplete();
+      });
 
-          if (header == headerTip)
-            Accounts.MarkComplete();
-        });
+      HeaderAccountsReplayed = header;
 
-        HeaderAccountsReplayed = header;
-
-        if (header != headerTip)
-          return true;
-      }
-      else
-        Accounts.MarkComplete();
+      if (header != headerTip)
+        return true;
     }
     catch (Exception exception)
     {
