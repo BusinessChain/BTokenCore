@@ -17,6 +17,8 @@ internal partial class BlockchainBToken : Blockchain
   const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
 
   DatabaseAccounts Accounts = new();
+  Header HeaderTipAccountsServed;
+  byte[] AccountsServed;
 
   PoolTXBToken TXPool;
 
@@ -110,17 +112,30 @@ internal partial class BlockchainBToken : Blockchain
     return account.HeightAccountCreated != tXBToken.HeightAccountCreated || account.Nonce > tXBToken.Nonce;
   }
 
+  bool IsWindowStoredForAccountsExchange()
+  {
+    return GetHeightBlockStoredOldest() <= ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED + 1;
+  }
+
   internal byte[] GetAccountsSerializedAtBlock(byte[] hashBlock)
   {
-    if (ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hashBlock) && Accounts.Exists())
-      return Accounts.Serialize();
+    Header headerTip = ChainRoot.HeaderTipBlockchain;
 
-    return null;
+    if (!headerTip.Hash.IsAllBytesEqual(hashBlock) || !Accounts.Exists() || !IsWindowStoredForAccountsExchange())
+      return null;
+
+    if (HeaderTipAccountsServed != headerTip)
+    {
+      AccountsServed = Accounts.SerializeBelowWindow(headerTip.Height);
+      HeaderTipAccountsServed = headerTip;
+    }
+
+    return AccountsServed;
   }
 
   internal byte[] GetHashBlockAccountsMissing()
   {
-    if (!Accounts.Exists())
+    if (!Accounts.Exists() && IsWindowStoredForAccountsExchange())
       return ChainRoot.HeaderTipBlockchain.Hash;
 
     return null;
@@ -129,8 +144,9 @@ internal partial class BlockchainBToken : Blockchain
   internal void InstallAccountsAtBlock(byte[] hashBlock, byte[] buffer, int length)
   {
     if (Accounts.Exists()
-      || !ChainRoot.TryGetHeader(hashBlock, out Header header)
-      || header.Height > ChainRoot.HeaderTipBlockchain.Height)
+      || !ChainRoot.TryGetHeader(hashBlock, out Header headerRequested)
+      || headerRequested.Height > ChainRoot.HeaderTipBlockchain.Height
+      || headerRequested.GetHeaderAncestor(headerRequested.Height - COUNT_MAX_BLOCKS_STORED) is not Header header)
       return;
 
     try
@@ -138,8 +154,6 @@ internal partial class BlockchainBToken : Blockchain
       LiteDatabase.RunTransaction(() =>
       {
         Accounts.Install(buffer, length);
-
-        Accounts.VerifyHashAccounts((HeaderBToken)header);
 
         Header headerReplay = header;
 

@@ -17,6 +17,8 @@ internal partial class BlockchainBToken : Blockchain
     ILiteCollection<BsonDocument> UndoStored;
     Dictionary<byte[], Account> AccountsUndo = new(new EqualityComparerByteArray());
 
+    static readonly Comparer<byte[]> ComparerID = Comparer<byte[]>.Create((a, b) => a.AsSpan().SequenceCompareTo(b));
+
 
     internal bool TryLoad(LiteDatabase storage)
     {
@@ -41,16 +43,45 @@ internal partial class BlockchainBToken : Blockchain
       return AccountsStored != null;
     }
 
-    internal byte[] Serialize()
+    internal byte[] SerializeBelowWindow(int heightTip)
     {
-      return SerializeAccounts(AccountsStored.Find(Query.All(Query.Ascending)).ToList());
+      Dictionary<byte[], Account> accountsBelowWindow = new(new EqualityComparerByteArray());
+
+      for (int height = heightTip; height > heightTip - COUNT_MAX_BLOCKS_STORED; height -= 1)
+        foreach (Account account in LoadAccountsUndo(height))
+          accountsBelowWindow[account.ID] = account;
+
+      IEnumerable<Account> accountsStoredUnchanged = AccountsStored.Find(Query.All(Query.Ascending))
+        .Where(a => !accountsBelowWindow.ContainsKey(a.ID));
+
+      List<Account> accountsUndoExisting = accountsBelowWindow.Values
+        .Where(a => a.Balance > 0)
+        .OrderBy(a => a.ID, ComparerID)
+        .ToList();
+
+      return SerializeAccounts(MergeByID(accountsStoredUnchanged, accountsUndoExisting));
     }
 
-    static byte[] SerializeAccounts(ICollection<Account> accounts)
+    static IEnumerable<Account> MergeByID(IEnumerable<Account> accountsSorted, List<Account> accountsSortedInsert)
+    {
+      int i = 0;
+
+      foreach (Account account in accountsSorted)
+      {
+        for (; i < accountsSortedInsert.Count && ComparerID.Compare(accountsSortedInsert[i].ID, account.ID) < 0; i += 1)
+          yield return accountsSortedInsert[i];
+
+        yield return account;
+      }
+
+      for (; i < accountsSortedInsert.Count; i += 1)
+        yield return accountsSortedInsert[i];
+    }
+
+    static byte[] SerializeAccounts(IEnumerable<Account> accounts)
     {
       List<byte> bytes = new();
-
-      bytes.AddRange(VarInt.GetBytes(accounts.Count));
+      int countAccounts = 0;
 
       foreach (Account account in accounts)
       {
@@ -58,9 +89,11 @@ internal partial class BlockchainBToken : Blockchain
         bytes.AddRange(BitConverter.GetBytes(account.HeightAccountCreated));
         bytes.AddRange(BitConverter.GetBytes(account.Nonce));
         bytes.AddRange(BitConverter.GetBytes(account.Balance));
+
+        countAccounts += 1;
       }
 
-      return bytes.ToArray();
+      return [.. VarInt.GetBytes(countAccounts), .. bytes];
     }
 
     internal void Install(byte[] buffer, int length)
@@ -162,15 +195,20 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void RollBack(int height)
     {
+      foreach (Account account in LoadAccountsUndo(height))
+        WriteAccount(account);
+
+      UndoStored.Delete(height);
+    }
+
+    List<Account> LoadAccountsUndo(int height)
+    {
       if (UndoStored.FindById(height) is not BsonDocument documentUndo)
         throw new InvalidOperationException($"No undo data for block at height {height}.");
 
       byte[] accountsUndo = documentUndo[NAME_FIELD_ACCOUNTS].AsBinary;
 
-      foreach (Account account in ParseAccounts(accountsUndo, accountsUndo.Length))
-        WriteAccount(account);
-
-      UndoStored.Delete(height);
+      return ParseAccounts(accountsUndo, accountsUndo.Length);
     }
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
@@ -195,7 +233,7 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    internal void VerifyHashAccounts(HeaderBToken header)
+    void VerifyHashAccounts(HeaderBToken header)
     {
       if (!HashSegment(header.Height).IsAllBytesEqual(header.HashAccounts))
         throw new ProtocolException($"Hash of segment {header.Height % COUNT_SEGMENTS} not equal to HashAccounts of block {header.Hash.ToHexString()}.");
@@ -208,10 +246,10 @@ internal partial class BlockchainBToken : Blockchain
 
       iDFirst[0] = iDLast[0] = (byte)(height % COUNT_SEGMENTS);
 
-      List<Account> accountsSegment = AccountsStored.Query()
+      IEnumerable<Account> accountsSegment = AccountsStored.Query()
         .Where(Query.Between(NAME_FIELD_ID, iDFirst, iDLast))
         .OrderBy(NAME_FIELD_ID)
-        .ToList();
+        .ToEnumerable();
 
       return SHA256.HashData(SerializeAccounts(accountsSegment));
     }
