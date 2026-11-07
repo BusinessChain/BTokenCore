@@ -153,6 +153,26 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
+    internal static bool IsSegmentValid(byte[] segment, int indexSegment)
+    {
+      List<Account> accounts;
+
+      try
+      {
+        accounts = ParseAccounts(segment, segment.Length);
+      }
+      catch (Exception)
+      {
+        return false;
+      }
+
+      for (int i = 0; i < accounts.Count; i += 1)
+        if (accounts[i].ID[0] != indexSegment || i > 0 && ComparerID.Compare(accounts[i - 1].ID, accounts[i].ID) >= 0)
+          return false;
+
+      return true;
+    }
+
     static List<Account> ParseAccounts(byte[] buffer, int length)
     {
       int index = 0;

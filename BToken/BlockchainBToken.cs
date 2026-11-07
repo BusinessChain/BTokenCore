@@ -240,7 +240,7 @@ internal partial class BlockchainBToken : Blockchain
     byte[] segment = buffer[..length];
 
     for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-      if (HashesSegmentDownload[i].IsAllBytesEqual(hashSegment))
+      if (HashesSegmentDownload[i].IsAllBytesEqual(hashSegment) && DatabaseAccounts.IsSegmentValid(segment, i))
         SegmentsDownload[i] = segment;
 
     if (SegmentsDownload.Contains(null))
