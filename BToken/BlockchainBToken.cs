@@ -233,11 +233,6 @@ internal partial class BlockchainBToken : Blockchain
     }
   }
 
-  internal void MoveAccountsDownloadToTip()
-  {
-    HashesSegmentDownload = null;
-  }
-
   internal void AddSegmentDownload(byte[] hashSegment, byte[] buffer, int length)
   {
     if (HashesSegmentDownload == null)

@@ -105,12 +105,7 @@ internal partial class NetworkBToken : Network
         DOSMonitor.Decrement(1);
 
         if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT)
-        {
           peer.HashesRefused.Add(inventory.Hash);
-
-          BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
-          await blockchainBToken.RunLocked(blockchainBToken.MoveAccountsDownloadToTip);
-        }
 
         peer.StateCurrent = Peer.StateProtocol.Idle;
         return;
