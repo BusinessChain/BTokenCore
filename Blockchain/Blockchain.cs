@@ -445,6 +445,19 @@ internal abstract partial class Blockchain
         : null);
   }
 
+  protected static T FetchItemMissingNext<T>(
+    IEnumerable<T> itemsMissing,
+    Dictionary<byte[], T> itemsAwaited,
+    Func<T, byte[]> getHash,
+    Func<T, bool> canSupplierDeliver)
+  {
+    foreach (T item in itemsMissing)
+      if (canSupplierDeliver(item) && itemsAwaited.TryAdd(getHash(item), item))
+        return item;
+
+    return itemsMissing.FirstOrDefault(i => itemsAwaited.ContainsKey(getHash(i)) && canSupplierDeliver(i));
+  }
+
   internal List<byte[]> GetLocator()
   {
     return ChainRoot.GetLocator();

@@ -243,27 +243,24 @@ internal partial class Blockchain
       if (isChainTrunkLagging)
         return ChainTrunk.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, canSupplierDeliverBlock);
 
+      return FetchItemMissingNext(
+        GetHeadersBlockMissing(heightTarget),
+        HeadersAwaitingBlock,
+        h => h.Hash,
+        canSupplierDeliverBlock);
+    }
+
+    IEnumerable<Header> GetHeadersBlockMissing(int heightTarget)
+    {
       int heightBlockNext = HeaderTipBlockchain != null
         ? HeaderTipBlockchain.Height + 1 : HeaderRoot.Height;
 
-      Header headerCandidate = heightBlockNext == HeaderRoot.Height
-        ? HeaderRoot : HeaderTipBlockchain.HeaderNext;
-
-      while (headerCandidate != null
-        && headerCandidate.Height <= heightTarget
-        && headerCandidate.Height <= heightBlockNext + HEIGHT_GAP_MAX_BLOCK_MISSING)
-      {
-        if (!BlocksQueued.ContainsKey(headerCandidate.Height)
-          && canSupplierDeliverBlock(headerCandidate)
-          && HeadersAwaitingBlock.TryAdd(headerCandidate.Hash, headerCandidate))
-          return headerCandidate;
-
-        headerCandidate = headerCandidate.HeaderNext;
-      }
-
-      return HeadersAwaitingBlock.Values
-        .Where(h => h.Height <= heightTarget && canSupplierDeliverBlock(h))
-        .MinBy(h => h.Height);
+      for (
+        Header header = heightBlockNext == HeaderRoot.Height ? HeaderRoot : HeaderTipBlockchain.HeaderNext;
+        header != null && header.Height <= heightTarget && header.Height <= heightBlockNext + HEIGHT_GAP_MAX_BLOCK_MISSING;
+        header = header.HeaderNext)
+        if (!BlocksQueued.ContainsKey(header.Height))
+          yield return header;
     }
 
     internal void AdvanceTipBlockchain()
