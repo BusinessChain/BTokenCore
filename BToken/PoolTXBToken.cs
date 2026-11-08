@@ -7,14 +7,16 @@ internal partial class BlockchainBToken : Blockchain
     class TXBundle
     {
       internal byte[] IDAccountSource;
+      internal int SequenceNumberTX;
       internal double FeePerByte;
       internal long Fee;
       internal long CountBytes;
       internal List<TXBToken> TXs = new();
 
-      internal TXBundle(TXBToken tX)
+      internal TXBundle(TXBToken tX, int sequenceNumberTX)
       {
         IDAccountSource = tX.IDAccountSource;
+        SequenceNumberTX = sequenceNumberTX;
         FeePerByte = tX.GetFeePerByte();
         Fee = tX.Fee;
         CountBytes = tX.CountBytes;
@@ -34,13 +36,21 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Dictionary<byte[], (TXBToken tX, int sequenceNumberTX)> TXsByHash = new(new EqualityComparerByteArray());
 
-    Dictionary<byte[], List<TXBToken>> TXsByIDAccountSource = new(new EqualityComparerByteArray());
+    Dictionary<byte[], List<TXBundle>> TXsByIDAccountSource = new(new EqualityComparerByteArray());
 
     /// <summary>
     /// A bundle conains tXs with the same source account with consecutive nonce.
     /// The miner can pull bundles from this list and be sure to have maximized fee.
     /// </summary>
-    List<TXBundle> TXBundlesSortedByFee = new();
+    SortedSet<TXBundle> TXBundlesSortedByFee = new(Comparer<TXBundle>.Create((a, b) =>
+    {
+      int comparisonFeePerByte = b.FeePerByte.CompareTo(a.FeePerByte);
+
+      if (comparisonFeePerByte != 0)
+        return comparisonFeePerByte;
+
+      return a.SequenceNumberTX.CompareTo(b.SequenceNumberTX);
+    }));
 
 
     internal PoolTXBToken(BlockchainBToken blockchain)
@@ -57,14 +67,14 @@ internal partial class BlockchainBToken : Blockchain
 
       Account accountTrial = Blockchain.Accounts.LoadAccountExisting(tXBToken.IDAccountSource);
 
-      if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBToken> tXsInPool))
-        foreach (TXBToken tXInPool in tXsInPool)
+      if (TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out List<TXBundle> tXBundles))
+        foreach (TXBToken tXInPool in tXBundles.SelectMany(b => b.TXs))
           accountTrial.SpendTX(tXInPool);
 
       accountTrial.SpendTX(tXBToken);
 
       if (CountBytesTXs + tXBToken.CountBytes > COUNT_BYTES_MAX_POOL &&
-        tXBToken.GetFeePerByte() < TXBundlesSortedByFee[^1].FeePerByte + FEE_PER_BYTE_INCREMENT)
+        tXBToken.GetFeePerByte() < TXBundlesSortedByFee.Max.FeePerByte + FEE_PER_BYTE_INCREMENT)
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} does not outbid the full pool by the fee increment.");
 
       InsertTX(tXBToken, isFromBlockRolledBack: false);
@@ -111,15 +121,12 @@ internal partial class BlockchainBToken : Blockchain
 
       while (CountBytesTXs > COUNT_BYTES_MAX_POOL)
       {
-        TXBundle tXBundleLast = TXBundlesSortedByFee[^1];
-        TXBToken tXEvicted = tXBundleLast.TXs[^1];
+        TXBundle tXBundleLast = TXBundlesSortedByFee.Max;
 
-        tXBundleLast.TXs.RemoveAt(tXBundleLast.TXs.Count - 1);
+        RemoveTXFromIndexes(tXBundleLast.TXs[^1]);
 
         if (tXBundleLast.TXs.Count == 0)
-          TXBundlesSortedByFee.RemoveAt(TXBundlesSortedByFee.Count - 1);
-
-        RemoveTXFromIndexes(tXEvicted);
+          TXBundlesSortedByFee.Remove(tXBundleLast);
 
         isTXEvicted = true;
       }
@@ -130,23 +137,28 @@ internal partial class BlockchainBToken : Blockchain
 
     void InsertTX(TXBToken tX, bool isFromBlockRolledBack)
     {
-      if (isFromBlockRolledBack)
-        TXsByHash.Add(tX.Hash, (tX, -1));
-      else
-        TXsByHash.Add(tX.Hash, (tX, SequenceNumberTX++));
-
       CountBytesTXs += tX.CountBytes;
 
-      if (!TXsByIDAccountSource.TryGetValue(tX.IDAccountSource, out List<TXBToken> tXsInPool))
+      if (!isFromBlockRolledBack)
       {
-        tXsInPool = new List<TXBToken>();
-        TXsByIDAccountSource.Add(tX.IDAccountSource, tXsInPool);
+        TXsByHash.Add(tX.Hash, (tX, SequenceNumberTX++));
+        return;
       }
 
-      if (isFromBlockRolledBack)
-        tXsInPool.Insert(0, tX);
-      else
-        tXsInPool.Add(tX);
+      TXsByHash.Add(tX.Hash, (tX, -1));
+
+      GetTXBundles(tX.IDAccountSource).Insert(0, new TXBundle(tX, -1));
+    }
+
+    List<TXBundle> GetTXBundles(byte[] iDAccountSource)
+    {
+      if (!TXsByIDAccountSource.TryGetValue(iDAccountSource, out List<TXBundle> tXBundles))
+      {
+        tXBundles = new List<TXBundle>();
+        TXsByIDAccountSource.Add(iDAccountSource, tXBundles);
+      }
+
+      return tXBundles;
     }
 
     internal void RemoveTXs(Block block)
@@ -162,7 +174,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       foreach (byte[] iDAccountSource in TXsByIDAccountSource.Keys.ToList())
       {
-        List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource];
+        List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource].SelectMany(b => b.TXs).ToList();
 
         Account account = Blockchain.Accounts.LoadAccount(iDAccountSource, 0);
 
@@ -191,11 +203,16 @@ internal partial class BlockchainBToken : Blockchain
 
       CountBytesTXs -= tX.CountBytes;
 
-      List<TXBToken> tXsInPool = TXsByIDAccountSource[tX.IDAccountSource];
+      List<TXBundle> tXBundles = TXsByIDAccountSource[tX.IDAccountSource];
 
-      tXsInPool.Remove(tX);
+      TXBundle tXBundle = tXBundles.First(b => b.TXs.Contains(tX));
 
-      if (tXsInPool.Count == 0)
+      tXBundle.TXs.Remove(tX);
+
+      if (tXBundle.TXs.Count == 0)
+        tXBundles.Remove(tXBundle);
+
+      if (tXBundles.Count == 0)
         TXsByIDAccountSource.Remove(tX.IDAccountSource);
     }
 
@@ -204,47 +221,44 @@ internal partial class BlockchainBToken : Blockchain
       TXBundlesSortedByFee.Clear();
       SequenceNumberTX = 0;
 
-      var orderedItems = TXsByHash.OrderBy(i => i.Value.sequenceNumberTX).ToList();
+      foreach (var item in TXsByHash.OrderBy(i => i.Value.sequenceNumberTX).ToList())
+        TXsByHash[item.Key] = (item.Value.tX, SequenceNumberTX++);
 
-      for (int i = 0; i < orderedItems.Count; i++)
+      foreach (List<TXBundle> tXBundles in TXsByIDAccountSource.Values)
       {
-        TXsByHash[orderedItems[i].Key] = (orderedItems[i].Value.tX, SequenceNumberTX++);
-        InsertTXInTXBundlesSortedByFee(orderedItems[i].Value.tX);
+        List<TXBToken> tXs = tXBundles.SelectMany(b => b.TXs).ToList();
+
+        tXBundles.Clear();
+
+        foreach (TXBToken tX in tXs)
+          InsertTXInTXBundlesSortedByFee(tX);
       }
     }
 
     void InsertTXInTXBundlesSortedByFee(TXBToken tX)
     {
-      TXBundle tXBundle = new(tX);
+      TXBundle tXBundle = new(tX, TXsByHash[tX.Hash].sequenceNumberTX);
 
-      int i = TXBundlesSortedByFee.Count - 1;
+      List<TXBundle> tXBundles = GetTXBundles(tX.IDAccountSource);
 
-      while (i > -1)
+      while (tXBundles.Count > 0 && tXBundles[^1].FeePerByte <= tXBundle.FeePerByte)
       {
-        TXBundle tXBundleNext = TXBundlesSortedByFee[i];
+        TXBundle tXBundlePrevious = tXBundles[^1];
 
-        if (tXBundle.FeePerByte < tXBundleNext.FeePerByte)
-        {
-          TXBundlesSortedByFee.Insert(i + 1, tXBundle);
-          return;
-        }
-        else if (tXBundle.IDAccountSource.IsAllBytesEqual(tXBundleNext.IDAccountSource))
-        {
-          tXBundleNext.TXs.AddRange(tXBundle.TXs);
+        TXBundlesSortedByFee.Remove(tXBundlePrevious);
+        tXBundles.RemoveAt(tXBundles.Count - 1);
 
-          tXBundleNext.Fee += tXBundle.Fee;
-          tXBundleNext.CountBytes += tXBundle.CountBytes;
-          tXBundleNext.FeePerByte = (double)tXBundleNext.Fee / tXBundleNext.CountBytes;
+        tXBundlePrevious.TXs.AddRange(tXBundle.TXs);
 
-          tXBundle = tXBundleNext;
+        tXBundlePrevious.Fee += tXBundle.Fee;
+        tXBundlePrevious.CountBytes += tXBundle.CountBytes;
+        tXBundlePrevious.FeePerByte = (double)tXBundlePrevious.Fee / tXBundlePrevious.CountBytes;
 
-          TXBundlesSortedByFee.RemoveAt(i);
-        }
-
-        i--;
+        tXBundle = tXBundlePrevious;
       }
 
-      TXBundlesSortedByFee.Insert(0, tXBundle);
+      TXBundlesSortedByFee.Add(tXBundle);
+      tXBundles.Add(tXBundle);
     }
 
     internal double GetFeePerByteMin()
@@ -252,7 +266,7 @@ internal partial class BlockchainBToken : Blockchain
       if (CountBytesTXs <= COUNT_BYTES_MAX_POOL - SIZE_BLOCK_MAX)
         return 0;
 
-      return TXBundlesSortedByFee[^1].FeePerByte + FEE_PER_BYTE_INCREMENT;
+      return TXBundlesSortedByFee.Max.FeePerByte + FEE_PER_BYTE_INCREMENT;
     }
 
     internal IEnumerable<TXBToken> GetTXsRanked()
