@@ -549,7 +549,7 @@ internal partial class BlockchainBToken : Blockchain
 
       isPlaceholderNew = headerLastInTree == headerPlaceholderNew;
 
-      if (headerLastInTree != null && !isPlaceholderNew)
+      if (headerLastInTree != null && !isPlaceholderNew && headerLastInTree.HeaderParent == null)
         headerLastInTree.HeaderParent = blockParent.Header;
     }
 
