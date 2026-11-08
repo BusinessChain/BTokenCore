@@ -113,6 +113,8 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void RollBackBlock(Block block)
   {
+    StoreBlockCandidate(block);
+
     if (IsAccountsAtTip())
       Accounts.RollBack(block.Header.Height);
   }
@@ -536,7 +538,6 @@ internal partial class BlockchainBToken : Blockchain
   void HandleBlockParentInserted(Block blockParent)
   {
     bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
-    bool isPlaceholderNew = false;
 
     if (hasAnchorWinner)
     {
@@ -558,9 +559,7 @@ internal partial class BlockchainBToken : Blockchain
       else if (!headerLastInTree.HashPrevious.IsAllBytesEqual(headerPlaceholderNew.HashPrevious))
         headerLastInTree = null;
 
-      isPlaceholderNew = headerLastInTree == headerPlaceholderNew;
-
-      if (headerLastInTree != null && !isPlaceholderNew && headerLastInTree.HeaderParent == null)
+      if (headerLastInTree != null && headerLastInTree != headerPlaceholderNew && headerLastInTree.HeaderParent == null)
         headerLastInTree.HeaderParent = blockParent.Header;
     }
 
@@ -579,34 +578,15 @@ internal partial class BlockchainBToken : Blockchain
       HeightBlockParentTip = blockParent.Header.Height;
     }
 
-    if (!hasAnchorWinner)
+    if (!hasAnchorWinner
+      || !ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
+      || BlocksCandidateStored.FindById(anchorWinner.HashBlockReferenced) is not BsonDocument bsonDocumentBlock)
       return;
 
-    Block block = null;
+    Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
-    if (BlocksCandidateStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
-      block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
-
-    BlocksCandidateStored.Delete(anchorWinner.HashBlockReferenced);
-
-    if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain))
+    if (!TryParseBlockStored(headerPlaceholder, block) || !chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
       return;
-
-    if (block == null)
-    {
-      if (!isPlaceholderNew)
-        return;
-
-      block = LoadBlock(headerPlaceholder.Height);
-
-      if (block == null)
-        return;
-    }
-
-    if (!TryParseBlockStored(headerPlaceholder, block))
-      return;
-
-    chain.BlocksQueued.Add(headerPlaceholder.Height, block);
 
     UpdateTipBlockchain(chain);
   }
