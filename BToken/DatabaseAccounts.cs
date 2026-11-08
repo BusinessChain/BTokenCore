@@ -221,10 +221,7 @@ internal partial class BlockchainBToken : Blockchain
       if (!AccountsUndo.ContainsKey(account.ID))
         AccountsUndo.Add(account.ID, AccountsStored.FindById(account.ID) ?? new Account { ID = account.ID });
 
-      if (account.Balance > 0)
-        AccountsStored.Upsert(account);
-      else
-        AccountsStored.Delete(account.ID);
+      AccountsStored.Upsert(account);
     }
 
     internal void InsertBlock(Block block)
@@ -253,6 +250,10 @@ internal partial class BlockchainBToken : Blockchain
         }
       }
 
+      foreach (byte[] iD in AccountsUndo.Keys)
+        if (AccountsStored.FindById(iD).Balance == 0)
+          AccountsStored.Delete(iD);
+
       UndoStored.Upsert(new BsonDocument
       {
         [NAME_FIELD_ID] = block.Header.Height,
@@ -265,7 +266,10 @@ internal partial class BlockchainBToken : Blockchain
     internal void RollBack(int height)
     {
       foreach (Account account in LoadAccountsUndo(height))
-        WriteAccount(account);
+        if (account.Balance > 0)
+          AccountsStored.Upsert(account);
+        else
+          AccountsStored.Delete(account.ID);
 
       UndoStored.Delete(height);
     }
