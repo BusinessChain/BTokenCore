@@ -98,13 +98,12 @@ internal partial class Network
       StartHeartbeat();
 
       if (Connection == ConnectionType.OUTBOUND)
-      {
         await VersionMessage.SendVersion(this, heightBlockchainTip);
 
-        await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
+      await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
 
+      if (Connection == ConnectionType.OUTBOUND)
         await ((AddressMessage)MessagesByCommand[AddressMessage.Command]).SendGetAddr(this);
-      }
     }
 
     internal string GetIP()

@@ -171,15 +171,15 @@ internal partial class BlockchainBToken : Blockchain
     return SegmentsServed?.GetValueOrDefault(hashSegment);
   }
 
-  internal byte[] FetchHashBlockAccountsMissing(byte[] hashBlockAskedByPeer)
+  internal byte[] FetchHashBlockAccountsMissing(Func<byte[], bool> isPeerPicked)
   {
     byte[] hashTip = ChainRoot.HeaderTipBlockchain.Hash;
 
     if (Accounts.Exists()
       || !IsWindowStoredForAccountsExchange()
-      || hashTip.IsAllBytesEqual(hashBlockAskedByPeer)
       || hashTip.IsAllBytesEqual(HashBlockAccountsDownload)
-      || DateTime.UtcNow - TimeRequestHashesSegment < TimeSpan.FromSeconds(Network.TIMEOUT_REQUEST_SECONDS))
+      || DateTime.UtcNow - TimeRequestHashesSegment < TimeSpan.FromSeconds(Network.TIMEOUT_REQUEST_SECONDS)
+      || !isPeerPicked(hashTip))
       return null;
 
     TimeRequestHashesSegment = DateTime.UtcNow;

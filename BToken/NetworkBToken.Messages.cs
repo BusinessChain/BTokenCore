@@ -194,7 +194,8 @@ internal partial class NetworkBToken : Network
       Inventory inventoryAccountsMissing = await blockchainBToken.RunLocked(() =>
         blockchainBToken.FetchHashSegmentMissingNext(h => !peer.HashesSegmentRefused.Contains(h), peerBToken.HashBlockAccountsRefused) is byte[] hashSegment
           ? new Inventory(Inventory.InventoryType.MSG_SEGMENT, hashSegment)
-          : blockchainBToken.FetchHashBlockAccountsMissing(peerBToken.HashBlockAccountsAsked) is byte[] hashBlock
+          : blockchainBToken.FetchHashBlockAccountsMissing(
+              h => ((NetworkBToken)peer.Network).IsPeerPickedForHashesSegment(peerBToken, h)) is byte[] hashBlock
             ? new Inventory(Inventory.InventoryType.MSG_SEGMENT_HASHES, hashBlock)
             : null);
 

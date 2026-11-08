@@ -15,6 +15,7 @@ internal abstract partial class Network
 
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
+  List<Peer> PeersHandshakeInbound = new();
 
   HashSet<string> IPAddresses = new();
   const int COUNT_MAX_IP_ADDRESSES = 10_000;
@@ -126,19 +127,21 @@ internal abstract partial class Network
       {
         socketCommunication = await Communication.AcceptSocketCommunicationInbound();
 
+        Peer peer;
+
         lock (LOCK_Peers)
-          if (Peers.Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
-            || Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + 1 > ConfigurationNetwork.CountMaxInboundConnections)
+        {
+          if (Peers.Concat(PeersHandshakeInbound).Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
+            || Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + PeersHandshakeInbound.Count + 1 > ConfigurationNetwork.CountMaxInboundConnections)
           {
             throw new ProtocolException("Inbound request rejected.");
           }
 
-        Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.INBOUND);
+          peer = CreatePeer(socketCommunication, Peer.ConnectionType.INBOUND);
+          PeersHandshakeInbound.Add(peer);
+        }
 
-        await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
-
-        lock (LOCK_Peers)
-          Peers.Add(peer);
+        StartPeerInbound(peer);
       }
       catch
       {
@@ -146,6 +149,26 @@ internal abstract partial class Network
 
         await Task.Delay(30_000).ConfigureAwait(false);
       }
+    }
+  }
+
+  async Task StartPeerInbound(Peer peer)
+  {
+    try
+    {
+      await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
+
+      lock (LOCK_Peers)
+        Peers.Add(peer);
+    }
+    catch
+    {
+      peer.SocketCommunication.Dispose();
+    }
+    finally
+    {
+      lock (LOCK_Peers)
+        PeersHandshakeInbound.Remove(peer);
     }
   }
 
