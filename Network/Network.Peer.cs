@@ -6,6 +6,7 @@ internal partial class Network
   {
     const int TIMESPAN_HEARTBEAT_MILLISECONDS = 1000;
     protected const int TIMEOUT_REQUEST_SECONDS = 60;
+    static readonly int[] SECONDS_DELAY_RETRY_REFUSED = [10, 30, 60, 180];
 
     internal Dictionary<string, NetworkMessage> MessagesByCommand;
 
@@ -30,7 +31,9 @@ internal partial class Network
 
     internal SemaphoreSlim SemaphorePeer = new(1);
 
-    internal HashSet<byte[]> HashesRefused = new(new EqualityComparerByteArray());
+    internal HashSet<byte[]> HashesSegmentRefused = new(new EqualityComparerByteArray());
+
+    internal Dictionary<byte[], (int countRefusals, DateTime timeRefusedLast)> HashesBlockRefused = new(new EqualityComparerByteArray());
 
     internal TaskCompletionSource HandshakeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -65,7 +68,12 @@ internal partial class Network
 
     internal virtual bool CanDeliverBlock(Header header)
     {
-      return !HashesRefused.Contains(header.Hash);
+      if (!HashesBlockRefused.TryGetValue(header.Hash, out (int countRefusals, DateTime timeRefusedLast) refusal))
+        return true;
+
+      int secondsDelay = SECONDS_DELAY_RETRY_REFUSED[Math.Min(refusal.countRefusals, SECONDS_DELAY_RETRY_REFUSED.Length) - 1];
+
+      return DateTime.UtcNow - refusal.timeRefusedLast >= TimeSpan.FromSeconds(secondsDelay);
     }
 
     protected virtual async Task RelayTXs()
