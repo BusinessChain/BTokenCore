@@ -117,22 +117,34 @@ internal partial class BlockchainBToken : Blockchain
 
     void EvictTXsOverCap()
     {
-      bool isTXEvicted = false;
-
       while (CountBytesTXs > COUNT_BYTES_MAX_POOL)
       {
         TXBundle tXBundleLast = TXBundlesSortedByFee.Max;
 
         RemoveTXFromIndexes(tXBundleLast.TXs[^1]);
 
-        if (tXBundleLast.TXs.Count == 0)
-          TXBundlesSortedByFee.Remove(tXBundleLast);
-
-        isTXEvicted = true;
+        RebuildTXBundles(tXBundleLast);
       }
+    }
 
-      if (isTXEvicted)
-        SortTXBundlesByFee();
+    void RebuildTXBundles(TXBundle tXBundleFirst)
+    {
+      List<TXBundle> tXBundles = TXsByIDAccountSource[tXBundleFirst.IDAccountSource];
+
+      int index = tXBundles.IndexOf(tXBundleFirst);
+
+      List<TXBundle> tXBundlesRebuilt = tXBundles.GetRange(index, tXBundles.Count - index);
+
+      tXBundles.RemoveRange(index, tXBundlesRebuilt.Count);
+
+      foreach (TXBundle tXBundle in tXBundlesRebuilt)
+        TXBundlesSortedByFee.Remove(tXBundle);
+
+      foreach (TXBToken tX in tXBundlesRebuilt.SelectMany(b => b.TXs).Where(t => TXsByHash.ContainsKey(t.Hash)))
+        InsertTXInTXBundlesSortedByFee(tX);
+
+      if (tXBundles.Count == 0)
+        TXsByIDAccountSource.Remove(tXBundleFirst.IDAccountSource);
     }
 
     void InsertTX(TXBToken tX, bool isFromBlockRolledBack)
@@ -174,7 +186,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       foreach (byte[] iDAccountSource in TXsByIDAccountSource.Keys.ToList())
       {
-        List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource].SelectMany(b => b.TXs).ToList();
+        List<TXBToken> tXsInPool = TXsByIDAccountSource[iDAccountSource].SelectMany(b => b.TXs).Where(t => TXsByHash.ContainsKey(t.Hash)).ToList();
 
         Account account = Blockchain.Accounts.LoadAccount(iDAccountSource, 0);
 
@@ -202,18 +214,6 @@ internal partial class BlockchainBToken : Blockchain
       TXsByHash.Remove(tX.Hash);
 
       CountBytesTXs -= tX.CountBytes;
-
-      List<TXBundle> tXBundles = TXsByIDAccountSource[tX.IDAccountSource];
-
-      TXBundle tXBundle = tXBundles.First(b => b.TXs.Contains(tX));
-
-      tXBundle.TXs.Remove(tX);
-
-      if (tXBundle.TXs.Count == 0)
-        tXBundles.Remove(tXBundle);
-
-      if (tXBundles.Count == 0)
-        TXsByIDAccountSource.Remove(tX.IDAccountSource);
     }
 
     void SortTXBundlesByFee()
@@ -224,15 +224,8 @@ internal partial class BlockchainBToken : Blockchain
       foreach (var item in TXsByHash.OrderBy(i => i.Value.sequenceNumberTX).ToList())
         TXsByHash[item.Key] = (item.Value.tX, SequenceNumberTX++);
 
-      foreach (List<TXBundle> tXBundles in TXsByIDAccountSource.Values)
-      {
-        List<TXBToken> tXs = tXBundles.SelectMany(b => b.TXs).ToList();
-
-        tXBundles.Clear();
-
-        foreach (TXBToken tX in tXs)
-          InsertTXInTXBundlesSortedByFee(tX);
-      }
+      foreach (List<TXBundle> tXBundles in TXsByIDAccountSource.Values.ToList())
+        RebuildTXBundles(tXBundles[0]);
     }
 
     void InsertTXInTXBundlesSortedByFee(TXBToken tX)
