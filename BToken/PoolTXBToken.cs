@@ -199,7 +199,7 @@ internal partial class BlockchainBToken : Blockchain
 
         int countTXsValid = 0;
 
-        while (countTXsValid < tXsInPool.Count && countTXsValid < COUNT_TXS_MAX_ACCOUNT)
+        while (countTXsValid < tXsInPool.Count)
         {
           try
           {
