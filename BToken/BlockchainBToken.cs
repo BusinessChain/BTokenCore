@@ -178,6 +178,7 @@ internal partial class BlockchainBToken : Blockchain
     if (Accounts.Exists()
       || !IsWindowStoredForAccountsExchange()
       || hashTip.IsAllBytesEqual(hashBlockAskedByPeer)
+      || hashTip.IsAllBytesEqual(HashBlockAccountsDownload)
       || DateTime.UtcNow - TimeRequestHashesSegment < TimeSpan.FromSeconds(Network.TIMEOUT_REQUEST_SECONDS))
       return null;
 
