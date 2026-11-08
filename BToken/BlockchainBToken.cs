@@ -21,6 +21,7 @@ internal partial class BlockchainBToken : Blockchain
   DatabaseAccounts Accounts = new();
   Header HeaderAccountsReplayed;
   int HeightAccountsInstalled;
+  int HeightBlockParentTip;
 
   Header HeaderTipAccountsServed;
   byte[] HashesSegmentServed;
@@ -554,10 +555,15 @@ internal partial class BlockchainBToken : Blockchain
 
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
-    if (isBlockParentTip && ChainRoot.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED)
+    if (isBlockParentTip)
     {
-      Resync();
-      UpdateTipBlockchain(ChainRoot);
+      if (CountPlaceholdersCatchUp() > COUNT_MAX_BLOCKS_STORED)
+      {
+        Resync();
+        UpdateTipBlockchain(ChainRoot);
+      }
+
+      HeightBlockParentTip = blockParent.Header.Height;
     }
 
     if (!hasAnchorWinner)
@@ -608,6 +614,17 @@ internal partial class BlockchainBToken : Blockchain
     chain.CutOff(header);
 
     UpdateTipBlockchain(ChainRoot);
+  }
+
+  int CountPlaceholdersCatchUp()
+  {
+    int countPlaceholdersCatchUp = 0;
+
+    for (Header header = ChainRoot.HeaderTip; header != ChainRoot.HeaderTipBlockchain; header = header.HeaderPrevious)
+      if (header.HeaderParent.Height > HeightBlockParentTip)
+        countPlaceholdersCatchUp += 1;
+
+    return countPlaceholdersCatchUp;
   }
 
   void Resync()
