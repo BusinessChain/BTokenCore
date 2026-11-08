@@ -17,6 +17,7 @@ internal class SocketTCP : ISocketCommunication
 
   internal const int SIZE_COMMAND = 12;
   internal const int SIZE_CHECKSUM = 4;
+  const int TIMEOUT_SEND_SECONDS = 1200;
 
   byte[] MagicBytes;
   byte[] MagicBytesRead = new byte[4];
@@ -62,19 +63,23 @@ internal class SocketTCP : ISocketCommunication
 
     try
     {
-      NetworkStream.Write(MagicBytes, 0, MagicBytes.Length);
-
-      byte[] command = Encoding.ASCII.GetBytes(commandString.PadRight(SIZE_COMMAND, '\0'));
-      NetworkStream.Write(command, 0, command.Length);
-
-      byte[] payloadLength = BitConverter.GetBytes(lengthDataPayload);
-      NetworkStream.Write(payloadLength, 0, payloadLength.Length);
-
       byte[] checksum = Crypto.ComputeHash256(payload.AsSpan(0, lengthDataPayload));
 
-      NetworkStream.Write(checksum, 0, SIZE_CHECKSUM);
+      byte[] message = [
+        .. MagicBytes,
+        .. Encoding.ASCII.GetBytes(commandString.PadRight(SIZE_COMMAND, '\0')),
+        .. BitConverter.GetBytes(lengthDataPayload),
+        .. checksum[..SIZE_CHECKSUM],
+        .. payload[..lengthDataPayload]];
 
-      NetworkStream.Write(payload, 0, lengthDataPayload);
+      using CancellationTokenSource cancellation = new(TimeSpan.FromSeconds(TIMEOUT_SEND_SECONDS));
+
+      await NetworkStream.WriteAsync(message, cancellation.Token).ConfigureAwait(false);
+    }
+    catch
+    {
+      TcpClient.Dispose();
+      throw;
     }
     finally
     {
