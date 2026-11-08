@@ -542,10 +542,13 @@ internal partial class BlockchainBToken : Blockchain
         HeaderParent = blockParent.Header
       };
 
-      Header headerLastInTree = ChainRoot.HeaderRoot;
+      Header headerLastInTree = ChainRoot.FindInTree(
+        chain => chain.TryGetHeader(headerPlaceholderNew.Hash, out Header header) ? header : null);
 
-      if (!headerLastInTree.Hash.IsAllBytesEqual(headerPlaceholderNew.Hash))
+      if (headerLastInTree == null)
         ChainRoot.InsertHeadersInTree([headerPlaceholderNew], GetHeightBlockStoredOldest(), out headerLastInTree);
+      else if (!headerLastInTree.HashPrevious.IsAllBytesEqual(headerPlaceholderNew.HashPrevious))
+        headerLastInTree = null;
 
       isPlaceholderNew = headerLastInTree == headerPlaceholderNew;
 
