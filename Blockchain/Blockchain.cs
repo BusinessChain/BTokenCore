@@ -178,7 +178,7 @@ internal abstract partial class Blockchain
       foreach (TXOutput tXOutput in tX.TXOutputs)
         if (tXOutput is TXOutputTokenAnchor tokenAnchor)
         {
-          byte[] scoreAnchor = SHA256.HashData([.. block.Header.Hash, .. tokenAnchor.HashBlockReferenced]);
+          byte[] scoreAnchor = SHA256.HashData([.. block.Header.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
 
           if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
             || scoreAnchor.IsLessThan(scoreAnchorWinner))
