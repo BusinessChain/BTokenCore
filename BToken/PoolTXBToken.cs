@@ -26,6 +26,8 @@ internal partial class BlockchainBToken : Blockchain
 
     const int COUNT_BYTES_MAX_POOL = 100 * SIZE_BLOCK_MAX;
 
+    const int COUNT_TXS_MAX_ACCOUNT = 25;
+
     const double FEE_PER_BYTE_INCREMENT = 1;
 
     BlockchainBToken Blockchain;
@@ -69,6 +71,9 @@ internal partial class BlockchainBToken : Blockchain
 
       if (!TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out (List<TXBundle> tXBundles, Account account) accountInPool))
         accountInPool = (new List<TXBundle>(), Blockchain.Accounts.LoadAccountExisting(tXBToken.IDAccountSource));
+
+      if (accountInPool.tXBundles.Sum(b => b.TXs.Count) >= COUNT_TXS_MAX_ACCOUNT)
+        throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} exceeds the {COUNT_TXS_MAX_ACCOUNT} pool TXs allowed per account.");
 
       accountInPool.account.SpendTX(tXBToken);
 
@@ -192,20 +197,24 @@ internal partial class BlockchainBToken : Blockchain
 
         Account account = Blockchain.Accounts.LoadAccount(iDAccount, 0);
 
-        for (int i = 0; i < tXsInPool.Count; i += 1)
+        int countTXsValid = 0;
+
+        while (countTXsValid < tXsInPool.Count && countTXsValid < COUNT_TXS_MAX_ACCOUNT)
         {
           try
           {
-            account.SpendTX(tXsInPool[i]);
+            account.SpendTX(tXsInPool[countTXsValid]);
           }
           catch (ProtocolException)
           {
-            foreach (TXBToken tXDropped in tXsInPool.Skip(i))
-              RemoveTXFromIndexes(tXDropped);
-
             break;
           }
+
+          countTXsValid += 1;
         }
+
+        foreach (TXBToken tXDropped in tXsInPool.Skip(countTXsValid))
+          RemoveTXFromIndexes(tXDropped);
 
         TXsByIDAccountSource[iDAccount] = (accountInPool.tXBundles, account);
 
