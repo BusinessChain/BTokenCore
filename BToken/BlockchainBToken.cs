@@ -40,6 +40,8 @@ internal partial class BlockchainBToken : Blockchain
 
   bool IsMining;
   long FeePerByte;
+  bool IsRoundMiningOpen;
+  byte[] HashBlockAwaitedRoundMining;
   ILiteCollection<BsonDocument> BlocksCandidateStored;
   const string NAME_FIELD_HEIGHT = "height";
 
@@ -59,11 +61,6 @@ internal partial class BlockchainBToken : Blockchain
     OnBlockRolledBack += TXPool.ReturnTXs;
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
-    blockchainParent.OnBlockInserted += blockParent =>
-    {
-      if (!BlockchainBitcoin.IsTXAnchorUnconfirmed())
-        MineBlock();
-    };
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
@@ -357,8 +354,6 @@ internal partial class BlockchainBToken : Blockchain
 
     LoadTXsOwnedUnconfirmed();
 
-    MineBlock();
-
     return false;
   }
 
@@ -430,8 +425,6 @@ internal partial class BlockchainBToken : Blockchain
 
     FeePerByte = feePerByte;
     IsMining = true;
-
-    MineBlock();
   }
 
   internal void StopMining()
@@ -486,6 +479,17 @@ internal partial class BlockchainBToken : Blockchain
     if (!IsMining || !IsAccountsAtTip())
       return;
 
+    bool isTipAwaited = HashBlockAwaitedRoundMining != null
+      && ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashBlockAwaitedRoundMining);
+
+    if (!IsRoundMiningOpen && !isTipAwaited)
+      return;
+
+    IsRoundMiningOpen = false;
+
+    if (isTipAwaited)
+      HashBlockAwaitedRoundMining = null;
+
     Block block = new(SizeBlockMax);
 
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
@@ -538,6 +542,14 @@ internal partial class BlockchainBToken : Blockchain
   void HandleBlockParentInserted(Block blockParent)
   {
     bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
+    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
+
+    if (isBlockParentTip)
+    {
+      IsRoundMiningOpen = true;
+      HashBlockAwaitedRoundMining = hasAnchorWinner ? anchorWinner.HashBlockReferenced : null;
+      MineBlock();
+    }
 
     if (hasAnchorWinner)
     {
@@ -562,8 +574,6 @@ internal partial class BlockchainBToken : Blockchain
       if (headerLastInTree != null && headerLastInTree != headerPlaceholderNew && headerLastInTree.HeaderParent == null)
         headerLastInTree.HeaderParent = blockParent.Header;
     }
-
-    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
     if (isBlockParentTip)
     {

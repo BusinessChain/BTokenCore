@@ -28,8 +28,6 @@ internal abstract partial class Blockchain
   internal event Action<Block> OnBlockInserted;
   internal event Action<Block> OnBlockRolledBack;
 
-  Header HeaderTipBlockchainMined;
-
 
   protected Blockchain(
     string nameToken,
@@ -323,11 +321,7 @@ internal abstract partial class Blockchain
     }
     while (TryReorgToForkStrongest());
 
-    if (ChainRoot.HeaderTipBlockchain != HeaderTipBlockchainMined)
-    {
-      HeaderTipBlockchainMined = ChainRoot.HeaderTipBlockchain;
-      MineBlock();
-    }
+    MineBlock();
   }
 
   void InsertBlocksQueued()
