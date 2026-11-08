@@ -11,6 +11,7 @@ internal abstract partial class Blockchain
   protected const string NAME_FIELD_HEIGHT_CONFIRMED = "heightConfirmed";
   const string NAME_FIELD_TX_RAW = "tXRaw";
   const string NAME_FIELD_FEE = "fee";
+  const int SECONDS_DELAY_REQUEST_HEDGED = 5;
 
   internal Wallet Wallet;
 
@@ -289,13 +290,15 @@ internal abstract partial class Blockchain
 
   internal void ReceiveBlock(Block blockReceived)
   {
-    Header headerAwaited = null;
+    (Header header, DateTime timeRequestLast) itemAwaited = default;
 
     Chain chainAwaiting = ChainRoot.FindInTree(chain =>
-      chain.HeadersAwaitingBlock.Remove(blockReceived.Header.Hash, out headerAwaited) ? chain : null);
+      chain.HeadersAwaitingBlock.Remove(blockReceived.Header.Hash, out itemAwaited) ? chain : null);
 
     if (chainAwaiting == null)
       return;
+
+    Header headerAwaited = itemAwaited.header;
 
     Block block = new(blockReceived.Buffer[..blockReceived.LengthDataPayload])
     {
@@ -465,15 +468,24 @@ internal abstract partial class Blockchain
 
   protected static T FetchItemMissingNext<T>(
     IEnumerable<T> itemsMissing,
-    Dictionary<byte[], T> itemsAwaited,
+    Dictionary<byte[], (T item, DateTime timeRequestLast)> itemsAwaited,
     Func<T, byte[]> getHash,
     Func<T, bool> canSupplierDeliver)
   {
     foreach (T item in itemsMissing)
-      if (canSupplierDeliver(item) && itemsAwaited.TryAdd(getHash(item), item))
+      if (canSupplierDeliver(item) && itemsAwaited.TryAdd(getHash(item), (item, DateTime.UtcNow)))
         return item;
 
-    return itemsMissing.FirstOrDefault(i => itemsAwaited.ContainsKey(getHash(i)) && canSupplierDeliver(i));
+    foreach (T item in itemsMissing)
+      if (itemsAwaited.TryGetValue(getHash(item), out (T item, DateTime timeRequestLast) itemAwaited)
+        && DateTime.UtcNow - itemAwaited.timeRequestLast >= TimeSpan.FromSeconds(SECONDS_DELAY_REQUEST_HEDGED)
+        && canSupplierDeliver(item))
+      {
+        itemsAwaited[getHash(item)] = (item, DateTime.UtcNow);
+        return item;
+      }
+
+    return default;
   }
 
   internal List<byte[]> GetLocator()

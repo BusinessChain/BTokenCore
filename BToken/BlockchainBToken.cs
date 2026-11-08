@@ -30,7 +30,7 @@ internal partial class BlockchainBToken : Blockchain
   byte[] HashBlockAccountsDownload;
   byte[][] HashesSegmentDownload;
   byte[][] SegmentsDownload;
-  Dictionary<byte[], byte[]> HashesSegmentAwaited = new(new EqualityComparerByteArray());
+  Dictionary<byte[], (byte[] hash, DateTime timeRequestLast)> HashesSegmentAwaited = new(new EqualityComparerByteArray());
 
   PoolTXBToken TXPool;
 

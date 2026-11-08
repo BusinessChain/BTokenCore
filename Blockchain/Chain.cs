@@ -11,7 +11,7 @@ internal partial class Blockchain
     internal Chain ChainTrunk;
     List<Chain> ChainsFork = new();
 
-    internal Dictionary<byte[], Header> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
+    internal Dictionary<byte[], (Header header, DateTime timeRequestLast)> HeadersAwaitingBlock = new(new EqualityComparerByteArray());
 
     const int HEIGHT_GAP_MAX_BLOCK_MISSING = 20;
     internal Dictionary<int, Block> BlocksQueued = new();
@@ -216,8 +216,8 @@ internal partial class Blockchain
       foreach (int height in BlocksQueued.Keys.Where(isHeightRemoved).ToList())
         BlocksQueued.Remove(height);
 
-      foreach (Header header in HeadersAwaitingBlock.Values.Where(h => isHeightRemoved(h.Height)).ToList())
-        HeadersAwaitingBlock.Remove(header.Hash);
+      foreach (byte[] hash in HeadersAwaitingBlock.Where(h => isHeightRemoved(h.Value.header.Height)).Select(h => h.Key).ToList())
+        HeadersAwaitingBlock.Remove(hash);
     }
 
     internal void DropForksDeep(int heightBlockStoredOldest)
@@ -361,7 +361,7 @@ internal partial class Blockchain
     void MoveBlockDownloadsAndForksTo(Chain chainTarget, int heightMax)
     {
       MoveItems(BlocksQueued, chainTarget.BlocksQueued, b => b.Key <= heightMax);
-      MoveItems(HeadersAwaitingBlock, chainTarget.HeadersAwaitingBlock, h => h.Value.Height <= heightMax);
+      MoveItems(HeadersAwaitingBlock, chainTarget.HeadersAwaitingBlock, h => h.Value.header.Height <= heightMax);
       MoveItems(ChainsFork, chainTarget.ChainsFork, c => c.HeaderRoot.HeaderPrevious.Height <= heightMax);
 
       foreach (Chain chainFork in chainTarget.ChainsFork)
