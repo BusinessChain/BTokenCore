@@ -387,7 +387,7 @@ internal abstract partial class Blockchain
     return true;
   }
 
-  void Reorg(Chain chain)
+  protected void Reorg(Chain chain)
   {
     while (chain != ChainRoot)
     {

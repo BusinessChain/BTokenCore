@@ -407,5 +407,20 @@ internal partial class Blockchain
 
       return chainStrongest;
     }
+
+    internal Chain FindChainTallest()
+    {
+      Chain chainTallest = this;
+
+      foreach (Chain chainFork in ChainsFork)
+      {
+        Chain chainTallestOfFork = chainFork.FindChainTallest();
+
+        if (chainTallestOfFork.HeaderTip.Height > chainTallest.HeaderTip.Height)
+          chainTallest = chainTallestOfFork;
+      }
+
+      return chainTallest;
+    }
   }
 }

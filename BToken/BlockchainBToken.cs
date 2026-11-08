@@ -557,9 +557,11 @@ internal partial class BlockchainBToken : Blockchain
 
     if (isBlockParentTip)
     {
-      if (CountPlaceholdersCatchUp() > COUNT_MAX_BLOCKS_STORED)
+      Chain chainTallest = ChainRoot.FindChainTallest();
+
+      if (CountPlaceholdersCatchUp(chainTallest.HeaderTip) > COUNT_MAX_BLOCKS_STORED)
       {
-        Resync();
+        Resync(chainTallest);
         UpdateTipBlockchain(ChainRoot);
       }
 
@@ -616,25 +618,31 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(ChainRoot);
   }
 
-  int CountPlaceholdersCatchUp()
+  int CountPlaceholdersCatchUp(Header headerTip)
   {
     int countPlaceholdersCatchUp = 0;
 
-    for (Header header = ChainRoot.HeaderTip; header != ChainRoot.HeaderTipBlockchain; header = header.HeaderPrevious)
+    for (
+      Header header = headerTip;
+      header != ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(header.Height);
+      header = header.HeaderPrevious)
       if (header.HeaderParent.Height > HeightBlockParentTip)
         countPlaceholdersCatchUp += 1;
 
     return countPlaceholdersCatchUp;
   }
 
-  void Resync()
+  void Resync(Chain chainTallest)
   {
-    Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
-
     Accounts.Drop();
     HeaderAccountsReplayed = null;
     TXPool.Clear();
     BlocksStored.DeleteAll();
+
+    ChainRoot.HeaderTipBlockchain = ChainRoot.HeaderRoot;
+    Reorg(chainTallest);
+
+    Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
 
     ChainRoot.ReRoot(headerRoot);
   }
