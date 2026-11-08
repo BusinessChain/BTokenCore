@@ -548,7 +548,6 @@ internal partial class BlockchainBToken : Blockchain
     {
       IsRoundMiningOpen = true;
       HashBlockAwaitedRoundMining = hasAnchorWinner ? anchorWinner.HashBlockReferenced : null;
-      MineBlock();
     }
 
     if (hasAnchorWinner)
@@ -588,17 +587,17 @@ internal partial class BlockchainBToken : Blockchain
       HeightBlockParentTip = blockParent.Header.Height;
     }
 
-    if (!hasAnchorWinner
-      || !ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
-      || BlocksCandidateStored.FindById(anchorWinner.HashBlockReferenced) is not BsonDocument bsonDocumentBlock)
-      return;
+    if (hasAnchorWinner
+      && ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
+      && BlocksCandidateStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
+    {
+      Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
-    Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
+      if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
+        UpdateTipBlockchain(chain);
+    }
 
-    if (!TryParseBlockStored(headerPlaceholder, block) || !chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
-      return;
-
-    UpdateTipBlockchain(chain);
+    MineBlock();
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)
