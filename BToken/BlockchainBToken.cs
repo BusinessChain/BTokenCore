@@ -27,6 +27,7 @@ internal partial class BlockchainBToken : Blockchain
   byte[] HashesSegmentServed;
   Dictionary<byte[], byte[]> SegmentsServed;
 
+  DateTime TimeRequestHashesSegment;
   byte[] HashBlockAccountsDownload;
   byte[][] HashesSegmentDownload;
   byte[][] SegmentsDownload;
@@ -170,12 +171,24 @@ internal partial class BlockchainBToken : Blockchain
     return SegmentsServed?.GetValueOrDefault(hashSegment);
   }
 
-  internal byte[] GetHashBlockAccountsMissing()
+  internal byte[] FetchHashBlockAccountsMissing(byte[] hashBlockAskedByPeer)
   {
-    if (!Accounts.Exists() && IsWindowStoredForAccountsExchange())
-      return ChainRoot.HeaderTipBlockchain.Hash;
+    byte[] hashTip = ChainRoot.HeaderTipBlockchain.Hash;
 
-    return null;
+    if (Accounts.Exists()
+      || !IsWindowStoredForAccountsExchange()
+      || hashTip.IsAllBytesEqual(hashBlockAskedByPeer)
+      || DateTime.UtcNow - TimeRequestHashesSegment < TimeSpan.FromSeconds(Network.TIMEOUT_REQUEST_SECONDS))
+      return null;
+
+    TimeRequestHashesSegment = DateTime.UtcNow;
+
+    return hashTip;
+  }
+
+  internal void EndRequestHashesSegment()
+  {
+    TimeRequestHashesSegment = DateTime.MinValue;
   }
 
   internal byte[] FetchHashSegmentMissingNext(Func<byte[], bool> canSupplierDeliverSegment, byte[] hashBlockAccountsRefused)
@@ -192,6 +205,8 @@ internal partial class BlockchainBToken : Blockchain
 
   internal void SetHashesSegmentDownload(byte[] hashBlock, byte[] hashesSegment)
   {
+    TimeRequestHashesSegment = DateTime.MinValue;
+
     if (Accounts.Exists())
       return;
 
@@ -251,6 +266,7 @@ internal partial class BlockchainBToken : Blockchain
         if (!DatabaseAccounts.IsSegmentValid(segment, i))
         {
           HashesSegmentDownload = null;
+          SegmentsDownload = null;
           return;
         }
 

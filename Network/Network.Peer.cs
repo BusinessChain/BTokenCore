@@ -5,7 +5,6 @@ internal partial class Network
   protected abstract class Peer
   {
     const int TIMESPAN_HEARTBEAT_MILLISECONDS = 1000;
-    protected const int TIMEOUT_REQUEST_SECONDS = 60;
     static readonly int[] SECONDS_DELAY_RETRY_REFUSED = [10, 30, 60, 180];
 
     internal Dictionary<string, NetworkMessage> MessagesByCommand;

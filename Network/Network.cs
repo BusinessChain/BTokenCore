@@ -11,6 +11,7 @@ internal abstract partial class Network
   ICommunication Communication;
 
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
+  internal const int TIMEOUT_REQUEST_SECONDS = 60;
 
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
