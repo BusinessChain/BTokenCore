@@ -40,7 +40,8 @@ internal partial class BlockchainBToken : Blockchain
 
   bool IsMining;
   long FeePerByte;
-  ILiteCollection<BsonDocument> BlocksMinedStored;
+  ILiteCollection<BsonDocument> BlocksCandidateStored;
+  const string NAME_FIELD_HEIGHT = "height";
 
 
   internal BlockchainBToken(
@@ -50,7 +51,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     BlockchainBitcoin = blockchainParent;
 
-    BlocksMinedStored = LiteDatabase.GetCollection<BsonDocument>("blocksMined");
+    BlocksCandidateStored = LiteDatabase.GetCollection<BsonDocument>("blocksCandidate");
 
     TXPool = new PoolTXBToken(this);
 
@@ -97,11 +98,15 @@ internal partial class BlockchainBToken : Blockchain
   {
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
+    BlocksCandidateStored.Delete(block.Header.Hash);
+
     if (!IsAccountsAtTip())
       return;
 
-    BlocksStored.DeleteMany(
-      Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
+    int heightPrune = block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1;
+
+    BlocksStored.DeleteMany(Query.LT(NAME_FIELD_ID, heightPrune));
+    BlocksCandidateStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, heightPrune));
 
     Accounts.InsertBlock(block);
   }
@@ -479,9 +484,6 @@ internal partial class BlockchainBToken : Blockchain
     if (!IsMining || !IsAccountsAtTip())
       return;
 
-    if (!BlockchainBitcoin.IsTXAnchorUnconfirmed())
-      BlocksMinedStored.DeleteAll();
-
     Block block = new(SizeBlockMax);
 
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
@@ -518,10 +520,16 @@ internal partial class BlockchainBToken : Blockchain
 
     block.Serialize();
 
-    BlocksMinedStored.Insert(new BsonDocument
+    StoreBlockCandidate(block);
+  }
+
+  void StoreBlockCandidate(Block block)
+  {
+    BlocksCandidateStored.Upsert(new BsonDocument
     {
       [NAME_FIELD_ID] = block.Header.Hash,
-      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload]
+      [NAME_FIELD_HEIGHT] = block.Header.Height,
+      [NAME_FIELD_BLOCK_BYTES] = SerializeBlockStored(block)
     });
   }
 
@@ -576,10 +584,10 @@ internal partial class BlockchainBToken : Blockchain
 
     Block block = null;
 
-    if (BlocksMinedStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
+    if (BlocksCandidateStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
       block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
-    BlocksMinedStored.Delete(anchorWinner.HashBlockReferenced);
+    BlocksCandidateStored.Delete(anchorWinner.HashBlockReferenced);
 
     if (!ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain))
       return;
