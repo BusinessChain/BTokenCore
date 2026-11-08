@@ -304,7 +304,7 @@ internal partial class Network
 
           if (blockUpload != null)
           {
-            peer.SocketCommunication.SendMessage(BlockMessage.Command, blockUpload.LengthDataPayload, blockUpload.Buffer);
+            await peer.SocketCommunication.SendMessage(BlockMessage.Command, blockUpload.LengthDataPayload, blockUpload.Buffer);
 
             if (!isBlockBehindTipDownloaded)
             {
