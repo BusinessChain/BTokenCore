@@ -13,6 +13,7 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_COLLECTION_COMPLETE = "accountsComplete";
     const string NAME_FIELD_ACCOUNT = "account";
     const string PATH_ID_ACCOUNT_UNDO = "$." + NAME_FIELD_ACCOUNT + "." + NAME_FIELD_ID;
+    const int SHIFT_INDEX_SEGMENT = 16 - COUNT_BITS_INDEX_SEGMENT;
 
     LiteDatabase LiteDatabase;
     ILiteCollection<Account> AccountsStored;
@@ -138,7 +139,7 @@ internal partial class BlockchainBToken : Blockchain
         Install(segments);
 
         foreach (Block block in blocks)
-          InsertTXs(block, iD => segments[iD[0]] != null);
+          InsertTXs(block, iD => segments[GetIndexSegment(iD)] != null);
 
         return segments.Select((s, i) => s == null ? null : SerializeSegment(i)).ToArray();
       }
@@ -163,7 +164,7 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       for (int i = 0; i < accounts.Count; i += 1)
-        if (accounts[i].ID[0] != indexSegment || i > 0 && ComparerID.Compare(accounts[i - 1].ID, accounts[i].ID) >= 0)
+        if (GetIndexSegment(accounts[i].ID) != indexSegment ||i > 0 && ComparerID.Compare(accounts[i - 1].ID, accounts[i].ID) >= 0)
           return false;
 
       return true;
@@ -323,9 +324,20 @@ internal partial class BlockchainBToken : Blockchain
       byte[] iDFirst = new byte[Crypto.LENGTH_HASH160];
       byte[] iDLast = Enumerable.Repeat((byte)0xFF, Crypto.LENGTH_HASH160).ToArray();
 
-      iDFirst[0] = iDLast[0] = (byte)indexSegment;
+      int prefixFirst = indexSegment << SHIFT_INDEX_SEGMENT;
+      int prefixLast = prefixFirst | (1 << SHIFT_INDEX_SEGMENT) - 1;
+
+      iDFirst[0] = (byte)(prefixFirst >> 8);
+      iDFirst[1] = (byte)prefixFirst;
+      iDLast[0] = (byte)(prefixLast >> 8);
+      iDLast[1] = (byte)prefixLast;
 
       return Query.Between(pathID, iDFirst, iDLast);
+    }
+
+    static int GetIndexSegment(byte[] iD)
+    {
+      return (iD[0] << 8 | iD[1]) >> SHIFT_INDEX_SEGMENT;
     }
   }
 }
