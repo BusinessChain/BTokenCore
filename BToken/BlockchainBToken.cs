@@ -151,7 +151,7 @@ internal partial class BlockchainBToken : Blockchain
       List<byte> hashesSegment = new();
       SegmentsServed = new(new EqualityComparerByteArray());
 
-      foreach (byte[] segment in Accounts.SerializeSegmentsBelowWindow(headerTip.Height))
+      foreach (byte[] segment in Accounts.SerializeSegmentsBelowWindow())
       {
         byte[] hashSegment = SHA256.HashData(segment);
 

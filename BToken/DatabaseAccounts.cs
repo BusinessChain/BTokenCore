@@ -11,7 +11,8 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
     const string NAME_COLLECTION_COMPLETE = "accountsComplete";
-    const string NAME_FIELD_ACCOUNTS = "accounts";
+    const string NAME_FIELD_ACCOUNT = "account";
+    const string PATH_ID_ACCOUNT_UNDO = "$." + NAME_FIELD_ACCOUNT + "." + NAME_FIELD_ID;
 
     LiteDatabase LiteDatabase;
     ILiteCollection<Account> AccountsStored;
@@ -34,9 +35,16 @@ internal partial class BlockchainBToken : Blockchain
         MarkComplete();
       }
 
-      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+      OpenAccounts();
 
       return isComplete;
+    }
+
+    void OpenAccounts()
+    {
+      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+      UndoStored.EnsureIndex(NAME_FIELD_HEIGHT);
+      UndoStored.EnsureIndex(PATH_ID_ACCOUNT_UNDO);
     }
 
     internal void MarkComplete()
@@ -57,13 +65,12 @@ internal partial class BlockchainBToken : Blockchain
       return AccountsStored != null;
     }
 
-    internal List<byte[]> SerializeSegmentsBelowWindow(int heightTip)
+    internal List<byte[]> SerializeSegmentsBelowWindow()
     {
       Dictionary<byte[], Account> accountsBelowWindow = new(new EqualityComparerByteArray());
 
-      for (int height = heightTip; height > heightTip - COUNT_MAX_BLOCKS_STORED; height -= 1)
-        foreach (Account account in LoadAccountsUndo(height))
-          accountsBelowWindow[account.ID] = account;
+      foreach (Account account in LoadAccountsUndo(UndoStored.Query().OrderByDescending(NAME_FIELD_HEIGHT)))
+        accountsBelowWindow[account.ID] = account;
 
       IEnumerable<Account> accountsStoredUnchanged = AccountsStored.Find(Query.All(Query.Ascending))
         .Where(a => !accountsBelowWindow.ContainsKey(a.ID));
@@ -127,7 +134,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void Install(IEnumerable<byte[]> segments)
     {
-      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
+      OpenAccounts();
 
       foreach (byte[] segment in segments.Where(s => s != null))
         AccountsStored.InsertBulk(ParseAccounts(segment, segment.Length));
@@ -254,34 +261,29 @@ internal partial class BlockchainBToken : Blockchain
         if (AccountsStored.FindById(iD).Balance == 0)
           AccountsStored.Delete(iD);
 
-      UndoStored.Upsert(new BsonDocument
+      UndoStored.InsertBulk(AccountsUndo.Values.Select(account => new BsonDocument
       {
-        [NAME_FIELD_ID] = block.Header.Height,
-        [NAME_FIELD_ACCOUNTS] = SerializeAccounts(AccountsUndo.Values)
-      });
+        [NAME_FIELD_HEIGHT] = block.Header.Height,
+        [NAME_FIELD_ACCOUNT] = LiteDatabase.Mapper.ToDocument(account)
+      }));
 
-      UndoStored.DeleteMany(Query.LT(NAME_FIELD_ID, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
+      UndoStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
     }
 
     internal void RollBack(int height)
     {
-      foreach (Account account in LoadAccountsUndo(height))
+      foreach (Account account in LoadAccountsUndo(UndoStored.Query().Where(Query.EQ(NAME_FIELD_HEIGHT, height))).ToList())
         if (account.Balance > 0)
           AccountsStored.Upsert(account);
         else
           AccountsStored.Delete(account.ID);
 
-      UndoStored.Delete(height);
+      UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));
     }
 
-    List<Account> LoadAccountsUndo(int height)
+    IEnumerable<Account> LoadAccountsUndo(ILiteQueryable<BsonDocument> query)
     {
-      if (UndoStored.FindById(height) is not BsonDocument documentUndo)
-        throw new InvalidOperationException($"No undo data for block at height {height}.");
-
-      byte[] accountsUndo = documentUndo[NAME_FIELD_ACCOUNTS].AsBinary;
-
-      return ParseAccounts(accountsUndo, accountsUndo.Length);
+      return query.ToEnumerable().Select(d => LiteDatabase.Mapper.ToObject<Account>(d[NAME_FIELD_ACCOUNT].AsDocument));
     }
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
