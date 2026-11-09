@@ -65,14 +65,18 @@ internal partial class BlockchainBToken : Blockchain
       return AccountsStored != null;
     }
 
-    internal List<byte[]> SerializeSegmentsBelowWindow()
+    internal byte[] SerializeSegmentBelowWindow(int indexSegment)
     {
       Dictionary<byte[], Account> accountsBelowWindow = new(new EqualityComparerByteArray());
 
-      foreach (Account account in LoadAccountsUndo(UndoStored.Query().OrderByDescending(NAME_FIELD_HEIGHT)))
+      ILiteQueryable<BsonDocument> queryUndo = UndoStored.Query()
+        .Where(QueryRangeSegment(PATH_ID_ACCOUNT_UNDO, indexSegment))
+        .OrderByDescending(NAME_FIELD_HEIGHT);
+
+      foreach (Account account in LoadAccountsUndo(queryUndo))
         accountsBelowWindow[account.ID] = account;
 
-      IEnumerable<Account> accountsStoredUnchanged = AccountsStored.Find(Query.All(Query.Ascending))
+      IEnumerable<Account> accountsStoredUnchanged = LoadAccountsSegment(indexSegment)
         .Where(a => !accountsBelowWindow.ContainsKey(a.ID));
 
       List<Account> accountsUndoExisting = accountsBelowWindow.Values
@@ -80,22 +84,7 @@ internal partial class BlockchainBToken : Blockchain
         .OrderBy(a => a.ID, ComparerID)
         .ToList();
 
-      using IEnumerator<Account> accounts = MergeByID(accountsStoredUnchanged, accountsUndoExisting).GetEnumerator();
-
-      bool hasAccount = accounts.MoveNext();
-      List<byte[]> segments = new();
-
-      for (int segment = 0; segment < COUNT_SEGMENTS; segment += 1)
-      {
-        List<Account> accountsSegment = new();
-
-        for (; hasAccount && accounts.Current.ID[0] == segment; hasAccount = accounts.MoveNext())
-          accountsSegment.Add(accounts.Current);
-
-        segments.Add(SerializeAccounts(accountsSegment));
-      }
-
-      return segments;
+      return SerializeAccounts(MergeByID(accountsStoredUnchanged, accountsUndoExisting));
     }
 
     static IEnumerable<Account> MergeByID(IEnumerable<Account> accountsSorted, List<Account> accountsSortedInsert)
@@ -318,17 +307,25 @@ internal partial class BlockchainBToken : Blockchain
 
     byte[] SerializeSegment(int indexSegment)
     {
+      return SerializeAccounts(LoadAccountsSegment(indexSegment));
+    }
+
+    IEnumerable<Account> LoadAccountsSegment(int indexSegment)
+    {
+      return AccountsStored.Query()
+        .Where(QueryRangeSegment(NAME_FIELD_ID, indexSegment))
+        .OrderBy(NAME_FIELD_ID)
+        .ToEnumerable();
+    }
+
+    static BsonExpression QueryRangeSegment(string pathID, int indexSegment)
+    {
       byte[] iDFirst = new byte[Crypto.LENGTH_HASH160];
       byte[] iDLast = Enumerable.Repeat((byte)0xFF, Crypto.LENGTH_HASH160).ToArray();
 
       iDFirst[0] = iDLast[0] = (byte)indexSegment;
 
-      IEnumerable<Account> accountsSegment = AccountsStored.Query()
-        .Where(Query.Between(NAME_FIELD_ID, iDFirst, iDLast))
-        .OrderBy(NAME_FIELD_ID)
-        .ToEnumerable();
-
-      return SerializeAccounts(accountsSegment);
+      return Query.Between(pathID, iDFirst, iDLast);
     }
   }
 }

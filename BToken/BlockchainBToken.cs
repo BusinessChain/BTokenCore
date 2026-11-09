@@ -25,7 +25,6 @@ internal partial class BlockchainBToken : Blockchain
 
   Header HeaderTipAccountsServed;
   byte[] HashesSegmentServed;
-  Dictionary<byte[], byte[]> SegmentsServed;
 
   DateTime TimeRequestHashesSegment;
   byte[] HashBlockAccountsDownload;
@@ -149,15 +148,9 @@ internal partial class BlockchainBToken : Blockchain
     if (HeaderTipAccountsServed != headerTip)
     {
       List<byte> hashesSegment = new();
-      SegmentsServed = new(new EqualityComparerByteArray());
 
-      foreach (byte[] segment in Accounts.SerializeSegmentsBelowWindow())
-      {
-        byte[] hashSegment = SHA256.HashData(segment);
-
-        hashesSegment.AddRange(hashSegment);
-        SegmentsServed.TryAdd(hashSegment, segment);
-      }
+      for (int i = 0; i < COUNT_SEGMENTS; i += 1)
+        hashesSegment.AddRange(SHA256.HashData(Accounts.SerializeSegmentBelowWindow(i)));
 
       HashesSegmentServed = hashesSegment.ToArray();
       HeaderTipAccountsServed = headerTip;
@@ -168,7 +161,19 @@ internal partial class BlockchainBToken : Blockchain
 
   internal byte[] GetSegmentServed(byte[] hashSegment)
   {
-    return SegmentsServed?.GetValueOrDefault(hashSegment);
+    if (HashesSegmentServed == null || !IsAccountsAtTip() || !IsWindowStoredForAccountsExchange())
+      return null;
+
+    for (int i = 0; i < COUNT_SEGMENTS; i += 1)
+      if (HashesSegmentServed.AsSpan(i * Crypto.LENGTH_HASH256, Crypto.LENGTH_HASH256).SequenceEqual(hashSegment))
+      {
+        byte[] segment = Accounts.SerializeSegmentBelowWindow(i);
+
+        if (SHA256.HashData(segment).IsAllBytesEqual(hashSegment))
+          return segment;
+      }
+
+    return null;
   }
 
   internal byte[] FetchHashBlockAccountsMissing(Func<byte[], bool> isPeerPicked)
