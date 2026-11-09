@@ -253,7 +253,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account LoadAccount(byte[] iDAccount, int heightAccountCreated)
     {
-      return LoadAccountStored(iDAccount) ?? new()
+      return LoadAccountStored(iDAccount, GetHeight()) ?? new()
       {
         ID = iDAccount,
         HeightAccountCreated = heightAccountCreated
@@ -262,16 +262,28 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account LoadAccountExisting(byte[] iDAccount)
     {
-      return LoadAccountStored(iDAccount)
+      return LoadAccountStored(iDAccount, GetHeight())
         ?? throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
     }
 
-    Account LoadAccountStored(byte[] iDAccount)
+    internal Account LoadAccountNext(byte[] iDAccount)
+    {
+      Account account = LoadAccountStored(iDAccount, GetHeight() + 1);
+
+      return account?.Balance > 0 ? account : null;
+    }
+
+    internal bool IsInSweepNext(byte[] iDAccount)
+    {
+      return GetIndexSegment(iDAccount) == (GetHeight() + 1) % COUNT_SEGMENTS;
+    }
+
+    Account LoadAccountStored(byte[] iDAccount, int height)
     {
       Account account = AccountsStored.FindById(iDAccount);
 
       if (account != null)
-        account.Balance -= GetOffsetRent(GetIndexSegment(iDAccount), GetHeight());
+        account.Balance -= GetOffsetRent(GetIndexSegment(iDAccount), height);
 
       return account;
     }
@@ -362,7 +374,7 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       foreach (byte[] iD in AccountsUndo.Keys)
-        if (LoadAccountStored(iD).Balance == 0)
+        if (LoadAccountStored(iD, height).Balance == 0)
         {
           AccountsStored.Delete(iD);
           CountsAccount[GetIndexSegment(iD)] -= 1;
@@ -430,7 +442,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
     {
-      Account account = LoadAccountStored(iDAccount);
+      Account account = LoadAccountStored(iDAccount, GetHeight());
 
       if (account == null)
       {

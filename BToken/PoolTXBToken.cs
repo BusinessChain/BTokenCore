@@ -70,7 +70,10 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} does not outbid the full pool by the fee increment.");
 
       if (!TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out (List<TXBundle> tXBundles, Account account) accountInPool))
-        accountInPool = (new List<TXBundle>(), Blockchain.Accounts.LoadAccountExisting(tXBToken.IDAccountSource));
+        accountInPool = (
+          new List<TXBundle>(),
+          Blockchain.Accounts.LoadAccountNext(tXBToken.IDAccountSource)
+            ?? throw new ProtocolException($"Account {tXBToken.IDAccountSource.ToHexString()} of TX {tXBToken.Hash.ToHexString()} does not exist after the next sweep."));
 
       if (accountInPool.tXBundles.Sum(b => b.TXs.Count) >= COUNT_TXS_MAX_ACCOUNT)
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} exceeds the {COUNT_TXS_MAX_ACCOUNT} pool TXs allowed per account.");
@@ -97,7 +100,7 @@ internal partial class BlockchainBToken : Blockchain
       for (int i = block.TXs.Count - 1; i > 0; i--)
         InsertTX((TXBToken)block.TXs[i], isFromBlockRolledBack: true);
 
-      ReverifyAccountsTouched(block);
+      ReverifyAccounts(TXsByIDAccountSource.Keys.ToList());
 
       EvictTXsOverCap();
     }
@@ -173,29 +176,31 @@ internal partial class BlockchainBToken : Blockchain
         if (TXsByHash.TryGetValue(tXConfirmed.Hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
           RemoveTXFromIndexes(tXsByHashItem.tX);
 
-      ReverifyAccountsTouched(block);
-    }
-
-    void ReverifyAccountsTouched(Block block)
-    {
-      HashSet<byte[]> iDsAccountTouched = new(new EqualityComparerByteArray());
+      HashSet<byte[]> iDsAccountReverified = new(
+        TXsByIDAccountSource.Keys.Where(Blockchain.Accounts.IsInSweepNext),
+        new EqualityComparerByteArray());
 
       foreach (TXBToken tX in block.TXs)
       {
-        iDsAccountTouched.Add(tX.IDAccountSource);
+        iDsAccountReverified.Add(tX.IDAccountSource);
 
         foreach (TXOutputP2PKH tXOutput in tX.TXOutputs.OfType<TXOutputP2PKH>())
-          iDsAccountTouched.Add(tXOutput.IDAccount);
+          iDsAccountReverified.Add(tXOutput.IDAccount);
       }
 
-      foreach (byte[] iDAccount in iDsAccountTouched)
+      ReverifyAccounts(iDsAccountReverified);
+    }
+
+    void ReverifyAccounts(IEnumerable<byte[]> iDsAccount)
+    {
+      foreach (byte[] iDAccount in iDsAccount)
       {
         if (!TXsByIDAccountSource.TryGetValue(iDAccount, out (List<TXBundle> tXBundles, Account account) accountInPool))
           continue;
 
         List<TXBToken> tXsInPool = accountInPool.tXBundles.SelectMany(b => b.TXs).Where(t => TXsByHash.ContainsKey(t.Hash)).ToList();
 
-        Account account = Blockchain.Accounts.LoadAccount(iDAccount, 0);
+        Account account = Blockchain.Accounts.LoadAccountNext(iDAccount) ?? new Account { ID = iDAccount };
 
         int countTXsValid = 0;
 
