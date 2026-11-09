@@ -351,11 +351,7 @@ internal partial class BlockchainBToken : Blockchain
         CountsAccount[height % COUNT_SEGMENTS] -= accountsSwept.Count;
       }
 
-      long countAccountsTotal = CountsAccount.Sum(c => (long)c);
-
-      CountAccountsMax = isLimitChecked
-        ? Math.Max(countAccountsTotal * 5 / (4 * COUNT_SEGMENTS), countAccountsTotal / COUNT_SEGMENTS + 100)
-        : long.MaxValue;
+      CountAccountsMax = isLimitChecked ? ComputeCountAccountsMax(CountsAccount) : long.MaxValue;
 
       for (int i = 0; i < block.TXs.Count; i += 1)
       {
@@ -516,9 +512,27 @@ internal partial class BlockchainBToken : Blockchain
       return Query.Between(pathID, iDFirst, iDLast);
     }
 
-    static int GetIndexSegment(byte[] iD)
+    internal static int GetIndexSegment(byte[] iD)
     {
       return (iD[0] << 8 | iD[1]) >> SHIFT_INDEX_SEGMENT;
+    }
+
+    static long ComputeCountAccountsMax(int[] countsAccount)
+    {
+      long countAccountsTotal = countsAccount.Sum(c => (long)c);
+
+      return Math.Max(countAccountsTotal * 5 / (4 * COUNT_SEGMENTS), countAccountsTotal / COUNT_SEGMENTS + 100);
+    }
+
+    internal (int[] countsAccount, long countAccountsMax) LoadCountsNext()
+    {
+      int heightNext = GetHeight() + 1;
+
+      LoadCounts();
+
+      CountsAccount[heightNext % COUNT_SEGMENTS] -= LoadSweep(heightNext).accountsSwept.Count;
+
+      return (CountsAccount, ComputeCountAccountsMax(CountsAccount));
     }
   }
 }

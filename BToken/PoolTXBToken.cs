@@ -52,6 +52,16 @@ internal partial class BlockchainBToken : Blockchain
       return a.SequenceNumberTX.CompareTo(b.SequenceNumberTX);
     }));
 
+    Dictionary<byte[], int> CountTXsPayingByID = new(new EqualityComparerByteArray());
+
+    HashSet<byte[]> IDsCreatedPending = new(new EqualityComparerByteArray());
+
+    int[] CountsCreatedPending = new int[COUNT_SEGMENTS];
+
+    int[] CountsAccountNext;
+
+    long CountAccountsMaxNext;
+
 
     internal PoolTXBToken(BlockchainBToken blockchain)
     {
@@ -78,11 +88,27 @@ internal partial class BlockchainBToken : Blockchain
       if (accountInPool.tXBundles.Sum(b => b.TXs.Count) >= COUNT_TXS_MAX_ACCOUNT)
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} exceeds the {COUNT_TXS_MAX_ACCOUNT} pool TXs allowed per account.");
 
+      List<byte[]> iDsCreated = GetIDsPaid(tXBToken)
+        .Where(id => !CountTXsPayingByID.ContainsKey(id) && Blockchain.Accounts.LoadAccountNext(id) == null)
+        .ToList();
+
+      if (iDsCreated.Count > 0)
+      {
+        LoadCountsNextIfMissing();
+
+        foreach (IGrouping<int, byte[]> iDsCreatedSegment in iDsCreated.GroupBy(DatabaseAccounts.GetIndexSegment))
+          if (CountsAccountNext[iDsCreatedSegment.Key] + CountsCreatedPending[iDsCreatedSegment.Key] + iDsCreatedSegment.Count() > CountAccountsMaxNext)
+            throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} creates accounts beyond the limit of segment {iDsCreatedSegment.Key}.");
+      }
+
       accountInPool.account.SpendTX(tXBToken);
 
       TXsByIDAccountSource[tXBToken.IDAccountSource] = accountInPool;
 
       InsertTX(tXBToken, isFromBlockRolledBack: false);
+
+      foreach (byte[] iDCreated in iDsCreated)
+        SetCreationPending(iDCreated, isCreationPending: true);
 
       InsertTXInTXBundlesSortedByFee(tXBToken);
 
@@ -100,7 +126,11 @@ internal partial class BlockchainBToken : Blockchain
       for (int i = block.TXs.Count - 1; i > 0; i--)
         InsertTX((TXBToken)block.TXs[i], isFromBlockRolledBack: true);
 
+      CountsAccountNext = null;
+
       ReverifyAccounts(TXsByIDAccountSource.Keys.ToList());
+
+      RetestCreations(CountTXsPayingByID.Keys.ToList());
 
       EvictTXsOverCap();
     }
@@ -110,9 +140,70 @@ internal partial class BlockchainBToken : Blockchain
       TXsByHash.Clear();
       TXsByIDAccountSource.Clear();
       TXBundlesSortedByFee.Clear();
+      CountTXsPayingByID.Clear();
+      IDsCreatedPending.Clear();
+      CountsCreatedPending = new int[COUNT_SEGMENTS];
+      CountsAccountNext = null;
       CountBytesTXs = 0;
       SequenceNumberTX = 0;
       SequenceNumberTXLowest = 0;
+    }
+
+    static IEnumerable<byte[]> GetIDsPaid(TXBToken tX)
+    {
+      return tX.TXOutputs
+        .OfType<TXOutputP2PKH>()
+        .Where(o => o.Value > 0)
+        .Select(o => o.IDAccount)
+        .Distinct(new EqualityComparerByteArray());
+    }
+
+    void LoadCountsNextIfMissing()
+    {
+      if (CountsAccountNext == null)
+        (CountsAccountNext, CountAccountsMaxNext) = Blockchain.Accounts.LoadCountsNext();
+    }
+
+    void SetCreationPending(byte[] iDAccount, bool isCreationPending)
+    {
+      if (isCreationPending ? IDsCreatedPending.Add(iDAccount) : IDsCreatedPending.Remove(iDAccount))
+        CountsCreatedPending[DatabaseAccounts.GetIndexSegment(iDAccount)] += isCreationPending ? 1 : -1;
+    }
+
+    void RetestCreations(IEnumerable<byte[]> iDsAccount)
+    {
+      foreach (byte[] iDAccount in iDsAccount.Where(CountTXsPayingByID.ContainsKey))
+        SetCreationPending(iDAccount, Blockchain.Accounts.LoadAccountNext(iDAccount) == null);
+
+      if (IDsCreatedPending.Count == 0)
+        return;
+
+      LoadCountsNextIfMissing();
+
+      HashSet<byte[]> iDsAccountSourceDropped = new(new EqualityComparerByteArray());
+
+      for (int indexSegment = 0; indexSegment < COUNT_SEGMENTS; indexSegment += 1)
+      {
+        if (CountsAccountNext[indexSegment] + CountsCreatedPending[indexSegment] <= CountAccountsMaxNext)
+          continue;
+
+        List<TXBToken> tXsCreatingNewestFirst = TXsByHash.Values
+          .OrderByDescending(t => t.sequenceNumberTX)
+          .Select(t => t.tX)
+          .Where(t => GetIDsPaid(t).Any(id => IDsCreatedPending.Contains(id) && DatabaseAccounts.GetIndexSegment(id) == indexSegment))
+          .ToList();
+
+        foreach (TXBToken tX in tXsCreatingNewestFirst)
+        {
+          if (CountsAccountNext[indexSegment] + CountsCreatedPending[indexSegment] <= CountAccountsMaxNext)
+            break;
+
+          RemoveTXFromIndexes(tX);
+          iDsAccountSourceDropped.Add(tX.IDAccountSource);
+        }
+      }
+
+      ReverifyAccounts(iDsAccountSourceDropped);
     }
 
     void EvictTXsOverCap()
@@ -154,6 +245,9 @@ internal partial class BlockchainBToken : Blockchain
     {
       CountBytesTXs += tX.CountBytes;
 
+      foreach (byte[] iDPaid in GetIDsPaid(tX))
+        CountTXsPayingByID[iDPaid] = CountTXsPayingByID.GetValueOrDefault(iDPaid) + 1;
+
       if (!isFromBlockRolledBack)
       {
         TXsByHash.Add(tX.Hash, (tX, SequenceNumberTX++));
@@ -176,6 +270,8 @@ internal partial class BlockchainBToken : Blockchain
         if (TXsByHash.TryGetValue(tXConfirmed.Hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
           RemoveTXFromIndexes(tXsByHashItem.tX);
 
+      CountsAccountNext = null;
+
       HashSet<byte[]> iDsAccountReverified = new(
         TXsByIDAccountSource.Keys.Where(Blockchain.Accounts.IsInSweepNext),
         new EqualityComparerByteArray());
@@ -189,6 +285,11 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       ReverifyAccounts(iDsAccountReverified);
+
+      RetestCreations(IDsCreatedPending
+        .Concat(iDsAccountReverified)
+        .Concat(CountTXsPayingByID.Keys.Where(Blockchain.Accounts.IsInSweepNext))
+        .ToList());
     }
 
     void ReverifyAccounts(IEnumerable<byte[]> iDsAccount)
@@ -232,6 +333,13 @@ internal partial class BlockchainBToken : Blockchain
       TXsByHash.Remove(tX.Hash);
 
       CountBytesTXs -= tX.CountBytes;
+
+      foreach (byte[] iDPaid in GetIDsPaid(tX))
+        if (--CountTXsPayingByID[iDPaid] == 0)
+        {
+          CountTXsPayingByID.Remove(iDPaid);
+          SetCreationPending(iDPaid, isCreationPending: false);
+        }
     }
 
     void InsertTXInTXBundlesSortedByFee(TXBToken tX)
