@@ -252,7 +252,7 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      return Accounts.AdvanceSegments(SegmentsDownload, blocks);
+      return Accounts.AdvanceSegments(SegmentsDownload, headerTipOld.Height - COUNT_MAX_BLOCKS_STORED, blocks);
     }
     catch (ProtocolException)
     {
@@ -305,7 +305,7 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      LiteDatabase.RunTransaction(() => Accounts.Install(segments));
+      LiteDatabase.RunTransaction(() => Accounts.Install(segments, header.Height));
     }
     catch
     {

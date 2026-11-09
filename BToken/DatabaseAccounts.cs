@@ -11,13 +11,18 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
     const string NAME_COLLECTION_COMPLETE = "accountsComplete";
+    const string NAME_COLLECTION_HEIGHT = "accountsHeight";
     const string NAME_FIELD_ACCOUNT = "account";
+    const string NAME_FIELD_IS_SWEEP = "isSweep";
     const string PATH_ID_ACCOUNT_UNDO = "$." + NAME_FIELD_ACCOUNT + "." + NAME_FIELD_ID;
     const int SHIFT_INDEX_SEGMENT = 16 - COUNT_BITS_INDEX_SEGMENT;
+    const long RENT_PER_BYTE = 1;
+    const long RENT_SWEEP = RENT_PER_BYTE * Account.LENGTH_ACCOUNT;
 
     LiteDatabase LiteDatabase;
     ILiteCollection<Account> AccountsStored;
     ILiteCollection<BsonDocument> UndoStored;
+    ILiteCollection<BsonDocument> HeightStored;
     Dictionary<byte[], Account> AccountsUndo = new(new EqualityComparerByteArray());
 
     static readonly Comparer<byte[]> ComparerID = Comparer<byte[]>.Create((a, b) => a.AsSpan().SequenceCompareTo(b));
@@ -27,6 +32,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       LiteDatabase = storage;
       UndoStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_UNDO);
+      HeightStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_HEIGHT);
 
       bool isComplete = LiteDatabase.CollectionExists(NAME_COLLECTION_COMPLETE);
 
@@ -58,7 +64,23 @@ internal partial class BlockchainBToken : Blockchain
       LiteDatabase.DropCollection(NAME_COLLECTION);
       LiteDatabase.DropCollection(NAME_COLLECTION_UNDO);
       LiteDatabase.DropCollection(NAME_COLLECTION_COMPLETE);
+      LiteDatabase.DropCollection(NAME_COLLECTION_HEIGHT);
       AccountsStored = null;
+    }
+
+    int GetHeight()
+    {
+      return HeightStored.FindById(0)?[NAME_FIELD_HEIGHT].AsInt32 ?? 0;
+    }
+
+    void SetHeight(int height)
+    {
+      HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = height });
+    }
+
+    static long GetOffsetRent(int indexSegment, int height)
+    {
+      return RENT_SWEEP * ((height + COUNT_SEGMENTS - indexSegment) / COUNT_SEGMENTS);
     }
 
     internal bool Exists()
@@ -70,11 +92,13 @@ internal partial class BlockchainBToken : Blockchain
     {
       Dictionary<byte[], Account> accountsBelowWindow = new(new EqualityComparerByteArray());
 
-      ILiteQueryable<BsonDocument> queryUndo = UndoStored.Query()
+      IEnumerable<BsonDocument> documentsUndo = UndoStored.Query()
         .Where(QueryRangeSegment(PATH_ID_ACCOUNT_UNDO, indexSegment))
-        .OrderByDescending(NAME_FIELD_HEIGHT);
+        .ToEnumerable()
+        .OrderByDescending(d => d[NAME_FIELD_HEIGHT].AsInt32)
+        .ThenBy(d => d[NAME_FIELD_IS_SWEEP].AsBoolean);
 
-      foreach (Account account in LoadAccountsUndo(queryUndo))
+      foreach (Account account in LoadAccountsUndo(documentsUndo))
         accountsBelowWindow[account.ID] = account;
 
       IEnumerable<Account> accountsStoredUnchanged = LoadAccountsSegment(indexSegment)
@@ -122,24 +146,25 @@ internal partial class BlockchainBToken : Blockchain
       return [.. VarInt.GetBytes(countAccounts), .. bytes];
     }
 
-    internal void Install(IEnumerable<byte[]> segments)
+    internal void Install(IEnumerable<byte[]> segments, int height)
     {
       OpenAccounts();
+      SetHeight(height);
 
       foreach (byte[] segment in segments.Where(s => s != null))
         AccountsStored.InsertBulk(ParseAccounts(segment, segment.Length));
     }
 
-    internal byte[][] AdvanceSegments(byte[][] segments, List<Block> blocks)
+    internal byte[][] AdvanceSegments(byte[][] segments, int height, List<Block> blocks)
     {
       LiteDatabase.BeginTrans();
 
       try
       {
-        Install(segments);
+        Install(segments, height);
 
         foreach (Block block in blocks)
-          InsertTXs(block, iD => segments[GetIndexSegment(iD)] != null);
+          InsertTXs(block, i => segments[i] != null);
 
         return segments.Select((s, i) => s == null ? null : SerializeSegment(i)).ToArray();
       }
@@ -195,10 +220,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account LoadAccount(byte[] iDAccount, int heightAccountCreated)
     {
-      if (AccountsStored.FindById(iDAccount) is Account accountStored)
-        return accountStored;
-
-      return new()
+      return LoadAccountStored(iDAccount) ?? new()
       {
         ID = iDAccount,
         HeightAccountCreated = heightAccountCreated
@@ -207,10 +229,18 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account LoadAccountExisting(byte[] iDAccount)
     {
-      if (AccountsStored.FindById(iDAccount) is Account accountStored)
-        return accountStored;
+      return LoadAccountStored(iDAccount)
+        ?? throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
+    }
 
-      throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
+    Account LoadAccountStored(byte[] iDAccount)
+    {
+      Account account = AccountsStored.FindById(iDAccount);
+
+      if (account != null)
+        account.Balance -= GetOffsetRent(GetIndexSegment(iDAccount), GetHeight());
+
+      return account;
     }
 
     void WriteAccount(Account account)
@@ -218,28 +248,51 @@ internal partial class BlockchainBToken : Blockchain
       if (!AccountsUndo.ContainsKey(account.ID))
         AccountsUndo.Add(account.ID, AccountsStored.FindById(account.ID) ?? new Account { ID = account.ID });
 
-      AccountsStored.Upsert(account);
+      AccountsStored.Upsert(new Account
+      {
+        ID = account.ID,
+        HeightAccountCreated = account.HeightAccountCreated,
+        Nonce = account.Nonce,
+        Balance = account.Balance + GetOffsetRent(GetIndexSegment(account.ID), GetHeight())
+      });
     }
 
     internal void InsertBlock(Block block)
     {
-      InsertTXs(block, iD => true);
+      InsertTXs(block, i => true);
       VerifyHashAccounts((HeaderBToken)block.Header);
     }
 
-    void InsertTXs(Block block, Func<byte[], bool> isAccountApplied)
+    void InsertTXs(Block block, Func<int, bool> isSegmentApplied)
     {
       AccountsUndo.Clear();
+
+      int height = block.Header.Height;
+      int indexSegmentSweep = height % COUNT_SEGMENTS;
+
+      SetHeight(height);
+
+      List<Account> accountsSwept = new();
+
+      if (isSegmentApplied(indexSegmentSweep))
+      {
+        long offsetRent = GetOffsetRent(indexSegmentSweep, height);
+
+        accountsSwept = LoadAccountsSegment(indexSegmentSweep).Where(a => a.Balance <= offsetRent).ToList();
+
+        foreach (Account account in accountsSwept)
+          AccountsStored.Delete(account.ID);
+      }
 
       for (int i = 0; i < block.TXs.Count; i += 1)
       {
         TXBToken tX = (TXBToken)block.TXs[i];
 
         foreach (TXOutput tXOutput in tX.TXOutputs)
-          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0 && isAccountApplied(tXOutputP2PKH.IDAccount))
-            ChangeBalance(tXOutputP2PKH.IDAccount, block.Header.Height, tXOutputP2PKH.Value);
+          if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0 && isSegmentApplied(GetIndexSegment(tXOutputP2PKH.IDAccount)))
+            ChangeBalance(tXOutputP2PKH.IDAccount, height, tXOutputP2PKH.Value);
 
-        if (i > 0 && isAccountApplied(tX.IDAccountSource))
+        if (i > 0 && isSegmentApplied(GetIndexSegment(tX.IDAccountSource)))
         {
           Account accountSource = LoadAccountExisting(tX.IDAccountSource);
           accountSource.SpendTX(tX);
@@ -248,32 +301,47 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       foreach (byte[] iD in AccountsUndo.Keys)
-        if (AccountsStored.FindById(iD).Balance == 0)
+        if (LoadAccountStored(iD).Balance == 0)
           AccountsStored.Delete(iD);
 
-      UndoStored.InsertBulk(AccountsUndo.Values.Select(account => new BsonDocument
-      {
-        [NAME_FIELD_HEIGHT] = block.Header.Height,
-        [NAME_FIELD_ACCOUNT] = LiteDatabase.Mapper.ToDocument(account)
-      }));
+      UndoStored.InsertBulk(
+        AccountsUndo.Values.Select(a => CreateDocumentUndo(a, height, isSweep: false))
+        .Concat(accountsSwept.Select(a => CreateDocumentUndo(a, height, isSweep: true))));
 
-      UndoStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1));
+      UndoStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, height - COUNT_MAX_BLOCKS_STORED + 1));
+    }
+
+    BsonDocument CreateDocumentUndo(Account account, int height, bool isSweep)
+    {
+      return new BsonDocument
+      {
+        [NAME_FIELD_HEIGHT] = height,
+        [NAME_FIELD_IS_SWEEP] = isSweep,
+        [NAME_FIELD_ACCOUNT] = LiteDatabase.Mapper.ToDocument(account)
+      };
     }
 
     internal void RollBack(int height)
     {
-      foreach (Account account in LoadAccountsUndo(UndoStored.Query().Where(Query.EQ(NAME_FIELD_HEIGHT, height))).ToList())
+      IEnumerable<BsonDocument> documentsUndo = UndoStored.Query()
+        .Where(Query.EQ(NAME_FIELD_HEIGHT, height))
+        .OrderBy(NAME_FIELD_IS_SWEEP)
+        .ToEnumerable();
+
+      foreach (Account account in LoadAccountsUndo(documentsUndo).ToList())
         if (account.Balance > 0)
           AccountsStored.Upsert(account);
         else
           AccountsStored.Delete(account.ID);
 
       UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));
+
+      SetHeight(height - 1);
     }
 
-    IEnumerable<Account> LoadAccountsUndo(ILiteQueryable<BsonDocument> query)
+    IEnumerable<Account> LoadAccountsUndo(IEnumerable<BsonDocument> documents)
     {
-      return query.ToEnumerable().Select(d => LiteDatabase.Mapper.ToObject<Account>(d[NAME_FIELD_ACCOUNT].AsDocument));
+      return documents.Select(d => LiteDatabase.Mapper.ToObject<Account>(d[NAME_FIELD_ACCOUNT].AsDocument));
     }
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
@@ -289,7 +357,7 @@ internal partial class BlockchainBToken : Blockchain
 
       try
       {
-        InsertTXs(block, iD => true);
+        InsertTXs(block, i => true);
         return SHA256.HashData(SerializeSegment(block.Header.Height % COUNT_SEGMENTS));
       }
       finally
