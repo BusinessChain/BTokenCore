@@ -465,7 +465,7 @@ internal partial class BlockchainBToken : Blockchain
     return BLOCK_REWARD_INITIAL >> countHalvings;
   }
 
-  protected override void VerifyCoinbase(Block block)
+  static void VerifyCoinbase(Block block, long rent)
   {
     long fee = 0;
 
@@ -477,13 +477,13 @@ internal partial class BlockchainBToken : Blockchain
       fee += block.TXs[i].Fee;
     }
 
-    if (GetBlockReward(block.Header.Height) + fee != block.TXs[0].GetValueOutputs())
-      throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees.");
+    if (GetBlockReward(block.Header.Height) + fee + rent != block.TXs[0].GetValueOutputs())
+      throw new ProtocolException($"Output values of coinbase not equal to blockReward plus tx fees plus rent.");
   }
 
-  TXBToken CreateTXCoinbase(int height, long fees)
+  TXBToken CreateTXCoinbase(int height, long fees, long rent)
   {
-    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees, Wallet.Hash160PKeyPublic);
+    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, Wallet.Hash160PKeyPublic);
 
     TXBToken tXCoinbase = new()
     {
@@ -524,7 +524,7 @@ internal partial class BlockchainBToken : Blockchain
 
     block.TXs = TXPool.GetTXs(countBytesTXsMax);
 
-    block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee)));
+    block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee), Accounts.LoadSweep(height).rent));
 
     block.Header = new HeaderBToken()
     {

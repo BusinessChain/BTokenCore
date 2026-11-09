@@ -259,26 +259,45 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void InsertBlock(Block block)
     {
-      InsertTXs(block, i => true);
+      long rent = InsertTXs(block, i => true);
+      VerifyCoinbase(block, rent);
       VerifyHashAccounts((HeaderBToken)block.Header);
     }
 
-    void InsertTXs(Block block, Func<int, bool> isSegmentApplied)
+    internal (List<Account> accountsSwept, long rent) LoadSweep(int height)
+    {
+      int indexSegment = height % COUNT_SEGMENTS;
+      long offsetRent = GetOffsetRent(indexSegment, height);
+
+      List<Account> accountsSwept = new();
+      long rent = 0;
+
+      foreach (Account account in LoadAccountsSegment(indexSegment))
+        if (account.Balance <= offsetRent)
+        {
+          accountsSwept.Add(account);
+          rent += account.Balance - offsetRent + RENT_SWEEP;
+        }
+        else
+          rent += RENT_SWEEP;
+
+      return (accountsSwept, rent);
+    }
+
+    long InsertTXs(Block block, Func<int, bool> isSegmentApplied)
     {
       AccountsUndo.Clear();
 
       int height = block.Header.Height;
-      int indexSegmentSweep = height % COUNT_SEGMENTS;
 
       SetHeight(height);
 
       List<Account> accountsSwept = new();
+      long rent = 0;
 
-      if (isSegmentApplied(indexSegmentSweep))
+      if (isSegmentApplied(height % COUNT_SEGMENTS))
       {
-        long offsetRent = GetOffsetRent(indexSegmentSweep, height);
-
-        accountsSwept = LoadAccountsSegment(indexSegmentSweep).Where(a => a.Balance <= offsetRent).ToList();
+        (accountsSwept, rent) = LoadSweep(height);
 
         foreach (Account account in accountsSwept)
           AccountsStored.Delete(account.ID);
@@ -309,6 +328,8 @@ internal partial class BlockchainBToken : Blockchain
         .Concat(accountsSwept.Select(a => CreateDocumentUndo(a, height, isSweep: true))));
 
       UndoStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, height - COUNT_MAX_BLOCKS_STORED + 1));
+
+      return rent;
     }
 
     BsonDocument CreateDocumentUndo(Account account, int height, bool isSweep)
