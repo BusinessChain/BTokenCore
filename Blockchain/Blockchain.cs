@@ -46,7 +46,9 @@ internal abstract partial class Blockchain
     ChainRoot = new(CreateHeaderRoot(), isRoot: true);
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
-    LiteDatabase = new ($"Filename={nameToken + "Network"}.db;Mode=Exclusive");
+    LiteDatabase = new (
+      $"Filename={nameToken + "Network"}.db;Mode=Exclusive",
+      new BsonMapper { IncludeFields = true, IncludeNonPublic = true });
     BlocksStored = LiteDatabase.GetCollection<BsonDocument>("blocks");
     TXsOwnedStored = LiteDatabase.GetCollection<BsonDocument>("tXsOwned");
 
