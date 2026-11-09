@@ -533,7 +533,15 @@ internal partial class BlockchainBToken : Blockchain
       MerkleRoot = block.ComputeMerkleRoot()
     };
 
-    ((HeaderBToken)block.Header).HashAccounts = Accounts.ComputeHash(block);
+    try
+    {
+      ((HeaderBToken)block.Header).HashAccounts = Accounts.ComputeHash(block);
+    }
+    catch (ProtocolException exception)
+    {
+      Console.WriteLine($"Mining round at height {height} skipped: {exception.Message}");
+      return;
+    }
 
     block.Header.ComputeHash();
 
