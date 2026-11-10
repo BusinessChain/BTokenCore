@@ -3,7 +3,6 @@ namespace BTokenCore;
 internal partial class NetworkBToken : Network
 {
   BlockchainBToken BlockchainBToken;
-  PeerBToken PeerPickedHashesSegment;
 
 
   internal NetworkBToken(
@@ -46,19 +45,12 @@ internal partial class NetworkBToken : Network
   {
     lock (LOCK_Peers)
     {
-      if (PeerPickedHashesSegment == null
-        || PeerPickedHashesSegment.IsDisposed
-        || hashTip.IsAllBytesEqual(PeerPickedHashesSegment.HashBlockAccountsAsked))
-      {
-        List<PeerBToken> peersCandidate = Peers
-          .Cast<PeerBToken>()
-          .Where(p => !p.IsDisposed &&!hashTip.IsAllBytesEqual(p.HashBlockAccountsAsked))
-          .ToList();
+      List<PeerBToken> peersCandidate = Peers
+        .Cast<PeerBToken>()
+        .Where(p => !p.IsDisposed && !hashTip.IsAllBytesEqual(p.HashBlockAccountsAsked))
+        .ToList();
 
-        PeerPickedHashesSegment = peersCandidate.Count > 0 ? peersCandidate[Random.Shared.Next(peersCandidate.Count)] : null;
-      }
-
-      return PeerPickedHashesSegment == peer;
+      return peersCandidate.Count > 0 && peersCandidate[Random.Shared.Next(peersCandidate.Count)] == peer;
     }
   }
 
