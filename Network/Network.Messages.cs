@@ -196,6 +196,12 @@ internal partial class Network
     const int MAX_LEVEL_DOS = 5;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
+    protected DOSMonitor DOSMonitorRequests = new(
+      GetDataMessage.MAX_LEVEL_DOS,
+      GetDataMessage.AMOUNT_DRAIN_DOS_PER_10_MINUTES);
+
+    Header HeaderBlockReceivedLast;
+
 
     internal BlockMessage(Blockchain blockchain)
       : base(Array.Empty<byte>(), MAX_LEVEL_DOS, AMOUNT_DRAIN_DOS_PER_10_MINUTES)
@@ -215,7 +221,13 @@ internal partial class Network
 
       BlockDownload.LengthDataPayload = LengthDataPayload;
 
-      await peer.Network.Blockchain.RunLocked(() => peer.Network.Blockchain.ReceiveBlock(BlockDownload));
+      await peer.Network.Blockchain.RunLocked(() =>
+      {
+        if (GetDataMessage.RefundBlockServed(ref HeaderBlockReceivedLast, BlockDownload.Header))
+          DOSMonitorRequests.Decrement(1);
+
+        peer.Network.Blockchain.ReceiveBlock(BlockDownload);
+      });
 
       TimeDeliveredLast = DateTime.UtcNow;
 
@@ -224,21 +236,34 @@ internal partial class Network
       await RequestBlockNext(peer);
     }
 
-    internal virtual async Task RequestBlockNext(Peer peer)
+    internal async Task RequestBlockNext(Peer peer)
+    {
+      if (DOSMonitorRequests.TryIncrement(1))
+      {
+        if (await TryRequestItemNext(peer))
+          return;
+
+        DOSMonitorRequests.Decrement(1);
+      }
+
+      BlockDownload.Header = null;
+      peer.StateCurrent = Peer.StateProtocol.Idle;
+    }
+
+    protected virtual async Task<bool> TryRequestItemNext(Peer peer)
     {
       BlockDownload.Header = await peer.Network.Blockchain.RunLocked(() =>
         peer.Network.Blockchain.FetchHeaderBlockMissingNext(peer.CanDeliverBlock));
 
       if (BlockDownload.Header == null)
-      {
-        peer.StateCurrent = Peer.StateProtocol.Idle;
-        return;
-      }
+        return false;
 
       TimeRequest = DateTime.UtcNow;
       peer.StateCurrent = Peer.StateProtocol.BlockDownload;
 
       await SendInventories(peer, GetDataMessage.Command, [new(Inventory.InventoryType.MSG_BLOCK, BlockDownload.Header.Hash)]);
+
+      return true;
     }
   }
 
@@ -249,8 +274,8 @@ internal partial class Network
     Header HeaderBlockDownloadedTip;
 
     const int SIZE_BUFFER_PAYLOAD = 36_003;
-    const int MAX_LEVEL_DOS = 5;
-    const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
+    internal const int MAX_LEVEL_DOS = 5;
+    internal const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
 
     DOSMonitor DOSMonitorTX = new(
       TXMessage.MAX_LEVEL_DOS,

@@ -184,16 +184,23 @@ internal partial class NetworkBToken : Network
 
   class BlockMessageBToken : BlockMessage
   {
+    HashSet<byte[]> HashesAccountsReceived = new(new EqualityComparerByteArray());
+
+
     internal BlockMessageBToken(Blockchain blockchain)
       : base(blockchain)
     { }
 
-    internal override async Task RequestBlockNext(Peer peer)
+    internal void RefundAccountsReceived(Inventory inventory)
     {
-      await base.RequestBlockNext(peer);
+      if (GetDataMessageBToken.RefundAccountsServed(HashesAccountsReceived, inventory))
+        DOSMonitorRequests.Decrement(1);
+    }
 
-      if (BlockDownload.Header != null)
-        return;
+    protected override async Task<bool> TryRequestItemNext(Peer peer)
+    {
+      if (await base.TryRequestItemNext(peer))
+        return true;
 
       PeerBToken peerBToken = (PeerBToken)peer;
       BlockchainBToken blockchainBToken = peerBToken.BlockchainBToken;
@@ -207,7 +214,7 @@ internal partial class NetworkBToken : Network
             : null);
 
       if (inventoryAccountsMissing == null)
-        return;
+        return false;
 
       if (inventoryAccountsMissing.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES)
         peerBToken.HashBlockAccountsAsked = inventoryAccountsMissing.Hash;
@@ -218,6 +225,8 @@ internal partial class NetworkBToken : Network
       peer.StateCurrent = Peer.StateProtocol.AccountsDownload;
 
       await SendInventories(peer, GetDataMessage.Command, [inventoryAccountsMissing]);
+
+      return true;
     }
   }
 
@@ -276,6 +285,8 @@ internal partial class NetworkBToken : Network
 
         Payload = null;
       }
+
+      ((BlockMessageBToken)peer.MessagesByCommand[BlockMessage.Command]).RefundAccountsReceived(inventoryRequested);
 
       DOSMonitor.Decrement(1);
 
