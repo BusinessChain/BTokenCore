@@ -146,8 +146,6 @@ internal abstract partial class Network
       catch
       {
         socketCommunication?.Dispose();
-
-        await Task.Delay(30_000).ConfigureAwait(false);
       }
     }
   }
