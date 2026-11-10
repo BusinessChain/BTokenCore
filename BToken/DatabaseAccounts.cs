@@ -34,24 +34,17 @@ internal partial class BlockchainBToken : Blockchain
     static readonly Comparer<byte[]> ComparerID = Comparer<byte[]>.Create((a, b) => a.AsSpan().SequenceCompareTo(b));
 
 
-    internal bool TryLoad(LiteDatabase storage)
+    internal void Load(LiteDatabase storage)
     {
       LiteDatabase = storage;
       UndoStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_UNDO);
       HeightStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_HEIGHT);
       CountsStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_COUNTS);
 
-      bool isComplete = LiteDatabase.CollectionExists(NAME_COLLECTION_COMPLETE);
-
-      if (!isComplete)
-      {
+      if (LiteDatabase.CollectionExists(NAME_COLLECTION_COMPLETE))
+        OpenAccounts();
+      else
         Drop();
-        MarkComplete();
-      }
-
-      OpenAccounts();
-
-      return isComplete;
     }
 
     void OpenAccounts()

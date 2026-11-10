@@ -66,8 +66,7 @@ internal partial class BlockchainBToken : Blockchain
 
     Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
 
-    if (!Accounts.TryLoad(LiteDatabase))
-      BlocksStored.DeleteAll();
+    Accounts.Load(LiteDatabase);
   }
 
   protected override Header CreateHeaderRoot()
@@ -303,6 +302,11 @@ internal partial class BlockchainBToken : Blockchain
       || headerRequested.GetHeaderAncestor(headerRequested.Height - COUNT_MAX_BLOCKS_STORED) is not Header header)
       return;
 
+    InstallAccounts(header, segments);
+  }
+
+  void InstallAccounts(Header header, List<byte[]> segments)
+  {
     try
     {
       LiteDatabase.RunTransaction(() => Accounts.Install(segments, header.Height));
@@ -313,10 +317,32 @@ internal partial class BlockchainBToken : Blockchain
       throw;
     }
 
+    if (header == ChainRoot.HeaderTipBlockchain)
+    {
+      Accounts.MarkComplete();
+      return;
+    }
+
     HeaderAccountsReplayed = header;
     HeightAccountsInstalled = header.Height;
 
     Task.Run(RunFullCheck);
+  }
+
+  void ResolveAccountsAbsent()
+  {
+    if (Accounts.Exists())
+      return;
+
+    Chain chainTallest = ChainRoot.FindChainTallest();
+
+    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED)
+    {
+      Resync(chainTallest);
+      UpdateTipBlockchain(ChainRoot);
+    }
+    else if (ChainRoot.HeaderRoot.Height == 0)
+      InstallAccounts(ChainRoot.HeaderRoot, []);
   }
 
   async Task RunFullCheck()
@@ -400,6 +426,7 @@ internal partial class BlockchainBToken : Blockchain
     LoadBlockchain();
     BlockchainBitcoin.LoadBlockchain();
     RollBackUnanchored();
+    ResolveAccountsAbsent();
     LoadTXsOwnedUnconfirmed();
   }
 
