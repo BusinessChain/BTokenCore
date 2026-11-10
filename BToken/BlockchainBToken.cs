@@ -331,19 +331,9 @@ internal partial class BlockchainBToken : Blockchain
 
   void ResolveNodeWithoutState()
   {
-    bool isAccountsAbsent = !Accounts.Exists();
+    ResyncWhenBehind();
 
-    if (!isAccountsAbsent && ChainRoot.HeaderTipBlockchain.Height > 0)
-      return;
-
-    Chain chainTallest = ChainRoot.FindChainTallest();
-
-    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED)
-    {
-      Resync(chainTallest);
-      UpdateTipBlockchain(ChainRoot);
-    }
-    else if (isAccountsAbsent && ChainRoot.HeaderRoot.Height == 0)
+    if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
       InstallAccounts(ChainRoot.HeaderRoot, []);
   }
 
