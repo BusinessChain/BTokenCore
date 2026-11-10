@@ -20,6 +20,8 @@ internal abstract partial class Network
   HashSet<string> IPAddresses = new();
   const int COUNT_MAX_IP_ADDRESSES = 10_000;
 
+  const int COUNT_PEERS_PROTECTED_PER_CRITERION = 4;
+
 
   protected Network(
     Blockchain blockchain,
@@ -127,15 +129,17 @@ internal abstract partial class Network
       {
         socketCommunication = await Communication.AcceptSocketCommunicationInbound();
 
+        string iP = socketCommunication.GetIP();
+
         Peer peer;
 
         lock (LOCK_Peers)
         {
-          if (Peers.Concat(PeersHandshakeInbound).Any(p => p.GetIP().Equals(socketCommunication.GetIP()))
-            || Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + PeersHandshakeInbound.Count + 1 > ConfigurationNetwork.CountMaxInboundConnections)
-          {
+          if (Peers.Concat(PeersHandshakeInbound).Any(p => p.GetIP().Equals(iP)))
             throw new ProtocolException("Inbound request rejected.");
-          }
+
+          if (Peers.Count(p => p.Connection == Peer.ConnectionType.INBOUND) + PeersHandshakeInbound.Count >= ConfigurationNetwork.CountMaxInboundConnections)
+            EvictPeerInbound();
 
           peer = CreatePeer(socketCommunication, Peer.ConnectionType.INBOUND);
           PeersHandshakeInbound.Add(peer);
@@ -148,6 +152,34 @@ internal abstract partial class Network
         socketCommunication?.Dispose();
       }
     }
+  }
+
+  void EvictPeerInbound()
+  {
+    List<Peer> peersCandidate = Peers.Where(p => p.Connection == Peer.ConnectionType.INBOUND).ToList();
+
+    List<Peer> peersBlockDelivered = peersCandidate
+      .Where(p => ((BlockMessage)p.MessagesByCommand[BlockMessage.Command]).TimeDeliveredLast > DateTime.MinValue)
+      .ToList();
+
+    List<Peer> peersTXDelivered = peersCandidate
+      .Where(p => ((TXMessage)p.MessagesByCommand[TXMessage.Command]).TimeDeliveredLast > DateTime.MinValue)
+      .ToList();
+
+    HashSet<Peer> peersProtected = peersBlockDelivered
+      .OrderByDescending(p => ((BlockMessage)p.MessagesByCommand[BlockMessage.Command]).TimeDeliveredLast)
+      .Take(COUNT_PEERS_PROTECTED_PER_CRITERION)
+      .Concat(peersTXDelivered
+        .OrderByDescending(p => ((TXMessage)p.MessagesByCommand[TXMessage.Command]).TimeDeliveredLast)
+        .Take(COUNT_PEERS_PROTECTED_PER_CRITERION))
+      .Concat(peersBlockDelivered.Union(peersTXDelivered)
+        .OrderBy(p => p.TimeConnected)
+        .Take(COUNT_PEERS_PROTECTED_PER_CRITERION))
+      .ToHashSet();
+
+    List<Peer> peersEvictable = peersCandidate.Except(peersProtected).ToList();
+
+    peersEvictable[Random.Shared.Next(peersEvictable.Count)].SocketCommunication.Dispose();
   }
 
   async Task StartPeerInbound(Peer peer)
