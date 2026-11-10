@@ -29,6 +29,8 @@ internal partial class Network
 
     internal bool IsDisposed;
 
+    internal DateTime TimeConnected;
+
     internal SemaphoreSlim SemaphorePeer = new(1);
 
     internal HashSet<byte[]> HashesSegmentRefused = new(new EqualityComparerByteArray());
@@ -97,6 +99,8 @@ internal partial class Network
         await VersionMessage.SendVersion(this, heightBlockchainTip);
 
       await HandshakeCompleted.Task.WaitAsync(TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS));
+
+      TimeConnected = DateTime.UtcNow;
 
       if (Connection == ConnectionType.OUTBOUND)
         await ((AddressMessage)MessagesByCommand[AddressMessage.Command]).SendGetAddr(this);

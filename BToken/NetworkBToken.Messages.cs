@@ -74,6 +74,8 @@ internal partial class NetworkBToken : Network
       {
         await blockchainBToken.RunLocked(() => blockchainBToken.AddTX(tX));
 
+        TimeDeliveredLast = DateTime.UtcNow;
+
         ((NetworkBToken)peer.Network).QueueTXForRelay(tX);
       }
       catch (ProtocolException)

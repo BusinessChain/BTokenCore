@@ -191,6 +191,7 @@ internal partial class Network
 
     internal Block BlockDownload;
     internal DateTime TimeRequest;
+    internal DateTime TimeDeliveredLast;
 
     const int MAX_LEVEL_DOS = 5;
     const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 5;
@@ -215,6 +216,8 @@ internal partial class Network
       BlockDownload.LengthDataPayload = LengthDataPayload;
 
       await peer.Network.Blockchain.RunLocked(() => peer.Network.Blockchain.ReceiveBlock(BlockDownload));
+
+      TimeDeliveredLast = DateTime.UtcNow;
 
       DOSMonitor.Decrement(1);
 
@@ -433,6 +436,8 @@ internal partial class Network
     const int MARGIN_LEVEL_DOS = 1_000_000;
     internal const int MAX_LEVEL_DOS = MAX_LEVEL_ANNOUNCED + MARGIN_LEVEL_DOS;
     internal const int AMOUNT_DRAIN_DOS_PER_10_MINUTES = 1_000_000;
+
+    internal DateTime TimeDeliveredLast;
 
 
     internal TXMessage()
