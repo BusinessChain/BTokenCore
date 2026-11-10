@@ -50,7 +50,7 @@ internal partial class NetworkBToken : Network
 
     internal override bool CanDeliverBlock(Header header)
     {
-      bool isAnnouncedByPeer = HashBlockAnnounced != null && header.Hash.IsAllBytesEqual(HashBlockAnnounced);
+      bool isAnnouncedByPeer = header.Hash.IsAllBytesEqual(HashBlockAnnounced);
       bool hasBlockHadTimeToSpread = !header.IsParentNewest();
 
       return base.CanDeliverBlock(header) && (hasBlockHadTimeToSpread || isAnnouncedByPeer);

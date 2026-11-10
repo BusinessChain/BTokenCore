@@ -53,6 +53,9 @@ public static class ByteArrayExtensionMethods
 
   public static bool IsAllBytesEqual(this byte[] arr1, byte[] arr2, int startIndex2 = 0)
   {
+    if (arr2 == null)
+      return false;
+
     for (int i = 0; i < arr1.Length; i++)
       if (arr1[i] != arr2[startIndex2 + i])
         return false;

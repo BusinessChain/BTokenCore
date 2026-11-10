@@ -502,8 +502,7 @@ internal partial class BlockchainBToken : Blockchain
     if (!IsMining || !IsAccountsAtTip())
       return;
 
-    bool isTipAwaited = HashBlockAwaitedRoundMining != null
-      && ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashBlockAwaitedRoundMining);
+    bool isTipAwaited = ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashBlockAwaitedRoundMining);
 
     if (!IsRoundMiningOpen && !isTipAwaited)
       return;
