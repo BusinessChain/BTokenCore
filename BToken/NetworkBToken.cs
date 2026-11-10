@@ -17,6 +17,7 @@ internal partial class NetworkBToken : Network
         Port = 8777,
         MagicBytes = [0xB7, 0xD0, 0xC3, 0xE5],
         ProtocolVersion = 1,
+        // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
         SeedAddresses = ["83.229.86.158"],
         NetworkServicesLocal = Configuration.NODE_NETWORK,
         NetworkServicesRemote = Configuration.NODE_NETWORK,
@@ -46,12 +47,12 @@ internal partial class NetworkBToken : Network
     lock (LOCK_Peers)
     {
       if (PeerPickedHashesSegment == null
-        || PeerPickedHashesSegment.IsDisposed()
+        || PeerPickedHashesSegment.IsDisposed
         || hashTip.IsAllBytesEqual(PeerPickedHashesSegment.HashBlockAccountsAsked))
       {
         List<PeerBToken> peersCandidate = Peers
           .Cast<PeerBToken>()
-          .Where(p => !p.IsDisposed() && !hashTip.IsAllBytesEqual(p.HashBlockAccountsAsked))
+          .Where(p => !p.IsDisposed &&!hashTip.IsAllBytesEqual(p.HashBlockAccountsAsked))
           .ToList();
 
         PeerPickedHashesSegment = peersCandidate.Count > 0 ? peersCandidate[Random.Shared.Next(peersCandidate.Count)] : null;

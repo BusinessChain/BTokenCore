@@ -22,11 +22,12 @@ internal partial class Network
       Idle,
       HeaderDownload,
       BlockDownload,
-      AccountsDownload,
-      Disposed
+      AccountsDownload
     }
 
     internal StateProtocol StateCurrent = StateProtocol.Handshake;
+
+    internal bool IsDisposed;
 
     internal SemaphoreSlim SemaphorePeer = new(1);
 
@@ -58,11 +59,6 @@ internal partial class Network
 
       SocketCommunication = socketCommunication;
       Connection = connection;
-    }
-
-    internal bool IsDisposed()
-    {
-      return StateCurrent == StateProtocol.Disposed;
     }
 
     internal virtual bool CanDeliverBlock(Header header)
@@ -141,9 +137,12 @@ internal partial class Network
       }
       finally
       {
-        StateCurrent = StateProtocol.Disposed;
+        IsDisposed = true;
         SocketCommunication.Dispose();
         HandshakeCompleted.TrySetCanceled();
+
+        lock (Network.LOCK_Peers)
+          Network.Peers.Remove(this);
       }
     }
 
@@ -153,7 +152,7 @@ internal partial class Network
       {
         await Task.Delay(TIMESPAN_HEARTBEAT_MILLISECONDS).ConfigureAwait(false);
 
-        if (IsDisposed())
+        if (IsDisposed)
           return;
 
         try

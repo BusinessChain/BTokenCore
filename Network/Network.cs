@@ -58,7 +58,6 @@ internal abstract partial class Network
 
       lock (LOCK_Peers)
       {
-        Peers.RemoveAll(p => p.IsDisposed());
         countPeersOutbound = Peers.Count(p => p.Connection == Peer.ConnectionType.OUTBOUND);
         iPsCandidate = IPAddresses.Except(Peers.Select(p => p.GetIP())).ToList();
       }
@@ -101,7 +100,8 @@ internal abstract partial class Network
         await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
         lock (LOCK_Peers)
-          Peers.Add(peer);
+          if (!peer.IsDisposed)
+            Peers.Add(peer);
       }
       catch
       {
@@ -159,7 +159,8 @@ internal abstract partial class Network
       await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
       lock (LOCK_Peers)
-        Peers.Add(peer);
+        if (!peer.IsDisposed)
+          Peers.Add(peer);
     }
     catch
     {
