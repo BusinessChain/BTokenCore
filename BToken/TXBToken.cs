@@ -36,7 +36,7 @@ internal partial class BlockchainBToken : Blockchain
     internal TXBToken()
     { }
 
-    internal TXBToken(byte[] buffer, ref int index, bool isCoinbase)
+    internal TXBToken(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures)
     {
       int indexTxStart = index;
 
@@ -78,22 +78,19 @@ internal partial class BlockchainBToken : Blockchain
       Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
 
       if (!isCoinbase)
-        VerifySignatureTX(indexTxStart, buffer, ref index);
+      {
+        int lengthMessage = index - indexTxStart;
+
+        int lengthSig = buffer[index++];
+        byte[] signature = buffer.ReadBytes(ref index, lengthSig);
+
+        if (verifySignatures && !Crypto.VerifySignature(buffer, indexTxStart, lengthMessage, KeyPublic, signature))
+          throw new ProtocolException($"TX {this} contains invalid signature.");
+      }
 
       CountBytes = index - indexTxStart;
 
       TXRaw = buffer[indexTxStart..index];
-    }
-
-    internal void VerifySignatureTX(int indexTxStart, byte[] buffer, ref int index)
-    {
-      int lengthMessage = index - indexTxStart;
-
-      int lengthSig = buffer[index++];
-      byte[] signature = buffer.ReadBytes(ref index, lengthSig);
-
-      if (!Crypto.VerifySignature(buffer, indexTxStart, lengthMessage, KeyPublic, signature))
-        throw new ProtocolException($"TX {this} contains invalid signature.");
     }
 
     internal override void Serialize(Wallet wallet)

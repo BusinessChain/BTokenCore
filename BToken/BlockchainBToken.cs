@@ -86,9 +86,9 @@ internal partial class BlockchainBToken : Blockchain
     return new HeaderBToken(buffer, ref index);
   }
 
-  internal override TX ParseTX(byte[] buffer, ref int index, bool isCoinbase)
+  internal override TX ParseTX(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures)
   {
-    return new TXBToken(buffer, ref index, isCoinbase);
+    return new TXBToken(buffer, ref index, isCoinbase, verifySignatures);
   }
 
   protected override void InsertBlock(Block block)
@@ -417,7 +417,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     int index = 0;
 
-    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false);
+    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
 
     TXPool.AddTX(tX);
     InsertTXOwned(tX);
