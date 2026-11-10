@@ -295,26 +295,18 @@ internal partial class Network
         {
           DOSMonitor.Increment(1);
 
-          (Block blockUpload, bool isBlockBehindTipDownloaded) = await peer.Network.Blockchain.RunLocked(() =>
+          Block blockUpload = await peer.Network.Blockchain.RunLocked(() =>
           {
             Block block = peer.Network.Blockchain.GetBlock(inventory.Hash);
 
-            if (block == null)
-              return (block, false);
+            if (block != null && RefundBlockServed(ref HeaderBlockDownloadedTip, block.Header))
+              DOSMonitor.Decrement(1);
 
-            return (block, HeaderBlockDownloadedTip?.GetHeaderAncestor(block.Header.Height) == block.Header);
+            return block;
           });
 
           if (blockUpload != null)
-          {
             await peer.SocketCommunication.SendMessage(BlockMessage.Command, blockUpload.LengthDataPayload, blockUpload.Buffer);
-
-            if (!isBlockBehindTipDownloaded)
-            {
-              DOSMonitor.Decrement(1);
-              HeaderBlockDownloadedTip = blockUpload.Header;
-            }
-          }
           else
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
@@ -324,6 +316,15 @@ internal partial class Network
 
       if (inventoriesTXNotFound.Count > 0)
         await SendInventories(peer, NotFoundMessage.Command, inventoriesTXNotFound);
+    }
+
+    internal static bool RefundBlockServed(ref Header headerBlockServedLast, Header header)
+    {
+      if (headerBlockServedLast?.GetHeaderAncestor(header.Height) == header)
+        return false;
+
+      headerBlockServedLast = header;
+      return true;
     }
 
     protected virtual Task ServeAccounts(Peer peer, Inventory inventory)

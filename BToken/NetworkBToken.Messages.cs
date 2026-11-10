@@ -164,16 +164,21 @@ internal partial class NetworkBToken : Network
         return;
       }
 
-      if (isHashesSegment && !HashesAccountsServed.Contains(inventory.Hash))
-        HashesAccountsServed.Clear();
-
-      if (HashesAccountsServed.Add(inventory.Hash))
+      if (RefundAccountsServed(HashesAccountsServed, inventory))
         DOSMonitor.Decrement(1);
 
       await peer.SocketCommunication.SendMessage(
         isHashesSegment ? AccountsMessage.CommandHashesSegment : AccountsMessage.CommandSegment,
         payload.Length,
         payload);
+    }
+
+    internal static bool RefundAccountsServed(HashSet<byte[]> hashesAccountsServed, Inventory inventory)
+    {
+      if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES && !hashesAccountsServed.Contains(inventory.Hash))
+        hashesAccountsServed.Clear();
+
+      return hashesAccountsServed.Add(inventory.Hash);
     }
   }
 
