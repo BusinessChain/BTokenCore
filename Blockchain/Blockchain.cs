@@ -37,7 +37,7 @@ internal abstract partial class Blockchain
   {
     Directory.CreateDirectory(nameToken);
 
-    Wallet = new Wallet(File.ReadAllText($"Wallet{nameToken}/wallet"));
+    Wallet = new Wallet($"Wallet{nameToken}/wallet");
 
     SizeBlockMax = sizeBlockMax;
 

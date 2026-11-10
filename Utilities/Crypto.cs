@@ -63,6 +63,19 @@ public static class Crypto
     }
   }
 
+  public static string GenerateKeyPrivate()
+  {
+    Org.BouncyCastle.Security.SecureRandom random = new();
+
+    while (true)
+    {
+      BigInteger d = new(DOMAIN_SECP256K1.N.BitLength, random);
+
+      if (d.SignValue > 0 && d.CompareTo(DOMAIN_SECP256K1.N) < 0)
+        return d.ToString();
+    }
+  }
+
   public static byte[] GetKeyPublic(string keyPrivate)
   {
     var d = new BigInteger(keyPrivate);

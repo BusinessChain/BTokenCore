@@ -512,7 +512,7 @@ internal partial class BlockchainBToken : Blockchain
 
   TXBToken CreateTXCoinbase(int height, long fees, long rent)
   {
-    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, Wallet.Hash160PKeyPublic);
+    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, Wallet.GetHash160KeyReceiving(TXPool.CanReceive));
 
     TXBToken tXCoinbase = new()
     {
