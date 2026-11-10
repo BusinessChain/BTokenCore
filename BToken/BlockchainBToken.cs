@@ -17,12 +17,12 @@ internal partial class BlockchainBToken : Blockchain
   const int COUNT_SEGMENTS = 1 << COUNT_BITS_INDEX_SEGMENT;
   const int DEPTH_MARGIN_INSTALL = 6;
   const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
+  const int DEPTH_MARGIN_RESYNC = 6;
   internal const int LENGTH_HASHES_SEGMENT = COUNT_SEGMENTS * Crypto.LENGTH_HASH256;
 
   DatabaseAccounts Accounts = new();
   Header HeaderAccountsReplayed;
   int HeightAccountsInstalled;
-  int HeightBlockParentTip;
 
   Header HeaderTipAccountsServed;
   byte[] HashesSegmentServed;
@@ -634,17 +634,7 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     if (isBlockParentTip)
-    {
-      Chain chainTallest = ChainRoot.FindChainTallest();
-
-      if (CountPlaceholdersCatchUp(chainTallest.HeaderTip) > COUNT_MAX_BLOCKS_STORED)
-      {
-        Resync(chainTallest);
-        UpdateTipBlockchain(ChainRoot);
-      }
-
-      HeightBlockParentTip = blockParent.Header.Height;
-    }
+      ResyncWhenBehind();
 
     if (hasAnchorWinner
       && ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
@@ -677,18 +667,15 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(ChainRoot);
   }
 
-  int CountPlaceholdersCatchUp(Header headerTip)
+  void ResyncWhenBehind()
   {
-    int countPlaceholdersCatchUp = 0;
+    Chain chainTallest = ChainRoot.FindChainTallest();
 
-    for (
-      Header header = headerTip;
-      header != ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(header.Height);
-      header = header.HeaderPrevious)
-      if (header.HeaderParent.Height > HeightBlockParentTip)
-        countPlaceholdersCatchUp += 1;
-
-    return countPlaceholdersCatchUp;
+    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED + DEPTH_MARGIN_RESYNC)
+    {
+      Resync(chainTallest);
+      UpdateTipBlockchain(ChainRoot);
+    }
   }
 
   void Resync(Chain chainTallest)
