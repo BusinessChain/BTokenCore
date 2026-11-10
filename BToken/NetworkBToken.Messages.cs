@@ -229,11 +229,19 @@ internal partial class NetworkBToken : Network
 
     internal AccountsMessage(Inventory.InventoryType typeInventory)
       : base(
-          new byte[typeInventory == Inventory.InventoryType.MSG_SEGMENT_HASHES ? BlockchainBToken.LENGTH_HASHES_SEGMENT : SIZE_BUFFER_SEGMENT],
+          new byte[typeInventory == Inventory.InventoryType.MSG_SEGMENT_HASHES ? BlockchainBToken.LENGTH_HASHES_SEGMENT : 0],
           MAX_LEVEL_DOS,
           AMOUNT_DRAIN_DOS_PER_10_MINUTES)
     {
       TypeInventory = typeInventory;
+    }
+
+    internal override byte[] GetPayloadBuffer()
+    {
+      if (TypeInventory == Inventory.InventoryType.MSG_SEGMENT)
+        Payload = new byte[SIZE_BUFFER_SEGMENT];
+
+      return Payload;
     }
 
     internal override async Task Run(Peer peer)
@@ -252,10 +260,15 @@ internal partial class NetworkBToken : Network
 
         await blockchainBToken.RunLocked(() => blockchainBToken.SetHashesSegmentDownload(inventoryRequested.Hash, Payload));
       }
-      else if (!SHA256.HashData(Payload.AsSpan(0, LengthDataPayload)).IsAllBytesEqual(inventoryRequested.Hash))
-        peer.HashesSegmentRefused.Add(inventoryRequested.Hash);
       else
-        await blockchainBToken.RunLocked(() => blockchainBToken.AddSegmentDownload(inventoryRequested.Hash, Payload, LengthDataPayload));
+      {
+        if (!SHA256.HashData(Payload.AsSpan(0, LengthDataPayload)).IsAllBytesEqual(inventoryRequested.Hash))
+          peer.HashesSegmentRefused.Add(inventoryRequested.Hash);
+        else
+          await blockchainBToken.RunLocked(() => blockchainBToken.AddSegmentDownload(inventoryRequested.Hash, Payload, LengthDataPayload));
+
+        Payload = null;
+      }
 
       DOSMonitor.Decrement(1);
 
