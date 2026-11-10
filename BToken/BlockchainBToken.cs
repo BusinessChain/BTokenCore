@@ -329,9 +329,11 @@ internal partial class BlockchainBToken : Blockchain
     Task.Run(RunFullCheck);
   }
 
-  void ResolveAccountsAbsent()
+  void ResolveNodeWithoutState()
   {
-    if (Accounts.Exists())
+    bool isAccountsAbsent = !Accounts.Exists();
+
+    if (!isAccountsAbsent && ChainRoot.HeaderTipBlockchain.Height > 0)
       return;
 
     Chain chainTallest = ChainRoot.FindChainTallest();
@@ -341,7 +343,7 @@ internal partial class BlockchainBToken : Blockchain
       Resync(chainTallest);
       UpdateTipBlockchain(ChainRoot);
     }
-    else if (ChainRoot.HeaderRoot.Height == 0)
+    else if (isAccountsAbsent && ChainRoot.HeaderRoot.Height == 0)
       InstallAccounts(ChainRoot.HeaderRoot, []);
   }
 
@@ -426,7 +428,7 @@ internal partial class BlockchainBToken : Blockchain
     LoadBlockchain();
     BlockchainBitcoin.LoadBlockchain();
     RollBackUnanchored();
-    ResolveAccountsAbsent();
+    ResolveNodeWithoutState();
     LoadTXsOwnedUnconfirmed();
   }
 
