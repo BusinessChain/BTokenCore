@@ -94,7 +94,9 @@ internal partial class BlockchainBToken : Blockchain
 
       foreach (IGrouping<int, byte[]> iDsCreatedSegment in iDsCreated.GroupBy(DatabaseAccounts.GetIndexSegment))
         if (!IsSegmentOpen(iDsCreatedSegment.Key, iDsCreatedSegment.Count()))
-          throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} creates accounts beyond the limit of segment {iDsCreatedSegment.Key}.");
+          throw new ProtocolException(
+            $"TX {tXBToken.Hash.ToHexString()} pays to {string.Join(", ", iDsCreatedSegment.Select(id => id.BinaryToBase58Check()))}, " +
+            $"whose segment {iDsCreatedSegment.Key} accepts no new accounts at the moment. Ask the receiver for a different address.");
 
       accountInPool.account.SpendTX(tXBToken);
 
