@@ -89,17 +89,12 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} exceeds the {COUNT_TXS_MAX_ACCOUNT} pool TXs allowed per account.");
 
       List<byte[]> iDsCreated = GetIDsPaid(tXBToken)
-        .Where(id => !CountTXsPayingByID.ContainsKey(id) && Blockchain.Accounts.LoadAccountNext(id) == null)
+        .Where(id => !IsAccountExistingNext(id))
         .ToList();
 
-      if (iDsCreated.Count > 0)
-      {
-        LoadCountsNextIfMissing();
-
-        foreach (IGrouping<int, byte[]> iDsCreatedSegment in iDsCreated.GroupBy(DatabaseAccounts.GetIndexSegment))
-          if (CountsAccountNext[iDsCreatedSegment.Key] + CountsCreatedPending[iDsCreatedSegment.Key] + iDsCreatedSegment.Count() > CountAccountsMaxNext)
-            throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} creates accounts beyond the limit of segment {iDsCreatedSegment.Key}.");
-      }
+      foreach (IGrouping<int, byte[]> iDsCreatedSegment in iDsCreated.GroupBy(DatabaseAccounts.GetIndexSegment))
+        if (!IsSegmentOpen(iDsCreatedSegment.Key, iDsCreatedSegment.Count()))
+          throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} creates accounts beyond the limit of segment {iDsCreatedSegment.Key}.");
 
       accountInPool.account.SpendTX(tXBToken);
 
@@ -158,6 +153,23 @@ internal partial class BlockchainBToken : Blockchain
         .Distinct(new EqualityComparerByteArray());
     }
 
+    internal bool CanReceive(byte[] iDAccount)
+    {
+      return IsAccountExistingNext(iDAccount) || IsSegmentOpen(DatabaseAccounts.GetIndexSegment(iDAccount), 1);
+    }
+
+    bool IsAccountExistingNext(byte[] iDAccount)
+    {
+      return CountTXsPayingByID.ContainsKey(iDAccount) || Blockchain.Accounts.LoadAccountNext(iDAccount) != null;
+    }
+
+    bool IsSegmentOpen(int indexSegment, int countAccountsCreated)
+    {
+      LoadCountsNextIfMissing();
+
+      return CountsAccountNext[indexSegment] + CountsCreatedPending[indexSegment] + countAccountsCreated <= CountAccountsMaxNext;
+    }
+
     void LoadCountsNextIfMissing()
     {
       if (CountsAccountNext == null)
@@ -178,13 +190,11 @@ internal partial class BlockchainBToken : Blockchain
       if (IDsCreatedPending.Count == 0)
         return;
 
-      LoadCountsNextIfMissing();
-
       HashSet<byte[]> iDsAccountSourceDropped = new(new EqualityComparerByteArray());
 
       for (int indexSegment = 0; indexSegment < COUNT_SEGMENTS; indexSegment += 1)
       {
-        if (CountsAccountNext[indexSegment] + CountsCreatedPending[indexSegment] <= CountAccountsMaxNext)
+        if (IsSegmentOpen(indexSegment, 0))
           continue;
 
         List<TXBToken> tXsCreatingNewestFirst = TXsByHash.Values
@@ -195,7 +205,7 @@ internal partial class BlockchainBToken : Blockchain
 
         foreach (TXBToken tX in tXsCreatingNewestFirst)
         {
-          if (CountsAccountNext[indexSegment] + CountsCreatedPending[indexSegment] <= CountAccountsMaxNext)
+          if (IsSegmentOpen(indexSegment, 0))
             break;
 
           RemoveTXFromIndexes(tX);
