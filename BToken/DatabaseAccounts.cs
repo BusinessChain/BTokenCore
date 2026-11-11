@@ -109,6 +109,13 @@ internal partial class BlockchainBToken : Blockchain
 
     internal byte[] SerializeSegmentAtHeight(int height)
     {
+      int heightBlockAppliedLast = GetHeightBlockAppliedLast();
+
+      if (height > heightBlockAppliedLast
+        || height < heightBlockAppliedLast - COUNT_MAX_BLOCKS_STORED
+        || height < GetHeightInstalled())
+        return null;
+
       return Segments[height % COUNT_SEGMENTS].SerializeAtHeight(height);
     }
 

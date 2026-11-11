@@ -143,13 +143,7 @@ internal partial class BlockchainBToken : Blockchain
 
   internal byte[] GetSegmentSweptByBlock(byte[] hashBlock)
   {
-    int heightTip = ChainRoot.HeaderTipBlockchain.Height;
-
-    if (!IsAccountsAtTip()
-      || !ChainRoot.TryGetHeader(hashBlock, out Header header)
-      || header.Height > heightTip
-      || header.Height < heightTip - COUNT_MAX_BLOCKS_STORED
-      || header.Height < Accounts.GetHeightInstalled())
+    if (!IsAccountsAtTip() || !ChainRoot.TryGetHeader(hashBlock, out Header header))
       return null;
 
     return Accounts.SerializeSegmentAtHeight(header.Height);
