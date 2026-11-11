@@ -53,7 +53,6 @@ internal partial class BlockchainBToken : Blockchain
 
     OnBlockInserted += TXPool.RemoveTXs;
     OnBlockRolledBack += TXPool.ReturnTXs;
-    OnBlockInserted += TryInstallSweeps;
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
@@ -222,10 +221,12 @@ internal partial class BlockchainBToken : Blockchain
     SegmentsDownload[indexSegment] = segment;
     HeadersSweepDownload[indexSegment] = header;
 
+    TryInstallSweeps();
+
     return true;
   }
 
-  void TryInstallSweeps(Block blockInserted)
+  void TryInstallSweeps()
   {
     if (Accounts.Exists())
       return;
@@ -487,7 +488,13 @@ internal partial class BlockchainBToken : Blockchain
     return tXCoinbase;
   }
 
-  protected override void MineBlock()
+  protected override void HandleTipUpdated()
+  {
+    TryInstallSweeps();
+    MineBlock();
+  }
+
+  void MineBlock()
   {
     if (!IsMining || !IsAccountsAtTip())
       return;

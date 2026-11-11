@@ -287,7 +287,7 @@ internal abstract partial class Blockchain
 
   protected virtual void RollBackBlock(Block block) { }
 
-  protected virtual void MineBlock() { }
+  protected virtual void HandleTipUpdated() { }
 
   internal void ReceiveBlock(Block blockReceived)
   {
@@ -324,7 +324,7 @@ internal abstract partial class Blockchain
     }
     while (TryReorgToForkStrongest());
 
-    MineBlock();
+    HandleTipUpdated();
   }
 
   void InsertBlocksQueued()
