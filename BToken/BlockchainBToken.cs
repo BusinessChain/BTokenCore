@@ -318,6 +318,20 @@ internal partial class BlockchainBToken : Blockchain
     LoadTXsOwnedUnconfirmed();
   }
 
+  void LoadTXsOwnedUnconfirmed()
+  {
+    if (!IsAccountsAtTip())
+      return;
+
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
+      try
+      {
+        TXPool.AddTX(ParseTXOwned(documentTXOwned));
+      }
+      catch (ProtocolException)
+      { }
+  }
+
   internal void AddTX(TX tX)
   {
     TXPool.AddTX(tX);
@@ -345,30 +359,13 @@ internal partial class BlockchainBToken : Blockchain
 
     BlockchainParent.LoadBlockchain();
     RollBackUnanchored();
-    ResolveNodeWithoutState();
-    ReplayAccounts();
-  }
 
-  void ResolveNodeWithoutState()
-  {
-    ResyncWhenBehind();
+    ResyncWhenBehindWindowStored();
 
     if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
       InstallAccounts(ChainRoot.HeaderRoot, []);
-  }
 
-  void LoadTXsOwnedUnconfirmed()
-  {
-    if (!IsAccountsAtTip())
-      return;
-
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
-      try
-      {
-        TXPool.AddTX(ParseTXOwned(documentTXOwned));
-      }
-      catch (ProtocolException)
-      { }
+    ReplayAccounts();
   }
 
   internal override TX GetTX(byte[] hash)
@@ -566,7 +563,7 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     if (isBlockParentTip)
-      ResyncWhenBehind();
+      ResyncWhenBehindWindowStored();
 
     if (hasAnchorWinner
       && ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
@@ -599,7 +596,7 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(ChainRoot);
   }
 
-  void ResyncWhenBehind()
+  void ResyncWhenBehindWindowStored()
   {
     Chain chainTallest = ChainRoot.FindChainTallest();
 
