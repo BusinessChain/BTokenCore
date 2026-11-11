@@ -141,12 +141,7 @@ internal partial class BlockchainBToken : Blockchain
     return account.HeightAccountCreated != tXBToken.HeightAccountCreated || account.Nonce > tXBToken.Nonce;
   }
 
-  bool IsWindowStoredForAccountsExchange()
-  {
-    return GetHeightBlockStoredOldest() <= ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED + 1;
-  }
-
-  internal byte[] GetSegmentAtSweep(byte[] hashBlock)
+  internal byte[] GetSegmentSweptByBlock(byte[] hashBlock)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
 
@@ -182,6 +177,11 @@ internal partial class BlockchainBToken : Blockchain
       HeadersSweepAwaited,
       h => h.Hash,
       canSupplierDeliver);
+  }
+
+  bool IsWindowStoredForAccountsExchange()
+  {
+    return GetHeightBlockStoredOldest() <= ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED + 1;
   }
 
   IEnumerable<Header> EnumerateHeadersSweepMissing()

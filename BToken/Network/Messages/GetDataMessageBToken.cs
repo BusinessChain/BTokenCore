@@ -13,7 +13,7 @@ internal partial class NetworkBToken : Network
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      byte[] payload = await blockchainBToken.RunLocked(() => blockchainBToken.GetSegmentAtSweep(inventory.Hash));
+      byte[] payload = await blockchainBToken.RunLocked(() => blockchainBToken.GetSegmentSweptByBlock(inventory.Hash));
 
       if (payload == null)
       {
