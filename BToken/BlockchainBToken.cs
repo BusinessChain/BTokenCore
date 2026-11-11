@@ -119,7 +119,7 @@ internal partial class BlockchainBToken : Blockchain
       return;
     }
 
-    Accounts.RollBack(header.Height);
+    Accounts.RollBack(header);
 
     if (HeaderAccountsReplayed != null)
       HeaderAccountsReplayed = header.HeaderPrevious;
@@ -258,7 +258,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       LiteDatabase.RunTransaction(() =>
       {
-        Accounts.Install(segments, header.Height);
+        Accounts.Install(segments, header);
 
         foreach (Header headerCarried in headersCarried)
         {
@@ -389,10 +389,20 @@ internal partial class BlockchainBToken : Blockchain
   internal void Load()
   {
     LoadBlockchain();
+
+    if (Accounts.Exists())
+      if (ChainRoot.TryGetHeader(Accounts.GetHashBlock(), out Header headerAccounts))
+        HeaderAccountsReplayed = headerAccounts;
+      else
+        Accounts.Drop();
+
     BlockchainBitcoin.LoadBlockchain();
     RollBackUnanchored();
     ResolveNodeWithoutState();
     LoadTXsOwnedUnconfirmed();
+
+    if (HeaderAccountsReplayed != null)
+      Task.Run(RunFullCheck);
   }
 
   void LoadTXsOwnedUnconfirmed()

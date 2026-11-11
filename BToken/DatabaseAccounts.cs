@@ -16,6 +16,7 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_COLLECTION_COUNTS = "accountsCounts";
     const string NAME_FIELD_ACCOUNT = "account";
     const string NAME_FIELD_COUNTS = "counts";
+    const string NAME_FIELD_HASH_BLOCK = "hashBlock";
     const string NAME_FIELD_IS_SWEEP = "isSweep";
     const string PATH_ID_ACCOUNT_UNDO = "$." + NAME_FIELD_ACCOUNT + "." + NAME_FIELD_ID;
     const int SHIFT_INDEX_SEGMENT = 16 - COUNT_BITS_INDEX_SEGMENT;
@@ -90,9 +91,14 @@ internal partial class BlockchainBToken : Blockchain
       return HeightStored.FindById(0)?[NAME_FIELD_HEIGHT].AsInt32 ?? 0;
     }
 
-    void SetHeight(int height)
+    void SetHeight(int height, byte[] hashBlock)
     {
-      HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = height });
+      HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = height, [NAME_FIELD_HASH_BLOCK] = hashBlock });
+    }
+
+    internal byte[] GetHashBlock()
+    {
+      return HeightStored.FindById(0)[NAME_FIELD_HASH_BLOCK].AsBinary;
     }
 
     internal int GetHeightInstalled()
@@ -169,11 +175,11 @@ internal partial class BlockchainBToken : Blockchain
       return [.. VarInt.GetBytes(countAccounts), .. bytes];
     }
 
-    internal void Install(IList<byte[]> segments, int height)
+    internal void Install(IList<byte[]> segments, Header header)
     {
       OpenAccounts();
-      SetHeight(height);
-      HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 1, [NAME_FIELD_HEIGHT] = height });
+      SetHeight(header.Height, header.Hash);
+      HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 1, [NAME_FIELD_HEIGHT] = header.Height });
 
       CountsAccount = new int[COUNT_SEGMENTS];
 
@@ -327,7 +333,7 @@ internal partial class BlockchainBToken : Blockchain
 
       int height = block.Header.Height;
 
-      SetHeight(height);
+      SetHeight(height, block.Header.Hash);
       LoadCounts();
 
       List<Account> accountsSwept = new();
@@ -389,8 +395,10 @@ internal partial class BlockchainBToken : Blockchain
       };
     }
 
-    internal void RollBack(int height)
+    internal void RollBack(Header header)
     {
+      int height = header.Height;
+
       IEnumerable<BsonDocument> documentsUndo = UndoStored.Query()
         .Where(Query.EQ(NAME_FIELD_HEIGHT, height))
         .OrderBy(NAME_FIELD_IS_SWEEP)
@@ -420,7 +428,7 @@ internal partial class BlockchainBToken : Blockchain
 
       UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));
 
-      SetHeight(height - 1);
+      SetHeight(height - 1, header.HashPrevious);
     }
 
     IEnumerable<Account> LoadAccountsUndo(IEnumerable<BsonDocument> documents)
