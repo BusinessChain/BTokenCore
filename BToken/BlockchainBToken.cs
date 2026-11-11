@@ -31,8 +31,8 @@ internal partial class BlockchainBToken : Blockchain
 
   Blockchain BlockchainParent;
 
-  Miner BlockMiner;
-  ILiteCollection<BsonDocument> BlocksCandidateStored;
+  Miner MinerBlockchain;
+  ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
 
 
@@ -43,10 +43,10 @@ internal partial class BlockchainBToken : Blockchain
   {
     BlockchainParent = blockchainParent;
 
-    BlocksCandidateStored = LiteDatabase.GetCollection<BsonDocument>("blocksCandidate");
+    BlocksStoredAwaitingAnchor = LiteDatabase.GetCollection<BsonDocument>("blocksAwaitingAnchor");
 
     TXPool = new PoolTXBToken(this);
-    BlockMiner = new Miner(this);
+    MinerBlockchain = new Miner(this);
 
     OnBlockInserted += TXPool.RemoveTXs;
     OnBlockRolledBack += TXPool.ReturnTXs;
@@ -90,7 +90,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
 
-    BlocksCandidateStored.Delete(block.Header.Hash);
+    BlocksStoredAwaitingAnchor.Delete(block.Header.Hash);
 
     if (!IsAccountsAtTip())
       return;
@@ -98,14 +98,14 @@ internal partial class BlockchainBToken : Blockchain
     int heightPrune = block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1;
 
     BlocksStored.DeleteMany(Query.LT(NAME_FIELD_ID, heightPrune));
-    BlocksCandidateStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, heightPrune));
+    BlocksStoredAwaitingAnchor.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, heightPrune));
 
     Accounts.InsertBlock(block);
   }
 
   protected override void RollBackBlock(Block block)
   {
-    StoreBlockCandidate(block);
+    StoreBlockAwaitingAnchor(block);
 
     Header header = block.Header;
 
@@ -391,12 +391,12 @@ internal partial class BlockchainBToken : Blockchain
 
   internal void StartMining(long feePerByte)
   {
-    BlockMiner.StartMining(feePerByte);
+    MinerBlockchain.StartMining(feePerByte);
   }
 
   internal void StopMining()
   {
-    BlockMiner.StopMining();
+    MinerBlockchain.StopMining();
   }
 
   static long GetBlockReward(int height)
@@ -429,12 +429,12 @@ internal partial class BlockchainBToken : Blockchain
   {
     ReplayAccounts();
     TryInstallSweeps();
-    BlockMiner.MineBlock();
+    MinerBlockchain.MineBlock();
   }
 
-  void StoreBlockCandidate(Block block)
+  void StoreBlockAwaitingAnchor(Block block)
   {
-    BlocksCandidateStored.Upsert(new BsonDocument
+    BlocksStoredAwaitingAnchor.Upsert(new BsonDocument
     {
       [NAME_FIELD_ID] = block.Header.Hash,
       [NAME_FIELD_HEIGHT] = block.Header.Height,
@@ -448,7 +448,7 @@ internal partial class BlockchainBToken : Blockchain
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
     if (isBlockParentTip)
-      BlockMiner.OpenRound(hasAnchorWinner ? anchorWinner.HashBlockReferenced : null);
+      MinerBlockchain.OpenRound(hasAnchorWinner ? anchorWinner.HashBlockReferenced : null);
 
     if (hasAnchorWinner)
     {
@@ -479,7 +479,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (hasAnchorWinner
       && ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
-      && BlocksCandidateStored.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
+      && BlocksStoredAwaitingAnchor.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
     {
       Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
@@ -487,7 +487,7 @@ internal partial class BlockchainBToken : Blockchain
         UpdateTipBlockchain(chain);
     }
 
-    BlockMiner.MineBlock();
+    MinerBlockchain.MineBlock();
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)

@@ -113,7 +113,7 @@ internal partial class BlockchainBToken : Blockchain
 
       block.Serialize();
 
-      Blockchain.StoreBlockCandidate(block);
+      Blockchain.StoreBlockAwaitingAnchor(block);
     }
   }
 }
