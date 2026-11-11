@@ -373,7 +373,7 @@ internal partial class BlockchainBToken : Blockchain
     LoadBlockchain();
 
     if (Accounts.Exists())
-      if (ChainRoot.TryGetHeader(Accounts.GetHashBlock(), out Header headerAccounts))
+      if (ChainRoot.TryGetHeader(Accounts.GetHashBlockAppliedLast(), out Header headerAccounts))
         HeaderAccountsReplayed = headerAccounts;
       else
         Accounts.Drop();

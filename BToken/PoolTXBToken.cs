@@ -175,7 +175,7 @@ internal partial class BlockchainBToken : Blockchain
     void LoadCountsNextIfMissing()
     {
       if (CountsAccountNext == null)
-        (CountsAccountNext, CountAccountsMaxNext) = Blockchain.Accounts.LoadCountsNext();
+        (CountsAccountNext, CountAccountsMaxNext) = Blockchain.Accounts.LoadCountsAccountsPerSegmentNext();
     }
 
     void SetCreationPending(byte[] iDAccount, bool isCreationPending)
