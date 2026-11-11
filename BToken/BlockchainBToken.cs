@@ -1,5 +1,4 @@
 using LiteDB;
-using System.Security.Cryptography;
 using System.Text;
 
 
@@ -20,10 +19,7 @@ internal partial class BlockchainBToken : Blockchain
   const int DEPTH_MARGIN_RESYNC = 6;
 
   DatabaseAccounts Accounts = new();
-  Header HeaderAccountsReplayed;
-
-  (byte[] segment, Header header)[] SweepsDownload = new (byte[], Header)[COUNT_SEGMENTS];
-  Dictionary<byte[], (Header header, DateTime timeRequestLast)> HeadersSweepAwaited = new(new EqualityComparerByteArray());
+  SynchronizerAccounts Synchronizer;
 
   PoolTXBToken TXPool;
 
@@ -47,6 +43,7 @@ internal partial class BlockchainBToken : Blockchain
 
     TXPool = new PoolTXBToken(this);
     MinerBlockchain = new Miner(this);
+    Synchronizer = new SynchronizerAccounts(this);
 
     OnBlockInserted += TXPool.RemoveTXs;
     OnBlockRolledBack += TXPool.ReturnTXs;
@@ -92,7 +89,7 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksStoredAwaitingAnchor.Delete(block.Header.Hash);
 
-    if (!IsAccountsAtTip())
+    if (!Synchronizer.IsAccountsAtTip())
       return;
 
     int heightPrune = block.Header.Height - COUNT_MAX_BLOCKS_STORED + 1;
@@ -107,31 +104,12 @@ internal partial class BlockchainBToken : Blockchain
   {
     StoreBlockAwaitingAnchor(block);
 
-    Header header = block.Header;
-
-    if (!Accounts.Exists() || HeaderAccountsReplayed != null && header.Height > HeaderAccountsReplayed.Height)
-      return;
-
-    if (header.Height <= Accounts.GetHeightInstalled())
-    {
-      HeaderAccountsReplayed ??= header;
-      return;
-    }
-
-    Accounts.RollBack(header);
-
-    if (HeaderAccountsReplayed != null)
-      HeaderAccountsReplayed = header.HeaderPrevious;
-  }
-
-  bool IsAccountsAtTip()
-  {
-    return Accounts.Exists() && HeaderAccountsReplayed == null;
+    Synchronizer.RollBack(block.Header);
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
   {
-    if (!IsAccountsAtTip())
+    if (!Synchronizer.IsAccountsAtTip())
       return false;
 
     TXBToken tXBToken = (TXBToken)tX;
@@ -143,176 +121,22 @@ internal partial class BlockchainBToken : Blockchain
 
   internal byte[] GetSegmentSweptByBlock(byte[] hashBlock)
   {
-    if (!IsAccountsAtTip() || !ChainRoot.TryGetHeader(hashBlock, out Header header))
-      return null;
-
-    return Accounts.SerializeSegmentAtHeight(header.Height);
-  }
-
-  void DiscardSegmentsOffMainChain()
-  {
-    Header headerTip = ChainRoot.HeaderTipBlockchain;
-
-    for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-      if (SweepsDownload[i].header is Header header
-        && (header.Height > headerTip.Height || headerTip.GetHeaderAncestor(header.Height) != header))
-        SweepsDownload[i] = default;
+    return Synchronizer.GetSegmentSweptByBlock(hashBlock);
   }
 
   internal Header FetchHeaderSweepMissingNext(Func<Header, bool> canSupplierDeliver)
   {
-    if (Accounts.Exists() || !IsWindowStoredForAccountsExchange())
-      return null;
-
-    DiscardSegmentsOffMainChain();
-
-    return FetchItemMissingNext(
-      EnumerateHeadersSweepMissing(),
-      HeadersSweepAwaited,
-      h => h.Hash,
-      canSupplierDeliver);
-  }
-
-  bool IsWindowStoredForAccountsExchange()
-  {
-    return GetHeightBlockStoredOldest() <= ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED + 1;
-  }
-
-  IEnumerable<Header> EnumerateHeadersSweepMissing()
-  {
-    Header header = ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(ChainRoot.HeaderTipBlockchain.Height - DEPTH_MARGIN_INSTALL);
-
-    for (int i = 0; i < COUNT_SEGMENTS; i += 1, header = header.HeaderPrevious)
-      if (SweepsDownload[header.Height % COUNT_SEGMENTS].segment == null)
-        yield return header;
+    return Synchronizer.FetchHeaderSweepMissingNext(canSupplierDeliver);
   }
 
   internal bool AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
   {
-    if (Accounts.Exists()
-      || !ChainRoot.TryGetHeader(hashBlock, out Header header)
-      || header.Height > ChainRoot.HeaderTipBlockchain.Height)
-      return true;
-
-    byte[] segment = buffer[..length];
-
-    if (!SHA256.HashData(segment).IsAllBytesEqual(((HeaderBToken)header).HashAccounts))
-      return false;
-
-    int indexSegment = header.Height % COUNT_SEGMENTS;
-
-    if (!DatabaseAccounts.IsSegmentValid(segment, indexSegment))
-    {
-      RejectBlock(header, new ProtocolException($"Segment {indexSegment} committed by block {header.Hash.ToHexString()} is invalid."));
-      UpdateTipBlockchain(ChainRoot);
-      return true;
-    }
-
-    SweepsDownload[indexSegment] = (segment, header);
-
-    TryInstallSweeps();
-
-    return true;
-  }
-
-  void TryInstallSweeps()
-  {
-    if (Accounts.Exists())
-      return;
-
-    DiscardSegmentsOffMainChain();
-
-    Header headerTip = ChainRoot.HeaderTipBlockchain;
-    int heightInstall = headerTip.Height - DEPTH_MARGIN_INSTALL;
-
-    if (SweepsDownload.Any(s => s.segment == null || s.header.Height > heightInstall))
-      return;
-
-    InstallAccounts(headerTip.GetHeaderAncestor(heightInstall), SweepsDownload);
-  }
-
-  void InstallAccounts(Header headerAccountsInstalled, IList<(byte[] segment, Header header)> sweeps)
-  {
-    Header headerFailed = null;
-
-    try
-    {
-      LiteDatabase.RunTransaction(() => Accounts.Install(
-        sweeps,
-        headerAccountsInstalled,
-        LoadBlockParsed,
-        out headerFailed));
-    }
-    catch (ProtocolException exception) when (headerFailed != null)
-    {
-      Accounts.Drop();
-      RejectBlock(headerFailed, exception);
-      UpdateTipBlockchain(ChainRoot);
-      return;
-    }
-    catch
-    {
-      Accounts.Drop();
-      throw;
-    }
-
-    Array.Clear(SweepsDownload);
-    HeadersSweepAwaited.Clear();
-
-    HeaderAccountsReplayed = headerAccountsInstalled;
-
-    ReplayAccounts();
-  }
-
-  void ReplayAccounts()
-  {
-    if (HeaderAccountsReplayed == null)
-      return;
-
-    Header headerTip = ChainRoot.HeaderTipBlockchain;
-
-    try
-    {
-      if (headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
-        throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
-
-      while (HeaderAccountsReplayed != headerTip)
-      {
-        Header header = HeaderAccountsReplayed.HeaderNext;
-        Block block = LoadBlockParsed(header);
-
-        try
-        {
-          LiteDatabase.RunTransaction(() => Accounts.InsertBlock(block));
-        }
-        catch (ProtocolException exception)
-        {
-          RejectBlock(header, exception);
-          break;
-        }
-
-        HeaderAccountsReplayed = header;
-      }
-    }
-    catch (Exception exception)
-    {
-      Console.WriteLine($"Full check of the account database failed, the database is downloaded again: {exception.Message}");
-
-      Accounts.Drop();
-      HeaderAccountsReplayed = null;
-      return;
-    }
-
-    HeaderAccountsReplayed = null;
-
-    UpdateTipBlockchain(ChainRoot);
-
-    LoadTXsOwnedUnconfirmed();
+    return Synchronizer.AddSegmentDownload(hashBlock, buffer, length);
   }
 
   void LoadTXsOwnedUnconfirmed()
   {
-    if (!IsAccountsAtTip())
+    if (!Synchronizer.IsAccountsAtTip())
       return;
 
     foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
@@ -343,21 +167,14 @@ internal partial class BlockchainBToken : Blockchain
   {
     LoadBlockchain();
 
-    if (Accounts.Exists())
-      if (ChainRoot.TryGetHeader(Accounts.GetHashBlockAppliedLast(), out Header headerAccounts))
-        HeaderAccountsReplayed = headerAccounts;
-      else
-        Accounts.Drop();
+    Synchronizer.Load();
 
     BlockchainParent.LoadBlockchain();
     RollBackUnanchored();
 
     ResyncWhenBehindWindowStored();
 
-    if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
-      InstallAccounts(ChainRoot.HeaderRoot, []);
-
-    ReplayAccounts();
+    Synchronizer.Start();
   }
 
   internal override TX GetTX(byte[] hash)
@@ -421,8 +238,7 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void HandleTipUpdated()
   {
-    ReplayAccounts();
-    TryInstallSweeps();
+    Synchronizer.HandleTipUpdated();
     MinerBlockchain.MineBlock();
   }
 
@@ -515,8 +331,7 @@ internal partial class BlockchainBToken : Blockchain
 
   void Resync(Chain chainTallest)
   {
-    Accounts.Drop();
-    HeaderAccountsReplayed = null;
+    Synchronizer.Drop();
     TXPool.Clear();
     BlocksStored.DeleteAll();
 

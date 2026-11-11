@@ -56,7 +56,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void MineBlock()
     {
-      if (!IsMining || !Blockchain.IsAccountsAtTip())
+      if (!IsMining || !Blockchain.Synchronizer.IsAccountsAtTip())
         return;
 
       bool isTipAwaited = Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashBlockAwaitedRoundMining);
