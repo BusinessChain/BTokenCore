@@ -284,12 +284,6 @@ internal partial class BlockchainBToken : Blockchain
     Array.Clear(HeadersSweepDownload);
     HeadersSweepAwaited.Clear();
 
-    if (header == ChainRoot.HeaderTipBlockchain)
-    {
-      Accounts.MarkVerified();
-      return;
-    }
-
     HeaderAccountsReplayed = header;
 
     Task.Run(RunFullCheck);
@@ -321,22 +315,14 @@ internal partial class BlockchainBToken : Blockchain
       if (headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
         throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
 
-      if (HeaderAccountsReplayed == headerTip)
-        Accounts.MarkVerified();
-      else
+      if (HeaderAccountsReplayed != headerTip)
       {
         Header header = HeaderAccountsReplayed.HeaderNext;
         Block block = LoadBlockParsed(header);
 
         try
         {
-          LiteDatabase.RunTransaction(() =>
-          {
-            Accounts.InsertBlock(block);
-
-            if (header == headerTip)
-              Accounts.MarkVerified();
-          });
+          LiteDatabase.RunTransaction(() => Accounts.InsertBlock(block));
 
           HeaderAccountsReplayed = header;
 
@@ -345,11 +331,7 @@ internal partial class BlockchainBToken : Blockchain
         }
         catch (ProtocolException exception)
         {
-          LiteDatabase.RunTransaction(() =>
-          {
-            Accounts.MarkVerified();
-            RejectBlock(header, exception);
-          });
+          RejectBlock(header, exception);
         }
       }
     }
@@ -399,7 +381,6 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBitcoin.LoadBlockchain();
     RollBackUnanchored();
     ResolveNodeWithoutState();
-    LoadTXsOwnedUnconfirmed();
 
     if (HeaderAccountsReplayed != null)
       Task.Run(RunFullCheck);
