@@ -322,7 +322,7 @@ internal partial class BlockchainBToken : Blockchain
         if (header != headerTip)
           return true;
       }
-      catch (ProtocolException exception) when (header.Height - Accounts.GetHeightInstalled() > COUNT_SEGMENTS)
+      catch (ProtocolException exception)
       {
         LiteDatabase.RunTransaction(() =>
         {
