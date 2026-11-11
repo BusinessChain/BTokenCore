@@ -376,8 +376,13 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (ProtocolException exception) when (header.Height - HeightAccountsInstalled > COUNT_SEGMENTS)
       {
+        LiteDatabase.RunTransaction(() =>
+        {
+          BlocksStored.DeleteMany(Query.GTE(NAME_FIELD_ID, header.Height));
+          Accounts.MarkComplete();
+        });
+
         RejectBlock(block, exception);
-        Accounts.MarkComplete();
       }
     }
     catch (Exception exception)
