@@ -95,6 +95,11 @@ internal partial class BlockchainBToken : Blockchain
       HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = height });
     }
 
+    internal int GetHeightInstalled()
+    {
+      return HeightStored.FindById(1)?[NAME_FIELD_HEIGHT].AsInt32 ?? 0;
+    }
+
     static long GetOffsetRent(int indexSegment, int height)
     {
       return RENT_SWEEP * ((height + COUNT_SEGMENTS - indexSegment) / COUNT_SEGMENTS);
@@ -167,6 +172,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       OpenAccounts();
       SetHeight(height);
+      HeightStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 1, [NAME_FIELD_HEIGHT] = height });
 
       CountsAccount = new int[COUNT_SEGMENTS];
 

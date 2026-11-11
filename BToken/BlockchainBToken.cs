@@ -22,7 +22,6 @@ internal partial class BlockchainBToken : Blockchain
 
   DatabaseAccounts Accounts = new();
   Header HeaderAccountsReplayed;
-  int HeightAccountsInstalled;
 
   Header HeaderTipAccountsServed;
   byte[] HashesSegmentServed;
@@ -324,7 +323,6 @@ internal partial class BlockchainBToken : Blockchain
     }
 
     HeaderAccountsReplayed = header;
-    HeightAccountsInstalled = header.Height;
 
     Task.Run(RunFullCheck);
   }
@@ -374,7 +372,7 @@ internal partial class BlockchainBToken : Blockchain
         if (header != headerTip)
           return true;
       }
-      catch (ProtocolException exception) when (header.Height - HeightAccountsInstalled > COUNT_SEGMENTS)
+      catch (ProtocolException exception) when (header.Height - Accounts.GetHeightInstalled() > COUNT_SEGMENTS)
       {
         LiteDatabase.RunTransaction(() =>
         {
