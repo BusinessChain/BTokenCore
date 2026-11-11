@@ -188,24 +188,16 @@ internal partial class BlockchainBToken : Blockchain
       StoreCounts();
     }
 
-    internal byte[][] AdvanceSegments(byte[][] segments, int height, List<Block> blocks)
+    internal void CarryBlock(Block block, int[] heightsSweep)
     {
-      LiteDatabase.BeginTrans();
+      int height = block.Header.Height;
 
-      try
-      {
-        Install(segments, height);
+      InsertTXs(block, i => height > heightsSweep[i], isLimitChecked: false);
 
-        foreach (Block block in blocks)
-          InsertTXs(block, i => segments[i] != null, isLimitChecked: false);
+      if (heightsSweep[height % COUNT_SEGMENTS] < height)
+        VerifyHashAccounts((HeaderBToken)block.Header);
 
-        return segments.Select((s, i) => s == null ? null : SerializeSegment(i)).ToArray();
-      }
-      finally
-      {
-        LiteDatabase.Rollback();
-        Drop();
-      }
+      UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));
     }
 
     internal static bool IsSegmentValid(byte[] segment, int indexSegment)

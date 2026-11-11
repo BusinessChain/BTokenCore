@@ -41,19 +41,6 @@ internal partial class NetworkBToken : Network
       }
   }
 
-  bool IsPeerPickedForHashesSegment(PeerBToken peer, byte[] hashTip)
-  {
-    lock (LOCK_Peers)
-    {
-      List<PeerBToken> peersCandidate = Peers
-        .Cast<PeerBToken>()
-        .Where(p => !p.IsDisposed && !hashTip.IsAllBytesEqual(p.HashBlockAccountsAsked))
-        .ToList();
-
-      return peersCandidate.Count > 0 && peersCandidate[Random.Shared.Next(peersCandidate.Count)] == peer;
-    }
-  }
-
   protected override Peer CreatePeer(
     ISocketCommunication socketCommunication,
     Peer.ConnectionType connection)

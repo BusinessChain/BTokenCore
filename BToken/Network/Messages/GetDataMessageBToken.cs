@@ -12,14 +12,8 @@ internal partial class NetworkBToken : Network
       DOSMonitor.Increment(1);
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
-      bool isHashesSegment = inventory.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES;
 
-      byte[] payload = await blockchainBToken.RunLocked(() => inventory.Type switch
-      {
-        Inventory.InventoryType.MSG_SEGMENT_HASHES => blockchainBToken.GetHashesSegmentAtBlock(inventory.Hash),
-        Inventory.InventoryType.MSG_SEGMENT_SWEEP => blockchainBToken.GetSegmentAtSweep(inventory.Hash),
-        _ => blockchainBToken.GetSegmentServed(inventory.Hash)
-      });
+      byte[] payload = await blockchainBToken.RunLocked(() => blockchainBToken.GetSegmentAtSweep(inventory.Hash));
 
       if (payload == null)
       {
@@ -27,21 +21,10 @@ internal partial class NetworkBToken : Network
         return;
       }
 
-      if (RefundAccountsServed(HashesAccountsServed, inventory))
+      if (HashesAccountsServed.Add(inventory.Hash))
         DOSMonitor.Decrement(1);
 
-      await peer.SocketCommunication.SendMessage(
-        isHashesSegment ? AccountsMessage.CommandHashesSegment : AccountsMessage.CommandSegment,
-        payload.Length,
-        payload);
-    }
-
-    internal static bool RefundAccountsServed(HashSet<byte[]> hashesAccountsServed, Inventory inventory)
-    {
-      if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES && !hashesAccountsServed.Contains(inventory.Hash))
-        hashesAccountsServed.Clear();
-
-      return hashesAccountsServed.Add(inventory.Hash);
+      await peer.SocketCommunication.SendMessage(AccountsMessage.CommandSegment, payload.Length, payload);
     }
   }
 }

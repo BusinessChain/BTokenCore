@@ -13,7 +13,7 @@ internal partial class NetworkBToken : Network
 
     internal void RefundAccountsReceived(Inventory inventory)
     {
-      if (GetDataMessageBToken.RefundAccountsServed(HashesAccountsReceived, inventory))
+      if (HashesAccountsReceived.Add(inventory.Hash))
         DOSMonitorRequests.Decrement(1);
     }
 
@@ -26,18 +26,12 @@ internal partial class NetworkBToken : Network
       BlockchainBToken blockchainBToken = peerBToken.BlockchainBToken;
 
       Inventory inventoryAccountsMissing = await blockchainBToken.RunLocked(() =>
-        blockchainBToken.FetchHashSegmentMissingNext(h => !peer.HashesSegmentRefused.Contains(h), peerBToken.HashBlockAccountsRefused) is byte[] hashSegment
-          ? new Inventory(Inventory.InventoryType.MSG_SEGMENT, hashSegment)
-          : blockchainBToken.FetchHashBlockAccountsMissing(
-              h => ((NetworkBToken)peer.Network).IsPeerPickedForHashesSegment(peerBToken, h)) is byte[] hashBlock
-            ? new Inventory(Inventory.InventoryType.MSG_SEGMENT_HASHES, hashBlock)
-            : null);
+        blockchainBToken.FetchHeaderSweepMissingNext(h => !peer.HashesSegmentRefused.Contains(h.Hash)) is Header headerSweep
+          ? new Inventory(Inventory.InventoryType.MSG_SEGMENT_SWEEP, headerSweep.Hash)
+          : null);
 
       if (inventoryAccountsMissing == null)
         return false;
-
-      if (inventoryAccountsMissing.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES)
-        peerBToken.HashBlockAccountsAsked = inventoryAccountsMissing.Hash;
 
       peerBToken.InventoryAccountsRequested = inventoryAccountsMissing;
 

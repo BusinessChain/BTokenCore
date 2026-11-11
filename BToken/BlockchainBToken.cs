@@ -18,19 +18,13 @@ internal partial class BlockchainBToken : Blockchain
   const int DEPTH_MARGIN_INSTALL = 6;
   const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
   const int DEPTH_MARGIN_RESYNC = 6;
-  internal const int LENGTH_HASHES_SEGMENT = COUNT_SEGMENTS * Crypto.LENGTH_HASH256;
 
   DatabaseAccounts Accounts = new();
   Header HeaderAccountsReplayed;
 
-  Header HeaderTipAccountsServed;
-  byte[] HashesSegmentServed;
-
-  DateTime TimeRequestHashesSegment;
-  byte[] HashBlockAccountsDownload;
-  byte[][] HashesSegmentDownload;
-  byte[][] SegmentsDownload;
-  Dictionary<byte[], (byte[] hash, DateTime timeRequestLast)> HashesSegmentAwaited = new(new EqualityComparerByteArray());
+  byte[][] SegmentsDownload = new byte[COUNT_SEGMENTS][];
+  Header[] HeadersSweepDownload = new Header[COUNT_SEGMENTS];
+  Dictionary<byte[], (Header header, DateTime timeRequestLast)> HeadersSweepAwaited = new(new EqualityComparerByteArray());
 
   PoolTXBToken TXPool;
 
@@ -59,6 +53,7 @@ internal partial class BlockchainBToken : Blockchain
 
     OnBlockInserted += TXPool.RemoveTXs;
     OnBlockRolledBack += TXPool.ReturnTXs;
+    OnBlockInserted += TryInstallSweeps;
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
@@ -137,44 +132,6 @@ internal partial class BlockchainBToken : Blockchain
     return GetHeightBlockStoredOldest() <= ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED + 1;
   }
 
-  internal byte[] GetHashesSegmentAtBlock(byte[] hashBlock)
-  {
-    Header headerTip = ChainRoot.HeaderTipBlockchain;
-
-    if (!headerTip.Hash.IsAllBytesEqual(hashBlock) || !IsAccountsAtTip() || !IsWindowStoredForAccountsExchange())
-      return null;
-
-    if (HeaderTipAccountsServed != headerTip)
-    {
-      List<byte> hashesSegment = new();
-
-      for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-        hashesSegment.AddRange(SHA256.HashData(Accounts.SerializeSegmentAtHeight(i, headerTip.Height - COUNT_MAX_BLOCKS_STORED)));
-
-      HashesSegmentServed = hashesSegment.ToArray();
-      HeaderTipAccountsServed = headerTip;
-    }
-
-    return HashesSegmentServed;
-  }
-
-  internal byte[] GetSegmentServed(byte[] hashSegment)
-  {
-    if (HashesSegmentServed == null || !IsAccountsAtTip() || !IsWindowStoredForAccountsExchange())
-      return null;
-
-    for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-      if (HashesSegmentServed.AsSpan(i * Crypto.LENGTH_HASH256, Crypto.LENGTH_HASH256).SequenceEqual(hashSegment))
-      {
-        byte[] segment = Accounts.SerializeSegmentAtHeight(i, ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED);
-
-        if (SHA256.HashData(segment).IsAllBytesEqual(hashSegment))
-          return segment;
-      }
-
-    return null;
-  }
-
   internal byte[] GetSegmentAtSweep(byte[] hashBlock)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
@@ -189,146 +146,125 @@ internal partial class BlockchainBToken : Blockchain
     return Accounts.SerializeSegmentAtHeight(header.Height % COUNT_SEGMENTS, header.Height);
   }
 
-  internal byte[] FetchHashBlockAccountsMissing(Func<byte[], bool> isPeerPicked)
+  void DiscardSegmentsOffMainChain()
   {
-    byte[] hashTip = ChainRoot.HeaderTipBlockchain.Hash;
-
-    if (Accounts.Exists()
-      || !IsWindowStoredForAccountsExchange()
-      || hashTip.IsAllBytesEqual(HashBlockAccountsDownload)
-      || DateTime.UtcNow - TimeRequestHashesSegment < TimeSpan.FromSeconds(Network.TIMEOUT_REQUEST_SECONDS)
-      || !isPeerPicked(hashTip))
-      return null;
-
-    TimeRequestHashesSegment = DateTime.UtcNow;
-
-    return hashTip;
-  }
-
-  internal void EndRequestHashesSegment()
-  {
-    TimeRequestHashesSegment = DateTime.MinValue;
-  }
-
-  internal byte[] FetchHashSegmentMissingNext(Func<byte[], bool> canSupplierDeliverSegment, byte[] hashBlockAccountsRefused)
-  {
-    if (HashesSegmentDownload == null || hashBlockAccountsRefused?.IsAllBytesEqual(HashBlockAccountsDownload) == true)
-      return null;
-
-    return FetchItemMissingNext(
-      HashesSegmentDownload.Where((h, i) => SegmentsDownload[i] == null),
-      HashesSegmentAwaited,
-      h => h,
-      canSupplierDeliverSegment);
-  }
-
-  internal void SetHashesSegmentDownload(byte[] hashBlock, byte[] hashesSegment)
-  {
-    TimeRequestHashesSegment = DateTime.MinValue;
-
-    if (Accounts.Exists())
-      return;
-
-    byte[][] hashesSegmentNew = hashesSegment.Chunk(Crypto.LENGTH_HASH256).ToArray();
-    byte[][] segmentsKept = AdvanceSegmentsDownload(hashBlock) ?? new byte[COUNT_SEGMENTS][];
-
-    SegmentsDownload = new byte[COUNT_SEGMENTS][];
+    Header headerTip = ChainRoot.HeaderTipBlockchain;
 
     for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-      if (segmentsKept[i] != null && SHA256.HashData(segmentsKept[i]).IsAllBytesEqual(hashesSegmentNew[i]))
-        SegmentsDownload[i] = segmentsKept[i];
-
-    HashBlockAccountsDownload = hashBlock;
-    HashesSegmentDownload = hashesSegmentNew;
-    HashesSegmentAwaited.Clear();
+      if (HeadersSweepDownload[i] is Header header
+        && (header.Height > headerTip.Height || headerTip.GetHeaderAncestor(header.Height) != header))
+      {
+        HeadersSweepDownload[i] = null;
+        SegmentsDownload[i] = null;
+      }
   }
 
-  byte[][] AdvanceSegmentsDownload(byte[] hashBlockNew)
+  internal Header FetchHeaderSweepMissingNext(Func<Header, bool> canSupplierDeliver)
   {
-    if (SegmentsDownload == null
-      || !ChainRoot.TryGetHeader(HashBlockAccountsDownload, out Header headerTipOld)
-      || !ChainRoot.TryGetHeader(hashBlockNew, out Header headerTipNew)
-      || headerTipNew.GetHeaderAncestor(headerTipOld.Height) != headerTipOld)
+    if (Accounts.Exists() || !IsWindowStoredForAccountsExchange())
       return null;
 
-    List<Block> blocks = new();
+    DiscardSegmentsOffMainChain();
 
-    for (
-      Header header = headerTipNew.GetHeaderAncestor(headerTipNew.Height - COUNT_MAX_BLOCKS_STORED);
-      header.Height > headerTipOld.Height - COUNT_MAX_BLOCKS_STORED;
-      header = header.HeaderPrevious)
-      blocks.Insert(0, LoadBlockParsed(header));
-
-    if (blocks.Count == 0)
-      return SegmentsDownload;
-
-    try
-    {
-      return Accounts.AdvanceSegments(SegmentsDownload, headerTipOld.Height - COUNT_MAX_BLOCKS_STORED, blocks);
-    }
-    catch (ProtocolException)
-    {
-      return null;
-    }
+    return FetchItemMissingNext(
+      EnumerateHeadersSweepMissing(),
+      HeadersSweepAwaited,
+      h => h.Hash,
+      canSupplierDeliver);
   }
 
-  internal void AddSegmentDownload(byte[] hashSegment, byte[] buffer, int length)
+  IEnumerable<Header> EnumerateHeadersSweepMissing()
   {
-    if (HashesSegmentDownload == null)
-      return;
+    Header header = ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(ChainRoot.HeaderTipBlockchain.Height - DEPTH_MARGIN_INSTALL);
+
+    for (int i = 0; i < COUNT_SEGMENTS; i += 1, header = header.HeaderPrevious)
+      if (SegmentsDownload[header.Height % COUNT_SEGMENTS] == null)
+        yield return header;
+  }
+
+  internal bool AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
+  {
+    if (Accounts.Exists()
+      || !ChainRoot.TryGetHeader(hashBlock, out Header header)
+      || header.Height > ChainRoot.HeaderTipBlockchain.Height)
+      return true;
 
     byte[] segment = buffer[..length];
 
-    for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-      if (HashesSegmentDownload[i].IsAllBytesEqual(hashSegment))
+    if (!SHA256.HashData(segment).IsAllBytesEqual(((HeaderBToken)header).HashAccounts))
+      return false;
+
+    int indexSegment = header.Height % COUNT_SEGMENTS;
+
+    if (!DatabaseAccounts.IsSegmentValid(segment, indexSegment))
+    {
+      RejectBlock(header, new ProtocolException($"Segment {indexSegment} committed by block {header.Hash.ToHexString()} is invalid."));
+      UpdateTipBlockchain(ChainRoot);
+      return true;
+    }
+
+    SegmentsDownload[indexSegment] = segment;
+    HeadersSweepDownload[indexSegment] = header;
+
+    return true;
+  }
+
+  void TryInstallSweeps(Block blockInserted)
+  {
+    if (Accounts.Exists())
+      return;
+
+    DiscardSegmentsOffMainChain();
+
+    Header headerTip = ChainRoot.HeaderTipBlockchain;
+    int heightInstall = headerTip.Height - DEPTH_MARGIN_INSTALL;
+
+    if (SegmentsDownload.Contains(null) || HeadersSweepDownload.Any(h => h.Height > heightInstall))
+      return;
+
+    InstallAccounts(
+      headerTip.GetHeaderAncestor(heightInstall),
+      SegmentsDownload,
+      HeadersSweepDownload.Select(h => h.Height).ToArray());
+  }
+
+  void InstallAccounts(Header header, IList<byte[]> segments, int[] heightsSweep)
+  {
+    List<Header> headersCarried = new();
+
+    for (Header headerCarried = header; headerCarried.Height > heightsSweep.DefaultIfEmpty(header.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
+      headersCarried.Insert(0, headerCarried);
+
+    Header headerFailed = null;
+
+    try
+    {
+      LiteDatabase.RunTransaction(() =>
       {
-        if (!DatabaseAccounts.IsSegmentValid(segment, i))
+        Accounts.Install(segments, header.Height);
+
+        foreach (Header headerCarried in headersCarried)
         {
-          HashesSegmentDownload = null;
-          SegmentsDownload = null;
-          return;
+          headerFailed = headerCarried;
+          Accounts.CarryBlock(LoadBlockParsed(headerCarried), heightsSweep);
         }
-
-        SegmentsDownload[i] = segment;
-      }
-
-    if (SegmentsDownload.Contains(null))
-      return;
-
-    try
-    {
-      InstallAccountsAtBlock(HashBlockAccountsDownload, SegmentsDownload.ToList());
+      });
     }
-    finally
+    catch (ProtocolException exception) when (headerFailed != null)
     {
-      HashBlockAccountsDownload = null;
-      HashesSegmentDownload = null;
-      SegmentsDownload = null;
-    }
-  }
-
-  void InstallAccountsAtBlock(byte[] hashBlock, List<byte[]> segments)
-  {
-    if (Accounts.Exists()
-      || !ChainRoot.TryGetHeader(hashBlock, out Header headerRequested)
-      || headerRequested.Height > ChainRoot.HeaderTipBlockchain.Height
-      || headerRequested.GetHeaderAncestor(headerRequested.Height - COUNT_MAX_BLOCKS_STORED) is not Header header)
+      Accounts.Drop();
+      RejectBlock(headerFailed, exception);
       return;
-
-    InstallAccounts(header, segments);
-  }
-
-  void InstallAccounts(Header header, List<byte[]> segments)
-  {
-    try
-    {
-      LiteDatabase.RunTransaction(() => Accounts.Install(segments, header.Height));
     }
     catch
     {
       Accounts.Drop();
       throw;
     }
+
+    Array.Clear(SegmentsDownload);
+    Array.Clear(HeadersSweepDownload);
+    HeadersSweepAwaited.Clear();
 
     if (header == ChainRoot.HeaderTipBlockchain)
     {
@@ -346,7 +282,7 @@ internal partial class BlockchainBToken : Blockchain
     ResyncWhenBehind();
 
     if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
-      InstallAccounts(ChainRoot.HeaderRoot, []);
+      InstallAccounts(ChainRoot.HeaderRoot, [], []);
   }
 
   async Task RunFullCheck()
@@ -390,11 +326,9 @@ internal partial class BlockchainBToken : Blockchain
       {
         LiteDatabase.RunTransaction(() =>
         {
-          BlocksStored.DeleteMany(Query.GTE(NAME_FIELD_ID, header.Height));
           Accounts.MarkComplete();
+          RejectBlock(header, exception);
         });
-
-        RejectBlock(block, exception);
       }
     }
     catch (Exception exception)
