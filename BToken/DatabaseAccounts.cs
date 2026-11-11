@@ -11,7 +11,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
-    const string NAME_COLLECTION_COMPLETE = "accountsComplete";
+    const string NAME_COLLECTION_VERIFIED = "accountsVerified";
     const string NAME_COLLECTION_HEIGHT = "accountsHeight";
     const string NAME_COLLECTION_COUNTS = "accountsCounts";
     const string NAME_FIELD_ACCOUNT = "account";
@@ -41,7 +41,7 @@ internal partial class BlockchainBToken : Blockchain
       HeightStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_HEIGHT);
       CountsStored = LiteDatabase.GetCollection<BsonDocument>(NAME_COLLECTION_COUNTS);
 
-      if (LiteDatabase.CollectionExists(NAME_COLLECTION_COMPLETE))
+      if (LiteDatabase.CollectionExists(NAME_COLLECTION_VERIFIED))
         OpenAccounts();
       else
         Drop();
@@ -54,16 +54,16 @@ internal partial class BlockchainBToken : Blockchain
       UndoStored.EnsureIndex(PATH_ID_ACCOUNT_UNDO);
     }
 
-    internal void MarkComplete()
+    internal void MarkVerified()
     {
-      LiteDatabase.GetCollection(NAME_COLLECTION_COMPLETE).Upsert(new BsonDocument { [NAME_FIELD_ID] = 0 });
+      LiteDatabase.GetCollection(NAME_COLLECTION_VERIFIED).Upsert(new BsonDocument { [NAME_FIELD_ID] = 0 });
     }
 
     internal void Drop()
     {
       LiteDatabase.DropCollection(NAME_COLLECTION);
       LiteDatabase.DropCollection(NAME_COLLECTION_UNDO);
-      LiteDatabase.DropCollection(NAME_COLLECTION_COMPLETE);
+      LiteDatabase.DropCollection(NAME_COLLECTION_VERIFIED);
       LiteDatabase.DropCollection(NAME_COLLECTION_HEIGHT);
       LiteDatabase.DropCollection(NAME_COLLECTION_COUNTS);
       AccountsStored = null;

@@ -286,7 +286,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (header == ChainRoot.HeaderTipBlockchain)
     {
-      Accounts.MarkComplete();
+      Accounts.MarkVerified();
       return;
     }
 
@@ -322,7 +322,7 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
 
       if (HeaderAccountsReplayed == headerTip)
-        Accounts.MarkComplete();
+        Accounts.MarkVerified();
       else
       {
         Header header = HeaderAccountsReplayed.HeaderNext;
@@ -335,7 +335,7 @@ internal partial class BlockchainBToken : Blockchain
             Accounts.InsertBlock(block);
 
             if (header == headerTip)
-              Accounts.MarkComplete();
+              Accounts.MarkVerified();
           });
 
           HeaderAccountsReplayed = header;
@@ -347,7 +347,7 @@ internal partial class BlockchainBToken : Blockchain
         {
           LiteDatabase.RunTransaction(() =>
           {
-            Accounts.MarkComplete();
+            Accounts.MarkVerified();
             RejectBlock(header, exception);
           });
         }
