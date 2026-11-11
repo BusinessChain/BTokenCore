@@ -247,25 +247,11 @@ internal partial class BlockchainBToken : Blockchain
 
   void InstallAccounts(Header header, IList<byte[]> segments, int[] heightsSweep)
   {
-    List<Header> headersCarried = new();
-
-    for (Header headerCarried = header; headerCarried.Height > heightsSweep.DefaultIfEmpty(header.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
-      headersCarried.Insert(0, headerCarried);
-
     Header headerFailed = null;
 
     try
     {
-      LiteDatabase.RunTransaction(() =>
-      {
-        Accounts.Install(segments, header);
-
-        foreach (Header headerCarried in headersCarried)
-        {
-          headerFailed = headerCarried;
-          Accounts.CarryBlock(LoadBlockParsed(headerCarried), heightsSweep);
-        }
-      });
+      LiteDatabase.RunTransaction(() => Accounts.Install(segments, header, heightsSweep, LoadBlockParsed, out headerFailed));
     }
     catch (ProtocolException exception) when (headerFailed != null)
     {
