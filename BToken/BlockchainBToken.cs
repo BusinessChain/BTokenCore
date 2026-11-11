@@ -158,7 +158,7 @@ internal partial class BlockchainBToken : Blockchain
       || header.Height < Accounts.GetHeightInstalled())
       return null;
 
-    return Accounts.SerializeSegmentAtHeight(header.Height % COUNT_SEGMENTS, header.Height);
+    return Accounts.SerializeSegmentAtHeight(header.Height);
   }
 
   void DiscardSegmentsOffMainChain()
@@ -211,7 +211,7 @@ internal partial class BlockchainBToken : Blockchain
 
     int indexSegment = header.Height % COUNT_SEGMENTS;
 
-    if (!DatabaseAccounts.IsSegmentValid(segment, indexSegment))
+    if (!DatabaseAccounts.Segment.IsSegmentValid(segment, indexSegment))
     {
       RejectBlock(header, new ProtocolException($"Segment {indexSegment} committed by block {header.Hash.ToHexString()} is invalid."));
       UpdateTipBlockchain(ChainRoot);
