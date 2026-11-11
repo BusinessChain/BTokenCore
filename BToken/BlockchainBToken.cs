@@ -111,9 +111,6 @@ internal partial class BlockchainBToken : Blockchain
 
     if (header.Height <= Accounts.GetHeightInstalled())
     {
-      if (HeaderAccountsReplayed == null)
-        Task.Run(RunFullCheck);
-
       HeaderAccountsReplayed = header;
       return;
     }
@@ -267,19 +264,13 @@ internal partial class BlockchainBToken : Blockchain
 
     HeaderAccountsReplayed = headerAccountsInstalled;
 
-    Task.Run(RunFullCheck);
+    ReplayAccounts();
   }
 
-  async Task RunFullCheck()
-  {
-    while (await RunLocked(ReplayBlockNext))
-    { }
-  }
-
-  bool ReplayBlockNext()
+  void ReplayAccounts()
   {
     if (HeaderAccountsReplayed == null)
-      return false;
+      return;
 
     Header headerTip = ChainRoot.HeaderTipBlockchain;
 
@@ -288,7 +279,7 @@ internal partial class BlockchainBToken : Blockchain
       if (headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
         throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
 
-      if (HeaderAccountsReplayed != headerTip)
+      while (HeaderAccountsReplayed != headerTip)
       {
         Header header = HeaderAccountsReplayed.HeaderNext;
         Block block = LoadBlockParsed(header);
@@ -296,16 +287,14 @@ internal partial class BlockchainBToken : Blockchain
         try
         {
           LiteDatabase.RunTransaction(() => Accounts.InsertBlock(block));
-
-          HeaderAccountsReplayed = header;
-
-          if (header != headerTip)
-            return true;
         }
         catch (ProtocolException exception)
         {
           RejectBlock(header, exception);
+          break;
         }
+
+        HeaderAccountsReplayed = header;
       }
     }
     catch (Exception exception)
@@ -314,7 +303,7 @@ internal partial class BlockchainBToken : Blockchain
 
       Accounts.Drop();
       HeaderAccountsReplayed = null;
-      return false;
+      return;
     }
 
     HeaderAccountsReplayed = null;
@@ -322,8 +311,6 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(ChainRoot);
 
     LoadTXsOwnedUnconfirmed();
-
-    return false;
   }
 
   internal void AddTX(TX tX)
@@ -354,9 +341,7 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBitcoin.LoadBlockchain();
     RollBackUnanchored();
     ResolveNodeWithoutState();
-
-    if (HeaderAccountsReplayed != null)
-      Task.Run(RunFullCheck);
+    ReplayAccounts();
   }
 
   void ResolveNodeWithoutState()
@@ -463,6 +448,7 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void HandleTipUpdated()
   {
+    ReplayAccounts();
     TryInstallSweeps();
     MineBlock();
   }
