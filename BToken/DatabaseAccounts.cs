@@ -110,23 +110,24 @@ internal partial class BlockchainBToken : Blockchain
       return AccountsStored != null;
     }
 
-    internal byte[] SerializeSegmentBelowWindow(int indexSegment)
+    internal byte[] SerializeSegmentAtHeight(int indexSegment, int height)
     {
-      Dictionary<byte[], Account> accountsBelowWindow = new(new EqualityComparerByteArray());
+      Dictionary<byte[], Account> accountsAtHeight = new(new EqualityComparerByteArray());
 
       IEnumerable<BsonDocument> documentsUndo = UndoStored.Query()
         .Where(QueryRangeSegment(PATH_ID_ACCOUNT_UNDO, indexSegment))
+        .Where(Query.GT(NAME_FIELD_HEIGHT, height))
         .ToEnumerable()
         .OrderByDescending(d => d[NAME_FIELD_HEIGHT].AsInt32)
         .ThenBy(d => d[NAME_FIELD_IS_SWEEP].AsBoolean);
 
       foreach (Account account in LoadAccountsUndo(documentsUndo))
-        accountsBelowWindow[account.ID] = account;
+        accountsAtHeight[account.ID] = account;
 
       IEnumerable<Account> accountsStoredUnchanged = LoadAccountsSegment(indexSegment)
-        .Where(a => !accountsBelowWindow.ContainsKey(a.ID));
+        .Where(a => !accountsAtHeight.ContainsKey(a.ID));
 
-      List<Account> accountsUndoExisting = accountsBelowWindow.Values
+      List<Account> accountsUndoExisting = accountsAtHeight.Values
         .Where(a => a.Balance > 0)
         .OrderBy(a => a.ID, ComparerID)
         .ToList();

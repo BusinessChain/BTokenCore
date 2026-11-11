@@ -149,7 +149,7 @@ internal partial class BlockchainBToken : Blockchain
       List<byte> hashesSegment = new();
 
       for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-        hashesSegment.AddRange(SHA256.HashData(Accounts.SerializeSegmentBelowWindow(i)));
+        hashesSegment.AddRange(SHA256.HashData(Accounts.SerializeSegmentAtHeight(i, headerTip.Height - COUNT_MAX_BLOCKS_STORED)));
 
       HashesSegmentServed = hashesSegment.ToArray();
       HeaderTipAccountsServed = headerTip;
@@ -166,13 +166,27 @@ internal partial class BlockchainBToken : Blockchain
     for (int i = 0; i < COUNT_SEGMENTS; i += 1)
       if (HashesSegmentServed.AsSpan(i * Crypto.LENGTH_HASH256, Crypto.LENGTH_HASH256).SequenceEqual(hashSegment))
       {
-        byte[] segment = Accounts.SerializeSegmentBelowWindow(i);
+        byte[] segment = Accounts.SerializeSegmentAtHeight(i, ChainRoot.HeaderTipBlockchain.Height - COUNT_MAX_BLOCKS_STORED);
 
         if (SHA256.HashData(segment).IsAllBytesEqual(hashSegment))
           return segment;
       }
 
     return null;
+  }
+
+  internal byte[] GetSegmentAtSweep(byte[] hashBlock)
+  {
+    int heightTip = ChainRoot.HeaderTipBlockchain.Height;
+
+    if (!IsAccountsAtTip()
+      || !ChainRoot.TryGetHeader(hashBlock, out Header header)
+      || header.Height > heightTip
+      || header.Height < heightTip - COUNT_MAX_BLOCKS_STORED
+      || header.Height < Accounts.GetHeightInstalled())
+      return null;
+
+    return Accounts.SerializeSegmentAtHeight(header.Height % COUNT_SEGMENTS, header.Height);
   }
 
   internal byte[] FetchHashBlockAccountsMissing(Func<byte[], bool> isPeerPicked)

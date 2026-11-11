@@ -14,9 +14,12 @@ internal partial class NetworkBToken : Network
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
       bool isHashesSegment = inventory.Type == Inventory.InventoryType.MSG_SEGMENT_HASHES;
 
-      byte[] payload = await blockchainBToken.RunLocked(() => isHashesSegment
-        ? blockchainBToken.GetHashesSegmentAtBlock(inventory.Hash)
-        : blockchainBToken.GetSegmentServed(inventory.Hash));
+      byte[] payload = await blockchainBToken.RunLocked(() => inventory.Type switch
+      {
+        Inventory.InventoryType.MSG_SEGMENT_HASHES => blockchainBToken.GetHashesSegmentAtBlock(inventory.Hash),
+        Inventory.InventoryType.MSG_SEGMENT_SWEEP => blockchainBToken.GetSegmentAtSweep(inventory.Hash),
+        _ => blockchainBToken.GetSegmentServed(inventory.Hash)
+      });
 
       if (payload == null)
       {
