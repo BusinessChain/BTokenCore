@@ -16,6 +16,7 @@ internal partial class BlockchainBToken : Blockchain
       ILiteCollection<BsonDocument> UndoStored;
       BsonMapper Mapper;
       int Index;
+      Dictionary<byte[], Account> AccountsUndo = new(new EqualityComparerByteArray());
 
 
       internal Segment(LiteDatabase liteDatabase, int index)
@@ -46,6 +47,9 @@ internal partial class BlockchainBToken : Blockchain
 
       internal void WriteAccount(Account account, int height)
       {
+        if (!AccountsUndo.ContainsKey(account.ID))
+          AccountsUndo.Add(account.ID, AccountsStored.FindById(account.ID) ?? new Account { ID = account.ID });
+
         AccountsStored.Upsert(new Account
         {
           ID = account.ID,
@@ -53,6 +57,67 @@ internal partial class BlockchainBToken : Blockchain
           Nonce = account.Nonce,
           Balance = account.Balance + GetOffsetRent(Index, height)
         });
+      }
+
+      internal void ClearUndo()
+      {
+        AccountsUndo.Clear();
+      }
+
+      internal int FinishBlock(int height)
+      {
+        int countAccountsDeleted = 0;
+
+        foreach (byte[] iD in AccountsUndo.Keys)
+          if (LoadAccount(iD, height).Balance == 0)
+          {
+            AccountsStored.Delete(iD);
+            countAccountsDeleted += 1;
+          }
+
+        UndoStored.InsertBulk(AccountsUndo.Values.Select(a => CreateDocumentUndo(a, height, isSweep: false)));
+
+        return countAccountsDeleted;
+      }
+
+      internal BsonDocument CreateDocumentUndo(Account account, int height, bool isSweep)
+      {
+        return new BsonDocument
+        {
+          [NAME_FIELD_HEIGHT] = height,
+          [NAME_FIELD_IS_SWEEP] = isSweep,
+          [NAME_FIELD_ACCOUNT] = Mapper.ToDocument(account)
+        };
+      }
+
+      IEnumerable<Account> LoadAccountsUndo(IEnumerable<BsonDocument> documents)
+      {
+        return documents.Select(d => Mapper.ToObject<Account>(d[NAME_FIELD_ACCOUNT].AsDocument));
+      }
+
+      internal int RollBack(IEnumerable<BsonDocument> documentsUndo)
+      {
+        int changeCountAccounts = 0;
+
+        foreach (Account account in LoadAccountsUndo(documentsUndo))
+        {
+          bool isAccountStored = AccountsStored.FindById(account.ID) != null;
+
+          if (account.Balance > 0)
+          {
+            if (!isAccountStored)
+              changeCountAccounts += 1;
+
+            AccountsStored.Upsert(account);
+          }
+          else if (isAccountStored)
+          {
+            changeCountAccounts -= 1;
+            AccountsStored.Delete(account.ID);
+          }
+        }
+
+        return changeCountAccounts;
       }
 
       BsonExpression QueryRange(string pathID)
@@ -87,7 +152,7 @@ internal partial class BlockchainBToken : Blockchain
           .OrderByDescending(d => d[NAME_FIELD_HEIGHT].AsInt32)
           .ThenBy(d => d[NAME_FIELD_IS_SWEEP].AsBoolean);
 
-        foreach (Account account in LoadAccountsUndo(Mapper, documentsUndo))
+        foreach (Account account in LoadAccountsUndo(documentsUndo))
           accountsAtHeight[account.ID] = account;
 
         IEnumerable<Account> accountsStoredUnchanged = LoadAccounts()

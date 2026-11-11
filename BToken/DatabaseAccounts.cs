@@ -29,7 +29,7 @@ internal partial class BlockchainBToken : Blockchain
     ILiteCollection<BsonDocument> BlockAppliedLastStored;
     ILiteCollection<BsonDocument> HeightInstalledStored;
     ILiteCollection<BsonDocument> CountsAccountsPerSegmentStored;
-    Dictionary<byte[], Account> AccountsUndo = new(new EqualityComparerByteArray());
+    HashSet<int> IndicesSegmentTouched = new();
     int[] CountsAccountsPerSegment;
     long CountAccountsMax;
 
@@ -178,10 +178,12 @@ internal partial class BlockchainBToken : Blockchain
 
     void WriteAccount(Account account)
     {
-      if (!AccountsUndo.ContainsKey(account.ID))
-        AccountsUndo.Add(account.ID, AccountsStored.FindById(account.ID) ?? new Account { ID = account.ID });
+      int indexSegment = GetIndexSegment(account.ID);
 
-      Segments[GetIndexSegment(account.ID)].WriteAccount(account, GetHeightBlockAppliedLast());
+      if (IndicesSegmentTouched.Add(indexSegment))
+        Segments[indexSegment].ClearUndo();
+
+      Segments[indexSegment].WriteAccount(account, GetHeightBlockAppliedLast());
     }
 
     internal void InsertBlock(Block block)
@@ -213,7 +215,7 @@ internal partial class BlockchainBToken : Blockchain
 
     long InsertTXs(Block block, Func<int, bool> isSegmentApplied, bool isLimitChecked)
     {
-      AccountsUndo.Clear();
+      IndicesSegmentTouched.Clear();
 
       int height = block.Header.Height;
 
@@ -251,73 +253,39 @@ internal partial class BlockchainBToken : Blockchain
         }
       }
 
-      foreach (byte[] iD in AccountsUndo.Keys)
-        if (Segments[GetIndexSegment(iD)].LoadAccount(iD, height).Balance == 0)
-        {
-          AccountsStored.Delete(iD);
-          CountsAccountsPerSegment[GetIndexSegment(iD)] -= 1;
-        }
+      foreach (int indexSegment in IndicesSegmentTouched)
+        CountsAccountsPerSegment[indexSegment] -= Segments[indexSegment].FinishBlock(height);
 
       StoreCountsAccountsPerSegment();
 
-      UndoStored.InsertBulk(
-        AccountsUndo.Values.Select(a => CreateDocumentUndo(a, height, isSweep: false))
-        .Concat(accountsSwept.Select(a => CreateDocumentUndo(a, height, isSweep: true))));
+      UndoStored.InsertBulk(accountsSwept.Select(a => Segments[height % COUNT_SEGMENTS].CreateDocumentUndo(a, height, isSweep: true)));
 
       UndoStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, height - COUNT_MAX_BLOCKS_STORED + 1));
 
       return rent;
     }
 
-    BsonDocument CreateDocumentUndo(Account account, int height, bool isSweep)
-    {
-      return new BsonDocument
-      {
-        [NAME_FIELD_HEIGHT] = height,
-        [NAME_FIELD_IS_SWEEP] = isSweep,
-        [NAME_FIELD_ACCOUNT] = LiteDatabase.Mapper.ToDocument(account)
-      };
-    }
-
     internal void RollBack(Header header)
     {
       int height = header.Height;
 
-      IEnumerable<BsonDocument> documentsUndo = UndoStored.Query()
+      IEnumerable<IGrouping<int, BsonDocument>> documentsUndoPerSegment = UndoStored.Query()
         .Where(Query.EQ(NAME_FIELD_HEIGHT, height))
         .OrderBy(NAME_FIELD_IS_SWEEP)
-        .ToEnumerable();
+        .ToEnumerable()
+        .GroupBy(d => GetIndexSegment(d[NAME_FIELD_ACCOUNT][NAME_FIELD_ID].AsBinary))
+        .ToList();
 
       LoadCountsAccountsPerSegment();
 
-      foreach (Account account in LoadAccountsUndo(LiteDatabase.Mapper, documentsUndo).ToList())
-      {
-        bool isAccountStored = AccountsStored.FindById(account.ID) != null;
-
-        if (account.Balance > 0)
-        {
-          if (!isAccountStored)
-            CountsAccountsPerSegment[GetIndexSegment(account.ID)] += 1;
-
-          AccountsStored.Upsert(account);
-        }
-        else if (isAccountStored)
-        {
-          CountsAccountsPerSegment[GetIndexSegment(account.ID)] -= 1;
-          AccountsStored.Delete(account.ID);
-        }
-      }
+      foreach (IGrouping<int, BsonDocument> documentsUndo in documentsUndoPerSegment)
+        CountsAccountsPerSegment[documentsUndo.Key] += Segments[documentsUndo.Key].RollBack(documentsUndo);
 
       StoreCountsAccountsPerSegment();
 
       UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));
 
       SetBlockAppliedLast(height - 1, header.HashPrevious);
-    }
-
-    static IEnumerable<Account> LoadAccountsUndo(BsonMapper mapper, IEnumerable<BsonDocument> documents)
-    {
-      return documents.Select(d => mapper.ToObject<Account>(d[NAME_FIELD_ACCOUNT].AsDocument));
     }
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
