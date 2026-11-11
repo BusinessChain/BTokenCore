@@ -106,8 +106,24 @@ internal partial class BlockchainBToken : Blockchain
   {
     StoreBlockCandidate(block);
 
-    if (IsAccountsAtTip())
-      Accounts.RollBack(block.Header.Height);
+    Header header = block.Header;
+
+    if (!Accounts.Exists() || HeaderAccountsReplayed != null && header.Height > HeaderAccountsReplayed.Height)
+      return;
+
+    if (header.Height <= Accounts.GetHeightInstalled())
+    {
+      if (HeaderAccountsReplayed == null)
+        Task.Run(RunFullCheck);
+
+      HeaderAccountsReplayed = header;
+      return;
+    }
+
+    Accounts.RollBack(header.Height);
+
+    if (HeaderAccountsReplayed != null)
+      HeaderAccountsReplayed = header.HeaderPrevious;
   }
 
   bool IsAccountsAtTip()
@@ -300,35 +316,39 @@ internal partial class BlockchainBToken : Blockchain
 
     try
     {
-      if (HeaderAccountsReplayed == headerTip
-        || headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
+      if (headerTip.GetHeaderAncestor(HeaderAccountsReplayed.Height) != HeaderAccountsReplayed)
         throw new ProtocolException($"A rollback reached the replayed block {HeaderAccountsReplayed.Hash.ToHexString()}.");
 
-      Header header = HeaderAccountsReplayed.HeaderNext;
-      Block block = LoadBlockParsed(header);
-
-      try
+      if (HeaderAccountsReplayed == headerTip)
+        Accounts.MarkComplete();
+      else
       {
-        LiteDatabase.RunTransaction(() =>
-        {
-          Accounts.InsertBlock(block);
+        Header header = HeaderAccountsReplayed.HeaderNext;
+        Block block = LoadBlockParsed(header);
 
-          if (header == headerTip)
+        try
+        {
+          LiteDatabase.RunTransaction(() =>
+          {
+            Accounts.InsertBlock(block);
+
+            if (header == headerTip)
+              Accounts.MarkComplete();
+          });
+
+          HeaderAccountsReplayed = header;
+
+          if (header != headerTip)
+            return true;
+        }
+        catch (ProtocolException exception)
+        {
+          LiteDatabase.RunTransaction(() =>
+          {
             Accounts.MarkComplete();
-        });
-
-        HeaderAccountsReplayed = header;
-
-        if (header != headerTip)
-          return true;
-      }
-      catch (ProtocolException exception)
-      {
-        LiteDatabase.RunTransaction(() =>
-        {
-          Accounts.MarkComplete();
-          RejectBlock(header, exception);
-        });
+            RejectBlock(header, exception);
+          });
+        }
       }
     }
     catch (Exception exception)
