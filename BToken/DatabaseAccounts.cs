@@ -151,7 +151,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account LoadAccount(byte[] iDAccount, int heightAccountCreated)
     {
-      return LoadAccountStored(iDAccount, GetHeightBlockAppliedLast()) ?? new()
+      return Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast()) ?? new()
       {
         ID = iDAccount,
         HeightAccountCreated = heightAccountCreated
@@ -160,13 +160,13 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Account LoadAccountExisting(byte[] iDAccount)
     {
-      return LoadAccountStored(iDAccount, GetHeightBlockAppliedLast())
+      return Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast())
         ?? throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
     }
 
     internal Account LoadAccountNext(byte[] iDAccount)
     {
-      Account account = LoadAccountStored(iDAccount, GetHeightBlockAppliedLast() + 1);
+      Account account = Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast() + 1);
 
       return account?.Balance > 0 ? account : null;
     }
@@ -176,28 +176,12 @@ internal partial class BlockchainBToken : Blockchain
       return GetIndexSegment(iDAccount) == (GetHeightBlockAppliedLast() + 1) % COUNT_SEGMENTS;
     }
 
-    Account LoadAccountStored(byte[] iDAccount, int height)
-    {
-      Account account = AccountsStored.FindById(iDAccount);
-
-      if (account != null)
-        account.Balance -= GetOffsetRent(GetIndexSegment(iDAccount), height);
-
-      return account;
-    }
-
     void WriteAccount(Account account)
     {
       if (!AccountsUndo.ContainsKey(account.ID))
         AccountsUndo.Add(account.ID, AccountsStored.FindById(account.ID) ?? new Account { ID = account.ID });
 
-      AccountsStored.Upsert(new Account
-      {
-        ID = account.ID,
-        HeightAccountCreated = account.HeightAccountCreated,
-        Nonce = account.Nonce,
-        Balance = account.Balance + GetOffsetRent(GetIndexSegment(account.ID), GetHeightBlockAppliedLast())
-      });
+      Segments[GetIndexSegment(account.ID)].WriteAccount(account, GetHeightBlockAppliedLast());
     }
 
     internal void InsertBlock(Block block)
@@ -268,7 +252,7 @@ internal partial class BlockchainBToken : Blockchain
       }
 
       foreach (byte[] iD in AccountsUndo.Keys)
-        if (LoadAccountStored(iD, height).Balance == 0)
+        if (Segments[GetIndexSegment(iD)].LoadAccount(iD, height).Balance == 0)
         {
           AccountsStored.Delete(iD);
           CountsAccountsPerSegment[GetIndexSegment(iD)] -= 1;
@@ -338,7 +322,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
     {
-      Account account = LoadAccountStored(iDAccount, GetHeightBlockAppliedLast());
+      Account account = Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast());
 
       if (account == null)
       {

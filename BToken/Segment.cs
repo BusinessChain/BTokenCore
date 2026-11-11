@@ -34,6 +34,27 @@ internal partial class BlockchainBToken : Blockchain
           .ToEnumerable();
       }
 
+      internal Account LoadAccount(byte[] iDAccount, int height)
+      {
+        Account account = AccountsStored.FindById(iDAccount);
+
+        if (account != null)
+          account.Balance -= GetOffsetRent(Index, height);
+
+        return account;
+      }
+
+      internal void WriteAccount(Account account, int height)
+      {
+        AccountsStored.Upsert(new Account
+        {
+          ID = account.ID,
+          HeightAccountCreated = account.HeightAccountCreated,
+          Nonce = account.Nonce,
+          Balance = account.Balance + GetOffsetRent(Index, height)
+        });
+      }
+
       BsonExpression QueryRange(string pathID)
       {
         byte[] iDFirst = new byte[Crypto.LENGTH_HASH160];
