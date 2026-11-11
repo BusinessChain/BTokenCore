@@ -117,18 +117,18 @@ internal partial class BlockchainBToken : Blockchain
       return Segment.IsSegmentValid(segment, indexSegment);
     }
 
-    internal void Install(IList<(byte[] segment, Header header)> sweeps, Header header, Func<Header, Block> loadBlock, out Header headerFailed)
+    internal void Install(IList<(byte[] segment, Header header)> sweeps, Header headerAppliedLast, Func<Header, Block> loadBlock, out Header headerFailed)
     {
       headerFailed = null;
 
       List<Header> headersCarried = new();
 
-      for (Header headerCarried = header; headerCarried.Height > sweeps.Select(s => s.header.Height).DefaultIfEmpty(header.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
+      for (Header headerCarried = headerAppliedLast; headerCarried.Height > sweeps.Select(s => s.header.Height).DefaultIfEmpty(headerAppliedLast.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
         headersCarried.Insert(0, headerCarried);
 
       OpenAccounts();
-      SetBlockAppliedLast(header.Height, header.Hash);
-      HeightInstalledStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = header.Height });
+      SetBlockAppliedLast(headerAppliedLast.Height, headerAppliedLast.Hash);
+      HeightInstalledStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = headerAppliedLast.Height });
 
       CountsAccountsPerSegment = new int[COUNT_SEGMENTS];
 

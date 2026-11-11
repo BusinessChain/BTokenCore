@@ -237,7 +237,7 @@ internal partial class BlockchainBToken : Blockchain
     InstallAccounts(headerTip.GetHeaderAncestor(heightInstall), SweepsDownload);
   }
 
-  void InstallAccounts(Header header, IList<(byte[] segment, Header header)> sweeps)
+  void InstallAccounts(Header headerAccountsInstalled, IList<(byte[] segment, Header header)> sweeps)
   {
     Header headerFailed = null;
 
@@ -245,7 +245,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       LiteDatabase.RunTransaction(() => Accounts.Install(
         sweeps,
-        header,
+        headerAccountsInstalled,
         LoadBlockParsed,
         out headerFailed));
     }
@@ -265,17 +265,9 @@ internal partial class BlockchainBToken : Blockchain
     Array.Clear(SweepsDownload);
     HeadersSweepAwaited.Clear();
 
-    HeaderAccountsReplayed = header;
+    HeaderAccountsReplayed = headerAccountsInstalled;
 
     Task.Run(RunFullCheck);
-  }
-
-  void ResolveNodeWithoutState()
-  {
-    ResyncWhenBehind();
-
-    if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
-      InstallAccounts(ChainRoot.HeaderRoot, []);
   }
 
   async Task RunFullCheck()
@@ -365,6 +357,14 @@ internal partial class BlockchainBToken : Blockchain
 
     if (HeaderAccountsReplayed != null)
       Task.Run(RunFullCheck);
+  }
+
+  void ResolveNodeWithoutState()
+  {
+    ResyncWhenBehind();
+
+    if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
+      InstallAccounts(ChainRoot.HeaderRoot, []);
   }
 
   void LoadTXsOwnedUnconfirmed()
