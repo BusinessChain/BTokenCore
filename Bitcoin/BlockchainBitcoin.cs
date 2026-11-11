@@ -127,7 +127,7 @@ internal partial class BlockchainBitcoin : Blockchain
       inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.IndexOutput == tXInput.IndexOutput)));
   }
 
-  internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
   {
     TXBitcoin tXAnchor = new();
 

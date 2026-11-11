@@ -29,7 +29,7 @@ internal partial class BlockchainBToken : Blockchain
 
   byte[] IDToken = new byte[TXOutputTokenAnchor.LENGTH_ID_TOKEN];
 
-  BlockchainBitcoin BlockchainBitcoin;
+  Blockchain BlockchainParent;
 
   bool IsMining;
   long FeePerByte;
@@ -40,11 +40,11 @@ internal partial class BlockchainBToken : Blockchain
 
 
   internal BlockchainBToken(
-    BlockchainBitcoin blockchainParent,
+    Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
     : base("TokenBToken", SIZE_BLOCK_MAX, blockchainParent, semaphoreBlockchain)
   {
-    BlockchainBitcoin = blockchainParent;
+    BlockchainParent = blockchainParent;
 
     BlocksCandidateStored = LiteDatabase.GetCollection<BsonDocument>("blocksCandidate");
 
@@ -83,6 +83,11 @@ internal partial class BlockchainBToken : Blockchain
     return new TXBToken(buffer, ref index, isCoinbase, verifySignatures);
   }
 
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
+  {
+    throw new NotImplementedException();
+  }
+
   protected override void InsertBlock(Block block)
   {
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
@@ -111,7 +116,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (header.Height <= Accounts.GetHeightInstalled())
     {
-      HeaderAccountsReplayed = header;
+      HeaderAccountsReplayed ??= header;
       return;
     }
 
@@ -338,7 +343,7 @@ internal partial class BlockchainBToken : Blockchain
       else
         Accounts.Drop();
 
-    BlockchainBitcoin.LoadBlockchain();
+    BlockchainParent.LoadBlockchain();
     RollBackUnanchored();
     ResolveNodeWithoutState();
     ReplayAccounts();
@@ -507,7 +512,7 @@ internal partial class BlockchainBToken : Blockchain
       HashBlockReferenced = block.Header.Hash
     };
 
-    if (!BlockchainBitcoin.TryCreateTXAnchor(anchorToken, FeePerByte))
+    if (!BlockchainParent.TryCreateTXAnchor(anchorToken, FeePerByte))
       return;
 
     block.Serialize();
