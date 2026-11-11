@@ -117,13 +117,13 @@ internal partial class BlockchainBToken : Blockchain
       return Segment.IsSegmentValid(segment, indexSegment);
     }
 
-    internal void Install(IList<byte[]> segments, Header header, int[] heightsSweep, Func<Header, Block> loadBlock, out Header headerFailed)
+    internal void Install(IList<(byte[] segment, Header header)> sweeps, Header header, Func<Header, Block> loadBlock, out Header headerFailed)
     {
       headerFailed = null;
 
       List<Header> headersCarried = new();
 
-      for (Header headerCarried = header; headerCarried.Height > heightsSweep.DefaultIfEmpty(header.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
+      for (Header headerCarried = header; headerCarried.Height > sweeps.Select(s => s.header.Height).DefaultIfEmpty(header.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
         headersCarried.Insert(0, headerCarried);
 
       OpenAccounts();
@@ -132,9 +132,8 @@ internal partial class BlockchainBToken : Blockchain
 
       CountsAccountsPerSegment = new int[COUNT_SEGMENTS];
 
-      for (int i = 0; i < segments.Count; i += 1)
-        if (segments[i] != null)
-          CountsAccountsPerSegment[i] = Segments[i].Install(segments[i]);
+      for (int i = 0; i < sweeps.Count; i += 1)
+        CountsAccountsPerSegment[i] = Segments[i].Install(sweeps[i].segment);
 
       StoreCountsAccountsPerSegment();
 
@@ -143,9 +142,9 @@ internal partial class BlockchainBToken : Blockchain
         headerFailed = headerCarried;
         int height = headerCarried.Height;
 
-        InsertTXs(loadBlock(headerCarried), i => height > heightsSweep[i], isLimitChecked: false);
+        InsertTXs(loadBlock(headerCarried), i => height > sweeps[i].header.Height, isLimitChecked: false);
 
-        if (heightsSweep[height % COUNT_SEGMENTS] < height)
+        if (sweeps[height % COUNT_SEGMENTS].header.Height < height)
           VerifyHashAccounts((HeaderBToken)headerCarried);
 
         UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));

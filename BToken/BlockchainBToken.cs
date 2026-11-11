@@ -22,8 +22,7 @@ internal partial class BlockchainBToken : Blockchain
   DatabaseAccounts Accounts = new();
   Header HeaderAccountsReplayed;
 
-  byte[][] SegmentsDownload = new byte[COUNT_SEGMENTS][];
-  Header[] HeadersSweepDownload = new Header[COUNT_SEGMENTS];
+  (byte[] segment, Header header)[] SweepsDownload = new (byte[], Header)[COUNT_SEGMENTS];
   Dictionary<byte[], (Header header, DateTime timeRequestLast)> HeadersSweepAwaited = new(new EqualityComparerByteArray());
 
   PoolTXBToken TXPool;
@@ -166,12 +165,9 @@ internal partial class BlockchainBToken : Blockchain
     Header headerTip = ChainRoot.HeaderTipBlockchain;
 
     for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-      if (HeadersSweepDownload[i] is Header header
+      if (SweepsDownload[i].header is Header header
         && (header.Height > headerTip.Height || headerTip.GetHeaderAncestor(header.Height) != header))
-      {
-        HeadersSweepDownload[i] = null;
-        SegmentsDownload[i] = null;
-      }
+        SweepsDownload[i] = default;
   }
 
   internal Header FetchHeaderSweepMissingNext(Func<Header, bool> canSupplierDeliver)
@@ -193,7 +189,7 @@ internal partial class BlockchainBToken : Blockchain
     Header header = ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(ChainRoot.HeaderTipBlockchain.Height - DEPTH_MARGIN_INSTALL);
 
     for (int i = 0; i < COUNT_SEGMENTS; i += 1, header = header.HeaderPrevious)
-      if (SegmentsDownload[header.Height % COUNT_SEGMENTS] == null)
+      if (SweepsDownload[header.Height % COUNT_SEGMENTS].segment == null)
         yield return header;
   }
 
@@ -218,8 +214,7 @@ internal partial class BlockchainBToken : Blockchain
       return true;
     }
 
-    SegmentsDownload[indexSegment] = segment;
-    HeadersSweepDownload[indexSegment] = header;
+    SweepsDownload[indexSegment] = (segment, header);
 
     TryInstallSweeps();
 
@@ -236,22 +231,23 @@ internal partial class BlockchainBToken : Blockchain
     Header headerTip = ChainRoot.HeaderTipBlockchain;
     int heightInstall = headerTip.Height - DEPTH_MARGIN_INSTALL;
 
-    if (SegmentsDownload.Contains(null) || HeadersSweepDownload.Any(h => h.Height > heightInstall))
+    if (SweepsDownload.Any(s => s.segment == null || s.header.Height > heightInstall))
       return;
 
-    InstallAccounts(
-      headerTip.GetHeaderAncestor(heightInstall),
-      SegmentsDownload,
-      HeadersSweepDownload.Select(h => h.Height).ToArray());
+    InstallAccounts(headerTip.GetHeaderAncestor(heightInstall), SweepsDownload);
   }
 
-  void InstallAccounts(Header header, IList<byte[]> segments, int[] heightsSweep)
+  void InstallAccounts(Header header, IList<(byte[] segment, Header header)> sweeps)
   {
     Header headerFailed = null;
 
     try
     {
-      LiteDatabase.RunTransaction(() => Accounts.Install(segments, header, heightsSweep, LoadBlockParsed, out headerFailed));
+      LiteDatabase.RunTransaction(() => Accounts.Install(
+        sweeps,
+        header,
+        LoadBlockParsed,
+        out headerFailed));
     }
     catch (ProtocolException exception) when (headerFailed != null)
     {
@@ -266,8 +262,7 @@ internal partial class BlockchainBToken : Blockchain
       throw;
     }
 
-    Array.Clear(SegmentsDownload);
-    Array.Clear(HeadersSweepDownload);
+    Array.Clear(SweepsDownload);
     HeadersSweepAwaited.Clear();
 
     HeaderAccountsReplayed = header;
@@ -280,7 +275,7 @@ internal partial class BlockchainBToken : Blockchain
     ResyncWhenBehind();
 
     if (!Accounts.Exists() && ChainRoot.HeaderRoot.Height == 0)
-      InstallAccounts(ChainRoot.HeaderRoot, [], []);
+      InstallAccounts(ChainRoot.HeaderRoot, []);
   }
 
   async Task RunFullCheck()
