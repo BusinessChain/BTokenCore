@@ -211,7 +211,7 @@ internal partial class BlockchainBToken : Blockchain
 
     int indexSegment = header.Height % COUNT_SEGMENTS;
 
-    if (!DatabaseAccounts.Segment.IsSegmentValid(segment, indexSegment))
+    if (!DatabaseAccounts.IsSegmentValid(segment, indexSegment))
     {
       RejectBlock(header, new ProtocolException($"Segment {indexSegment} committed by block {header.Hash.ToHexString()} is invalid."));
       UpdateTipBlockchain(ChainRoot);

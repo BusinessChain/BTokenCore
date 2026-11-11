@@ -112,6 +112,11 @@ internal partial class BlockchainBToken : Blockchain
       return Segments[height % COUNT_SEGMENTS].SerializeAtHeight(height);
     }
 
+    internal static bool IsSegmentValid(byte[] segment, int indexSegment)
+    {
+      return Segment.IsSegmentValid(segment, indexSegment);
+    }
+
     internal void Install(IList<byte[]> segments, Header header)
     {
       OpenAccounts();

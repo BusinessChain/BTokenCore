@@ -8,7 +8,7 @@ internal partial class BlockchainBToken : Blockchain
 {
   partial class DatabaseAccounts
   {
-    internal class Segment
+    class Segment
     {
       const long RENT_PER_BYTE = 1;
       const long RENT_SWEEP = RENT_PER_BYTE * Account.LENGTH_ACCOUNT;
