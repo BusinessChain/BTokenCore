@@ -10,6 +10,9 @@ internal partial class BlockchainBToken : Blockchain
   {
     internal class Segment
     {
+      const long RENT_PER_BYTE = 1;
+      const long RENT_SWEEP = RENT_PER_BYTE * Account.LENGTH_ACCOUNT;
+
       static readonly Comparer<byte[]> ComparerID = Comparer<byte[]>.Create((a, b) => a.AsSpan().SequenceCompareTo(b));
 
       ILiteCollection<Account> AccountsStored;
@@ -17,6 +20,7 @@ internal partial class BlockchainBToken : Blockchain
       BsonMapper Mapper;
       int Index;
       Dictionary<byte[], Account> AccountsUndo = new(new EqualityComparerByteArray());
+      List<Account> AccountsSwept = new();
 
 
       internal Segment(LiteDatabase liteDatabase, int index)
@@ -35,12 +39,52 @@ internal partial class BlockchainBToken : Blockchain
           .ToEnumerable();
       }
 
+      long GetOffsetRent(int height)
+      {
+        return RENT_SWEEP * ((height + COUNT_SEGMENTS - Index) / COUNT_SEGMENTS);
+      }
+
+      (List<Account> accountsSwept, long rent) LoadSweep(int height)
+      {
+        long offsetRent = GetOffsetRent(height);
+
+        List<Account> accountsSwept = new();
+        long rent = 0;
+
+        foreach (Account account in LoadAccounts())
+          if (account.Balance <= offsetRent)
+          {
+            accountsSwept.Add(account);
+            rent += account.Balance - offsetRent + RENT_SWEEP;
+          }
+          else
+            rent += RENT_SWEEP;
+
+        return (accountsSwept, rent);
+      }
+
+      internal (int countAccountsSwept, long rent) ComputeSweep(int height)
+      {
+        (List<Account> accountsSwept, long rent) = LoadSweep(height);
+        return (accountsSwept.Count, rent);
+      }
+
+      internal (int countAccountsSwept, long rent) Sweep(int height)
+      {
+        (AccountsSwept, long rent) = LoadSweep(height);
+
+        foreach (Account account in AccountsSwept)
+          AccountsStored.Delete(account.ID);
+
+        return (AccountsSwept.Count, rent);
+      }
+
       internal Account LoadAccount(byte[] iDAccount, int height)
       {
         Account account = AccountsStored.FindById(iDAccount);
 
         if (account != null)
-          account.Balance -= GetOffsetRent(Index, height);
+          account.Balance -= GetOffsetRent(height);
 
         return account;
       }
@@ -55,13 +99,14 @@ internal partial class BlockchainBToken : Blockchain
           ID = account.ID,
           HeightAccountCreated = account.HeightAccountCreated,
           Nonce = account.Nonce,
-          Balance = account.Balance + GetOffsetRent(Index, height)
+          Balance = account.Balance + GetOffsetRent(height)
         });
       }
 
       internal void ClearUndo()
       {
         AccountsUndo.Clear();
+        AccountsSwept.Clear();
       }
 
       internal int FinishBlock(int height)
@@ -75,12 +120,14 @@ internal partial class BlockchainBToken : Blockchain
             countAccountsDeleted += 1;
           }
 
-        UndoStored.InsertBulk(AccountsUndo.Values.Select(a => CreateDocumentUndo(a, height, isSweep: false)));
+        UndoStored.InsertBulk(
+          AccountsUndo.Values.Select(a => CreateDocumentUndo(a, height, isSweep: false))
+          .Concat(AccountsSwept.Select(a => CreateDocumentUndo(a, height, isSweep: true))));
 
         return countAccountsDeleted;
       }
 
-      internal BsonDocument CreateDocumentUndo(Account account, int height, bool isSweep)
+      BsonDocument CreateDocumentUndo(Account account, int height, bool isSweep)
       {
         return new BsonDocument
         {

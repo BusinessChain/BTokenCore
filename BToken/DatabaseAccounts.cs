@@ -19,12 +19,9 @@ internal partial class BlockchainBToken : Blockchain
     const string NAME_FIELD_IS_SWEEP = "isSweep";
     const string PATH_ID_ACCOUNT_UNDO = "$." + NAME_FIELD_ACCOUNT + "." + NAME_FIELD_ID;
     const int SHIFT_INDEX_SEGMENT = 16 - COUNT_BITS_INDEX_SEGMENT;
-    const long RENT_PER_BYTE = 1;
-    const long RENT_SWEEP = RENT_PER_BYTE * Account.LENGTH_ACCOUNT;
 
     LiteDatabase LiteDatabase;
     Segment[] Segments;
-    ILiteCollection<Account> AccountsStored;
     ILiteCollection<BsonDocument> UndoStored;
     ILiteCollection<BsonDocument> BlockAppliedLastStored;
     ILiteCollection<BsonDocument> HeightInstalledStored;
@@ -50,7 +47,6 @@ internal partial class BlockchainBToken : Blockchain
 
     void OpenAccounts()
     {
-      AccountsStored = LiteDatabase.GetCollection<Account>(NAME_COLLECTION);
       UndoStored.EnsureIndex(NAME_FIELD_HEIGHT);
       UndoStored.EnsureIndex(PATH_ID_ACCOUNT_UNDO);
 
@@ -67,7 +63,6 @@ internal partial class BlockchainBToken : Blockchain
       LiteDatabase.DropCollection(NAME_COLLECTION_BLOCK_APPLIED_LAST);
       LiteDatabase.DropCollection(NAME_COLLECTION_HEIGHT_INSTALLED);
       LiteDatabase.DropCollection(NAME_COLLECTION_COUNTS);
-      AccountsStored = null;
       Segments = null;
     }
 
@@ -105,11 +100,6 @@ internal partial class BlockchainBToken : Blockchain
     internal int GetHeightInstalled()
     {
       return HeightInstalledStored.FindById(0)?[NAME_FIELD_HEIGHT].AsInt32 ?? 0;
-    }
-
-    static long GetOffsetRent(int indexSegment, int height)
-    {
-      return RENT_SWEEP * ((height + COUNT_SEGMENTS - indexSegment) / COUNT_SEGMENTS);
     }
 
     internal bool Exists()
@@ -178,12 +168,15 @@ internal partial class BlockchainBToken : Blockchain
 
     void WriteAccount(Account account)
     {
-      int indexSegment = GetIndexSegment(account.ID);
+      TouchSegment(GetIndexSegment(account.ID)).WriteAccount(account, GetHeightBlockAppliedLast());
+    }
 
+    Segment TouchSegment(int indexSegment)
+    {
       if (IndicesSegmentTouched.Add(indexSegment))
         Segments[indexSegment].ClearUndo();
 
-      Segments[indexSegment].WriteAccount(account, GetHeightBlockAppliedLast());
+      return Segments[indexSegment];
     }
 
     internal void InsertBlock(Block block)
@@ -193,24 +186,9 @@ internal partial class BlockchainBToken : Blockchain
       VerifyHashAccounts((HeaderBToken)block.Header);
     }
 
-    internal (List<Account> accountsSwept, long rent) LoadSweep(int height)
+    internal long LoadRentSweep(int height)
     {
-      int indexSegment = height % COUNT_SEGMENTS;
-      long offsetRent = GetOffsetRent(indexSegment, height);
-
-      List<Account> accountsSwept = new();
-      long rent = 0;
-
-      foreach (Account account in Segments[indexSegment].LoadAccounts())
-        if (account.Balance <= offsetRent)
-        {
-          accountsSwept.Add(account);
-          rent += account.Balance - offsetRent + RENT_SWEEP;
-        }
-        else
-          rent += RENT_SWEEP;
-
-      return (accountsSwept, rent);
+      return Segments[height % COUNT_SEGMENTS].ComputeSweep(height).rent;
     }
 
     long InsertTXs(Block block, Func<int, bool> isSegmentApplied, bool isLimitChecked)
@@ -222,17 +200,13 @@ internal partial class BlockchainBToken : Blockchain
       SetBlockAppliedLast(height, block.Header.Hash);
       LoadCountsAccountsPerSegment();
 
-      List<Account> accountsSwept = new();
+      int indexSegmentSweep = height % COUNT_SEGMENTS;
       long rent = 0;
 
-      if (isSegmentApplied(height % COUNT_SEGMENTS))
+      if (isSegmentApplied(indexSegmentSweep))
       {
-        (accountsSwept, rent) = LoadSweep(height);
-
-        foreach (Account account in accountsSwept)
-          AccountsStored.Delete(account.ID);
-
-        CountsAccountsPerSegment[height % COUNT_SEGMENTS] -= accountsSwept.Count;
+        (int countAccountsSwept, rent) = TouchSegment(indexSegmentSweep).Sweep(height);
+        CountsAccountsPerSegment[indexSegmentSweep] -= countAccountsSwept;
       }
 
       CountAccountsMax = isLimitChecked ? ComputeCountAccountsMax(CountsAccountsPerSegment) : long.MaxValue;
@@ -257,8 +231,6 @@ internal partial class BlockchainBToken : Blockchain
         CountsAccountsPerSegment[indexSegment] -= Segments[indexSegment].FinishBlock(height);
 
       StoreCountsAccountsPerSegment();
-
-      UndoStored.InsertBulk(accountsSwept.Select(a => Segments[height % COUNT_SEGMENTS].CreateDocumentUndo(a, height, isSweep: true)));
 
       UndoStored.DeleteMany(Query.LT(NAME_FIELD_HEIGHT, height - COUNT_MAX_BLOCKS_STORED + 1));
 
@@ -353,7 +325,7 @@ internal partial class BlockchainBToken : Blockchain
 
       LoadCountsAccountsPerSegment();
 
-      CountsAccountsPerSegment[heightNext % COUNT_SEGMENTS] -= LoadSweep(heightNext).accountsSwept.Count;
+      CountsAccountsPerSegment[heightNext % COUNT_SEGMENTS] -= Segments[heightNext % COUNT_SEGMENTS].ComputeSweep(heightNext).countAccountsSwept;
 
       return (CountsAccountsPerSegment, ComputeCountAccountsMax(CountsAccountsPerSegment));
     }

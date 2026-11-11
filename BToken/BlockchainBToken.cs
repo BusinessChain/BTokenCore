@@ -512,7 +512,7 @@ internal partial class BlockchainBToken : Blockchain
 
     block.TXs = TXPool.GetTXs(countBytesTXsMax);
 
-    block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee), Accounts.LoadSweep(height).rent));
+    block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee), Accounts.LoadRentSweep(height)));
 
     block.Header = new HeaderBToken()
     {
