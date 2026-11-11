@@ -271,6 +271,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       Accounts.Drop();
       RejectBlock(headerFailed, exception);
+      UpdateTipBlockchain(ChainRoot);
       return;
     }
     catch
