@@ -20,6 +20,7 @@ internal partial class BlockchainBToken : Blockchain
     internal Miner(BlockchainBToken blockchain)
     {
       Blockchain = blockchain;
+      NonceBlockNext = (uint)Random.Shared.Next();
     }
 
     internal void StartMining(int countAnchorsPer10Minutes, long feeAnchor)
