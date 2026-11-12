@@ -162,10 +162,9 @@ internal partial class BlockchainBitcoin : Blockchain
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
   {
-    List<TXInputBitcoin> inputsTXOwned = ((TXBitcoin)tX).Inputs;
-
-    return block.TXs.Any(t => ((TXBitcoin)t).Inputs.Any(tXInput =>
-      inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.IndexOutput == tXInput.IndexOutput)));
+    return ((TXBitcoin)tX).Inputs.Any(i =>
+      OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)) is TXOutputOwned output
+      && output.HeightSpent == block.Header.Height);
   }
 
   List<TXBitcoin> LoadAnchorsUnconfirmed()
