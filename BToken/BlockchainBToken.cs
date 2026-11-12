@@ -281,29 +281,24 @@ internal partial class BlockchainBToken : Blockchain
     bool isBlockReferencedStored = hasAnchorWinner && BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchor.HashBlockReferenced));
 
     if (hasAnchorWinner)
-      InsertBlockReferenced(blockParent.Header, anchor, isBlockReferencedStored);
+    {
+      InsertHeaderPlaceholder(blockParent.Header, anchor);
+
+      if (isBlockReferencedStored)
+        InsertBlockAwaitingAnchor(blockParent.Header, anchor);
+    }
 
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
+
     if (isBlockParentTip)
-      HandleBlockParentTip(blockParent.Header, hasAnchorWinner && !isBlockReferencedStored);
-  }
+    {
+      MinerBlockchain.ScheduleReplacementAnchorsMissed(hasAnchorWinner && !isBlockReferencedStored);
 
-  void InsertBlockReferenced(Header headerParent, TXOutputTokenAnchor anchor, bool isBlockReferencedStored)
-  {
-    InsertHeaderPlaceholder(headerParent, anchor);
+      ResyncWhenBehindWindowStored();
 
-    if (isBlockReferencedStored)
-      InsertBlockAwaitingAnchor(headerParent, anchor);
-  }
-
-  void HandleBlockParentTip(Header headerParent, bool isAnchorWinnerForeign)
-  {
-    MinerBlockchain.ScheduleReplacementAnchorsMissed(isAnchorWinnerForeign);
-
-    ResyncWhenBehindWindowStored();
-
-    BlocksStoredAwaitingAnchor.DeleteMany(
-      Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, headerParent.Height - BITCOIN_REORG_MARGIN));
+      BlocksStoredAwaitingAnchor.DeleteMany(
+        Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
+    }
   }
 
   void InsertHeaderPlaceholder(Header headerParent, TXOutputTokenAnchor anchor)
