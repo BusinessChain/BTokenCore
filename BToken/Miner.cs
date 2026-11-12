@@ -13,7 +13,6 @@ internal partial class BlockchainBToken : Blockchain
     int CountAnchorsPer10Minutes;
     long FeeAnchor;
     uint NonceBlockNext;
-    bool IsSynced;
     DateTime TimeWindowBlankEnd;
 
 
@@ -91,10 +90,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void MineBlock()
     {
-      IsSynced = IsSynced
-        || (Blockchain.BlockchainParent.IsTipRecent() && Blockchain.ChainRoot.HeaderTip == Blockchain.ChainRoot.HeaderTipBlockchain);
-
-      if (!IsSynced || !Blockchain.Synchronizer.IsAccountsAtTip())
+      if (!Blockchain.Synchronizer.IsAccountsAtTip())
         return;
 
       Block block = new(Blockchain.SizeBlockMax);

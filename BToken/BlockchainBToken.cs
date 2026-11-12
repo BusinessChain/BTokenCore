@@ -85,11 +85,6 @@ internal partial class BlockchainBToken : Blockchain
     throw new NotImplementedException();
   }
 
-  internal override bool IsTipRecent()
-  {
-    throw new NotImplementedException();
-  }
-
   internal override int CountAnchorsMissed()
   {
     throw new NotImplementedException();
