@@ -6,10 +6,12 @@ internal partial class BlockchainBToken : Blockchain
   {
     BlockchainBToken Blockchain;
 
-    bool IsMining;
+    const int MILLISECONDS_PER_10_MINUTES = 600_000;
+
+    Timer TimerMining;
+    int CountAnchorsPer10Minutes;
     long FeeAnchor;
-    bool IsRoundMiningOpen;
-    byte[] HashBlockAwaitedRoundMining;
+    uint NonceBlockNext;
 
 
     internal Miner(BlockchainBToken blockchain)
@@ -17,21 +19,32 @@ internal partial class BlockchainBToken : Blockchain
       Blockchain = blockchain;
     }
 
-    internal void StartMining(long feeAnchor)
+    internal void StartMining(int countAnchorsPer10Minutes, long feeAnchor)
     {
+      CountAnchorsPer10Minutes = countAnchorsPer10Minutes;
       FeeAnchor = feeAnchor;
-      IsMining = true;
+
+      TimerMining ??= new Timer(
+        _ => Blockchain.RunLocked(Tick),
+        null,
+        MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes,
+        Timeout.Infinite);
     }
 
     internal void StopMining()
     {
-      IsMining = false;
+      TimerMining?.Dispose();
+      TimerMining = null;
     }
 
-    internal void AllowAnchorNext(byte[] hashBlockAwaited)
+    void Tick()
     {
-      IsRoundMiningOpen = true;
-      HashBlockAwaitedRoundMining = hashBlockAwaited;
+      if (TimerMining == null)
+        return;
+
+      MineBlock();
+
+      TimerMining.Change(MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes, Timeout.Infinite);
     }
 
     TXBToken CreateTXCoinbase(int height, long fees, long rent)
@@ -50,20 +63,10 @@ internal partial class BlockchainBToken : Blockchain
       return tXCoinbase;
     }
 
-    internal void MineBlock()
+    void MineBlock()
     {
-      if (!IsMining || !Blockchain.Synchronizer.IsAccountsAtTip())
+      if (!Blockchain.Synchronizer.IsAccountsAtTip())
         return;
-
-      bool isTipAwaited = Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashBlockAwaitedRoundMining);
-
-      if (!IsRoundMiningOpen && !isTipAwaited)
-        return;
-
-      IsRoundMiningOpen = false;
-
-      if (isTipAwaited)
-        HashBlockAwaitedRoundMining = null;
 
       Block block = new(Blockchain.SizeBlockMax);
 
@@ -82,7 +85,8 @@ internal partial class BlockchainBToken : Blockchain
       {
         Height = height,
         HashPrevious = Blockchain.ChainRoot.HeaderTipBlockchain.Hash,
-        MerkleRoot = block.ComputeMerkleRoot()
+        MerkleRoot = block.ComputeMerkleRoot(),
+        Nonce = NonceBlockNext++
       };
 
       try

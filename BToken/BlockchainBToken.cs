@@ -200,9 +200,9 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetFeePerByteMin();
   }
 
-  internal void StartMining(long feeAnchor)
+  internal void StartMining(int countAnchorsPer10Minutes, long feeAnchor)
   {
-    MinerBlockchain.StartMining(feeAnchor);
+    MinerBlockchain.StartMining(countAnchorsPer10Minutes, feeAnchor);
   }
 
   internal void StopMining()
@@ -239,7 +239,6 @@ internal partial class BlockchainBToken : Blockchain
   protected override void HandleTipUpdated()
   {
     Synchronizer.HandleTipUpdated();
-    MinerBlockchain.MineBlock();
   }
 
   void StoreBlockAwaitingAnchor(Block block)
@@ -293,11 +292,6 @@ internal partial class BlockchainBToken : Blockchain
       if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
         UpdateTipBlockchain(chain);
     }
-
-    if (isBlockParentTip)
-      MinerBlockchain.AllowAnchorNext(hasAnchorWinner ? anchorWinner.HashBlockReferenced : null);
-
-    MinerBlockchain.MineBlock();
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)
