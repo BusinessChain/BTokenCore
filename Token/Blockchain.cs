@@ -85,6 +85,8 @@ internal abstract partial class Blockchain
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor);
 
+  internal abstract bool IsTipRecent();
+
   internal virtual TX GetTX(byte[] hash)
   {
     if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED].AsInt32 == 0)

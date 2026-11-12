@@ -16,6 +16,8 @@ internal partial class BlockchainBitcoin : Blockchain
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
+  const long AGE_MAX_TIP_RECENT_SECONDS = 60 * 60;
+
   ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
 
@@ -155,6 +157,11 @@ internal partial class BlockchainBitcoin : Blockchain
 
     return block.TXs.Any(t => ((TXBitcoin)t).Inputs.Any(tXInput =>
       inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.IndexOutput == tXInput.IndexOutput)));
+  }
+
+  internal override bool IsTipRecent()
+  {
+    return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTipBlockchain).UnixTimeSeconds <= AGE_MAX_TIP_RECENT_SECONDS;
   }
 
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor)

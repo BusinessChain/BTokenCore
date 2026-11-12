@@ -83,6 +83,11 @@ internal partial class BlockchainBToken : Blockchain
     throw new NotImplementedException();
   }
 
+  internal override bool IsTipRecent()
+  {
+    throw new NotImplementedException();
+  }
+
   protected override void InsertBlock(Block block)
   {
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
