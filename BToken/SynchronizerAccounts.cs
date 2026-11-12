@@ -109,7 +109,7 @@ internal partial class BlockchainBToken : Blockchain
 
     IEnumerable<Header> EnumerateHeadersSweepMissing()
     {
-      Header header = Blockchain.ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(Blockchain.ChainRoot.HeaderTipBlockchain.Height - DEPTH_MARGIN_INSTALL);
+      Header header = Blockchain.ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(Blockchain.ChainRoot.HeaderTipBlockchain.Height - BITCOIN_REORG_MARGIN);
 
       for (int i = 0; i < COUNT_SEGMENTS; i += 1, header = header.HeaderPrevious)
         if (SweepsDownload[header.Height % COUNT_SEGMENTS].segment == null)
@@ -152,7 +152,7 @@ internal partial class BlockchainBToken : Blockchain
       DiscardSegmentsOffMainChain();
 
       Header headerTip = Blockchain.ChainRoot.HeaderTipBlockchain;
-      int heightInstall = headerTip.Height - DEPTH_MARGIN_INSTALL;
+      int heightInstall = headerTip.Height - BITCOIN_REORG_MARGIN;
 
       if (SweepsDownload.Any(s => s.segment == null || s.header.Height > heightInstall))
         return;

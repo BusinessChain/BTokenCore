@@ -127,6 +127,11 @@ internal partial class BlockchainBitcoin : Blockchain
             HeightCreated = height
           });
     }
+
+    int heightPrune = height - BITCOIN_REORG_MARGIN;
+
+    OutputsOwnedStored.DeleteMany(Query.Between(nameof(TXOutputOwned.HeightSpent), 1, heightPrune));
+    TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, heightPrune));
   }
 
   protected override void RollBackBlock(Block block)

@@ -14,10 +14,8 @@ internal partial class BlockchainBToken : Blockchain
 
   const int COUNT_BITS_INDEX_SEGMENT = 11;
   const int COUNT_SEGMENTS = 1 << COUNT_BITS_INDEX_SEGMENT;
-  const int DEPTH_MARGIN_INSTALL = 6;
-  const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
+  const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + BITCOIN_REORG_MARGIN;
   const int DEPTH_MARGIN_RESYNC = 6;
-  const int DEPTH_MARGIN_REORG_PARENT = 6;
 
   DatabaseAccounts Accounts = new();
   SynchronizerAccounts Synchronizer;
@@ -311,7 +309,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (isBlockParentTip)
       BlocksStoredAwaitingAnchor.DeleteMany(
-        Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - DEPTH_MARGIN_REORG_PARENT));
+        Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)

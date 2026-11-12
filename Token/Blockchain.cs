@@ -11,6 +11,7 @@ internal abstract partial class Blockchain
   const string NAME_FIELD_TX_RAW = "tXRaw";
   const string NAME_FIELD_FEE = "fee";
   const int SECONDS_DELAY_REQUEST_HEDGED = 5;
+  protected const int BITCOIN_REORG_MARGIN = 6;
 
   internal Wallet Wallet;
 
