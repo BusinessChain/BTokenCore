@@ -10,6 +10,7 @@ internal partial class BlockchainBToken : Blockchain
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
 
     Timer TimerMining;
+    Timer TimerBurst;
     int CountAnchorsPer10Minutes;
     long FeeAnchor;
     uint NonceBlockNext;
@@ -26,10 +27,19 @@ internal partial class BlockchainBToken : Blockchain
       CountAnchorsPer10Minutes = countAnchorsPer10Minutes;
       FeeAnchor = feeAnchor;
 
-      TimerMining ??= new Timer(
+      if (TimerMining != null)
+        return;
+
+      TimerMining = new Timer(
         _ => Blockchain.RunLocked(Tick),
         null,
         MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes,
+        Timeout.Infinite);
+
+      TimerBurst = new Timer(
+        _ => Blockchain.RunLocked(Burst),
+        null,
+        Timeout.Infinite,
         Timeout.Infinite);
     }
 
@@ -37,6 +47,9 @@ internal partial class BlockchainBToken : Blockchain
     {
       TimerMining?.Dispose();
       TimerMining = null;
+
+      TimerBurst?.Dispose();
+      TimerBurst = null;
     }
 
     internal void HandleBlockParentTip(bool isAnchorWinnerForeign)
@@ -47,10 +60,21 @@ internal partial class BlockchainBToken : Blockchain
       if (isAnchorWinnerForeign)
       {
         TimeWindowBlankEnd = DateTime.UtcNow.AddMilliseconds(MILLISECONDS_WINDOW_BLANK);
-        TimerMining.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
+        TimerBurst.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
       }
       else
-        TimerMining.Change(0, Timeout.Infinite);
+        TimerBurst.Change(0, Timeout.Infinite);
+    }
+
+    void Burst()
+    {
+      if (TimerMining == null)
+        return;
+
+      int countAnchorsMissed = Blockchain.BlockchainParent.CountAnchorsMissed();
+
+      for (int i = 0; i < countAnchorsMissed; i++)
+        MineBlock();
     }
 
     void Tick()
@@ -64,12 +88,9 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      int countBlocks = Math.Max(1, Blockchain.BlockchainParent.CountAnchorsMissed());
+      MineBlock();
 
-      for (int i = 0; i < countBlocks; i++)
-        MineBlock();
-
-      TimerMining.Change(countBlocks * (MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes), Timeout.Infinite);
+      TimerMining.Change(MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes, Timeout.Infinite);
     }
 
     TXBToken CreateTXCoinbase(int height, long fees, long rent)
