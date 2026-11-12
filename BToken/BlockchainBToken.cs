@@ -17,7 +17,6 @@ internal partial class BlockchainBToken : Blockchain
   const int COUNT_BITS_INDEX_SEGMENT = 11;
   const int COUNT_SEGMENTS = 1 << COUNT_BITS_INDEX_SEGMENT;
   const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + BITCOIN_REORG_MARGIN;
-  const int DEPTH_MARGIN_RESYNC = 6;
 
   Blockchain BlockchainParent;
 
@@ -344,7 +343,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     Chain chainTallest = ChainRoot.FindChainTallest();
 
-    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height <= COUNT_MAX_BLOCKS_STORED + DEPTH_MARGIN_RESYNC)
+    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height <= COUNT_MAX_BLOCKS_STORED)
       return;
 
     Synchronizer.Drop();
