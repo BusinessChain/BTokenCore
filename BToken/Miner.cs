@@ -40,9 +40,18 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining = null;
     }
 
-    internal void OpenWindowBlank()
+    internal void HandleBlockBitcoinTip(bool isAnchorWinnerForeign)
     {
-      TimeWindowBlankEnd = DateTime.UtcNow.AddMilliseconds(MILLISECONDS_WINDOW_BLANK);
+      if (TimerMining == null)
+        return;
+
+      if (isAnchorWinnerForeign)
+      {
+        TimeWindowBlankEnd = DateTime.UtcNow.AddMilliseconds(MILLISECONDS_WINDOW_BLANK);
+        TimerMining.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
+      }
+      else
+        TimerMining.Change(0, Timeout.Infinite);
     }
 
     void Tick()
@@ -56,9 +65,12 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      MineBlock();
+      int countBlocks = Math.Max(1, Blockchain.BlockchainParent.CountAnchorsMissed());
 
-      TimerMining.Change(MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes, Timeout.Infinite);
+      for (int i = 0; i < countBlocks; i++)
+        MineBlock();
+
+      TimerMining.Change(countBlocks * (MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes), Timeout.Infinite);
     }
 
     TXBToken CreateTXCoinbase(int height, long fees, long rent)

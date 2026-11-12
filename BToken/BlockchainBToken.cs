@@ -88,6 +88,11 @@ internal partial class BlockchainBToken : Blockchain
     throw new NotImplementedException();
   }
 
+  internal override int CountAnchorsMissed()
+  {
+    throw new NotImplementedException();
+  }
+
   protected override void InsertBlock(Block block)
   {
     TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
@@ -261,8 +266,9 @@ internal partial class BlockchainBToken : Blockchain
     bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
-    if (isBlockParentTip && hasAnchorWinner && !BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchorWinner.HashBlockReferenced)))
-      MinerBlockchain.OpenWindowBlank();
+    if (isBlockParentTip)
+      MinerBlockchain.HandleBlockBitcoinTip(
+        hasAnchorWinner && !BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchorWinner.HashBlockReferenced)));
 
     if (hasAnchorWinner)
     {

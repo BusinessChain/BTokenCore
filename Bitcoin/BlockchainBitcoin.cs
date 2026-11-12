@@ -164,13 +164,23 @@ internal partial class BlockchainBitcoin : Blockchain
     return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTipBlockchain).UnixTimeSeconds <= AGE_MAX_TIP_RECENT_SECONDS;
   }
 
+  List<TXBitcoin> LoadAnchorsUnconfirmed()
+  {
+    return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
+      .Select(d => (TXBitcoin)ParseTXOwned(d))
+      .ToList();
+  }
+
+  internal override int CountAnchorsMissed()
+  {
+    return LoadAnchorsUnconfirmed().Count(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
+  }
+
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
 
-    List<TXBitcoin> anchorsUnconfirmed = TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
-      .Select(d => (TXBitcoin)ParseTXOwned(d))
-      .ToList();
+    List<TXBitcoin> anchorsUnconfirmed = LoadAnchorsUnconfirmed();
 
     tokenAnchor.Serialize();
 
