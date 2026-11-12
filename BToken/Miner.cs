@@ -7,12 +7,14 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
 
     const int MILLISECONDS_PER_10_MINUTES = 600_000;
+    const int MILLISECONDS_WINDOW_BLANK = 5_000;
 
     Timer TimerMining;
     int CountAnchorsPer10Minutes;
     long FeeAnchor;
     uint NonceBlockNext;
     bool IsSynced;
+    DateTime TimeWindowBlankEnd;
 
 
     internal Miner(BlockchainBToken blockchain)
@@ -38,10 +40,21 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining = null;
     }
 
+    internal void OpenWindowBlank()
+    {
+      TimeWindowBlankEnd = DateTime.UtcNow.AddMilliseconds(MILLISECONDS_WINDOW_BLANK);
+    }
+
     void Tick()
     {
       if (TimerMining == null)
         return;
+
+      if (DateTime.UtcNow < TimeWindowBlankEnd)
+      {
+        TimerMining.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
+        return;
+      }
 
       MineBlock();
 

@@ -261,6 +261,9 @@ internal partial class BlockchainBToken : Blockchain
     bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
+    if (isBlockParentTip && hasAnchorWinner && !BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchorWinner.HashBlockReferenced)))
+      MinerBlockchain.OpenWindowBlank();
+
     if (hasAnchorWinner)
     {
       Header headerPlaceholderNew = new HeaderBToken(
