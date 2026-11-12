@@ -31,13 +31,13 @@ internal partial class BlockchainBToken : Blockchain
         return;
 
       TimerMining = new Timer(
-        _ => Blockchain.RunLocked(Tick),
+        _ => Blockchain.RunLocked(() => RunTimer(Tick)),
         null,
         MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes,
         Timeout.Infinite);
 
       TimerBurst = new Timer(
-        _ => Blockchain.RunLocked(Burst),
+        _ => Blockchain.RunLocked(() => RunTimer(Burst)),
         null,
         Timeout.Infinite,
         Timeout.Infinite);
@@ -66,11 +66,24 @@ internal partial class BlockchainBToken : Blockchain
         TimerBurst.Change(0, Timeout.Infinite);
     }
 
-    void Burst()
+    void RunTimer(Action action)
     {
       if (TimerMining == null)
         return;
 
+      try
+      {
+        action();
+      }
+      catch (Exception exception)
+      {
+        Console.WriteLine($"Warning: mining stopped after {exception.GetType().Name}: {exception.Message}");
+        StopMining();
+      }
+    }
+
+    void Burst()
+    {
       int countAnchorsMissed = Blockchain.BlockchainParent.CountAnchorsMissed();
 
       for (int i = 0; i < countAnchorsMissed; i++)
@@ -79,9 +92,6 @@ internal partial class BlockchainBToken : Blockchain
 
     void Tick()
     {
-      if (TimerMining == null)
-        return;
-
       if (DateTime.UtcNow < TimeWindowBlankEnd)
       {
         TimerMining.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
