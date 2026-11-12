@@ -17,6 +17,7 @@ internal partial class BlockchainBToken : Blockchain
   const int DEPTH_MARGIN_INSTALL = 6;
   const int COUNT_MAX_BLOCKS_STORED = COUNT_SEGMENTS + DEPTH_MARGIN_INSTALL;
   const int DEPTH_MARGIN_RESYNC = 6;
+  const int DEPTH_MARGIN_REORG_PARENT = 6;
 
   DatabaseAccounts Accounts = new();
   SynchronizerAccounts Synchronizer;
@@ -30,6 +31,7 @@ internal partial class BlockchainBToken : Blockchain
   Miner MinerBlockchain;
   ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
+  const string NAME_FIELD_LOCK_TIME_ANCHOR = "lockTimeAnchor";
 
 
   internal BlockchainBToken(
@@ -78,7 +80,7 @@ internal partial class BlockchainBToken : Blockchain
     return new TXBToken(buffer, ref index, isCoinbase, verifySignatures);
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime)
   {
     throw new NotImplementedException();
   }
@@ -112,7 +114,7 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void RollBackBlock(Block block)
   {
-    StoreBlockAwaitingAnchor(block);
+    StoreBlockAwaitingAnchor(block, null);
 
     Synchronizer.RollBack(block.Header);
   }
@@ -251,14 +253,19 @@ internal partial class BlockchainBToken : Blockchain
     Synchronizer.HandleTipUpdated();
   }
 
-  void StoreBlockAwaitingAnchor(Block block)
+  void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)
   {
-    BlocksStoredAwaitingAnchor.Upsert(new BsonDocument
+    BsonDocument documentBlock = new()
     {
       [NAME_FIELD_ID] = block.Header.Hash,
       [NAME_FIELD_HEIGHT] = block.Header.Height,
       [NAME_FIELD_BLOCK_BYTES] = SerializeBlockStored(block)
-    });
+    };
+
+    if (lockTimeAnchor.HasValue)
+      documentBlock[NAME_FIELD_LOCK_TIME_ANCHOR] = lockTimeAnchor.Value;
+
+    BlocksStoredAwaitingAnchor.Upsert(documentBlock);
   }
 
   void HandleBlockParentInserted(Block blockParent)
@@ -267,7 +274,7 @@ internal partial class BlockchainBToken : Blockchain
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
     if (isBlockParentTip)
-      MinerBlockchain.HandleBlockBitcoinTip(
+      MinerBlockchain.HandleBlockParentTip(
         hasAnchorWinner && !BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchorWinner.HashBlockReferenced)));
 
     if (hasAnchorWinner)
@@ -306,6 +313,10 @@ internal partial class BlockchainBToken : Blockchain
       if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
         UpdateTipBlockchain(chain);
     }
+
+    if (isBlockParentTip)
+      BlocksStoredAwaitingAnchor.DeleteMany(
+        Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - DEPTH_MARGIN_REORG_PARENT));
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)

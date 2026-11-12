@@ -40,7 +40,7 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining = null;
     }
 
-    internal void HandleBlockBitcoinTip(bool isAnchorWinnerForeign)
+    internal void HandleBlockParentTip(bool isAnchorWinnerForeign)
     {
       if (TimerMining == null)
         return;
@@ -137,12 +137,12 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, FeeAnchor))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, FeeAnchor, out int lockTimeAnchor))
         return;
 
       block.Serialize();
 
-      Blockchain.StoreBlockAwaitingAnchor(block);
+      Blockchain.StoreBlockAwaitingAnchor(block, lockTimeAnchor);
     }
   }
 }
