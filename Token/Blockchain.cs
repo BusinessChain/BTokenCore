@@ -1,5 +1,4 @@
 ﻿using LiteDB;
-using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -169,24 +168,7 @@ internal abstract partial class Blockchain
     DrawAnchorsWinner(block);
   }
 
-  static void DrawAnchorsWinner(Block block)
-  {
-    Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
-
-    foreach (TX tX in block.TXs)
-      foreach (TXOutput tXOutput in tX.TXOutputs)
-        if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-        {
-          byte[] scoreAnchor = SHA256.HashData([.. block.Header.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
-
-          if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
-            || scoreAnchor.IsLessThan(scoreAnchorWinner))
-          {
-            scoresAnchorWinner[tokenAnchor.IDToken] = scoreAnchor;
-            block.Header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
-          }
-        }
-  }
+  protected virtual void DrawAnchorsWinner(Block block) { }
 
   protected virtual void ParseBlockStored(Block block)
   {

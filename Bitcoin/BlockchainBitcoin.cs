@@ -1,4 +1,5 @@
 using LiteDB;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -48,6 +49,30 @@ internal partial class BlockchainBitcoin : Blockchain
   internal override TX ParseTX(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures)
   {
     return new TXBitcoin(buffer, ref index, isCoinbase);
+  }
+
+  protected override void DrawAnchorsWinner(Block block)
+  {
+    Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
+
+    foreach (TXBitcoin tX in block.TXs)
+    {
+      if (tX.LockTime != block.Header.Height - 1)
+        continue;
+
+      foreach (TXOutput tXOutput in tX.TXOutputs)
+        if (tXOutput is TXOutputTokenAnchor tokenAnchor)
+        {
+          byte[] scoreAnchor = SHA256.HashData([.. block.Header.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
+
+          if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
+            || scoreAnchor.IsLessThan(scoreAnchorWinner))
+          {
+            scoresAnchorWinner[tokenAnchor.IDToken] = scoreAnchor;
+            block.Header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
+          }
+        }
+    }
   }
 
   protected override void ParseBlockStored(Block block)
