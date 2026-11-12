@@ -122,7 +122,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void MineBlock()
     {
-      if (!Blockchain.Synchronizer.IsAccountsAtTip())
+      if (!Blockchain.Synchronizer.IsAccountsAtTip() || !Blockchain.BlockchainParent.IsBlockTipAtHeaderTip())
         return;
 
       Block block = new(Blockchain.SizeBlockMax);
