@@ -347,7 +347,6 @@ internal partial class BlockchainBToken : Blockchain
       return;
 
     Synchronizer.Drop();
-    TXPool.Clear();
     BlocksStored.DeleteAll();
 
     ChainRoot.HeaderTipBlockchain = ChainRoot.HeaderRoot;

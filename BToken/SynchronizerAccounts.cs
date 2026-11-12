@@ -39,6 +39,7 @@ internal partial class BlockchainBToken : Blockchain
     internal void Drop()
     {
       Blockchain.Accounts.Drop();
+      Blockchain.TXPool.Clear();
       HeaderAccountsReplayed = null;
     }
 
