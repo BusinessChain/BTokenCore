@@ -78,22 +78,10 @@ internal partial class BlockchainBToken : Blockchain
       return Blockchain.Accounts.SerializeSegmentAtHeight(header.Height);
     }
 
-    void DiscardSegmentsOffMainChain()
-    {
-      Header headerTip = Blockchain.ChainRoot.HeaderTipBlockchain;
-
-      for (int i = 0; i < COUNT_SEGMENTS; i += 1)
-        if (SweepsDownload[i].header is Header header
-          && (header.Height > headerTip.Height || headerTip.GetHeaderAncestor(header.Height) != header))
-          SweepsDownload[i] = default;
-    }
-
     internal Header FetchHeaderSweepMissingNext(Func<Header, bool> canSupplierDeliver)
     {
       if (Blockchain.Accounts.Exists() || !IsWindowStoredForAccountsExchange())
         return null;
-
-      DiscardSegmentsOffMainChain();
 
       return FetchItemMissingNext(
         EnumerateHeadersSweepMissing(),
@@ -112,7 +100,7 @@ internal partial class BlockchainBToken : Blockchain
       Header header = Blockchain.ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(Blockchain.ChainRoot.HeaderTipBlockchain.Height - BITCOIN_REORG_MARGIN);
 
       for (int i = 0; i < COUNT_SEGMENTS; i += 1, header = header.HeaderPrevious)
-        if (SweepsDownload[header.Height % COUNT_SEGMENTS].segment == null)
+        if (SweepsDownload[header.Height % COUNT_SEGMENTS].header != header)
           yield return header;
     }
 
@@ -146,18 +134,12 @@ internal partial class BlockchainBToken : Blockchain
 
     void TryInstallSweeps()
     {
-      if (Blockchain.Accounts.Exists())
+      if (Blockchain.Accounts.Exists() || !IsWindowStoredForAccountsExchange() || EnumerateHeadersSweepMissing().Any())
         return;
-
-      DiscardSegmentsOffMainChain();
 
       Header headerTip = Blockchain.ChainRoot.HeaderTipBlockchain;
-      int heightInstall = headerTip.Height - BITCOIN_REORG_MARGIN;
 
-      if (SweepsDownload.Any(s => s.segment == null || s.header.Height > heightInstall))
-        return;
-
-      InstallAccounts(headerTip.GetHeaderAncestor(heightInstall), SweepsDownload);
+      InstallAccounts(headerTip.GetHeaderAncestor(headerTip.Height - BITCOIN_REORG_MARGIN), SweepsDownload);
     }
 
     void InstallAccounts(Header headerAccountsInstalled, IList<(byte[] segment, Header header)> sweeps)
