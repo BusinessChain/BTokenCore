@@ -257,10 +257,9 @@ internal partial class Blockchain
       if (isChainTrunkLagging)
         return ChainTrunk.FetchHeaderBlockMissingNextInChain(HeaderRoot.Height - 1, canSupplierDeliverBlock);
 
-      return FetchItemMissingNext(
+      return FetchHeaderMissingNext(
         GetHeadersBlockMissing(heightTarget),
         HeadersAwaitingBlock,
-        h => h.Hash,
         canSupplierDeliverBlock);
     }
 

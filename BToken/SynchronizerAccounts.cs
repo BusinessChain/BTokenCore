@@ -83,10 +83,9 @@ internal partial class BlockchainBToken : Blockchain
       if (Blockchain.Accounts.Exists() || !IsWindowStoredForAccountsExchange())
         return null;
 
-      return FetchItemMissingNext(
+      return FetchHeaderMissingNext(
         EnumerateHeadersSweepMissing(),
         HeadersSweepAwaited,
-        h => h.Hash,
         canSupplierDeliver);
     }
 

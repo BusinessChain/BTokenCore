@@ -443,26 +443,25 @@ internal abstract partial class Blockchain
         : null);
   }
 
-  protected static T FetchItemMissingNext<T>(
-    IEnumerable<T> itemsMissing,
-    Dictionary<byte[], (T item, DateTime timeRequestLast)> itemsAwaited,
-    Func<T, byte[]> getHash,
-    Func<T, bool> canSupplierDeliver)
+  protected static Header FetchHeaderMissingNext(
+    IEnumerable<Header> headersMissing,
+    Dictionary<byte[], (Header header, DateTime timeRequestLast)> headersAwaited,
+    Func<Header, bool> canSupplierDeliver)
   {
-    foreach (T item in itemsMissing)
-      if (canSupplierDeliver(item) && itemsAwaited.TryAdd(getHash(item), (item, DateTime.UtcNow)))
-        return item;
+    foreach (Header header in headersMissing)
+      if (canSupplierDeliver(header) && headersAwaited.TryAdd(header.Hash, (header, DateTime.UtcNow)))
+        return header;
 
-    foreach (T item in itemsMissing)
-      if (itemsAwaited.TryGetValue(getHash(item), out (T item, DateTime timeRequestLast) itemAwaited)
-        && DateTime.UtcNow - itemAwaited.timeRequestLast >= TimeSpan.FromSeconds(SECONDS_DELAY_REQUEST_HEDGED)
-        && canSupplierDeliver(item))
+    foreach (Header header in headersMissing)
+      if (headersAwaited.TryGetValue(header.Hash, out (Header header, DateTime timeRequestLast) headerAwaited)
+        && DateTime.UtcNow - headerAwaited.timeRequestLast >= TimeSpan.FromSeconds(SECONDS_DELAY_REQUEST_HEDGED)
+        && canSupplierDeliver(header))
       {
-        itemsAwaited[getHash(item)] = (item, DateTime.UtcNow);
-        return item;
+        headersAwaited[header.Hash] = (header, DateTime.UtcNow);
+        return header;
       }
 
-    return default;
+    return null;
   }
 
   internal List<byte[]> GetLocator()
