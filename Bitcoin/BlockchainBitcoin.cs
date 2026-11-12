@@ -154,70 +154,75 @@ internal partial class BlockchainBitcoin : Blockchain
 
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor)
   {
-    TXBitcoin tXAnchor = new()
-    {
-      LockTime = ChainRoot.HeaderTipBlockchain.Height
-    };
+    int heightTip = ChainRoot.HeaderTipBlockchain.Height;
 
-    TXBitcoin tXAnchorUnconfirmed = null;
-
-    if (TXsOwnedStored.FindOne(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)) is BsonDocument documentAnchorUnconfirmed)
-      tXAnchorUnconfirmed = (TXBitcoin)ParseTXOwned(documentAnchorUnconfirmed);
-
-    List<TXOutputOwned> outputsSpendable;
-
-    if (tXAnchorUnconfirmed != null)
-      outputsSpendable = tXAnchorUnconfirmed.Inputs
-        .Select(i => OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)))
-        .Where(o => o != null)
-        .ToList();
-    else
-      outputsSpendable = OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
-        .Take(VarInt.PREFIX_UINT16 - 1).ToList();
-
-    long valueInputs = outputsSpendable.Sum(o => o.Value);
+    List<TXBitcoin> anchorsUnconfirmed = TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
+      .Select(d => (TXBitcoin)ParseTXOwned(d))
+      .ToList();
 
     tokenAnchor.Serialize();
 
-    long lengthTX = LENGTH_P2PKH_INPUT * outputsSpendable.Count
-      + LENGTH_TX_OVERHEAD
+    long lengthTX = LENGTH_TX_OVERHEAD
+      + LENGTH_P2PKH_INPUT
       + tokenAnchor.Script.Length
       + LENGTH_P2PKH_OUTPUT;
 
+    TXBitcoin anchorReplaced = null;
+    TXOutputOwned outputSpent = null;
     long feeTX = feeAnchor;
 
-    if (tXAnchorUnconfirmed != null)
-      feeTX = Math.Max(
-        feeTX,
-        tXAnchorUnconfirmed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * lengthTX);
-
-    if (valueInputs < feeTX)
-      return false;
-
-    long valueChange = valueInputs - feeTX;
-
-    bool flagCreateOutputChange = valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / lengthTX;
-
-    foreach (TXOutputOwned outputSpendable in outputsSpendable)
+    foreach (TXBitcoin anchorMissed in anchorsUnconfirmed.Where(t => t.LockTime < heightTip))
     {
-      tXAnchor.Inputs.Add(new TXInputBitcoin
+      TXInputBitcoin inputMissed = anchorMissed.Inputs[0];
+      long feeReplacement = Math.Max(feeAnchor, anchorMissed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * lengthTX);
+
+      if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(inputMissed.TXIDOutput, inputMissed.IndexOutput)) is TXOutputOwned outputMissed
+        && outputMissed.Value >= feeReplacement)
       {
-        TXIDOutput = outputSpendable.TXID,
-        IndexOutput = outputSpendable.Index
-      });
+        anchorReplaced = anchorMissed;
+        outputSpent = outputMissed;
+        feeTX = feeReplacement;
+        break;
+      }
     }
+
+    if (outputSpent == null)
+    {
+      HashSet<byte[]> iDsOutputOccupied = new(
+        anchorsUnconfirmed.SelectMany(t => t.Inputs).Select(i => TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)),
+        new EqualityComparerByteArray());
+
+      outputSpent = OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
+        .FirstOrDefault(o => o.Value >= feeTX && !iDsOutputOccupied.Contains(o.ID));
+
+      if (outputSpent == null)
+        return false;
+    }
+
+    TXBitcoin tXAnchor = new()
+    {
+      LockTime = heightTip
+    };
+
+    tXAnchor.Inputs.Add(new TXInputBitcoin
+    {
+      TXIDOutput = outputSpent.TXID,
+      IndexOutput = outputSpent.Index
+    });
 
     tXAnchor.TXOutputs.Add(tokenAnchor);
 
-    if (flagCreateOutputChange)
+    long valueChange = outputSpent.Value - feeTX;
+
+    if (valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / lengthTX)
       tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160PKeyPublic));
 
     tXAnchor.Serialize(Wallet);
 
-    tXAnchor.Fee = valueInputs - tXAnchor.GetValueOutputs();
+    tXAnchor.Fee = outputSpent.Value - tXAnchor.GetValueOutputs();
 
-    if (tXAnchorUnconfirmed != null)
-      TXsOwnedStored.Delete(tXAnchorUnconfirmed.Hash);
+    if (anchorReplaced != null)
+      TXsOwnedStored.Delete(anchorReplaced.Hash);
 
     InsertTXOwned(tXAnchor);
 
