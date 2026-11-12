@@ -152,7 +152,7 @@ internal partial class BlockchainBitcoin : Blockchain
       inputsTXOwned.Any(i => i.TXIDOutput.IsAllBytesEqual(tXInput.TXIDOutput) && i.IndexOutput == tXInput.IndexOutput)));
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor)
   {
     TXBitcoin tXAnchor = new()
     {
@@ -164,9 +164,6 @@ internal partial class BlockchainBitcoin : Blockchain
     if (TXsOwnedStored.FindOne(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)) is BsonDocument documentAnchorUnconfirmed)
       tXAnchorUnconfirmed = (TXBitcoin)ParseTXOwned(documentAnchorUnconfirmed);
 
-    long feePerInputP2PKH = (LENGTH_P2PKH_INPUT * feePerByte);
-    long feePerOutputP2PKH = (LENGTH_P2PKH_OUTPUT * feePerByte);
-
     List<TXOutputOwned> outputsSpendable;
 
     if (tXAnchorUnconfirmed != null)
@@ -176,7 +173,6 @@ internal partial class BlockchainBitcoin : Blockchain
         .ToList();
     else
       outputsSpendable = OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
-        .Where(o => o.Value > feePerInputP2PKH)
         .Take(VarInt.PREFIX_UINT16 - 1).ToList();
 
     long valueInputs = outputsSpendable.Sum(o => o.Value);
@@ -185,21 +181,22 @@ internal partial class BlockchainBitcoin : Blockchain
 
     long lengthTX = LENGTH_P2PKH_INPUT * outputsSpendable.Count
       + LENGTH_TX_OVERHEAD
-      + tokenAnchor.Script.Length;
+      + tokenAnchor.Script.Length
+      + LENGTH_P2PKH_OUTPUT;
 
-    long feeTX = feePerByte * lengthTX;
+    long feeTX = feeAnchor;
 
     if (tXAnchorUnconfirmed != null)
       feeTX = Math.Max(
         feeTX,
-        tXAnchorUnconfirmed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * (lengthTX + LENGTH_P2PKH_OUTPUT));
+        tXAnchorUnconfirmed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * lengthTX);
 
     if (valueInputs < feeTX)
       return false;
 
-    long valueChange = valueInputs - feeTX - feePerOutputP2PKH;
+    long valueChange = valueInputs - feeTX;
 
-    bool flagCreateOutputChange = valueChange > feePerInputP2PKH;
+    bool flagCreateOutputChange = valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / lengthTX;
 
     foreach (TXOutputOwned outputSpendable in outputsSpendable)
     {

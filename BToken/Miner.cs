@@ -7,7 +7,7 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
 
     bool IsMining;
-    long FeePerByte;
+    long FeeAnchor;
     bool IsRoundMiningOpen;
     byte[] HashBlockAwaitedRoundMining;
 
@@ -17,13 +17,9 @@ internal partial class BlockchainBToken : Blockchain
       Blockchain = blockchain;
     }
 
-    internal void StartMining(long feePerByte)
+    internal void StartMining(long feeAnchor)
     {
-      // The user has to define the fee rate at which they want to pay for the anchoring.
-      // The GUI could also offer a tool that controls the fee rate automatically,
-      // e.g. based on past fee rates or market price arbitrage.
-
-      FeePerByte = feePerByte;
+      FeeAnchor = feeAnchor;
       IsMining = true;
     }
 
@@ -108,7 +104,7 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, FeePerByte))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, FeeAnchor))
         return;
 
       block.Serialize();

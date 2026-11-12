@@ -78,7 +78,7 @@ internal partial class BlockchainBToken : Blockchain
     return new TXBToken(buffer, ref index, isCoinbase, verifySignatures);
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor)
   {
     throw new NotImplementedException();
   }
@@ -200,9 +200,9 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetFeePerByteMin();
   }
 
-  internal void StartMining(long feePerByte)
+  internal void StartMining(long feeAnchor)
   {
-    MinerBlockchain.StartMining(feePerByte);
+    MinerBlockchain.StartMining(feeAnchor);
   }
 
   internal void StopMining()
