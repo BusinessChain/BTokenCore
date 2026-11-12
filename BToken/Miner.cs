@@ -10,7 +10,7 @@ internal partial class BlockchainBToken : Blockchain
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
 
     Timer TimerMining;
-    Timer TimerBurst;
+    Timer TimerReplacementAnchorsMissed;
     int CountAnchorsPer10Minutes;
     long FeeAnchor;
     uint NonceBlockNext;
@@ -37,8 +37,8 @@ internal partial class BlockchainBToken : Blockchain
         MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes,
         Timeout.Infinite);
 
-      TimerBurst = new Timer(
-        _ => Blockchain.RunLocked(() => RunTimer(Burst)),
+      TimerReplacementAnchorsMissed = new Timer(
+        _ => Blockchain.RunLocked(() => RunTimer(ReplaceAnchorsMissed)),
         null,
         Timeout.Infinite,
         Timeout.Infinite);
@@ -49,11 +49,11 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining?.Dispose();
       TimerMining = null;
 
-      TimerBurst?.Dispose();
-      TimerBurst = null;
+      TimerReplacementAnchorsMissed?.Dispose();
+      TimerReplacementAnchorsMissed = null;
     }
 
-    internal void HandleBlockParentTip(bool isAnchorWinnerForeign)
+    internal void ScheduleReplacementAnchorsMissed(bool isAnchorWinnerForeign)
     {
       if (TimerMining == null)
         return;
@@ -61,10 +61,10 @@ internal partial class BlockchainBToken : Blockchain
       if (isAnchorWinnerForeign)
       {
         TimeWindowBlankEnd = DateTime.UtcNow.AddMilliseconds(MILLISECONDS_WINDOW_BLANK);
-        TimerBurst.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
+        TimerReplacementAnchorsMissed.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
       }
       else
-        TimerBurst.Change(0, Timeout.Infinite);
+        TimerReplacementAnchorsMissed.Change(0, Timeout.Infinite);
     }
 
     void RunTimer(Action action)
@@ -83,7 +83,7 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    void Burst()
+    void ReplaceAnchorsMissed()
     {
       int countAnchorsReplaceable = Blockchain.BlockchainParent.CountAnchorsReplaceable(FeeAnchor);
 

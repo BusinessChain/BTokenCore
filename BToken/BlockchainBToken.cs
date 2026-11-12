@@ -260,56 +260,74 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksStoredAwaitingAnchor.Upsert(documentBlock);
   }
+   
+  void InsertBlockAwaitingAnchor(Header headerParent, TXOutputTokenAnchor anchor)
+  {
+    if (!ChainRoot.TryGetHeaderPlaceholder(headerParent, out Header headerPlaceholder, out Chain chain))
+      return;
+
+    if (BlocksStoredAwaitingAnchor.FindById(anchor.HashBlockReferenced) is not BsonDocument bsonDocumentBlock)
+      return;
+
+    Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
+
+    if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
+      UpdateTipBlockchain(chain);
+  }
 
   void HandleBlockParentInserted(Block blockParent)
   {
-    bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
-    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
-
-    if (isBlockParentTip)
-      MinerBlockchain.HandleBlockParentTip(
-        hasAnchorWinner && !BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchorWinner.HashBlockReferenced)));
+    bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchor);
+    bool isBlockReferencedStored = hasAnchorWinner && BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchor.HashBlockReferenced));
 
     if (hasAnchorWinner)
-    {
-      Header headerPlaceholderNew = new HeaderBToken(
-        headerHash: anchorWinner.HashBlockReferenced,
-        hashPrevious: anchorWinner.HashBlockPreviousReferenced,
-        merkleRootHash: new byte[Crypto.LENGTH_HASH256],
-        hashAccounts: new byte[Crypto.LENGTH_HASH256],
-        nonce: 0)
-      {
-        HeaderParent = blockParent.Header
-      };
+      InsertBlockReferenced(blockParent.Header, anchor, isBlockReferencedStored);
 
-      Header headerLastInTree = ChainRoot.FindInTree(
-        chain => chain.TryGetHeader(headerPlaceholderNew.Hash, out Header header) ? header : null);
-
-      if (headerLastInTree == null)
-        ChainRoot.InsertHeadersInTree([headerPlaceholderNew], GetHeightBlockStoredOldest(), out headerLastInTree);
-      else if (!headerLastInTree.HashPrevious.IsAllBytesEqual(headerPlaceholderNew.HashPrevious))
-        headerLastInTree = null;
-
-      if (headerLastInTree != null && headerLastInTree != headerPlaceholderNew && headerLastInTree.HeaderParent == null)
-        headerLastInTree.HeaderParent = blockParent.Header;
-    }
-
+    bool isBlockParentTip = blockParent.Header.HeaderNext == null;
     if (isBlockParentTip)
-      ResyncWhenBehindWindowStored();
+      HandleBlockParentTip(blockParent.Header, hasAnchorWinner && !isBlockReferencedStored);
+  }
 
-    if (hasAnchorWinner
-      && ChainRoot.TryGetHeaderPlaceholder(blockParent.Header, out Header headerPlaceholder, out Chain chain)
-      && BlocksStoredAwaitingAnchor.FindById(anchorWinner.HashBlockReferenced) is BsonDocument bsonDocumentBlock)
+  void InsertBlockReferenced(Header headerParent, TXOutputTokenAnchor anchor, bool isBlockReferencedStored)
+  {
+    InsertHeaderPlaceholder(headerParent, anchor);
+
+    if (isBlockReferencedStored)
+      InsertBlockAwaitingAnchor(headerParent, anchor);
+  }
+
+  void HandleBlockParentTip(Header headerParent, bool isAnchorWinnerForeign)
+  {
+    MinerBlockchain.ScheduleReplacementAnchorsMissed(isAnchorWinnerForeign);
+
+    ResyncWhenBehindWindowStored();
+
+    BlocksStoredAwaitingAnchor.DeleteMany(
+      Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, headerParent.Height - BITCOIN_REORG_MARGIN));
+  }
+
+  void InsertHeaderPlaceholder(Header headerParent, TXOutputTokenAnchor anchor)
+  {
+    Header headerPlaceholderNew = new HeaderBToken(
+      headerHash: anchor.HashBlockReferenced,
+      hashPrevious: anchor.HashBlockPreviousReferenced,
+      merkleRootHash: new byte[Crypto.LENGTH_HASH256],
+      hashAccounts: new byte[Crypto.LENGTH_HASH256],
+      nonce: 0)
     {
-      Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
+      HeaderParent = headerParent
+    };
 
-      if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
-        UpdateTipBlockchain(chain);
-    }
+    Header headerLastInTree = ChainRoot.FindInTree(
+      chain => chain.TryGetHeader(headerPlaceholderNew.Hash, out Header header) ? header : null);
 
-    if (isBlockParentTip)
-      BlocksStoredAwaitingAnchor.DeleteMany(
-        Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
+    if (headerLastInTree == null)
+      ChainRoot.InsertHeadersInTree([headerPlaceholderNew], GetHeightBlockStoredOldest(), out headerLastInTree);
+    else if (!headerLastInTree.HashPrevious.IsAllBytesEqual(headerPlaceholderNew.HashPrevious))
+      headerLastInTree = null;
+
+    if (headerLastInTree != null && headerLastInTree != headerPlaceholderNew && headerLastInTree.HeaderParent == null)
+      headerLastInTree.HeaderParent = headerParent;
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)
@@ -334,25 +352,22 @@ internal partial class BlockchainBToken : Blockchain
   {
     Chain chainTallest = ChainRoot.FindChainTallest();
 
-    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height > COUNT_MAX_BLOCKS_STORED + DEPTH_MARGIN_RESYNC)
-    {
-      Resync(chainTallest);
-      UpdateTipBlockchain(ChainRoot);
-    }
-  }
+    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height <= COUNT_MAX_BLOCKS_STORED + DEPTH_MARGIN_RESYNC)
+      return;
 
-  void Resync(Chain chainTallest)
-  {
     Synchronizer.Drop();
     TXPool.Clear();
     BlocksStored.DeleteAll();
 
     ChainRoot.HeaderTipBlockchain = ChainRoot.HeaderRoot;
+
     Reorg(chainTallest);
 
     Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
 
     ChainRoot.ReRoot(headerRoot);
+
+    UpdateTipBlockchain(ChainRoot);
   }
 
   void RollBackUnanchored()
