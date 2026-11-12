@@ -132,6 +132,14 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     int height = block.Header.Height;
 
+    HashSet<byte[]> iDsOutputCreated = new(
+      OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightCreated), height)).Select(o => o.ID),
+      new EqualityComparerByteArray());
+
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
+      if (((TXBitcoin)ParseTXOwned(documentTXOwned)).Inputs.Any(i => iDsOutputCreated.Contains(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput))))
+        TXsOwnedStored.Delete(documentTXOwned[NAME_FIELD_ID]);
+
     OutputsOwnedStored.DeleteMany(Query.EQ(nameof(TXOutputOwned.HeightCreated), height));
 
     foreach (TXOutputOwned outputSpent in OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), height)).ToList())
@@ -139,9 +147,6 @@ internal partial class BlockchainBitcoin : Blockchain
       outputSpent.HeightSpent = 0;
       OutputsOwnedStored.Update(outputSpent);
     }
-
-    if (TXsOwnedStored.Exists(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, height)))
-      TXsOwnedStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0));
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
