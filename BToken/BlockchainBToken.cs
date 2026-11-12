@@ -182,6 +182,20 @@ internal partial class BlockchainBToken : Blockchain
     Synchronizer.Start();
   }
 
+  void RollBackUnanchored()
+  {
+    Header header = ChainRoot.HeaderRoot;
+
+    while (header != null && header.HeaderParent == null)
+      header = header.HeaderNext;
+
+    while (header != null && header.HeaderParent != null)
+      header = header.HeaderNext;
+
+    if (header != null)
+      RemoveHeader(ChainRoot, header);
+  }
+
   internal override TX GetTX(byte[] hash)
   {
     if (TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
@@ -282,7 +296,17 @@ internal partial class BlockchainBToken : Blockchain
 
     if (hasAnchorWinner)
     {
-      InsertHeaderPlaceholder(blockParent.Header, anchor);
+      Header headerPlaceholder = new HeaderBToken(
+        headerHash: anchor.HashBlockReferenced,
+        hashPrevious: anchor.HashBlockPreviousReferenced,
+        merkleRootHash: new byte[Crypto.LENGTH_HASH256],
+        hashAccounts: new byte[Crypto.LENGTH_HASH256],
+        nonce: 0)
+      {
+        HeaderParent = blockParent.Header
+      };
+
+      ChainRoot.InsertHeaderPlaceholder(headerPlaceholder, GetHeightBlockStoredOldest());
 
       if (isBlockReferencedStored)
         InsertBlockAwaitingAnchor(blockParent.Header, anchor);
@@ -299,30 +323,6 @@ internal partial class BlockchainBToken : Blockchain
       BlocksStoredAwaitingAnchor.DeleteMany(
         Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
     }
-  }
-
-  void InsertHeaderPlaceholder(Header headerParent, TXOutputTokenAnchor anchor)
-  {
-    Header headerPlaceholderNew = new HeaderBToken(
-      headerHash: anchor.HashBlockReferenced,
-      hashPrevious: anchor.HashBlockPreviousReferenced,
-      merkleRootHash: new byte[Crypto.LENGTH_HASH256],
-      hashAccounts: new byte[Crypto.LENGTH_HASH256],
-      nonce: 0)
-    {
-      HeaderParent = headerParent
-    };
-
-    Header headerLastInTree = ChainRoot.FindInTree(
-      chain => chain.TryGetHeader(headerPlaceholderNew.Hash, out Header header) ? header : null);
-
-    if (headerLastInTree == null)
-      ChainRoot.InsertHeadersInTree([headerPlaceholderNew], GetHeightBlockStoredOldest(), out headerLastInTree);
-    else if (!headerLastInTree.HashPrevious.IsAllBytesEqual(headerPlaceholderNew.HashPrevious))
-      headerLastInTree = null;
-
-    if (headerLastInTree != null && headerLastInTree != headerPlaceholderNew && headerLastInTree.HeaderParent == null)
-      headerLastInTree.HeaderParent = headerParent;
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)
@@ -363,19 +363,5 @@ internal partial class BlockchainBToken : Blockchain
     ChainRoot.ReRoot(headerRoot);
 
     UpdateTipBlockchain(ChainRoot);
-  }
-
-  void RollBackUnanchored()
-  {
-    Header header = ChainRoot.HeaderRoot;
-
-    while (header != null && header.HeaderParent == null)
-      header = header.HeaderNext;
-
-    while (header != null && header.HeaderParent != null)
-      header = header.HeaderNext;
-
-    if (header != null)
-      RemoveHeader(ChainRoot, header);
   }
 }

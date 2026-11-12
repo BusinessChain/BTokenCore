@@ -149,6 +149,20 @@ internal partial class Blockchain
       return chainPlaceholder != null;
     }
 
+    internal void InsertHeaderPlaceholder(Header headerPlaceholder, int heightBlockStoredOldest)
+    {
+      Header headerLastInTree = FindInTree(
+        chain => chain.TryGetHeader(headerPlaceholder.Hash, out Header header) ? header : null);
+
+      if (headerLastInTree == null)
+        InsertHeadersInTree([headerPlaceholder], heightBlockStoredOldest, out headerLastInTree);
+      else if (!headerLastInTree.HashPrevious.IsAllBytesEqual(headerPlaceholder.HashPrevious))
+        headerLastInTree = null;
+
+      if (headerLastInTree != null && headerLastInTree != headerPlaceholder && headerLastInTree.HeaderParent == null)
+        headerLastInTree.HeaderParent = headerPlaceholder.HeaderParent;
+    }
+
     Header FindHeaderAnchoredIn(Header headerParent)
     {
       Header headerFork = HeaderRoot.HeaderPrevious;
