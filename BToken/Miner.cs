@@ -32,7 +32,7 @@ internal partial class BlockchainBToken : Blockchain
       IsMining = false;
     }
 
-    internal void OpenRound(byte[] hashBlockAwaited)
+    internal void AllowAnchorNext(byte[] hashBlockAwaited)
     {
       IsRoundMiningOpen = true;
       HashBlockAwaitedRoundMining = hashBlockAwaited;

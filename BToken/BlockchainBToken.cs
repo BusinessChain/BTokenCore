@@ -257,9 +257,6 @@ internal partial class BlockchainBToken : Blockchain
     bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchorWinner);
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
-    if (isBlockParentTip)
-      MinerBlockchain.OpenRound(hasAnchorWinner ? anchorWinner.HashBlockReferenced : null);
-
     if (hasAnchorWinner)
     {
       Header headerPlaceholderNew = new HeaderBToken(
@@ -296,6 +293,9 @@ internal partial class BlockchainBToken : Blockchain
       if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
         UpdateTipBlockchain(chain);
     }
+
+    if (isBlockParentTip)
+      MinerBlockchain.AllowAnchorNext(hasAnchorWinner ? anchorWinner.HashBlockReferenced : null);
 
     MinerBlockchain.MineBlock();
   }

@@ -2,7 +2,7 @@
 
 internal partial class BlockchainBToken : Blockchain
 {
-  internal class PoolTXBToken
+  class PoolTXBToken
   {
     class TXBundle
     {
