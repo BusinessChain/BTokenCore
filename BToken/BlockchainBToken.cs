@@ -275,12 +275,9 @@ internal partial class BlockchainBToken : Blockchain
     BlocksStoredAwaitingAnchor.Upsert(documentBlock);
   }
    
-  void InsertBlockAwaitingAnchor(Header headerParent, TXOutputTokenAnchor anchor)
+  void InsertBlockAwaitingAnchor(Header headerParent, BsonDocument bsonDocumentBlock)
   {
     if (!ChainRoot.TryGetHeaderPlaceholder(headerParent, out Header headerPlaceholder, out Chain chain))
-      return;
-
-    if (BlocksStoredAwaitingAnchor.FindById(anchor.HashBlockReferenced) is not BsonDocument bsonDocumentBlock)
       return;
 
     Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
@@ -292,7 +289,7 @@ internal partial class BlockchainBToken : Blockchain
   void HandleBlockParentInserted(Block blockParent)
   {
     bool hasAnchorWinner = blockParent.Header.AnchorsWinner.TryGetValue(IDToken, out TXOutputTokenAnchor anchor);
-    bool isBlockReferencedStored = hasAnchorWinner && BlocksStoredAwaitingAnchor.Exists(Query.EQ(NAME_FIELD_ID, anchor.HashBlockReferenced));
+    BsonDocument documentBlockReferenced = hasAnchorWinner ? BlocksStoredAwaitingAnchor.FindById(anchor.HashBlockReferenced) : null;
 
     if (hasAnchorWinner)
     {
@@ -308,15 +305,15 @@ internal partial class BlockchainBToken : Blockchain
 
       ChainRoot.InsertHeaderPlaceholder(headerPlaceholder, GetHeightBlockStoredOldest());
 
-      if (isBlockReferencedStored)
-        InsertBlockAwaitingAnchor(blockParent.Header, anchor);
+      if (documentBlockReferenced != null)
+        InsertBlockAwaitingAnchor(blockParent.Header, documentBlockReferenced);
     }
 
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
     if (isBlockParentTip)
     {
-      MinerBlockchain.ScheduleReplacementAnchorsMissed(hasAnchorWinner && !isBlockReferencedStored);
+      MinerBlockchain.ScheduleReplacementAnchorsMissed(hasAnchorWinner && documentBlockReferenced == null);
 
       ResyncWhenBehindWindowStored();
 
