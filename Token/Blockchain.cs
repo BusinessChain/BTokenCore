@@ -114,7 +114,7 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTipBlockchain == ChainRoot.HeaderTip;
   }
 
-  internal List<byte[]> GetHashesTXOwnedUnconfirmed()
+  internal virtual List<byte[]> GetHashesTXOwnedUnconfirmed()
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).Select(d => d[NAME_FIELD_ID].AsBinary).ToList();
   }
