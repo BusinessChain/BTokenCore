@@ -31,6 +31,8 @@ internal partial class Network
 
     internal DateTime TimeConnected;
 
+    internal DateTime TimeRequestHeaders;
+
     internal SemaphoreSlim SemaphorePeer = new(1);
 
     internal HashSet<byte[]> HashesSegmentRefused = new(new EqualityComparerByteArray());
@@ -177,10 +179,11 @@ internal partial class Network
 
             if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.AccountsDownload)
             {
-              if (StateCurrent != StateProtocol.Idle)
-                continue;
-
-              await blockMessage.RequestBlockNext(this);
+              if (StateCurrent == StateProtocol.Idle)
+                await blockMessage.RequestBlockNext(this);
+              else if (StateCurrent == StateProtocol.HeaderDownload
+                && DateTime.UtcNow - TimeRequestHeaders > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS))
+                SocketCommunication.Dispose();
             }
             else if (DateTime.UtcNow - blockMessage.TimeRequest > TimeSpan.FromSeconds(TIMEOUT_REQUEST_SECONDS))
               SocketCommunication.Dispose();

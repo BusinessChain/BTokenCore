@@ -60,6 +60,7 @@ internal partial class NetworkBitcoin : Network
       byte[] buffer = payload.ToArray();
 
       peer.StateCurrent = Peer.StateProtocol.HeaderDownload;
+      peer.TimeRequestHeaders = DateTime.UtcNow;
 
       await peer.SocketCommunication.SendMessage(Command, buffer.Length, buffer);
     }
