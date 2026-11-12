@@ -17,18 +17,17 @@ internal partial class Blockchain
     internal Dictionary<int, Block> BlocksQueued = new();
 
 
-    internal Chain(Header headerRoot, bool isRoot)
-      : this(null, headerRoot, isRoot)
-    { }
+    internal Chain(Header headerRoot)
+      : this(null, headerRoot)
+    {
+      HeaderTipBlockchain = headerRoot;
+    }
 
-    Chain(Chain chainTrunk, Header headerRoot, bool isRoot)
+    Chain(Chain chainTrunk, Header headerRoot)
     {
       ChainTrunk = chainTrunk;
       HeaderRoot = headerRoot;
       HeaderTip = headerRoot;
-
-      if (isRoot)
-        HeaderTipBlockchain = headerRoot;
     }
 
     internal void InsertHeadersInTree(List<Header> headers, int heightBlockStoredOldest, out Header headerLastInTree)
@@ -51,7 +50,7 @@ internal partial class Blockchain
       {
         headers[0].AppendToHeader(headerAncestor);
 
-        Chain chainFork = new(chain, headers[0], isRoot: false);
+        Chain chainFork = new(chain, headers[0]);
         chain.ChainsFork.Add(chainFork);
         chain = chainFork;
 

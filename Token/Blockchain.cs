@@ -43,7 +43,7 @@ internal abstract partial class Blockchain
 
     SemaphoreBlockchain = semaphoreBlockchain;
 
-    ChainRoot = new(CreateHeaderRoot(), isRoot: true);
+    ChainRoot = new(CreateHeaderRoot());
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     LiteDatabase = new (
@@ -239,7 +239,7 @@ internal abstract partial class Blockchain
         if (header.HashPrevious.IsAllBytesEqual(ChainRoot.HeaderTipBlockchain.Hash))
           ChainRoot.AppendHeader(header);
         else
-          ChainRoot = new(header, isRoot: true);
+          ChainRoot = new(header);
 
         ChainRoot.HeaderTipBlockchain = header;
 
