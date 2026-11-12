@@ -406,7 +406,8 @@ internal abstract partial class Blockchain
 
         ChainRoot.HeaderTipBlockchain = header.HeaderPrevious;
 
-        ChainRoot.BlocksQueued.Add(header.Height, block);
+        if (block.TXs.Count > 0)
+          ChainRoot.BlocksQueued.Add(header.Height, block);
       }
     }
     catch (Exception exception)
