@@ -284,8 +284,11 @@ internal partial class BlockchainBToken : Blockchain
 
       CountsAccountNext = null;
 
+      int indexSegmentSweepNext = Blockchain.Accounts.GetIndexSegmentSweepNext();
+      Func<byte[], bool> isInSweepNext = iD => DatabaseAccounts.GetIndexSegment(iD) == indexSegmentSweepNext;
+
       HashSet<byte[]> iDsAccountReverified = new(
-        TXsByIDAccountSource.Keys.Where(Blockchain.Accounts.IsInSweepNext),
+        TXsByIDAccountSource.Keys.Where(isInSweepNext),
         new EqualityComparerByteArray());
 
       foreach (TXBToken tX in block.TXs)
@@ -300,7 +303,7 @@ internal partial class BlockchainBToken : Blockchain
 
       RetestCreations(IDsCreatedPending
         .Concat(iDsAccountReverified)
-        .Concat(CountTXsPayingByID.Keys.Where(Blockchain.Accounts.IsInSweepNext))
+        .Concat(CountTXsPayingByID.Keys.Where(isInSweepNext))
         .ToList());
     }
 

@@ -178,9 +178,9 @@ internal partial class BlockchainBToken : Blockchain
       return account?.Balance > 0 ? account : null;
     }
 
-    internal bool IsInSweepNext(byte[] iDAccount)
+    internal int GetIndexSegmentSweepNext()
     {
-      return GetIndexSegment(iDAccount) == (GetHeightBlockAppliedLast() + 1) % COUNT_SEGMENTS;
+      return (GetHeightBlockAppliedLast() + 1) % COUNT_SEGMENTS;
     }
 
     void WriteAccount(Account account, int height)
