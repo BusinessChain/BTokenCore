@@ -13,6 +13,7 @@ internal partial class BlockchainBitcoin : Blockchain
   const int LENGTH_P2PKH_INPUT = 148;
   const int LENGTH_P2PKH_OUTPUT = 34;
   const int LENGTH_TX_OVERHEAD = 10;
+  const int LENGTH_OUTPUT_OVERHEAD = 9;
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
@@ -180,6 +181,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     long lengthTX = LENGTH_TX_OVERHEAD
       + LENGTH_P2PKH_INPUT
+      + LENGTH_OUTPUT_OVERHEAD
       + tokenAnchor.Script.Length
       + LENGTH_P2PKH_OUTPUT;
 
