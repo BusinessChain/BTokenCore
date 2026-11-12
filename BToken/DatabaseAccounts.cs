@@ -171,12 +171,6 @@ internal partial class BlockchainBToken : Blockchain
       };
     }
 
-    internal Account LoadAccountExisting(byte[] iDAccount)
-    {
-      return Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast())
-        ?? throw new ProtocolException($"Account {iDAccount.ToHexString()} not found in database.");
-    }
-
     internal Account LoadAccountNext(byte[] iDAccount)
     {
       Account account = Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast() + 1);
@@ -189,9 +183,9 @@ internal partial class BlockchainBToken : Blockchain
       return GetIndexSegment(iDAccount) == (GetHeightBlockAppliedLast() + 1) % COUNT_SEGMENTS;
     }
 
-    void WriteAccount(Account account)
+    void WriteAccount(Account account, int height)
     {
-      GetSegmentWritable(GetIndexSegment(account.ID)).WriteAccount(account, GetHeightBlockAppliedLast());
+      GetSegmentWritable(GetIndexSegment(account.ID)).WriteAccount(account, height);
     }
 
     Segment GetSegmentWritable(int indexSegment)
@@ -244,9 +238,11 @@ internal partial class BlockchainBToken : Blockchain
 
         if (i > 0 && isSegmentApplied(GetIndexSegment(tX.IDAccountSource)))
         {
-          Account accountSource = LoadAccountExisting(tX.IDAccountSource);
+          Account accountSource = Segments[GetIndexSegment(tX.IDAccountSource)].LoadAccount(tX.IDAccountSource, height)
+            ?? throw new ProtocolException($"Account {tX.IDAccountSource.ToHexString()} not found in database.");
+
           accountSource.SpendTX(tX);
-          WriteAccount(accountSource);
+          WriteAccount(accountSource, height);
         }
       }
 
@@ -283,14 +279,13 @@ internal partial class BlockchainBToken : Blockchain
       SetBlockAppliedLast(height - 1, header.HashPrevious);
     }
 
-    void ChangeBalance(byte[] iDAccount, int heightAccountCreated, long valueChange)
+    void ChangeBalance(byte[] iDAccount, int height, long valueChange)
     {
-      Account account = Segments[GetIndexSegment(iDAccount)].LoadAccount(iDAccount, GetHeightBlockAppliedLast());
+      int indexSegment = GetIndexSegment(iDAccount);
+      Account account = Segments[indexSegment].LoadAccount(iDAccount, height);
 
       if (account == null)
       {
-        int indexSegment = GetIndexSegment(iDAccount);
-
         if (CountsAccountsPerSegment[indexSegment] + 1 > CountAccountsMax)
           throw new ProtocolException($"Account {iDAccount.ToHexString()} exceeds the limit of {CountAccountsMax} accounts in segment {indexSegment}.");
 
@@ -299,12 +294,12 @@ internal partial class BlockchainBToken : Blockchain
         account = new()
         {
           ID = iDAccount,
-          HeightAccountCreated = heightAccountCreated
+          HeightAccountCreated = height
         };
       }
 
       account.Balance += valueChange;
-      WriteAccount(account);
+      WriteAccount(account, height);
     }
 
     internal byte[] ComputeHash(Block block)
