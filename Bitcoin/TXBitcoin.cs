@@ -9,6 +9,8 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     internal List<TXInputBitcoin> Inputs = new();
 
+    internal int LockTime;
+
 
     internal TXBitcoin()
     { }
@@ -34,7 +36,7 @@ internal partial class BlockchainBitcoin : Blockchain
         TXOutputs.Add(ParseTXOutput(buffer, ref index));
       }
 
-      index += 4; //BYTE_LENGTH_LOCK_TIME
+      LockTime = buffer.Read<int>(ref index);
 
       Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
     }
@@ -58,7 +60,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
       SerializeTXOutputs(tXRaw);
 
-      tXRaw.AddRange([0x00, 0x00, 0x00, 0x00]); // locktime
+      tXRaw.AddRange(BitConverter.GetBytes(LockTime));
       tXRaw.AddRange([0x01, 0x00, 0x00, 0x00]); // sighash
 
       SignTX(tXRaw, wallet);

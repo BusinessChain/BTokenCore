@@ -129,7 +129,10 @@ internal partial class BlockchainBitcoin : Blockchain
 
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feePerByte)
   {
-    TXBitcoin tXAnchor = new();
+    TXBitcoin tXAnchor = new()
+    {
+      LockTime = ChainRoot.HeaderTipBlockchain.Height
+    };
 
     TXBitcoin tXAnchorUnconfirmed = null;
 
