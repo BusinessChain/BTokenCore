@@ -83,7 +83,7 @@ internal partial class BlockchainBToken : Blockchain
     throw new NotImplementedException();
   }
 
-  internal override int CountAnchorsMissed()
+  internal override int CountAnchorsReplaceable(long feeAnchor)
   {
     throw new NotImplementedException();
   }

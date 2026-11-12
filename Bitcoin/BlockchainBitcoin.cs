@@ -14,6 +14,11 @@ internal partial class BlockchainBitcoin : Blockchain
   const int LENGTH_P2PKH_OUTPUT = 34;
   const int LENGTH_TX_OVERHEAD = 10;
   const int LENGTH_OUTPUT_OVERHEAD = 9;
+  const int LENGTH_ANCHOR = LENGTH_TX_OVERHEAD
+    + LENGTH_P2PKH_INPUT
+    + LENGTH_OUTPUT_OVERHEAD
+    + TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN
+    + LENGTH_P2PKH_OUTPUT;
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
@@ -170,9 +175,22 @@ internal partial class BlockchainBitcoin : Blockchain
       .ToList();
   }
 
-  internal override int CountAnchorsMissed()
+  IEnumerable<(TXBitcoin anchorMissed, TXOutputOwned outputMissed, long feeReplacement)> EnumerateAnchorsReplaceable(List<TXBitcoin> anchorsUnconfirmed, long feeAnchor)
   {
-    return LoadAnchorsUnconfirmed().Count(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
+    foreach (TXBitcoin anchorMissed in anchorsUnconfirmed.Where(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height))
+    {
+      TXInputBitcoin inputMissed = anchorMissed.Inputs[0];
+      long feeReplacement = Math.Max(feeAnchor, anchorMissed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * LENGTH_ANCHOR);
+
+      if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(inputMissed.TXIDOutput, inputMissed.IndexOutput)) is TXOutputOwned outputMissed
+        && outputMissed.Value >= feeReplacement)
+        yield return (anchorMissed, outputMissed, feeReplacement);
+    }
+  }
+
+  internal override int CountAnchorsReplaceable(long feeAnchor)
+  {
+    return EnumerateAnchorsReplaceable(LoadAnchorsUnconfirmed(), feeAnchor).Count();
   }
 
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime)
@@ -184,30 +202,8 @@ internal partial class BlockchainBitcoin : Blockchain
 
     tokenAnchor.Serialize();
 
-    long lengthTX = LENGTH_TX_OVERHEAD
-      + LENGTH_P2PKH_INPUT
-      + LENGTH_OUTPUT_OVERHEAD
-      + tokenAnchor.Script.Length
-      + LENGTH_P2PKH_OUTPUT;
-
-    TXBitcoin anchorReplaced = null;
-    TXOutputOwned outputSpent = null;
-    long feeTX = feeAnchor;
-
-    foreach (TXBitcoin anchorMissed in anchorsUnconfirmed.Where(t => t.LockTime < heightTip))
-    {
-      TXInputBitcoin inputMissed = anchorMissed.Inputs[0];
-      long feeReplacement = Math.Max(feeAnchor, anchorMissed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * lengthTX);
-
-      if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(inputMissed.TXIDOutput, inputMissed.IndexOutput)) is TXOutputOwned outputMissed
-        && outputMissed.Value >= feeReplacement)
-      {
-        anchorReplaced = anchorMissed;
-        outputSpent = outputMissed;
-        feeTX = feeReplacement;
-        break;
-      }
-    }
+    (TXBitcoin anchorReplaced, TXOutputOwned outputSpent, long feeTX) = EnumerateAnchorsReplaceable(anchorsUnconfirmed, feeAnchor)
+      .FirstOrDefault((null, null, feeAnchor));
 
     if (outputSpent == null)
     {
@@ -237,7 +233,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
     long valueChange = outputSpent.Value - feeTX;
 
-    if (valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / lengthTX)
+    if (valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR)
       tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160PKeyPublic));
 
     tXAnchor.Serialize(Wallet);

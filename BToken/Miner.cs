@@ -84,9 +84,9 @@ internal partial class BlockchainBToken : Blockchain
 
     void Burst()
     {
-      int countAnchorsMissed = Blockchain.BlockchainParent.CountAnchorsMissed();
+      int countAnchorsReplaceable = Blockchain.BlockchainParent.CountAnchorsReplaceable(FeeAnchor);
 
-      for (int i = 0; i < countAnchorsMissed; i++)
+      for (int i = 0; i < countAnchorsReplaceable; i++)
         MineBlock();
     }
 

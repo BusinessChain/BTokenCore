@@ -86,7 +86,7 @@ internal abstract partial class Blockchain
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime);
 
-  internal abstract int CountAnchorsMissed();
+  internal abstract int CountAnchorsReplaceable(long feeAnchor);
 
   internal virtual TX GetTX(byte[] hash)
   {
