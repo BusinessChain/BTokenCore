@@ -124,7 +124,11 @@ internal partial class BlockchainBToken : Blockchain
       return Segment.IsSegmentValid(segment, indexSegment);
     }
 
-    internal void Install(IList<(byte[] segment, Header header)> sweeps, Header headerAppliedLast, Func<Header, Block> loadBlock, out Header headerFailed)
+    internal void Install(
+      IList<(byte[] segment, Header header)> sweeps,
+      Header headerAppliedLast,
+      Func<Header, Block> loadBlock,
+      out Header headerFailed)
     {
       headerFailed = null;
 
@@ -187,10 +191,10 @@ internal partial class BlockchainBToken : Blockchain
 
     void WriteAccount(Account account)
     {
-      TouchSegment(GetIndexSegment(account.ID)).WriteAccount(account, GetHeightBlockAppliedLast());
+      GetSegmentWritable(GetIndexSegment(account.ID)).WriteAccount(account, GetHeightBlockAppliedLast());
     }
 
-    Segment TouchSegment(int indexSegment)
+    Segment GetSegmentWritable(int indexSegment)
     {
       if (IndicesSegmentTouched.Add(indexSegment))
         Segments[indexSegment].ClearUndo();
@@ -224,7 +228,7 @@ internal partial class BlockchainBToken : Blockchain
 
       if (isSegmentApplied(indexSegmentSweep))
       {
-        (int countAccountsSwept, rent) = TouchSegment(indexSegmentSweep).Sweep(height);
+        (int countAccountsSwept, rent) = GetSegmentWritable(indexSegmentSweep).Sweep(height);
         CountsAccountsPerSegment[indexSegmentSweep] -= countAccountsSwept;
       }
 
