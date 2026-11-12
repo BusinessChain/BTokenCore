@@ -132,11 +132,6 @@ internal partial class BlockchainBToken : Blockchain
     {
       headerFailed = null;
 
-      List<Header> headersCarried = new();
-
-      for (Header headerCarried = headerAppliedLast; headerCarried.Height > sweeps.Select(s => s.header.Height).DefaultIfEmpty(headerAppliedLast.Height).Min(); headerCarried = headerCarried.HeaderPrevious)
-        headersCarried.Insert(0, headerCarried);
-
       OpenAccounts();
       SetBlockAppliedLast(headerAppliedLast.Height, headerAppliedLast.Hash);
       HeightInstalledStored.Upsert(new BsonDocument { [NAME_FIELD_ID] = 0, [NAME_FIELD_HEIGHT] = headerAppliedLast.Height });
@@ -148,15 +143,12 @@ internal partial class BlockchainBToken : Blockchain
 
       StoreCountsAccountsPerSegment();
 
-      foreach (Header headerCarried in headersCarried)
+      foreach (Header headerCarried in sweeps.Select(s => s.header).OrderBy(h => h.Height).Skip(1))
       {
         headerFailed = headerCarried;
         int height = headerCarried.Height;
 
         InsertTXs(loadBlock(headerCarried), i => height > sweeps[i].header.Height, isLimitChecked: false);
-
-        if (sweeps[height % COUNT_SEGMENTS].header.Height < height)
-          VerifyHashAccounts((HeaderBToken)headerCarried);
 
         UndoStored.DeleteMany(Query.EQ(NAME_FIELD_HEIGHT, height));
       }
