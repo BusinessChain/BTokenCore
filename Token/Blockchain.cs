@@ -101,7 +101,7 @@ internal abstract partial class Blockchain
     byte[] tXRaw = documentTXOwned[NAME_FIELD_TX_RAW].AsBinary;
     int index = 0;
 
-    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
+    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: false);
 
     tX.TXRaw = tXRaw;
     tX.Fee = documentTXOwned[NAME_FIELD_FEE].AsInt64;
