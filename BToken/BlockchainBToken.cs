@@ -47,7 +47,11 @@ internal partial class BlockchainBToken : Blockchain
     Synchronizer = new SynchronizerAccounts(this);
 
     OnBlockInserted += TXPool.RemoveTXs;
-    OnBlockRolledBack += TXPool.ReturnTXs;
+    OnBlockRolledBack += block =>
+    {
+      if (Synchronizer.IsAccountsAtTip())
+        TXPool.ReturnTXs(block);
+    };
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
@@ -187,6 +191,9 @@ internal partial class BlockchainBToken : Blockchain
 
   internal void AddTX(TX tX)
   {
+    if (!Synchronizer.IsAccountsAtTip())
+      throw new ProtocolException($"TX {tX.Hash.ToHexString()} cannot be verified without account database.");
+
     TXPool.AddTX(tX);
   }
 
@@ -196,7 +203,7 @@ internal partial class BlockchainBToken : Blockchain
 
     TX tX = Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
 
-    TXPool.AddTX(tX);
+    AddTX(tX);
     InsertTXOwned(tX);
   }
 
