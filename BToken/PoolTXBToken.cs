@@ -2,7 +2,7 @@
 
 internal partial class BlockchainBToken : Blockchain
 {
-  class PoolTXBToken
+  protected class PoolTXBToken
   {
     class TXBundle
     {
@@ -30,7 +30,7 @@ internal partial class BlockchainBToken : Blockchain
 
     const double FEE_PER_BYTE_INCREMENT = 1;
 
-    BlockchainBToken Blockchain;
+    DatabaseAccounts Accounts;
 
     int SequenceNumberTX;
 
@@ -63,16 +63,16 @@ internal partial class BlockchainBToken : Blockchain
     long CountAccountsMaxNext;
 
 
-    internal PoolTXBToken(BlockchainBToken blockchain)
+    internal PoolTXBToken(DatabaseAccounts accounts)
     {
-      Blockchain = blockchain;
+      Accounts = accounts;
     }
 
     internal void AddTX(TX tX)
     {
       TXBToken tXBToken = tX as TXBToken;
 
-      if (!tXBToken.IsLockTimeValid(Blockchain.GetHeight() + 1))
+      if (!tXBToken.IsLockTimeValid(Accounts.GetHeightBlockAppliedLast() + 1))
         throw new ProtocolException($"Anchor TX {tXBToken.Hash.ToHexString()} with LockTime {tXBToken.LockTime} is invalid for the next block.");
 
       if (CountBytesTXs + tXBToken.CountBytes > COUNT_BYTES_MAX_POOL &&
@@ -82,7 +82,7 @@ internal partial class BlockchainBToken : Blockchain
       if (!TXsByIDAccountSource.TryGetValue(tXBToken.IDAccountSource, out (List<TXBundle> tXBundles, Account account) accountInPool))
         accountInPool = (
           new List<TXBundle>(),
-          Blockchain.Accounts.LoadAccountNext(tXBToken.IDAccountSource)
+          Accounts.LoadAccountNext(tXBToken.IDAccountSource)
             ?? throw new ProtocolException($"Account {tXBToken.IDAccountSource.ToHexString()} of TX {tXBToken.Hash.ToHexString()} does not exist after the next sweep."));
 
       if (accountInPool.tXBundles.Sum(b => b.TXs.Count) >= COUNT_TXS_MAX_ACCOUNT)
@@ -120,7 +120,7 @@ internal partial class BlockchainBToken : Blockchain
       if (TXsByIDAccountSource.TryGetValue(iDAccount, out (List<TXBundle> tXBundles, Account account) accountInPool))
         return accountInPool.account;
 
-      return Blockchain.Accounts.LoadAccountNext(iDAccount);
+      return Accounts.LoadAccountNext(iDAccount);
     }
 
     internal void ReturnTXs(Block block)
@@ -169,7 +169,7 @@ internal partial class BlockchainBToken : Blockchain
 
     bool IsAccountExistingNext(byte[] iDAccount)
     {
-      return CountTXsPayingByID.ContainsKey(iDAccount) || Blockchain.Accounts.LoadAccountNext(iDAccount) != null;
+      return CountTXsPayingByID.ContainsKey(iDAccount) || Accounts.LoadAccountNext(iDAccount) != null;
     }
 
     bool IsSegmentOpen(int indexSegment, int countAccountsCreated)
@@ -182,7 +182,7 @@ internal partial class BlockchainBToken : Blockchain
     void LoadCountsNextIfMissing()
     {
       if (CountsAccountNext == null)
-        (CountsAccountNext, CountAccountsMaxNext) = Blockchain.Accounts.LoadCountsAccountsPerSegmentNext();
+        (CountsAccountNext, CountAccountsMaxNext) = Accounts.LoadCountsAccountsPerSegmentNext();
     }
 
     void SetCreationPending(byte[] iDAccount, bool isCreationPending)
@@ -194,7 +194,7 @@ internal partial class BlockchainBToken : Blockchain
     void RetestCreations(IEnumerable<byte[]> iDsAccount)
     {
       foreach (byte[] iDAccount in iDsAccount.Where(CountTXsPayingByID.ContainsKey))
-        SetCreationPending(iDAccount, Blockchain.Accounts.LoadAccountNext(iDAccount) == null);
+        SetCreationPending(iDAccount, Accounts.LoadAccountNext(iDAccount) == null);
 
       if (IDsCreatedPending.Count == 0)
         return;
@@ -291,7 +291,7 @@ internal partial class BlockchainBToken : Blockchain
 
       CountsAccountNext = null;
 
-      int indexSegmentSweepNext = Blockchain.Accounts.GetIndexSegmentSweepNext();
+      int indexSegmentSweepNext = Accounts.GetIndexSegmentSweepNext();
       Func<byte[], bool> isInSweepNext = iD => DatabaseAccounts.GetIndexSegment(iD) == indexSegmentSweepNext;
 
       HashSet<byte[]> iDsAccountReverified = new(
@@ -338,7 +338,7 @@ internal partial class BlockchainBToken : Blockchain
 
         List<TXBToken> tXsInPool = accountInPool.tXBundles.SelectMany(b => b.TXs).Where(t => TXsByHash.ContainsKey(t.Hash)).ToList();
 
-        Account account = Blockchain.Accounts.LoadAccountNext(iDAccount) ?? new Account { ID = iDAccount };
+        Account account = Accounts.LoadAccountNext(iDAccount) ?? new Account { ID = iDAccount };
 
         int countTXsValid = 0;
 

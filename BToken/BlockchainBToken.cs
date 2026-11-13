@@ -42,7 +42,7 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksStoredAwaitingAnchor = LiteDatabase.GetCollection<BsonDocument>("blocksAwaitingAnchor");
 
-    TXPool = new PoolTXBToken(this);
+    TXPool = new PoolTXBToken(Accounts);
     MinerBlockchain = new Miner(this);
     Synchronizer = new SynchronizerAccounts(this);
 

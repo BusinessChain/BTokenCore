@@ -82,7 +82,7 @@ internal partial class BlockchainBToken : Blockchain
       });
     }
 
-    int GetHeightBlockAppliedLast()
+    internal int GetHeightBlockAppliedLast()
     {
       return BlockAppliedLastStored.FindById(0)?[NAME_FIELD_HEIGHT].AsInt32 ?? 0;
     }
