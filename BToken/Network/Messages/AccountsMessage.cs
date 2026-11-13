@@ -35,8 +35,7 @@ internal partial class NetworkBToken : Network
 
       BlockchainBToken blockchainBToken = ((PeerBToken)peer).BlockchainBToken;
 
-      if (!await blockchainBToken.RunLocked(() => blockchainBToken.AddSegmentDownload(inventoryRequested.Hash, Payload, LengthDataPayload)))
-        peer.HashesSegmentRefused.Add(inventoryRequested.Hash);
+      await blockchainBToken.RunLocked(() => blockchainBToken.AddSegmentDownload(inventoryRequested.Hash, Payload, LengthDataPayload));
 
       Payload = null;
 

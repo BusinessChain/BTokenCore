@@ -133,9 +133,9 @@ internal partial class BlockchainBToken : Blockchain
     return Synchronizer.FetchHeaderSweepMissingNext(canSupplierDeliver);
   }
 
-  internal bool AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
+  internal void AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
   {
-    return Synchronizer.AddSegmentDownload(hashBlock, buffer, length);
+    Synchronizer.AddSegmentDownload(hashBlock, buffer, length);
   }
 
   void LoadTXsOwnedUnconfirmed()

@@ -104,17 +104,17 @@ internal partial class BlockchainBToken : Blockchain
           yield return header;
     }
 
-    internal bool AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
+    internal void AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
     {
       if (Blockchain.Accounts.Exists()
         || !Blockchain.ChainRoot.TryGetHeader(hashBlock, out Header header)
         || header.Height > Blockchain.ChainRoot.HeaderTipBlockchain.Height)
-        return true;
+        return;
 
       byte[] segment = buffer[..length];
 
       if (!SHA256.HashData(segment).IsAllBytesEqual(((HeaderBToken)header).HashAccounts))
-        return false;
+        throw new ProtocolException($"Segment for block {hashBlock.ToHexString()} does not match its HashAccounts.");
 
       int indexSegment = header.Height % COUNT_SEGMENTS;
 
@@ -122,14 +122,12 @@ internal partial class BlockchainBToken : Blockchain
       {
         Blockchain.RejectBlock(header, new ProtocolException($"Segment {indexSegment} committed by block {header.Hash.ToHexString()} is invalid."));
         Blockchain.UpdateTipBlockchain(Blockchain.ChainRoot);
-        return true;
+        return;
       }
 
       SweepsDownload[indexSegment] = (segment, header);
 
       TryInstallSweeps();
-
-      return true;
     }
 
     void TryInstallSweeps()
