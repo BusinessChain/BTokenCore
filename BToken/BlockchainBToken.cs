@@ -226,16 +226,13 @@ internal partial class BlockchainBToken : Blockchain
 
   void RollBackUnanchored()
   {
-    Header header = ChainRoot.HeaderRoot;
+    Header header = ChainRoot.HeaderTip;
 
-    while (header != null && header.HeaderParent == null)
-      header = header.HeaderNext;
+    while (header != ChainRoot.HeaderRoot && header.HeaderParent == null)
+      header = header.HeaderPrevious;
 
-    while (header != null && header.HeaderParent != null)
-      header = header.HeaderNext;
-
-    if (header != null)
-      RemoveHeader(ChainRoot, header);
+    if (header.HeaderNext != null)
+      RemoveHeader(ChainRoot, header.HeaderNext);
   }
 
   internal override TX GetTX(byte[] hash)
