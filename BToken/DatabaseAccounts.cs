@@ -6,7 +6,7 @@ namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
-  partial class DatabaseAccounts
+  protected partial class DatabaseAccounts
   {
     const string NAME_COLLECTION = "accounts";
     const string NAME_COLLECTION_UNDO = "accountsUndo";
