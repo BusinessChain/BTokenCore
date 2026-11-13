@@ -302,7 +302,7 @@ internal partial class BlockchainBToken : Blockchain
     Synchronizer.HandleTipUpdated();
   }
 
-  void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)
+  protected void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)
   {
     BsonDocument documentBlock = new()
     {
