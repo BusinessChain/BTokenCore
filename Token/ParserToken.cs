@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal abstract partial class Blockchain
 {
-  internal abstract class ParserBlockchain
+  internal abstract class ParserToken
   {
     internal abstract Header ParseHeader(byte[] buffer, ref int index);
 

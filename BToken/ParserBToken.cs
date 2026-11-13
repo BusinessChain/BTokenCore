@@ -1,6 +1,6 @@
 ﻿namespace BTokenCore;
 
-internal class ParserBToken : Blockchain.ParserBlockchain
+internal class ParserBToken : Blockchain.ParserToken
 {
   internal override HeaderBToken ParseHeader(byte[] buffer, ref int index)
   {

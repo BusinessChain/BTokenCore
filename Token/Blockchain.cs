@@ -17,7 +17,7 @@ internal abstract partial class Blockchain
 
   internal readonly int SizeBlockMax;
 
-  internal ParserBlockchain Parser;
+  internal ParserToken Parser;
 
   protected Chain ChainRoot;
 
@@ -34,7 +34,7 @@ internal abstract partial class Blockchain
   protected Blockchain(
     string nameToken,
     int sizeBlockMax,
-    ParserBlockchain parser,
+    ParserToken parser,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
