@@ -24,7 +24,7 @@ internal partial class NetworkBitcoin : Network
 
       for (int i = 0; i < countHeaders; i++)
       {
-        headers.Add(peer.Network.Blockchain.ParseHeader(Payload, ref startIndex));
+        headers.Add(peer.Network.Blockchain.Parser.ParseHeader(Payload, ref startIndex));
         VarInt.GetInt(Payload, ref startIndex);
       }
 

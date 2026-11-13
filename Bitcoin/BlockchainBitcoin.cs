@@ -25,7 +25,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
 
   internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
-    : base("TokenBitcoin", SIZE_BLOCK_MAX, blockchainParent: null, semaphoreBlockchain)
+    : base("TokenBitcoin", SIZE_BLOCK_MAX, new ParserBitcoin(), blockchainParent: null, semaphoreBlockchain)
   {
     OutputsOwnedStored = LiteDatabase.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
   }
@@ -44,16 +44,6 @@ internal partial class BlockchainBitcoin : Blockchain
     header.Height = 969696;
 
     return header;
-  }
-
-  internal override Header ParseHeader(byte[] buffer, ref int index)
-  {
-    return new HeaderBitcoin(buffer, ref index);
-  }
-
-  internal override TX ParseTX(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures)
-  {
-    return new TXBitcoin(buffer, ref index, isCoinbase);
   }
 
   protected override void ParseBlockStored(Block block)

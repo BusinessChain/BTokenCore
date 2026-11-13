@@ -36,7 +36,7 @@ internal partial class BlockchainBToken : Blockchain
     string iDToken,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
-    : base(nameToken, SIZE_BLOCK_MAX, blockchainParent, semaphoreBlockchain)
+    : base(nameToken, SIZE_BLOCK_MAX, new ParserBToken(), blockchainParent, semaphoreBlockchain)
   {
     BlockchainParent = blockchainParent;
 
@@ -67,16 +67,6 @@ internal partial class BlockchainBToken : Blockchain
       nonce: 0);
 
     return header;
-  }
-
-  internal override HeaderBToken ParseHeader(byte[] buffer, ref int index)
-  {
-    return new HeaderBToken(buffer, ref index);
-  }
-
-  internal override TX ParseTX(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures)
-  {
-    return new TXBToken(buffer, ref index, isCoinbase, verifySignatures);
   }
 
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime)
@@ -204,7 +194,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     int index = 0;
 
-    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
+    TX tX = Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
 
     TXPool.AddTX(tX);
     InsertTXOwned(tX);

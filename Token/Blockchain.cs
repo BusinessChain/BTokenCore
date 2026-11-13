@@ -18,6 +18,8 @@ internal abstract partial class Blockchain
 
   internal readonly int SizeBlockMax;
 
+  internal ParserBlockchain Parser;
+
   protected Chain ChainRoot;
 
   protected LiteDatabase LiteDatabase;
@@ -33,6 +35,7 @@ internal abstract partial class Blockchain
   protected Blockchain(
     string nameToken,
     int sizeBlockMax,
+    ParserBlockchain parser,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
@@ -41,6 +44,8 @@ internal abstract partial class Blockchain
     Wallet = new Wallet($"Wallet{nameToken}/wallet");
 
     SizeBlockMax = sizeBlockMax;
+
+    Parser = parser;
 
     SemaphoreBlockchain = semaphoreBlockchain;
 
@@ -81,10 +86,6 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderRoot();
 
-  internal abstract Header ParseHeader(byte[] buffer, ref int index);
-
-  internal abstract TX ParseTX(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures);
-
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime);
 
   internal abstract int CountAnchorsReplaceable(long feeAnchor);
@@ -102,7 +103,7 @@ internal abstract partial class Blockchain
     byte[] tXRaw = documentTXOwned[NAME_FIELD_TX_RAW].AsBinary;
     int index = 0;
 
-    TX tX = ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: false);
+    TX tX = Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: false);
 
     tX.TXRaw = tXRaw;
     tX.Fee = documentTXOwned[NAME_FIELD_FEE].AsInt64;
@@ -137,7 +138,7 @@ internal abstract partial class Blockchain
   {
     int startIndex = 0;
 
-    Header header = ParseHeader(block.Buffer, ref startIndex);
+    Header header = Parser.ParseHeader(block.Buffer, ref startIndex);
 
     if (!block.Header.Hash.IsAllBytesEqual(header.Hash) || !block.Header.HashPrevious.IsAllBytesEqual(header.HashPrevious))
       throw new ProtocolException($"Received unexpected block {header} expected was {block.Header}.");
@@ -160,7 +161,7 @@ internal abstract partial class Blockchain
 
     for (int t = 0; t < countTXs; t += 1)
     {
-      TX tX = ParseTX(block.Buffer, ref startIndex, isCoinbase: t == 0, verifySignatures);
+      TX tX = Parser.ParseTX(block.Buffer, ref startIndex, isCoinbase: t == 0, verifySignatures);
 
       if (!hashesTX.Add(tX.Hash))
         throw new ProtocolException($"Block {block.Header.Hash.ToHexString()} contains transaction {tX.Hash.ToHexString()} twice.");
@@ -258,7 +259,7 @@ internal abstract partial class Blockchain
         Block blockLoad = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
 
         int index = 0;
-        Header header = ParseHeader(blockLoad.Buffer, ref index);
+        Header header = Parser.ParseHeader(blockLoad.Buffer, ref index);
         header.Height = bsonDocumentBlock[NAME_FIELD_ID].AsInt32;
 
         if (!TryParseBlockStored(header, blockLoad))

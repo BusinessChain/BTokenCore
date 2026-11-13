@@ -10,7 +10,7 @@ internal partial class NetworkBToken : Network
       int countHeaders = VarInt.GetInt(Payload, ref startIndex);
 
       if (countHeaders == 1)
-        ((PeerBToken)peer).HashBlockAnnounced = peer.Network.Blockchain.ParseHeader(Payload, ref startIndex).Hash;
+        ((PeerBToken)peer).HashBlockAnnounced = peer.Network.Blockchain.Parser.ParseHeader(Payload, ref startIndex).Hash;
     }
   }
 }
