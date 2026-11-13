@@ -118,6 +118,14 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} ranks too low for the full pool.");
     }
 
+    internal Account LoadAccountPending(byte[] iDAccount)
+    {
+      if (TXsByIDAccountSource.TryGetValue(iDAccount, out (List<TXBundle> tXBundles, Account account) accountInPool))
+        return accountInPool.account;
+
+      return Blockchain.Accounts.LoadAccountNext(iDAccount);
+    }
+
     internal void ReturnTXs(Block block)
     {
       if (!Blockchain.Synchronizer.IsAccountsAtTip())

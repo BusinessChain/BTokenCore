@@ -79,12 +79,53 @@ internal partial class BlockchainBToken : Blockchain
 
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime)
   {
-    throw new NotImplementedException();
+    int heightTip = ChainRoot.HeaderTipBlockchain.Height;
+    lockTime = heightTip;
+
+    if (TXPool.LoadAccountPending(Wallet.Hash160PKeyPublic) is not Account account)
+      return false;
+
+    tokenAnchor.Serialize();
+
+    TXBToken tXAnchor = new()
+    {
+      KeyPublic = Wallet.KeyPublic,
+      HeightAccountCreated = account.HeightAccountCreated,
+      Nonce = account.Nonce,
+      Fee = feeAnchor,
+      LockTime = heightTip
+    };
+
+    tXAnchor.TXOutputs.Add(tokenAnchor);
+
+    tXAnchor.Serialize(Wallet);
+
+    try
+    {
+      SubmitTX(tXAnchor.TXRaw);
+    }
+    catch (ProtocolException)
+    {
+      return false;
+    }
+
+    if (LoadAnchorsMissed().FirstOrDefault() is TXBToken anchorReplaced)
+      TXsOwnedStored.Delete(anchorReplaced.Hash);
+
+    return true;
   }
 
   internal override int CountAnchorsReplaceable(long feeAnchor)
   {
-    throw new NotImplementedException();
+    return LoadAnchorsMissed().Count;
+  }
+
+  List<TXBToken> LoadAnchorsMissed()
+  {
+    return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
+      .Select(d => (TXBToken)ParseTXOwned(d))
+      .Where(t => !t.IsLockTimeValid(ChainRoot.HeaderTipBlockchain.Height + 1))
+      .ToList();
   }
 
   protected override void InsertBlock(Block block)
