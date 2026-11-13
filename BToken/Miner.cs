@@ -83,7 +83,7 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    void ReplaceAnchorsMissed()
+    internal void ReplaceAnchorsMissed()
     {
       int countAnchorsReplaceable = Blockchain.BlockchainParent.CountAnchorsReplaceable(FeeAnchor);
 
