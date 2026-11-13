@@ -39,11 +39,13 @@ internal partial class NetworkBToken : Network
 
       Payload = null;
 
-      ((BlockMessageBToken)peer.MessagesByCommand[BlockMessage.Command]).RefundAccountsReceived(inventoryRequested);
+      BlockMessageBToken blockMessage = (BlockMessageBToken)peer.MessagesByCommand[BlockMessage.Command];
+
+      blockMessage.RefundAccountsReceived(inventoryRequested);
 
       DOSMonitor.Decrement(1);
 
-      peer.StateCurrent = Peer.StateProtocol.Idle;
+      await blockMessage.RequestBlockNext(peer);
     }
   }
 }
