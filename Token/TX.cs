@@ -8,6 +8,8 @@ public abstract class TX
 
   internal long Fee;
 
+  internal int LockTime;
+
   internal byte[] TXRaw;
 
   internal List<TXOutput> TXOutputs = new();

@@ -9,8 +9,6 @@ internal partial class BlockchainBitcoin : Blockchain
   {
     internal List<TXInputBitcoin> Inputs = new();
 
-    internal int LockTime;
-
 
     internal TXBitcoin()
     { }
