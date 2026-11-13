@@ -2,7 +2,7 @@ namespace BTokenCore;
 
 internal partial class NetworkBToken : Network
 {
-  class PeerBToken : Peer
+  protected class PeerBToken : Peer
   {
     const int TIMESPAN_MEAN_INV_SECONDS = 5;
     const int TIMESPAN_MEAN_FEEFILTER_SECONDS = 60;
