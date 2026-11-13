@@ -153,14 +153,12 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
   {
-    if (!Synchronizer.IsAccountsAtTip())
-      return false;
+    TXBToken tXOwned = (TXBToken)tX;
 
-    TXBToken tXBToken = (TXBToken)tX;
-
-    Account account = Accounts.LoadAccount(tXBToken.IDAccountSource, heightAccountCreated: 0);
-
-    return account.HeightAccountCreated != tXBToken.HeightAccountCreated || account.Nonce > tXBToken.Nonce;
+    return block.TXs.Skip(1).Cast<TXBToken>().Any(t =>
+      t.IDAccountSource.IsAllBytesEqual(tXOwned.IDAccountSource)
+      && t.HeightAccountCreated == tXOwned.HeightAccountCreated
+      && t.Nonce == tXOwned.Nonce);
   }
 
   internal byte[] GetSegmentSweptByBlock(byte[] hashBlock)

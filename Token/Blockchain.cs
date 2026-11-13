@@ -301,6 +301,7 @@ internal abstract partial class Blockchain
       $"If the network builds on it, the local database may be corrupt.");
 
     BlocksStored.DeleteMany(Query.GTE(NAME_FIELD_ID, header.Height));
+    ReopenTXsOwned(header.Height);
 
     ChainRoot.CutOff(header);
   }
@@ -373,9 +374,9 @@ internal abstract partial class Blockchain
     }
   }
 
-  void ReopenTXsOwned(int height)
+  void ReopenTXsOwned(int heightFirst)
   {
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, height)).ToList())
+    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.GTE(NAME_FIELD_HEIGHT_CONFIRMED, heightFirst)).ToList())
     {
       documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED] = 0;
       TXsOwnedStored.Update(documentTXOwned);
