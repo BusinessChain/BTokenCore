@@ -23,7 +23,7 @@ internal partial class BlockchainBToken : Blockchain
   Blockchain BlockchainParent;
 
   DatabaseAccounts Accounts = new();
-  SynchronizerAccounts Synchronizer;
+  protected SynchronizerAccounts Synchronizer;
 
   PoolTXBToken TXPool;
 

@@ -4,7 +4,7 @@ namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
-  class SynchronizerAccounts
+  protected class SynchronizerAccounts
   {
     BlockchainBToken Blockchain;
 
