@@ -7,6 +7,8 @@ internal partial class BlockchainBitcoin : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
+  internal const string NAME_TOKEN = "TokenBitcoin";
+
   const string NAME_COLLECTION_OUTPUTS_OWNED = "outputsOwned";
 
   const int LENGTH_P2PKH_INPUT = 148;
@@ -24,8 +26,8 @@ internal partial class BlockchainBitcoin : Blockchain
   ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
 
-  internal BlockchainBitcoin(SemaphoreSlim semaphoreBlockchain)
-    : base("TokenBitcoin", SIZE_BLOCK_MAX, new ParserBitcoin(), blockchainParent: null, semaphoreBlockchain)
+  internal BlockchainBitcoin(LiteDatabase liteDatabase, SemaphoreSlim semaphoreBlockchain)
+    : base(NAME_TOKEN, liteDatabase, SIZE_BLOCK_MAX, new ParserBitcoin(), blockchainParent: null, semaphoreBlockchain)
   {
     OutputsOwnedStored = LiteDatabase.GetCollection<TXOutputOwned>(NAME_COLLECTION_OUTPUTS_OWNED);
   }

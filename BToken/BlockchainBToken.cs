@@ -35,10 +35,11 @@ internal partial class BlockchainBToken : Blockchain
 
   internal BlockchainBToken(
     string nameToken,
+    LiteDatabase liteDatabase,
     string iDToken,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
-    : base(nameToken, SIZE_BLOCK_MAX, new ParserBToken(), blockchainParent, semaphoreBlockchain)
+    : base(nameToken, liteDatabase, SIZE_BLOCK_MAX, new ParserBToken(), blockchainParent, semaphoreBlockchain)
   {
     BlockchainParent = blockchainParent;
 

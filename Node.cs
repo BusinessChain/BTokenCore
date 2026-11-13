@@ -1,3 +1,5 @@
+using LiteDB;
+
 namespace BTokenCore;
 
 public class Node
@@ -12,11 +14,26 @@ public class Node
   {
     SemaphoreSlim semaphoreBlockchain = new(1);
 
-    BlockchainBitcoin = new(semaphoreBlockchain);
+    const string NAME_TOKEN_BTOKEN = "TokenBToken";
+
+    BlockchainBitcoin = new(OpenDatabase(BlockchainBitcoin.NAME_TOKEN), semaphoreBlockchain);
     NetworkBitcoin = new(BlockchainBitcoin, communication);
 
-    BlockchainBToken = new("TokenBToken", "BTK", BlockchainBitcoin, semaphoreBlockchain);
+    BlockchainBToken = new(NAME_TOKEN_BTOKEN, OpenDatabase(NAME_TOKEN_BTOKEN), "BTK", BlockchainBitcoin, semaphoreBlockchain);
     NetworkBToken = new(BlockchainBToken, communication);
+  }
+
+  static LiteDatabase OpenDatabase(string nameToken)
+  {
+    Directory.CreateDirectory(nameToken);
+
+    LiteDatabase liteDatabase = new(
+      $"Filename={nameToken + "Network"}.db;Mode=Exclusive",
+      new BsonMapper { IncludeFields = true, IncludeNonPublic = true });
+
+    AppDomain.CurrentDomain.ProcessExit += (s, e) => { liteDatabase.Dispose(); };
+
+    return liteDatabase;
   }
 
   public async Task Start()

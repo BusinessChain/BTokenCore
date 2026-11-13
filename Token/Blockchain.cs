@@ -33,13 +33,12 @@ internal abstract partial class Blockchain
 
   protected Blockchain(
     string nameToken,
+    LiteDatabase liteDatabase,
     int sizeBlockMax,
     ParserToken parser,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
-    Directory.CreateDirectory(nameToken);
-
     Wallet = new Wallet($"Wallet{nameToken}/wallet");
 
     SizeBlockMax = sizeBlockMax;
@@ -51,13 +50,9 @@ internal abstract partial class Blockchain
     ChainRoot = new(CreateHeaderRoot());
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
-    LiteDatabase = new (
-      $"Filename={nameToken + "Network"}.db;Mode=Exclusive",
-      new BsonMapper { IncludeFields = true, IncludeNonPublic = true });
+    LiteDatabase = liteDatabase;
     BlocksStored = LiteDatabase.GetCollection<BsonDocument>("blocks");
     TXsOwnedStored = LiteDatabase.GetCollection<BsonDocument>("tXsOwned");
-
-    AppDomain.CurrentDomain.ProcessExit += (s, e) => { LiteDatabase.Dispose(); };
   }
 
   internal async Task<T> RunLocked<T>(Func<T> function)
