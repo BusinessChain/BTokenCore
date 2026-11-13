@@ -75,6 +75,9 @@ internal partial class BlockchainBToken : Blockchain
 
       TXBToken tXBToken = tX as TXBToken;
 
+      if (!tXBToken.IsLockTimeValid(Blockchain.GetHeight() + 1))
+        throw new ProtocolException($"Anchor TX {tXBToken.Hash.ToHexString()} with LockTime {tXBToken.LockTime} is invalid for the next block.");
+
       if (CountBytesTXs + tXBToken.CountBytes > COUNT_BYTES_MAX_POOL &&
         tXBToken.GetFeePerByte() < TXBundlesSortedByFee.Max.FeePerByte + FEE_PER_BYTE_INCREMENT)
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} does not outbid the full pool by the fee increment.");
@@ -122,6 +125,8 @@ internal partial class BlockchainBToken : Blockchain
 
       for (int i = block.TXs.Count - 1; i > 0; i--)
         InsertTX((TXBToken)block.TXs[i], isFromBlockRolledBack: true);
+
+      RemoveTXsLockTimeInvalid(block.Header.Height);
 
       CountsAccountNext = null;
 
@@ -299,12 +304,27 @@ internal partial class BlockchainBToken : Blockchain
           iDsAccountReverified.Add(tXOutput.IDAccount);
       }
 
+      iDsAccountReverified.UnionWith(RemoveTXsLockTimeInvalid(block.Header.Height + 1));
+
       ReverifyAccounts(iDsAccountReverified);
 
       RetestCreations(IDsCreatedPending
         .Concat(iDsAccountReverified)
         .Concat(CountTXsPayingByID.Keys.Where(isInSweepNext))
         .ToList());
+    }
+
+    List<byte[]> RemoveTXsLockTimeInvalid(int heightBlockNext)
+    {
+      List<TXBToken> tXsInvalid = TXsByHash.Values
+        .Select(t => t.tX)
+        .Where(t => !t.IsLockTimeValid(heightBlockNext))
+        .ToList();
+
+      foreach (TXBToken tX in tXsInvalid)
+        RemoveTXFromIndexes(tX);
+
+      return tXsInvalid.Select(t => t.IDAccountSource).ToList();
     }
 
     void ReverifyAccounts(IEnumerable<byte[]> iDsAccount)
