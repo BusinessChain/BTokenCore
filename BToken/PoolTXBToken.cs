@@ -24,13 +24,13 @@ internal partial class BlockchainBToken : Blockchain
       }
     }
 
-    const int COUNT_BYTES_MAX_POOL = 100 * SIZE_BLOCK_MAX;
-
     const int COUNT_TXS_MAX_ACCOUNT = 25;
 
     const double FEE_PER_BYTE_INCREMENT = 1;
 
     DatabaseAccounts Accounts;
+
+    long CountBytesMaxPool;
 
     int SequenceNumberTX;
 
@@ -63,9 +63,10 @@ internal partial class BlockchainBToken : Blockchain
     long CountAccountsMaxNext;
 
 
-    internal PoolTXBToken(DatabaseAccounts accounts)
+    internal PoolTXBToken(DatabaseAccounts accounts, long countBytesMaxPool)
     {
       Accounts = accounts;
+      CountBytesMaxPool = countBytesMaxPool;
     }
 
     internal void AddTX(TX tX)
@@ -75,7 +76,7 @@ internal partial class BlockchainBToken : Blockchain
       if (!tXBToken.IsLockTimeValid(Accounts.GetHeightBlockAppliedLast() + 1))
         throw new ProtocolException($"Anchor TX {tXBToken.Hash.ToHexString()} with LockTime {tXBToken.LockTime} is invalid for the next block.");
 
-      if (CountBytesTXs + tXBToken.CountBytes > COUNT_BYTES_MAX_POOL &&
+      if (CountBytesTXs + tXBToken.CountBytes > CountBytesMaxPool &&
         tXBToken.GetFeePerByte() < TXBundlesSortedByFee.Max.FeePerByte + FEE_PER_BYTE_INCREMENT)
         throw new ProtocolException($"TX {tXBToken.Hash.ToHexString()} does not outbid the full pool by the fee increment.");
 
@@ -227,7 +228,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void EvictTXsOverCap()
     {
-      while (CountBytesTXs > COUNT_BYTES_MAX_POOL)
+      while (CountBytesTXs > CountBytesMaxPool)
       {
         TXBundle tXBundleLast = TXBundlesSortedByFee.Max;
         TXBToken tXEvicted = tXBundleLast.TXs[^1];
@@ -407,7 +408,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal double GetFeePerByteMin()
     {
-      if (CountBytesTXs <= COUNT_BYTES_MAX_POOL - SIZE_BLOCK_MAX)
+      if (CountBytesTXs <= CountBytesMaxPool - SIZE_BLOCK_MAX)
         return 0;
 
       return TXBundlesSortedByFee.Max.FeePerByte + FEE_PER_BYTE_INCREMENT;

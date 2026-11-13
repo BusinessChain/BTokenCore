@@ -10,6 +10,8 @@ internal partial class BlockchainBToken : Blockchain
 
   const int SIZE_BLOCK_MAX = 1 << 20;
 
+  const long COUNT_BYTES_MAX_POOL = 100 * SIZE_BLOCK_MAX;
+
   const long BLOCK_REWARD_INITIAL = 20_000_000_000;
   const int PERIOD_HALVENING_BLOCK_REWARD = 52500;
   const long SUPPLY_MAX = 2 * BLOCK_REWARD_INITIAL * PERIOD_HALVENING_BLOCK_REWARD;
@@ -42,7 +44,7 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksStoredAwaitingAnchor = LiteDatabase.GetCollection<BsonDocument>("blocksAwaitingAnchor");
 
-    TXPool = new PoolTXBToken(Accounts);
+    TXPool = new PoolTXBToken(Accounts, COUNT_BYTES_MAX_POOL);
     MinerBlockchain = new Miner(this);
     Synchronizer = new SynchronizerAccounts(this);
 
