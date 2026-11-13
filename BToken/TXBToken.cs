@@ -96,6 +96,11 @@ internal partial class BlockchainBToken : Blockchain
       TXRaw = buffer[indexTxStart..index];
     }
 
+    internal bool IsLockTimeValid(int heightBlock)
+    {
+      return !TXOutputs.Any(o => o is TXOutputTokenAnchor) || LockTime == heightBlock - 1;
+    }
+
     internal override void Serialize(Wallet wallet)
     {
       SerializeUnsigned();

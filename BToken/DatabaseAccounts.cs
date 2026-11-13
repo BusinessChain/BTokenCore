@@ -224,6 +224,9 @@ internal partial class BlockchainBToken : Blockchain
       {
         TXBToken tX = (TXBToken)block.TXs[i];
 
+        if (!tX.IsLockTimeValid(height))
+          throw new ProtocolException($"Anchor TX {tX.Hash.ToHexString()} with LockTime {tX.LockTime} is invalid at height {height}.");
+
         foreach (TXOutput tXOutput in tX.TXOutputs)
           if (tXOutput is TXOutputP2PKH tXOutputP2PKH && tXOutputP2PKH.Value > 0 && isSegmentApplied(GetIndexSegment(tXOutputP2PKH.IDAccount)))
             ChangeBalance(tXOutputP2PKH.IDAccount, height, tXOutputP2PKH.Value);
