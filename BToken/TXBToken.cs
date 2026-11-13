@@ -8,7 +8,8 @@ internal partial class BlockchainBToken : Blockchain
 
     internal const int LENGTH_TX_COINBASE = LENGTH_PUBKEYCOMPRESSED
       + sizeof(int) + sizeof(int) + sizeof(long)
-      + 1 + sizeof(long) + 1 + TXOutputP2PKH.LENGTH_SCRIPT_P2PKH;
+      + 1 + sizeof(long) + 1 + TXOutputP2PKH.LENGTH_SCRIPT_P2PKH
+      + sizeof(int);
 
     /// <summary>
     /// The PublicKey specifies from which account the funds are sourced.
@@ -75,6 +76,8 @@ internal partial class BlockchainBToken : Blockchain
         TXOutputs.Add(tXOutput);
       }
 
+      LockTime = buffer.Read<int>(ref index);
+
       Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
 
       if (!isCoinbase)
@@ -113,6 +116,8 @@ internal partial class BlockchainBToken : Blockchain
       ];
 
       SerializeTXOutputs(tXRaw);
+
+      tXRaw.AddRange(BitConverter.GetBytes(LockTime));
 
       TXRaw = tXRaw.ToArray();
 
