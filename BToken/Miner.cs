@@ -2,7 +2,7 @@
 
 internal partial class BlockchainBToken : Blockchain
 {
-  class Miner
+  protected class Miner
   {
     BlockchainBToken Blockchain;
 
@@ -120,7 +120,7 @@ internal partial class BlockchainBToken : Blockchain
       return tXCoinbase;
     }
 
-    void MineBlock()
+    internal void MineBlock()
     {
       if (!Blockchain.Synchronizer.IsAccountsAtTip() || !Blockchain.BlockchainParent.IsBlockTipAtHeaderTip())
         return;

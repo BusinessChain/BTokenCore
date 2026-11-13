@@ -27,7 +27,7 @@ internal partial class BlockchainBToken : Blockchain
 
   PoolTXBToken TXPool;
 
-  Miner MinerBlockchain;
+  protected Miner MinerBlockchain;
   ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
   const string NAME_FIELD_LOCK_TIME_ANCHOR = "lockTimeAnchor";
