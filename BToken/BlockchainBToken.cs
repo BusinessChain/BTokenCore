@@ -32,9 +32,11 @@ internal partial class BlockchainBToken : Blockchain
 
 
   internal BlockchainBToken(
+    string nameToken,
+    string iDToken,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
-    : base("TokenBToken", SIZE_BLOCK_MAX, blockchainParent, semaphoreBlockchain)
+    : base(nameToken, SIZE_BLOCK_MAX, blockchainParent, semaphoreBlockchain)
   {
     BlockchainParent = blockchainParent;
 
@@ -50,7 +52,7 @@ internal partial class BlockchainBToken : Blockchain
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
 
-    Encoding.ASCII.GetBytes("BTK").CopyTo(IDToken, 0);
+    Encoding.ASCII.GetBytes(iDToken).CopyTo(IDToken, 0);
 
     Accounts.Load(LiteDatabase);
   }

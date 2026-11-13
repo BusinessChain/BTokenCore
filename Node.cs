@@ -15,7 +15,7 @@ public class Node
     BlockchainBitcoin = new(semaphoreBlockchain);
     NetworkBitcoin = new(BlockchainBitcoin, communication);
 
-    BlockchainBToken = new(BlockchainBitcoin, semaphoreBlockchain);
+    BlockchainBToken = new("TokenBToken", "BTK", BlockchainBitcoin, semaphoreBlockchain);
     NetworkBToken = new(BlockchainBToken, communication);
   }
 
