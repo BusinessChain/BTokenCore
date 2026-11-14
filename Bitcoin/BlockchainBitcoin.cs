@@ -23,7 +23,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
 
-  ILiteCollection<TXOutputOwned> OutputsOwnedStored;
+  protected ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
 
   internal BlockchainBitcoin(LiteDatabase liteDatabase, SemaphoreSlim semaphoreBlockchain)
