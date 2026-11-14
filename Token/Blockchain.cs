@@ -398,7 +398,7 @@ internal abstract partial class Blockchain
   internal Header FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
   {
     return ChainRoot.FindInTree(chain =>
-      chain.HeaderTip.Height > ChainRoot.HeaderTipBlockchain.Height
+      chain.HeaderTip.WorkAccumulated > ChainRoot.HeaderTipBlockchain.WorkAccumulated
         ? chain.FetchHeaderBlockMissingNextInChain(chain.HeaderTip.Height, canSupplierDeliverBlock)
         : null);
   }
