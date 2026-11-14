@@ -42,7 +42,7 @@ internal class HeaderBitcoin : Header
       (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
 
     if (isBlockTimePremature)
-      throw new ProtocolException($"Timestamp premature {new DateTime(UnixTimeSeconds).Date}.");
+      throw new ProtocolException($"Timestamp premature {DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds)}.");
 
     NBits = buffer.Read<uint>(ref index);
 
@@ -57,10 +57,9 @@ internal class HeaderBitcoin : Header
     uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
 
     if (UnixTimeSeconds < medianTimePastSeconds)
-      throw new ProtocolException(string.Format(
-        $"Header {this} with unix time {1} is older than median time past {2}.",
-        DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds),
-        DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)));
+      throw new ProtocolException(
+        $"Header {this} with unix time {DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds)} " +
+        $"is older than median time past {DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)}.");
 
     uint targetBitsNew = GetNextTarget((HeaderBitcoin)headerPrevious);
 
@@ -105,10 +104,10 @@ internal class HeaderBitcoin : Header
     while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
       headerIntervalStart = headerIntervalStart.HeaderPrevious as HeaderBitcoin;
 
-    ulong actualTimespan = Math.Clamp(
-      header.UnixTimeSeconds - headerIntervalStart.UnixTimeSeconds,
-      RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4,
-      RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4);
+    ulong actualTimespan = (ulong)Math.Clamp(
+      (long)header.UnixTimeSeconds - headerIntervalStart.UnixTimeSeconds,
+      (long)RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4,
+      (long)RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4);
 
     UInt256 targetOld = UInt256.ParseFromCompact(header.NBits);
 

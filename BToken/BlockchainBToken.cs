@@ -181,10 +181,10 @@ internal partial class BlockchainBToken : Blockchain
     if (!Synchronizer.IsAccountsAtTip())
       return;
 
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
+    foreach (TXBToken tXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).Select(ParseTXOwned).Cast<TXBToken>().OrderBy(t => t.Nonce).ToList())
       try
       {
-        TXPool.AddTX(ParseTXOwned(documentTXOwned));
+        TXPool.AddTX(tXOwned);
       }
       catch (ProtocolException)
       { }
