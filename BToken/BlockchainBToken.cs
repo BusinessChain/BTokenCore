@@ -81,14 +81,18 @@ internal partial class BlockchainBToken : Blockchain
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
     lockTime = heightTip;
 
-    if (TXPool.LoadAccountPending(Wallet.Hash160KeyPublicReceiving) is not Account account)
+    byte[] hash160Funding = Wallet.FindHash160KeyFunding(h => TXPool.LoadAccountPending(h)?.Balance >= feeAnchor);
+
+    if (hash160Funding == null)
       return false;
+
+    Account account = TXPool.LoadAccountPending(hash160Funding);
 
     tokenAnchor.Serialize();
 
     TXBToken tXAnchor = new()
     {
-      KeyPublic = Wallet.KeyPublicReceiving,
+      KeyPublic = Wallet.GetKeyPublic(hash160Funding),
       HeightAccountCreated = account.HeightAccountCreated,
       Nonce = account.Nonce,
       Fee = feeAnchor,

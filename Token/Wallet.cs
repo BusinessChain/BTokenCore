@@ -50,6 +50,11 @@ internal class Wallet
     return Hash160KeyPublicReceiving;
   }
 
+  internal byte[] FindHash160KeyFunding(Func<byte[], bool> canFund)
+  {
+    return Keys.Keys.FirstOrDefault(canFund);
+  }
+
   internal byte[] GetKeyPublic(byte[] hash160)
   {
     return Keys[hash160].keyPublic;
