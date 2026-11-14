@@ -198,7 +198,7 @@ internal partial class Blockchain
 
       Chain chainForkAtTip = ChainsFork
         .Where(c => c.HeaderRoot.HeaderPrevious == HeaderTip)
-        .MaxBy(c => c.HeaderTipBlockchain != null ? c.HeaderTipBlockchain.Height : HeaderTip.Height);
+        .MaxBy(c => c.HeaderTipBlockchain != null ? c.HeaderTipBlockchain.WorkAccumulated : HeaderTip.WorkAccumulated);
 
       if (chainForkAtTip == null)
         return;
@@ -392,7 +392,7 @@ internal partial class Blockchain
     internal bool IsStrongerThan(Chain chain)
     {
       return HeaderTipBlockchain != null
-        && HeaderTipBlockchain.Height > chain.HeaderTipBlockchain.Height;
+        && HeaderTipBlockchain.WorkAccumulated > chain.HeaderTipBlockchain.WorkAccumulated;
     }
 
     internal Chain FindForkStrongest()

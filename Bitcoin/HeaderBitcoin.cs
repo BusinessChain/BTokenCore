@@ -1,4 +1,6 @@
-﻿namespace BTokenCore;
+﻿using System.Numerics;
+
+namespace BTokenCore;
 
 internal class HeaderBitcoin : Header
 {
@@ -68,6 +70,11 @@ internal class HeaderBitcoin : Header
         $"nBits {NBits} not equal to target nBits {targetBitsNew} in header {this}.");
 
     base.AppendToHeader(headerPrevious);
+  }
+
+  protected override BigInteger GetWork()
+  {
+    return UInt256.ParseFromCompact(NBits).ComputeWork();
   }
 
   static uint GetMedianTimePastSeconds(HeaderBitcoin header)

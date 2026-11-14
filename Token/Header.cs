@@ -1,4 +1,6 @@
-﻿namespace BTokenCore;
+﻿using System.Numerics;
+
+namespace BTokenCore;
 
 public abstract class Header
 {
@@ -15,6 +17,7 @@ public abstract class Header
   internal Dictionary<byte[], TXOutputTokenAnchor> AnchorsWinner = new(new EqualityComparerByteArray());
 
   internal int Height;
+  internal BigInteger WorkAccumulated;
 
 
   internal Header()
@@ -53,8 +56,11 @@ public abstract class Header
       throw new ProtocolException($"Header {this} references header previous {HashPrevious.ToHexString()} but attempts to append to {headerPrevious}.");
 
     Height = headerPrevious.Height + 1;
+    WorkAccumulated = headerPrevious.WorkAccumulated + GetWork();
     HeaderPrevious = headerPrevious;
   }
+
+  protected abstract BigInteger GetWork();
 
   internal bool IsParentNewest()
   {

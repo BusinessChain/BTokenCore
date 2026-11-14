@@ -126,6 +126,11 @@ internal class UInt256
     return new UInt256(Data / divisor);
   }
 
+  internal BigInteger ComputeWork()
+  {
+    return (BigInteger.One << 256) / (Data + 1);
+  }
+
   internal bool IsGreaterThan(UInt256 number)
   {
     return Data > number.Data;

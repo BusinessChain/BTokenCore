@@ -1,4 +1,6 @@
-﻿namespace BTokenCore;
+﻿using System.Numerics;
+
+namespace BTokenCore;
 
 public class HeaderBToken : Header
 {
@@ -41,6 +43,11 @@ public class HeaderBToken : Header
     BitConverter.GetBytes(Nonce).CopyTo(buffer, 100);
 
     return buffer;
+  }
+
+  protected override BigInteger GetWork()
+  {
+    return BigInteger.One;
   }
 
   internal override void CopyTo(Header header)
