@@ -8,9 +8,10 @@ public class Node
   internal BlockchainBToken BlockchainBToken;
   internal NetworkBitcoin NetworkBitcoin;
   internal NetworkBToken NetworkBToken;
+  RPCServer RPCServer;
 
 
-  public Node(ICommunication communication)
+  public Node(ICommunication communication, int portRPC)
   {
     SemaphoreSlim semaphoreBlockchain = new(1);
 
@@ -21,6 +22,8 @@ public class Node
 
     BlockchainBToken = new(NAME_TOKEN_BTOKEN, OpenDatabase(NAME_TOKEN_BTOKEN), "BTK", BlockchainBitcoin, semaphoreBlockchain);
     NetworkBToken = new(BlockchainBToken, communication);
+
+    RPCServer = new(this, portRPC);
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
@@ -43,6 +46,8 @@ public class Node
     NetworkBitcoin.Start();
 
     NetworkBToken.Start();
+
+    RPCServer.Start();
   }
 
   public async Task StartMining(int countAnchorsPer10Minutes, long feeAnchor)
