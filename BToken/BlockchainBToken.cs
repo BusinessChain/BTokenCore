@@ -276,6 +276,7 @@ internal partial class BlockchainBToken : Blockchain
     return BLOCK_REWARD_INITIAL >> countHalvings;
   }
 
+  // Coinbase fields besides outputs stay unchecked: a coinbase spends no account, so nothing can be replayed.
   static void VerifyCoinbase(Block block, long rent)
   {
     long fee = 0;
