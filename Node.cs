@@ -50,17 +50,17 @@ public class Node
     RPCServer.Start();
   }
 
-  public async Task StartMining(int countAnchorsPer10Minutes, long feeAnchor)
+  internal async Task StartMining(int countAnchorsPer10Minutes, long feeAnchor)
   {
     await BlockchainBToken.RunLocked(() => BlockchainBToken.StartMining(countAnchorsPer10Minutes, feeAnchor));
   }
 
-  public async Task StopMining()
+  internal async Task StopMining()
   {
     await BlockchainBToken.RunLocked(BlockchainBToken.StopMining);
   }
 
-  public async Task SubmitTXBToken(byte[] tXRaw)
+  internal async Task SubmitTXBToken(byte[] tXRaw)
   {
     await BlockchainBToken.RunLocked(() => BlockchainBToken.SubmitTX(tXRaw));
   }
