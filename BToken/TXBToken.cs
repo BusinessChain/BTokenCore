@@ -37,7 +37,7 @@ internal partial class BlockchainBToken : Blockchain
     internal TXBToken()
     { }
 
-    internal TXBToken(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures)
+    internal TXBToken(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures, byte[] iDToken)
     {
       int indexTxStart = index;
 
@@ -92,8 +92,13 @@ internal partial class BlockchainBToken : Blockchain
         int lengthSig = buffer[index++];
         byte[] signature = buffer.ReadBytes(ref index, lengthSig);
 
-        if (verifySignatures && !Crypto.VerifySignature(buffer, indexTxStart, lengthMessage, KeyPublic, signature))
-          throw new ProtocolException($"TX {this} contains invalid signature.");
+        if (verifySignatures)
+        {
+          byte[] message = [.. iDToken, .. buffer.AsSpan(indexTxStart, lengthMessage)];
+
+          if (!Crypto.VerifySignature(message, 0, message.Length, KeyPublic, signature))
+            throw new ProtocolException($"TX {this} contains invalid signature.");
+        }
       }
 
       CountBytes = index - indexTxStart;
@@ -106,11 +111,11 @@ internal partial class BlockchainBToken : Blockchain
       return !TXOutputs.Any(o => o is TXOutputTokenAnchor) || LockTime == heightBlock - 1;
     }
 
-    internal void Serialize(Wallet wallet)
+    internal void Serialize(Wallet wallet, byte[] iDToken)
     {
       SerializeUnsigned();
 
-      byte[] signature = wallet.GetSignature(Crypto.ComputeHash160(KeyPublic), TXRaw);
+      byte[] signature = wallet.GetSignature(Crypto.ComputeHash160(KeyPublic), [.. iDToken, .. TXRaw]);
 
       TXRaw = [.. TXRaw, (byte)signature.Length, .. signature];
     }

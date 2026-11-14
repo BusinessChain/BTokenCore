@@ -1,12 +1,11 @@
 using LiteDB;
-using System.Text;
 
 
 namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
-  byte[] IDToken = new byte[TXOutputTokenAnchor.LENGTH_ID_TOKEN];
+  byte[] IDToken;
 
   const int SIZE_BLOCK_MAX = 1 << 20;
 
@@ -39,8 +38,10 @@ internal partial class BlockchainBToken : Blockchain
     string iDToken,
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
-    : base(nameToken, liteDatabase, SIZE_BLOCK_MAX, new ParserBToken(), blockchainParent, semaphoreBlockchain)
+    : base(nameToken, liteDatabase, SIZE_BLOCK_MAX, new ParserBToken(iDToken), blockchainParent, semaphoreBlockchain)
   {
+    IDToken = ((ParserBToken)Parser).IDToken;
+
     BlockchainParent = blockchainParent;
 
     BlocksStoredAwaitingAnchor = LiteDatabase.GetCollection<BsonDocument>("blocksAwaitingAnchor");
@@ -58,8 +59,6 @@ internal partial class BlockchainBToken : Blockchain
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
-
-    Encoding.ASCII.GetBytes(iDToken).CopyTo(IDToken, 0);
 
     Accounts.Load(LiteDatabase);
   }
@@ -101,7 +100,7 @@ internal partial class BlockchainBToken : Blockchain
 
     tXAnchor.TXOutputs.Add(tokenAnchor);
 
-    tXAnchor.Serialize(Wallet);
+    tXAnchor.Serialize(Wallet, IDToken);
 
     try
     {
