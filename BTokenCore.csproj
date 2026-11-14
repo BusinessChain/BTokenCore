@@ -20,6 +20,9 @@
     <Compile Remove="Docs\**" />
     <EmbeddedResource Remove="Docs\**" />
     <None Remove="Docs\**" />
+    <Compile Remove="Hosts\**" />
+    <EmbeddedResource Remove="Hosts\**" />
+    <None Remove="Hosts\**" />
   </ItemGroup>
 
   <ItemGroup>
