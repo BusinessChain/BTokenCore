@@ -60,10 +60,15 @@ internal partial class BlockchainBToken : Blockchain
 
       for (int i = 0; i < countOutputs; i++)
       {
+        int indexOutput = index;
+
         TXOutput tXOutput = ParseTXOutput(buffer, ref index);
 
         if (tXOutput.GetType() == typeof(TXOutput))
           throw new ProtocolException("TX output script is neither P2PKH nor token anchor.");
+
+        if (tXOutput is TXOutputTokenAnchor && BitConverter.ToInt64(buffer, indexOutput) != 0)
+          throw new ProtocolException("Value of token anchor output not zero.");
 
         if (tXOutput is TXOutputP2PKH tXOutputP2PKH)
         {
