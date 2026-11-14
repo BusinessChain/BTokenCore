@@ -85,7 +85,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
         byte[] message = SHA256.HashData(tXRawSign.ToArray());
 
-        byte[] signature = wallet.GetSignature(wallet.KeyPublicReceiving, message);
+        byte[] signature = wallet.GetSignature(wallet.Hash160KeyPublicReceiving, message);
 
         List<byte> scriptSig = new();
 

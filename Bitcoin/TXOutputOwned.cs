@@ -15,6 +15,9 @@ internal class TXOutputOwned
   internal int Index;
 
   [BsonField]
+  internal byte[] IDAccount;
+
+  [BsonField]
   internal long Value;
 
   [BsonField]

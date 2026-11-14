@@ -4,7 +4,7 @@ internal class Wallet
 {
   string PathFile;
 
-  Dictionary<byte[], string> KeysPrivateDecimal = new(new EqualityComparerByteArray());
+  Dictionary<byte[], (string keyPrivateDecimal, byte[] keyPublic)> Keys = new(new EqualityComparerByteArray());
   internal byte[] KeyPublicReceiving;
   internal byte[] Hash160KeyPublicReceiving;
   internal string AddressAccountReceiving;
@@ -26,7 +26,12 @@ internal class Wallet
 
     AddressAccountReceiving = Hash160KeyPublicReceiving.BinaryToBase58Check();
 
-    KeysPrivateDecimal[KeyPublicReceiving] = keyPrivateDecimal;
+    Keys[Hash160KeyPublicReceiving] = (keyPrivateDecimal, KeyPublicReceiving);
+  }
+
+  internal bool IsKeyOwned(byte[] hash160)
+  {
+    return Keys.ContainsKey(hash160);
   }
 
   internal byte[] GetHash160KeyReceiving(Func<byte[], bool> canReceive)
@@ -45,8 +50,8 @@ internal class Wallet
     return Hash160KeyPublicReceiving;
   }
 
-  internal byte[] GetSignature(byte[] keyPublic, byte[] dataToBeSigned)
+  internal byte[] GetSignature(byte[] hash160, byte[] dataToBeSigned)
   {
-    return Crypto.GetSignature(KeysPrivateDecimal[keyPublic], dataToBeSigned);
+    return Crypto.GetSignature(Keys[hash160].keyPrivateDecimal, dataToBeSigned);
   }
 }

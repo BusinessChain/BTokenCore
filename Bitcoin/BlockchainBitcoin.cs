@@ -88,13 +88,13 @@ internal partial class BlockchainBitcoin : Blockchain
         }
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
-        if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
-          tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160KeyPublicReceiving))
+        if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput && Wallet.IsKeyOwned(tXOutput.IDAccount))
           OutputsOwnedStored.Insert(new TXOutputOwned
           {
             ID = TXOutputOwned.CreateID(tX.Hash, i),
             TXID = tX.Hash,
             Index = i,
+            IDAccount = tXOutput.IDAccount,
             Value = tXOutput.Value,
             HeightCreated = height
           });
