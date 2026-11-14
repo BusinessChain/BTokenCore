@@ -341,24 +341,24 @@ internal partial class BlockchainBToken : Blockchain
 
         Account account = Accounts.LoadAccountNext(iDAccount) ?? new Account { ID = iDAccount };
 
-        int countTXsValid = 0;
+        bool isChainBroken = false;
 
-        while (countTXsValid < tXsInPool.Count)
+        foreach (TXBToken tX in tXsInPool)
         {
-          try
-          {
-            account.SpendTX(tXsInPool[countTXsValid]);
-          }
-          catch (ProtocolException)
-          {
-            break;
-          }
+          if (!isChainBroken &&
+            !(tX.HeightAccountCreated == account.HeightAccountCreated && tX.Nonce < account.Nonce))
+            try
+            {
+              account.SpendTX(tX);
+              continue;
+            }
+            catch (ProtocolException)
+            {
+              isChainBroken = true;
+            }
 
-          countTXsValid += 1;
+          RemoveTXFromIndexes(tX);
         }
-
-        foreach (TXBToken tXDropped in tXsInPool.Skip(countTXsValid))
-          RemoveTXFromIndexes(tXDropped);
 
         TXsByIDAccountSource[iDAccount] = (accountInPool.tXBundles, account);
 
