@@ -46,6 +46,8 @@ internal abstract partial class Blockchain
         block.TXs.Add(tX);
       }
 
+      block.LengthDataPayload = startIndex;
+
       if (!block.Header.MerkleRoot.IsAllBytesEqual(block.ComputeMerkleRoot()))
         throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
 
