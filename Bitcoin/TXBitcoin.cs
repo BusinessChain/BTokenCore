@@ -78,14 +78,14 @@ internal partial class BlockchainBitcoin : Blockchain
         List<byte> tXRawSign = tXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
-        byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(wallet.Hash160PKeyPublic).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
+        byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(wallet.Hash160KeyPublicReceiving).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
 
         tXRawSign[indexRawSign++] = (byte)publicScript.Length;
         tXRawSign.InsertRange(indexRawSign, publicScript);
 
         byte[] message = SHA256.HashData(tXRawSign.ToArray());
 
-        byte[] signature = wallet.GetSignature(message);
+        byte[] signature = wallet.GetSignature(wallet.KeyPublicReceiving, message);
 
         List<byte> scriptSig = new();
 
@@ -93,8 +93,8 @@ internal partial class BlockchainBitcoin : Blockchain
         scriptSig.AddRange(signature);
         scriptSig.Add(0x01);
 
-        scriptSig.Add((byte)wallet.KeyPublic.Length);
-        scriptSig.AddRange(wallet.KeyPublic);
+        scriptSig.Add((byte)wallet.KeyPublicReceiving.Length);
+        scriptSig.AddRange(wallet.KeyPublicReceiving);
 
         signaturesPerInput.Add(scriptSig);
       }

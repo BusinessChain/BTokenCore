@@ -89,7 +89,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
       for (int i = 0; i < tX.TXOutputs.Count; i++)
         if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput &&
-          tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160PKeyPublic))
+          tXOutput.IDAccount.IsAllBytesEqual(Wallet.Hash160KeyPublicReceiving))
           OutputsOwnedStored.Insert(new TXOutputOwned
           {
             ID = TXOutputOwned.CreateID(tX.Hash, i),
@@ -211,7 +211,7 @@ internal partial class BlockchainBitcoin : Blockchain
     long valueChange = outputSpent.Value - feeTX;
 
     if (valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR)
-      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160PKeyPublic));
+      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
 
     tXAnchor.Serialize(Wallet);
 

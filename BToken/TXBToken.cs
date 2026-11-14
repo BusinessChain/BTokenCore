@@ -105,7 +105,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       SerializeUnsigned();
 
-      byte[] signature = wallet.GetSignature(TXRaw);
+      byte[] signature = wallet.GetSignature(KeyPublic, TXRaw);
 
       TXRaw = [.. TXRaw, (byte)signature.Length, .. signature];
     }
