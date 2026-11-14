@@ -179,6 +179,9 @@ internal abstract partial class Network
 
     List<Peer> peersEvictable = peersCandidate.Except(peersProtected).ToList();
 
+    if (peersEvictable.Count == 0)
+      throw new ProtocolException("Inbound request rejected, no inbound peer evictable.");
+
     peersEvictable[Random.Shared.Next(peersEvictable.Count)].SocketCommunication.Dispose();
   }
 
