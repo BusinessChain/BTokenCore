@@ -15,8 +15,6 @@ public abstract class TX
   internal List<TXOutput> TXOutputs = new();
 
 
-  internal abstract void Serialize(Wallet wallet);
-
   protected TXOutput ParseTXOutput(byte[] buffer, ref int startIndex)
   {
     long value = buffer.Read<long>(ref startIndex);

@@ -101,7 +101,7 @@ internal partial class BlockchainBToken : Blockchain
       return !TXOutputs.Any(o => o is TXOutputTokenAnchor) || LockTime == heightBlock - 1;
     }
 
-    internal override void Serialize(Wallet wallet)
+    internal void Serialize(Wallet wallet)
     {
       SerializeUnsigned();
 

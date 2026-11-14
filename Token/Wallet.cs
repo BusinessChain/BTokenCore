@@ -50,6 +50,11 @@ internal class Wallet
     return Hash160KeyPublicReceiving;
   }
 
+  internal byte[] GetKeyPublic(byte[] hash160)
+  {
+    return Keys[hash160].keyPublic;
+  }
+
   internal byte[] GetSignature(byte[] hash160, byte[] dataToBeSigned)
   {
     return Crypto.GetSignature(Keys[hash160].keyPrivateDecimal, dataToBeSigned);

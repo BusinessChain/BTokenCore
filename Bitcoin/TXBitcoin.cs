@@ -40,7 +40,7 @@ internal partial class BlockchainBitcoin : Blockchain
     }
 
 
-    internal override void Serialize(Wallet wallet)
+    internal void Serialize(Wallet wallet, byte[] iDAccountOutput)
     {
       List<byte> tXRaw = new();
 
@@ -61,31 +61,32 @@ internal partial class BlockchainBitcoin : Blockchain
       tXRaw.AddRange(BitConverter.GetBytes(LockTime));
       tXRaw.AddRange([0x01, 0x00, 0x00, 0x00]); // sighash
 
-      SignTX(tXRaw, wallet);
+      SignTX(tXRaw, wallet, iDAccountOutput);
 
       TXRaw = tXRaw.ToArray();
 
       Hash = Crypto.ComputeHash256(TXRaw);
     }
 
-    void SignTX(List<byte> tXRaw, Wallet wallet)
+    void SignTX(List<byte> tXRaw, Wallet wallet, byte[] iDAccountOutput)
     {
       List<List<byte>> signaturesPerInput = new();
       int indexFirstInput = 5;
+
+      byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(iDAccountOutput).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
+      byte[] keyPublic = wallet.GetKeyPublic(iDAccountOutput);
 
       for (int i = 0; i < Inputs.Count; i++)
       {
         List<byte> tXRawSign = tXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
-        byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(wallet.Hash160KeyPublicReceiving).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
-
         tXRawSign[indexRawSign++] = (byte)publicScript.Length;
         tXRawSign.InsertRange(indexRawSign, publicScript);
 
         byte[] message = SHA256.HashData(tXRawSign.ToArray());
 
-        byte[] signature = wallet.GetSignature(wallet.Hash160KeyPublicReceiving, message);
+        byte[] signature = wallet.GetSignature(iDAccountOutput, message);
 
         List<byte> scriptSig = new();
 
@@ -93,8 +94,8 @@ internal partial class BlockchainBitcoin : Blockchain
         scriptSig.AddRange(signature);
         scriptSig.Add(0x01);
 
-        scriptSig.Add((byte)wallet.KeyPublicReceiving.Length);
-        scriptSig.AddRange(wallet.KeyPublicReceiving);
+        scriptSig.Add((byte)keyPublic.Length);
+        scriptSig.AddRange(keyPublic);
 
         signaturesPerInput.Add(scriptSig);
       }

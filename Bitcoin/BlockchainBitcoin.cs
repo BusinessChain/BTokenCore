@@ -213,7 +213,7 @@ internal partial class BlockchainBitcoin : Blockchain
     if (valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR)
       tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
 
-    tXAnchor.Serialize(Wallet);
+    tXAnchor.Serialize(Wallet, outputSpent.IDAccount);
 
     tXAnchor.Fee = outputSpent.Value - tXAnchor.GetValueOutputs();
 
