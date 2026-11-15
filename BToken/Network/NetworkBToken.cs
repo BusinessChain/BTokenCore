@@ -7,17 +7,18 @@ internal partial class NetworkBToken : Network
 
   internal NetworkBToken(
     BlockchainBToken blockchain,
-    ICommunication communication)
+    ICommunication communication,
+    int port,
+    string[] seedAddresses)
     : base(
       blockchain,
       communication,
       new Configuration()
       {
-        Port = 8777,
+        Port = port,
         MagicBytes = [0xB7, 0xD0, 0xC3, 0xE5],
         ProtocolVersion = 1,
-        // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
-        SeedAddresses = ["83.229.86.158"],
+        SeedAddresses = seedAddresses,
         NetworkServicesLocal = Configuration.NODE_NETWORK,
         NetworkServicesRemote = Configuration.NODE_NETWORK,
         CountMaxInboundConnections = 32,

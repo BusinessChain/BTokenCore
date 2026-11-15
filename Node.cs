@@ -20,7 +20,12 @@ public class Node
     NetworkBitcoin = new(BlockchainBitcoin, communication);
 
     BlockchainBToken = new(NAME_TOKEN_BTOKEN, OpenDatabase(NAME_TOKEN_BTOKEN), "BTK", BlockchainBitcoin, semaphoreBlockchain);
-    NetworkBToken = new(BlockchainBToken, communication);
+    NetworkBToken = new(
+      BlockchainBToken,
+      communication,
+      port: 8777,
+      // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
+      seedAddresses: ["83.229.86.158"]);
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
