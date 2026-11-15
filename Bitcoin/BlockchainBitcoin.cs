@@ -48,30 +48,20 @@ internal partial class BlockchainBitcoin : Blockchain
     return header;
   }
 
-  protected override void ParseBlockStored(Block block)
+  protected override void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
     int startIndex = Parser.ParseBlockHeader(block);
 
-    int countAnchors = VarInt.GetInt(block.Buffer, ref startIndex);
-
-    for (int i = 0; i < countAnchors; i++)
-    {
-      TXOutputTokenAnchor anchor = new(block.Buffer, ref startIndex);
-      block.Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
-    }
+    ParserToken.ParseAnchorsWinner(block.Header, block.Buffer, ref startIndex);
   }
 
-  protected override byte[] SerializeBlockStored(Block block)
+  protected override BsonDocument CreateDocumentBlockStored(Block block)
   {
-    List<byte> bytes = [.. block.Header.Serialize(), .. VarInt.GetBytes(block.Header.AnchorsWinner.Count)];
+    BsonDocument documentBlock = base.CreateDocumentBlockStored(block);
 
-    foreach (TXOutputTokenAnchor anchor in block.Header.AnchorsWinner.Values)
-    {
-      anchor.Serialize();
-      bytes.AddRange(anchor.Script);
-    }
+    documentBlock[NAME_FIELD_BLOCK_BYTES] = (byte[])[.. block.Header.Serialize(), .. ParserToken.SerializeAnchorsWinner(block.Header)];
 
-    return bytes.ToArray();
+    return documentBlock;
   }
 
   protected override void InsertBlock(Block block)

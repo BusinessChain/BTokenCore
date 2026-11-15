@@ -30,6 +30,7 @@ internal partial class BlockchainBToken : Blockchain
   protected ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
   const string NAME_FIELD_LOCK_TIME_ANCHOR = "lockTimeAnchor";
+  const string NAME_FIELD_ANCHORS_WINNER = "anchorsWinner";
 
 
   internal BlockchainBToken(
@@ -307,7 +308,7 @@ internal partial class BlockchainBToken : Blockchain
     {
       [NAME_FIELD_ID] = block.Header.Hash,
       [NAME_FIELD_HEIGHT] = block.Header.Height,
-      [NAME_FIELD_BLOCK_BYTES] = SerializeBlockStored(block)
+      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload]
     };
 
     if (lockTimeAnchor.HasValue)
@@ -321,10 +322,33 @@ internal partial class BlockchainBToken : Blockchain
     if (!ChainRoot.TryGetHeaderPlaceholder(headerParent, out Header headerPlaceholder, out Chain chain))
       return;
 
-    Block block = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
+    if (!TryParseBlockStored(headerPlaceholder, bsonDocumentBlock, out Block block))
+      return;
 
-    if (TryParseBlockStored(headerPlaceholder, block) && chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
+    ParserToken.DrawAnchorsWinner(block);
+
+    if (chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
       UpdateTipBlockchain(chain);
+  }
+
+  protected override void ParseBlockStored(Block block, BsonDocument documentBlock)
+  {
+    base.ParseBlockStored(block, documentBlock);
+
+    if (documentBlock.TryGetValue(NAME_FIELD_ANCHORS_WINNER, out BsonValue anchorsWinner))
+    {
+      int index = 0;
+      ParserToken.ParseAnchorsWinner(block.Header, anchorsWinner.AsBinary, ref index);
+    }
+  }
+
+  protected override BsonDocument CreateDocumentBlockStored(Block block)
+  {
+    BsonDocument documentBlock = base.CreateDocumentBlockStored(block);
+
+    documentBlock[NAME_FIELD_ANCHORS_WINNER] = ParserToken.SerializeAnchorsWinner(block.Header);
+
+    return documentBlock;
   }
 
   void HandleBlockParentInserted(Block blockParent)

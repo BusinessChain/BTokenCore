@@ -50,11 +50,33 @@ internal abstract partial class Blockchain
 
       if (!block.Header.MerkleRoot.IsAllBytesEqual(block.ComputeMerkleRoot()))
         throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
-
-      DrawAnchorsWinner(block);
     }
 
-    static void DrawAnchorsWinner(Block block)
+    internal static byte[] SerializeAnchorsWinner(Header header)
+    {
+      List<byte> bytes = [.. VarInt.GetBytes(header.AnchorsWinner.Count)];
+
+      foreach (TXOutputTokenAnchor anchor in header.AnchorsWinner.Values)
+      {
+        anchor.Serialize();
+        bytes.AddRange(anchor.Script);
+      }
+
+      return bytes.ToArray();
+    }
+
+    internal static void ParseAnchorsWinner(Header header, byte[] buffer, ref int index)
+    {
+      int countAnchors = VarInt.GetInt(buffer, ref index);
+
+      for (int i = 0; i < countAnchors; i++)
+      {
+        TXOutputTokenAnchor anchor = new(buffer, ref index);
+        header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
+      }
+    }
+
+    internal static void DrawAnchorsWinner(Block block)
     {
       Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
 

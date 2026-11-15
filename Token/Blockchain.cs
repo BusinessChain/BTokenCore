@@ -128,14 +128,18 @@ internal abstract partial class Blockchain
 
   protected abstract bool IsTXOwnedConfirmed(TX tX, Block block);
 
-  protected virtual void ParseBlockStored(Block block)
+  protected virtual void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
     Parser.ParseBlock(block, verifySignatures: false);
   }
 
-  protected virtual byte[] SerializeBlockStored(Block block)
+  protected virtual BsonDocument CreateDocumentBlockStored(Block block)
   {
-    return block.Buffer[..block.LengthDataPayload];
+    return new BsonDocument
+    {
+      [NAME_FIELD_ID] = block.Header.Height,
+      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload]
+    };
   }
 
   protected Block LoadBlock(int height)
@@ -146,13 +150,16 @@ internal abstract partial class Blockchain
     return null;
   }
 
-  protected bool TryParseBlockStored(Header header, Block block)
+  protected bool TryParseBlockStored(Header header, BsonDocument documentBlock, out Block block)
   {
-    block.Header = header;
+    block = new(documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary)
+    {
+      Header = header
+    };
 
     try
     {
-      ParseBlockStored(block);
+      ParseBlockStored(block, documentBlock);
     }
     catch (ProtocolException)
     {
@@ -164,7 +171,7 @@ internal abstract partial class Blockchain
 
   protected Block LoadBlockParsed(Header header)
   {
-    if (LoadBlock(header.Height) is not Block block || !TryParseBlockStored(header, block))
+    if (BlocksStored.FindById(header.Height) is not BsonDocument documentBlock || !TryParseBlockStored(header, documentBlock, out Block block))
       throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded.");
 
     return block;
@@ -185,13 +192,11 @@ internal abstract partial class Blockchain
     foreach (BsonDocument bsonDocumentBlock in BlocksStored.Find(Query.All(Query.Ascending)))
       try
       {
-        Block blockLoad = new(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
-
         int index = 0;
-        Header header = Parser.ParseHeader(blockLoad.Buffer, ref index);
+        Header header = Parser.ParseHeader(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index);
         header.Height = bsonDocumentBlock[NAME_FIELD_ID].AsInt32;
 
-        if (!TryParseBlockStored(header, blockLoad))
+        if (!TryParseBlockStored(header, bsonDocumentBlock, out Block blockLoad))
           continue;
 
         if (header.HashPrevious.IsAllBytesEqual(ChainRoot.HeaderTipBlockchain.Hash))
@@ -243,6 +248,7 @@ internal abstract partial class Blockchain
     };
 
     Parser.ParseBlock(block, verifySignatures: true);
+    ParserToken.DrawAnchorsWinner(block);
     chainAwaiting.BlocksQueued.Add(headerAwaited.Height, block);
 
     UpdateTipBlockchain(chainAwaiting);
@@ -277,11 +283,7 @@ internal abstract partial class Blockchain
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
-          BlocksStored.Upsert(new BsonDocument
-          {
-            [NAME_FIELD_ID] = block.Header.Height,
-            [NAME_FIELD_BLOCK_BYTES] = SerializeBlockStored(block)
-          });
+          BlocksStored.Upsert(CreateDocumentBlockStored(block));
         });
       }
       catch (ProtocolException ex)
