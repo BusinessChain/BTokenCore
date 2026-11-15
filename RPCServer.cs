@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.WebSockets;
 using System.Text.Json;
 
 namespace BTokenCore;
@@ -23,22 +24,65 @@ public class RPCServer
     {
       HttpListenerContext context = await HttpListener.GetContextAsync().ConfigureAwait(false);
 
-      try
+      if (context.Request.IsWebSocketRequest)
+        Serve(context);
+      else
       {
-        await Respond(context).ConfigureAwait(false);
+        context.Response.StatusCode = 400;
+        context.Response.Close();
       }
-      catch (HttpListenerException)
-      { }
     }
   }
 
-  async Task Respond(HttpListenerContext context)
+  async Task Serve(HttpListenerContext context)
+  {
+    try
+    {
+      using WebSocket webSocket = (await context.AcceptWebSocketAsync(null).ConfigureAwait(false)).WebSocket;
+
+      while (await ReceiveMessage(webSocket).ConfigureAwait(false) is byte[] message)
+        await webSocket.SendAsync(
+          new ArraySegment<byte>(await Respond(message).ConfigureAwait(false)),
+          WebSocketMessageType.Text,
+          endOfMessage: true,
+          CancellationToken.None).ConfigureAwait(false);
+    }
+    catch (WebSocketException)
+    { }
+    catch (HttpListenerException)
+    { }
+  }
+
+  static async Task<byte[]> ReceiveMessage(WebSocket webSocket)
+  {
+    using MemoryStream message = new();
+    byte[] buffer = new byte[4096];
+    WebSocketReceiveResult result;
+
+    do
+    {
+      result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None).ConfigureAwait(false);
+
+      if (result.MessageType == WebSocketMessageType.Close)
+      {
+        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None).ConfigureAwait(false);
+        return null;
+      }
+
+      message.Write(buffer, 0, result.Count);
+    }
+    while (!result.EndOfMessage);
+
+    return message.ToArray();
+  }
+
+  async Task<byte[]> Respond(byte[] message)
   {
     Dictionary<string, object> response = new() { ["jsonrpc"] = "2.0", ["id"] = null };
 
     try
     {
-      using JsonDocument request = await JsonDocument.ParseAsync(context.Request.InputStream).ConfigureAwait(false);
+      using JsonDocument request = JsonDocument.Parse(message);
 
       JsonElement root = request.RootElement;
 
@@ -77,10 +121,6 @@ public class RPCServer
       response["error"] = new Dictionary<string, object> { ["code"] = -32000, ["message"] = exception.Message };
     }
 
-    byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(response);
-
-    context.Response.ContentType = "application/json";
-    await context.Response.OutputStream.WriteAsync(bytes).ConfigureAwait(false);
-    context.Response.Close();
+    return JsonSerializer.SerializeToUtf8Bytes(response);
   }
 }
