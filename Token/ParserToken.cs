@@ -76,6 +76,16 @@ internal abstract partial class Blockchain
       }
     }
 
+    internal static IEnumerable<TXOutputTokenAnchor> EnumerateAnchorsEligible(List<TX> tXs, int height)
+    {
+      return tXs.Where(t => t.LockTime == height - 1).SelectMany(t => t.TXOutputs.OfType<TXOutputTokenAnchor>());
+    }
+
+    internal static byte[] ComputeHashAnchors(IEnumerable<TXOutputTokenAnchor> anchors)
+    {
+      return SHA256.HashData(anchors.SelectMany(a => a.IDToken.Concat(a.HashBlockReferenced).Concat(a.HashBlockPreviousReferenced)).ToArray());
+    }
+
     internal static void DrawAnchorsWinner(Block block)
     {
       Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
@@ -85,23 +95,16 @@ internal abstract partial class Blockchain
       while (headerRoot.HeaderParent != null)
         headerRoot = headerRoot.HeaderParent;
 
-      foreach (TX tX in block.TXs)
+      foreach (TXOutputTokenAnchor tokenAnchor in EnumerateAnchorsEligible(block.TXs, block.Header.Height))
       {
-        if (tX.LockTime != block.Header.Height - 1)
-          continue;
+        byte[] scoreAnchor = SHA256.HashData([.. headerRoot.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
 
-        foreach (TXOutput tXOutput in tX.TXOutputs)
-          if (tXOutput is TXOutputTokenAnchor tokenAnchor)
-          {
-            byte[] scoreAnchor = SHA256.HashData([.. headerRoot.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
-
-            if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
-              || scoreAnchor.IsLessThan(scoreAnchorWinner))
-            {
-              scoresAnchorWinner[tokenAnchor.IDToken] = scoreAnchor;
-              block.Header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
-            }
-          }
+        if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
+          || scoreAnchor.IsLessThan(scoreAnchorWinner))
+        {
+          scoresAnchorWinner[tokenAnchor.IDToken] = scoreAnchor;
+          block.Header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
+        }
       }
     }
   }

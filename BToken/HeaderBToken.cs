@@ -4,9 +4,10 @@ namespace BTokenCore;
 
 public class HeaderBToken : Header
 {
-  internal const int COUNT_HEADER_BYTES = 104;
+  internal const int COUNT_HEADER_BYTES = 136;
 
   internal byte[] HashAccounts;
+  internal byte[] HashAnchors = Blockchain.ParserToken.ComputeHashAnchors([]);
 
 
   internal HeaderBToken()
@@ -31,6 +32,8 @@ public class HeaderBToken : Header
   {
     HashAccounts = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
 
+    HashAnchors = buffer.ReadBytes(ref index, Crypto.LENGTH_HASH256);
+
     Nonce = buffer.Read<uint>(ref index);
   }
 
@@ -40,7 +43,9 @@ public class HeaderBToken : Header
 
     HashAccounts.CopyTo(buffer, 68);
 
-    BitConverter.GetBytes(Nonce).CopyTo(buffer, 100);
+    HashAnchors.CopyTo(buffer, 100);
+
+    BitConverter.GetBytes(Nonce).CopyTo(buffer, 132);
 
     return buffer;
   }
@@ -58,5 +63,6 @@ public class HeaderBToken : Header
     headerBToken.Nonce = Nonce;
     headerBToken.Version = Version;
     headerBToken.HashAccounts = HashAccounts;
+    headerBToken.HashAnchors = HashAnchors;
   }
 }

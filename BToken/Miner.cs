@@ -143,6 +143,7 @@ internal partial class BlockchainBToken : Blockchain
         Height = height,
         HashPrevious = Blockchain.ChainRoot.HeaderTipBlockchain.Hash,
         MerkleRoot = block.ComputeMerkleRoot(),
+        HashAnchors = ParserToken.ComputeHashAnchors(ParserToken.EnumerateAnchorsEligible(block.TXs, height)),
         Nonce = NonceBlockNext++
       };
 
