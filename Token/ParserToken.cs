@@ -25,7 +25,7 @@ internal abstract partial class Blockchain
       return startIndex;
     }
 
-    internal void ParseBlock(Block block, bool verifySignatures)
+    internal virtual void ParseBlock(Block block, bool verifySignatures)
     {
       int startIndex = ParseBlockHeader(block);
 
