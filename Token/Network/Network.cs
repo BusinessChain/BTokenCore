@@ -10,6 +10,8 @@ internal abstract partial class Network
 
   ICommunication Communication;
 
+  CancellationTokenSource CancellationStop = new();
+
   const int TIMESPAN_LOOP_PEER_CONNECTOR_SECONDS = 5;
   internal const int TIMEOUT_REQUEST_SECONDS = 60;
 
@@ -43,6 +45,17 @@ internal abstract partial class Network
       StartPeerConnectorInbound();
   }
 
+  internal void Stop()
+  {
+    lock (LOCK_Peers)
+    {
+      CancellationStop.Cancel();
+
+      foreach (Peer peer in Peers.ToList())
+        peer.SocketCommunication.Dispose();
+    }
+  }
+
   void HandleBlockInserted(Block block)
   {
     lock (LOCK_Peers)
@@ -53,7 +66,7 @@ internal abstract partial class Network
 
   async Task StartPeerConnectorOutbound()
   {
-    while (true)
+    while (!CancellationStop.IsCancellationRequested)
     {
       int countPeersOutbound;
       List<string> iPsCandidate;
@@ -99,10 +112,13 @@ internal abstract partial class Network
 
         Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
 
-        await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
+        using (CancellationStop.Token.Register(socketCommunication.Dispose))
+          await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
         lock (LOCK_Peers)
-          if (!peer.IsDisposed)
+          if (CancellationStop.IsCancellationRequested)
+            socketCommunication.Dispose();
+          else if (!peer.IsDisposed)
             Peers.Add(peer);
       }
       catch
