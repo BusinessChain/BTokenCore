@@ -229,7 +229,7 @@ internal partial class BlockchainBToken : Blockchain
           yield return accountsSortedInsert[i];
       }
 
-      static byte[] SerializeAccounts(IEnumerable<Account> accounts)
+      internal static byte[] SerializeAccounts(IEnumerable<Account> accounts)
       {
         List<byte> bytes = new();
         int countAccounts = 0;

@@ -66,12 +66,15 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override Header CreateHeaderRoot()
   {
-    HeaderBToken header = new(
-      headerHash: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f".ToBinary(),
-      hashPrevious: "0000000000000000000000000000000000000000000000000000000000000000".ToBinary(),
-      merkleRootHash: "4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b".ToBinary(),
-      hashAccounts: "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d".ToBinary(),
-      nonce: 0);
+    HeaderBToken header = new()
+    {
+      HashPrevious = new byte[Crypto.LENGTH_HASH256],
+      MerkleRoot = new byte[Crypto.LENGTH_HASH256],
+      HashAccounts = DatabaseAccounts.ComputeHashSegmentEmpty(),
+      Nonce = BitConverter.ToUInt32(((ParserBToken)Parser).IDToken)
+    };
+
+    header.ComputeHash();
 
     return header;
   }

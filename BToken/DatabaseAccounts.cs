@@ -1,5 +1,6 @@
 using LiteDB;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 
 namespace BTokenCore;
@@ -310,6 +311,11 @@ internal partial class BlockchainBToken : Blockchain
       {
         LiteDatabase.Rollback();
       }
+    }
+
+    internal static byte[] ComputeHashSegmentEmpty()
+    {
+      return SHA256.HashData(Segment.SerializeAccounts([]));
     }
 
     void VerifyHashAccounts(HeaderBToken header)
