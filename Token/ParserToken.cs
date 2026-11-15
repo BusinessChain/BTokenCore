@@ -80,6 +80,11 @@ internal abstract partial class Blockchain
     {
       Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
 
+      Header headerRoot = block.Header;
+
+      while (headerRoot.HeaderParent != null)
+        headerRoot = headerRoot.HeaderParent;
+
       foreach (TX tX in block.TXs)
       {
         if (tX.LockTime != block.Header.Height - 1)
@@ -88,7 +93,7 @@ internal abstract partial class Blockchain
         foreach (TXOutput tXOutput in tX.TXOutputs)
           if (tXOutput is TXOutputTokenAnchor tokenAnchor)
           {
-            byte[] scoreAnchor = SHA256.HashData([.. block.Header.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
+            byte[] scoreAnchor = SHA256.HashData([.. headerRoot.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
 
             if (!scoresAnchorWinner.TryGetValue(tokenAnchor.IDToken, out byte[] scoreAnchorWinner)
               || scoreAnchor.IsLessThan(scoreAnchorWinner))
