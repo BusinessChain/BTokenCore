@@ -215,13 +215,13 @@ internal partial class BlockchainBToken : Blockchain
     InsertTXOwned(tX);
   }
 
-  internal void Load()
+  internal override void Load()
   {
-    LoadBlockchain();
+    base.Load();
 
     Synchronizer.Load();
 
-    BlockchainParent.LoadBlockchain();
+    BlockchainParent.Load();
     RollBackUnanchored();
 
     ResyncWhenBehindWindowStored();

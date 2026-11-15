@@ -187,7 +187,7 @@ internal abstract partial class Blockchain
     return block;
   }
 
-  internal void LoadBlockchain()
+  internal virtual void Load()
   {
     foreach (BsonDocument bsonDocumentBlock in BlocksStored.Find(Query.All(Query.Ascending)))
       try
