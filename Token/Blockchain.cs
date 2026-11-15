@@ -302,8 +302,7 @@ internal abstract partial class Blockchain
       $"Block {header.Hash.ToHexString()} at height {header.Height} was rejected: {exception.Message} " +
       $"If the network builds on it, the local database may be corrupt.");
 
-    BlocksStored.DeleteMany(Query.GTE(NAME_FIELD_ID, header.Height));
-    ReopenTXsOwned(header.Height);
+    RollBack(heightAfterRollBack: header.Height - 1);
 
     ChainRoot.CutOff(header);
   }
