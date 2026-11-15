@@ -14,8 +14,28 @@ internal class Wallet
   {
     PathFile = pathFile;
 
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(PathFile)));
+
+    if (!File.Exists(PathFile))
+      File.WriteAllText(PathFile, "");
+
     foreach (string keyPrivateDecimal in File.ReadAllLines(PathFile).Select(l => l.Trim()).Where(l => l.Length > 0))
       SetKey(keyPrivateDecimal);
+
+    if (Keys.Count == 0)
+      AddKeyGenerated();
+  }
+
+  void AddKeyGenerated()
+  {
+    string keyPrivateDecimal = Crypto.GenerateKeyPrivate();
+
+    SetKey(keyPrivateDecimal);
+
+    string content = File.ReadAllText(PathFile);
+    string separator = content.Length == 0 || content.EndsWith('\n') ? "" : Environment.NewLine;
+
+    File.AppendAllText(PathFile, separator + keyPrivateDecimal + Environment.NewLine);
   }
 
   void SetKey(string keyPrivateDecimal)
@@ -37,15 +57,7 @@ internal class Wallet
   internal byte[] GetHash160KeyReceiving(Func<byte[], bool> canReceive)
   {
     while (!canReceive(Hash160KeyPublicReceiving))
-    {
-      string keyPrivateDecimal = Crypto.GenerateKeyPrivate();
-
-      SetKey(keyPrivateDecimal);
-
-      string separator = File.ReadAllText(PathFile).EndsWith('\n') ? "" : Environment.NewLine;
-
-      File.AppendAllText(PathFile, separator + keyPrivateDecimal + Environment.NewLine);
-    }
+      AddKeyGenerated();
 
     return Hash160KeyPublicReceiving;
   }
