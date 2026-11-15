@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "ConsoleHost": {
+      "commandName": "Project"
+    },
+    "ConsoleHost offline": {
+      "commandName": "Project",
+      "commandLineArgs": "offline"
+    }
+  }
+}
