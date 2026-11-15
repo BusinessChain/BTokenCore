@@ -11,10 +11,10 @@ class Program
   {
     int portRPC = args.Length > 0 ? int.Parse(args[0]) : PORT_RPC_DEFAULT;
 
-    Node node = new(new CommunicationTCP(), portRPC);
+    Node node = new(new CommunicationTCP());
 
     await node.Start();
 
-    await Task.Delay(Timeout.Infinite);
+    await new RPCServer(node, portRPC).Start();
   }
 }

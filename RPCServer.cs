@@ -3,19 +3,19 @@ using System.Text.Json;
 
 namespace BTokenCore;
 
-internal class RPCServer
+public class RPCServer
 {
   Node Node;
   HttpListener HttpListener = new();
 
 
-  internal RPCServer(Node node, int port)
+  public RPCServer(Node node, int port)
   {
     Node = node;
     HttpListener.Prefixes.Add($"http://127.0.0.1:{port}/");
   }
 
-  internal async Task Start()
+  public async Task Start()
   {
     HttpListener.Start();
 
