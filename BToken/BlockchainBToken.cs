@@ -413,11 +413,10 @@ internal partial class BlockchainBToken : Blockchain
       return;
 
     Synchronizer.Drop();
-    BlocksStored.DeleteAll();
-
-    ChainRoot.HeaderTipBlockchain = ChainRoot.HeaderRoot;
 
     Reorg(chainTallest);
+
+    BlocksStored.DeleteAll();
 
     Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
 
