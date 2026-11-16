@@ -40,11 +40,21 @@ internal partial class Network
       Level = Math.Max(0, Level - amount);
     }
 
+    internal Dictionary<string, object> GetSnapshot()
+    {
+      return new() { ["level"] = GetLevelDrained(DateTime.UtcNow), ["levelMax"] = MaxLevel };
+    }
+
+    double GetLevelDrained(DateTime now)
+    {
+      return Math.Max(0, Level - AmountDrainPer10Minutes * (now - TimestampLastDrain) / TimeSpan.FromMinutes(10));
+    }
+
     void Drain()
     {
       DateTime now = DateTime.UtcNow;
 
-      Level = Math.Max(0, Level - AmountDrainPer10Minutes * (now - TimestampLastDrain) / TimeSpan.FromMinutes(10));
+      Level = GetLevelDrained(now);
       TimestampLastDrain = now;
     }
   }

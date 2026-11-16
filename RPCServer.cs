@@ -148,6 +148,8 @@ public class RPCServer
 
       string method = root.GetProperty("method").GetString();
 
+      object result = null;
+
       switch (method)
       {
         case "startMining":
@@ -165,11 +167,19 @@ public class RPCServer
             Convert.FromHexString(parameters.GetProperty("tXRaw").GetString())).ConfigureAwait(false);
           break;
 
+        case "getNetworks":
+          result = new Dictionary<string, object>
+          {
+            ["Bitcoin"] = Node.NetworkBitcoin.GetSnapshot(),
+            ["BToken"] = Node.NetworkBToken.GetSnapshot()
+          };
+          break;
+
         default:
           throw new ProtocolException($"Method {method} not found.");
       }
 
-      response["result"] = null;
+      response["result"] = result;
     }
     catch (Exception exception)
     {

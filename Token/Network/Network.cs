@@ -56,6 +56,20 @@ internal abstract partial class Network
     }
   }
 
+  internal List<Dictionary<string, object>> GetSnapshot()
+  {
+    lock (LOCK_Peers)
+      return Peers.Select(peer => new Dictionary<string, object>
+      {
+        ["ip"] = peer.GetIP(),
+        ["connection"] = peer.Connection.ToString(),
+        ["stateCurrent"] = peer.StateCurrent.ToString(),
+        ["isDisposed"] = peer.IsDisposed,
+        ["timeConnected"] = peer.TimeConnected.ToString("o"),
+        ["messages"] = peer.MessagesByCommand.ToDictionary(m => m.Key, m => m.Value.DOSMonitor.GetSnapshot())
+      }).ToList();
+  }
+
   void HandleBlockInserted(Block block)
   {
     lock (LOCK_Peers)

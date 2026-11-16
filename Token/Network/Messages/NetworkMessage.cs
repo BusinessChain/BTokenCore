@@ -7,7 +7,7 @@ internal partial class Network
     internal byte[] Payload;
     internal int LengthDataPayload;
 
-    protected DOSMonitor DOSMonitor;
+    internal DOSMonitor DOSMonitor;
 
 
     internal NetworkMessage(byte[] payload, int maxLevelDoS, int amountDrainDoSPer10Minutes)
