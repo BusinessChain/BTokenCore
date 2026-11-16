@@ -178,6 +178,40 @@ internal partial class BlockchainBToken : Blockchain
     return Synchronizer.GetSegmentSweptByBlock(hashBlock);
   }
 
+  internal byte[] GetBlocksCompactSerialized(byte[] hash, int countBlocksCompactMax, int sizeBlocksCompactMax)
+  {
+    if (!ChainRoot.TryGetHeader(hash, out Header header)
+      || BlocksCompact.FindById(header.Height) is not BsonDocument documentAbove)
+      return null;
+
+    int index = 0;
+
+    if (!Parser.ParseHeader(documentAbove[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index).Hash.IsAllBytesEqual(hash))
+      return null;
+
+    List<byte[]> blocksCompact = new();
+    int countBytes = VarInt.GetBytes(countBlocksCompactMax).Length;
+
+    for (int height = header.Height - 1; blocksCompact.Count < countBlocksCompactMax; height--)
+    {
+      if (BlocksCompact.FindById(height) is not BsonDocument documentBlock)
+        break;
+
+      byte[] bytesBlockCompact = documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary;
+
+      if (countBytes + bytesBlockCompact.Length > sizeBlocksCompactMax)
+        break;
+
+      blocksCompact.Add(bytesBlockCompact);
+      countBytes += bytesBlockCompact.Length;
+    }
+
+    if (blocksCompact.Count == 0)
+      return null;
+
+    return [.. VarInt.GetBytes(blocksCompact.Count), .. blocksCompact.SelectMany(c => c)];
+  }
+
   internal Header FetchHeaderSweepMissingNext(Func<Header, bool> canSupplierDeliver)
   {
     return Synchronizer.FetchHeaderSweepMissingNext(canSupplierDeliver);

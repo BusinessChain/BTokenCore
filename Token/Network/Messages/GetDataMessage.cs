@@ -70,8 +70,8 @@ internal partial class Network
           else
             await SendInventories(peer, NotFoundMessage.Command, [inventory]);
         }
-        else if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT_SWEEP)
-          await ServeAccounts(peer, inventory);
+        else if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT_SWEEP || inventory.Type == Inventory.InventoryType.MSG_BLOCKS_COMPACT)
+          await ServeInventoryToken(peer, inventory);
       }
 
       if (inventoriesTXNotFound.Count > 0)
@@ -87,9 +87,7 @@ internal partial class Network
       return true;
     }
 
-    protected virtual Task ServeAccounts(Peer peer, Inventory inventory)
-    {
-      return Task.CompletedTask;
-    }
+    protected virtual async Task ServeInventoryToken(Peer peer, Inventory inventory)
+    { }
   }
 }

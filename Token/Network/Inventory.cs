@@ -12,7 +12,8 @@ internal partial class Network
       MSG_BLOCK = 2,
       MSG_FILTERED_BLOCK = 3,
       MSG_CMPCT_BLOCK = 4,
-      MSG_SEGMENT_SWEEP = 7
+      MSG_SEGMENT_SWEEP = 7,
+      MSG_BLOCKS_COMPACT = 8
     }
 
     internal const int LENGTH = 36;
