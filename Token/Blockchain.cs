@@ -22,7 +22,7 @@ internal abstract partial class Blockchain
   protected Chain ChainRoot;
 
   protected LiteDatabase LiteDatabase;
-  protected ILiteCollection<BsonDocument> BlocksStored;
+  protected ILiteCollection<BsonDocument> BlocksCompact;
   protected ILiteCollection<BsonDocument> TXsOwnedStored;
 
   SemaphoreSlim SemaphoreBlockchain;
@@ -51,7 +51,7 @@ internal abstract partial class Blockchain
     ChainRoot.HeaderRoot.HeaderParent = blockchainParent?.ChainRoot.HeaderRoot;
 
     LiteDatabase = liteDatabase;
-    BlocksStored = LiteDatabase.GetCollection<BsonDocument>("blocks");
+    BlocksCompact = LiteDatabase.GetCollection<BsonDocument>("blocksCompact");
     TXsOwnedStored = LiteDatabase.GetCollection<BsonDocument>("tXsOwned");
   }
 
@@ -130,24 +130,23 @@ internal abstract partial class Blockchain
 
   protected virtual void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
-    Parser.ParseBlock(block, verifySignatures: false);
+    int startIndex = Parser.ParseBlockHeader(block);
+
+    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.ParseAnchors(block.Buffer, ref startIndex));
   }
 
-  protected virtual BsonDocument CreateDocumentBlockStored(Block block)
+  protected BsonDocument CreateDocumentBlockCompact(Block block)
   {
     return new BsonDocument
     {
       [NAME_FIELD_ID] = block.Header.Height,
-      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload]
+      [NAME_FIELD_BLOCK_BYTES] = (byte[])[.. block.Header.Serialize(), .. ParserToken.SerializeAnchors(ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height))]
     };
   }
 
-  protected Block LoadBlock(int height)
+  protected virtual ILiteCollection<BsonDocument> GetBlocksLoaded()
   {
-    if (BlocksStored.FindById(height) is BsonDocument bsonDocumentBlock)
-      return new Block(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary);
-
-    return null;
+    return BlocksCompact;
   }
 
   protected bool TryParseBlockStored(Header header, BsonDocument documentBlock, out Block block)
@@ -171,25 +170,20 @@ internal abstract partial class Blockchain
 
   protected Block LoadBlockParsed(Header header)
   {
-    if (BlocksStored.FindById(header.Height) is not BsonDocument documentBlock || !TryParseBlockStored(header, documentBlock, out Block block))
+    if (GetBlocksLoaded().FindById(header.Height) is not BsonDocument documentBlock || !TryParseBlockStored(header, documentBlock, out Block block))
       throw new InvalidOperationException($"Stored block at height {header.Height} cannot be loaded.");
 
     return block;
   }
 
-  internal Block GetBlock(byte[] hash)
+  internal virtual Block GetBlock(byte[] hash)
   {
-    if (!ChainRoot.TryGetHeader(hash, out Header header) || LoadBlock(header.Height) is not Block block)
-      return null;
-
-    block.Header = header;
-
-    return block;
+    return null;
   }
 
   internal virtual void Load()
   {
-    foreach (BsonDocument bsonDocumentBlock in BlocksStored.Find(Query.All(Query.Ascending)))
+    foreach (BsonDocument bsonDocumentBlock in GetBlocksLoaded().Find(Query.All(Query.Ascending)))
       try
       {
         int index = 0;
@@ -216,7 +210,7 @@ internal abstract partial class Blockchain
 
   protected int GetHeightBlockStoredOldest()
   {
-    BsonDocument bsonDocumentBlockOldest = BlocksStored.Query().OrderBy(NAME_FIELD_ID).Select(NAME_FIELD_ID).FirstOrDefault();
+    BsonDocument bsonDocumentBlockOldest = GetBlocksLoaded().Query().OrderBy(NAME_FIELD_ID).Select(NAME_FIELD_ID).FirstOrDefault();
 
     if (bsonDocumentBlockOldest == null)
       return ChainRoot.HeaderRoot.Height;
@@ -248,7 +242,7 @@ internal abstract partial class Blockchain
     };
 
     Parser.ParseBlock(block, verifySignatures: true);
-    ParserToken.DrawAnchorsWinner(block);
+    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height));
     chainAwaiting.BlocksQueued.Add(headerAwaited.Height, block);
 
     UpdateTipBlockchain(chainAwaiting);
@@ -283,7 +277,7 @@ internal abstract partial class Blockchain
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
-          BlocksStored.Upsert(CreateDocumentBlockStored(block));
+          BlocksCompact.Upsert(CreateDocumentBlockCompact(block));
         });
       }
       catch (ProtocolException ex)
@@ -354,7 +348,7 @@ internal abstract partial class Blockchain
 
           ReopenTXsOwned(header.Height);
 
-          BlocksStored.Delete(header.Height);
+          BlocksCompact.Delete(header.Height);
         });
 
         OnBlockRolledBack.Announce(block);

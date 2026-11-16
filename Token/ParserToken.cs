@@ -52,11 +52,12 @@ internal abstract partial class Blockchain
         throw new ProtocolException("Header merkle root not equal to computed transactions merkle root.");
     }
 
-    internal static byte[] SerializeAnchorsWinner(Header header)
+    internal static byte[] SerializeAnchors(IEnumerable<TXOutputTokenAnchor> anchors)
     {
-      List<byte> bytes = [.. VarInt.GetBytes(header.AnchorsWinner.Count)];
+      List<TXOutputTokenAnchor> anchorsSerialized = anchors.ToList();
+      List<byte> bytes = [.. VarInt.GetBytes(anchorsSerialized.Count)];
 
-      foreach (TXOutputTokenAnchor anchor in header.AnchorsWinner.Values)
+      foreach (TXOutputTokenAnchor anchor in anchorsSerialized)
       {
         anchor.Serialize();
         bytes.AddRange(anchor.Script);
@@ -65,15 +66,15 @@ internal abstract partial class Blockchain
       return bytes.ToArray();
     }
 
-    internal static void ParseAnchorsWinner(Header header, byte[] buffer, ref int index)
+    internal static List<TXOutputTokenAnchor> ParseAnchors(byte[] buffer, ref int index)
     {
       int countAnchors = VarInt.GetInt(buffer, ref index);
+      List<TXOutputTokenAnchor> anchors = new();
 
       for (int i = 0; i < countAnchors; i++)
-      {
-        TXOutputTokenAnchor anchor = new(buffer, ref index);
-        header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
-      }
+        anchors.Add(new(buffer, ref index));
+
+      return anchors;
     }
 
     internal static IEnumerable<TXOutputTokenAnchor> EnumerateAnchorsEligible(List<TX> tXs, int height)
@@ -86,16 +87,16 @@ internal abstract partial class Blockchain
       return SHA256.HashData(anchors.SelectMany(a => a.IDToken.Concat(a.HashBlockReferenced).Concat(a.HashBlockPreviousReferenced)).ToArray());
     }
 
-    internal static void DrawAnchorsWinner(Block block)
+    internal static void DrawAnchorsWinner(Header header, IEnumerable<TXOutputTokenAnchor> anchors)
     {
       Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
 
-      Header headerRoot = block.Header;
+      Header headerRoot = header;
 
       while (headerRoot.HeaderParent != null)
         headerRoot = headerRoot.HeaderParent;
 
-      foreach (TXOutputTokenAnchor tokenAnchor in EnumerateAnchorsEligible(block.TXs, block.Header.Height))
+      foreach (TXOutputTokenAnchor tokenAnchor in anchors)
       {
         byte[] scoreAnchor = SHA256.HashData([.. headerRoot.Hash, .. tokenAnchor.HashBlockReferenced, .. tokenAnchor.HashBlockPreviousReferenced]);
 
@@ -103,7 +104,7 @@ internal abstract partial class Blockchain
           || scoreAnchor.IsLessThan(scoreAnchorWinner))
         {
           scoresAnchorWinner[tokenAnchor.IDToken] = scoreAnchor;
-          block.Header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
+          header.AnchorsWinner[tokenAnchor.IDToken] = tokenAnchor;
         }
       }
     }

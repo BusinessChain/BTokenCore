@@ -48,22 +48,6 @@ internal partial class BlockchainBitcoin : Blockchain
     return header;
   }
 
-  protected override void ParseBlockStored(Block block, BsonDocument documentBlock)
-  {
-    int startIndex = Parser.ParseBlockHeader(block);
-
-    ParserToken.ParseAnchorsWinner(block.Header, block.Buffer, ref startIndex);
-  }
-
-  protected override BsonDocument CreateDocumentBlockStored(Block block)
-  {
-    BsonDocument documentBlock = base.CreateDocumentBlockStored(block);
-
-    documentBlock[NAME_FIELD_BLOCK_BYTES] = (byte[])[.. block.Header.Serialize(), .. ParserToken.SerializeAnchorsWinner(block.Header)];
-
-    return documentBlock;
-  }
-
   protected override void InsertBlock(Block block)
   {
     int height = block.Header.Height;

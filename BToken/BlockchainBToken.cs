@@ -27,6 +27,7 @@ internal partial class BlockchainBToken : Blockchain
   PoolTXBToken TXPool;
 
   protected Miner MinerBlockchain;
+  protected ILiteCollection<BsonDocument> BlocksStored;
   protected ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
   const string NAME_FIELD_LOCK_TIME_ANCHOR = "lockTimeAnchor";
@@ -45,6 +46,7 @@ internal partial class BlockchainBToken : Blockchain
 
     BlockchainParent = blockchainParent;
 
+    BlocksStored = LiteDatabase.GetCollection<BsonDocument>("blocks");
     BlocksStoredAwaitingAnchor = LiteDatabase.GetCollection<BsonDocument>("blocksAwaitingAnchor");
 
     TXPool = new PoolTXBToken(Accounts, COUNT_BYTES_MAX_POOL);
@@ -140,6 +142,8 @@ internal partial class BlockchainBToken : Blockchain
 
     BlocksStoredAwaitingAnchor.Delete(block.Header.Hash);
 
+    BlocksStored.Upsert(CreateDocumentBlockStored(block));
+
     if (!Synchronizer.IsAccountsAtTip())
       return;
 
@@ -156,6 +160,8 @@ internal partial class BlockchainBToken : Blockchain
     StoreBlockAwaitingAnchor(block, null);
 
     Synchronizer.RollBack(block.Header);
+
+    BlocksStored.Delete(block.Header.Height);
   }
 
   protected override bool IsTXOwnedConfirmed(TX tX, Block block)
@@ -328,30 +334,49 @@ internal partial class BlockchainBToken : Blockchain
     if (!TryParseBlockStored(headerPlaceholder, bsonDocumentBlock, out Block block))
       return;
 
-    ParserToken.DrawAnchorsWinner(block);
+    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height));
 
     if (chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
       UpdateTipBlockchain(chain);
   }
 
+  protected override ILiteCollection<BsonDocument> GetBlocksLoaded()
+  {
+    return BlocksStored;
+  }
+
+  internal override Block GetBlock(byte[] hash)
+  {
+    if (!ChainRoot.TryGetHeader(hash, out Header header) || BlocksStored.FindById(header.Height) is not BsonDocument documentBlock)
+      return null;
+
+    return new Block(documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary)
+    {
+      Header = header
+    };
+  }
+
   protected override void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
-    base.ParseBlockStored(block, documentBlock);
+    Parser.ParseBlock(block, verifySignatures: false);
 
     if (documentBlock.TryGetValue(NAME_FIELD_ANCHORS_WINNER, out BsonValue anchorsWinner))
     {
       int index = 0;
-      ParserToken.ParseAnchorsWinner(block.Header, anchorsWinner.AsBinary, ref index);
+
+      foreach (TXOutputTokenAnchor anchor in ParserToken.ParseAnchors(anchorsWinner.AsBinary, ref index))
+        block.Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
     }
   }
 
-  protected override BsonDocument CreateDocumentBlockStored(Block block)
+  protected BsonDocument CreateDocumentBlockStored(Block block)
   {
-    BsonDocument documentBlock = base.CreateDocumentBlockStored(block);
-
-    documentBlock[NAME_FIELD_ANCHORS_WINNER] = ParserToken.SerializeAnchorsWinner(block.Header);
-
-    return documentBlock;
+    return new BsonDocument
+    {
+      [NAME_FIELD_ID] = block.Header.Height,
+      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload],
+      [NAME_FIELD_ANCHORS_WINNER] = ParserToken.SerializeAnchors(block.Header.AnchorsWinner.Values)
+    };
   }
 
   void HandleBlockParentInserted(Block blockParent)
