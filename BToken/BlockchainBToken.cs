@@ -181,18 +181,13 @@ internal partial class BlockchainBToken : Blockchain
   internal byte[] GetBlocksCompactSerialized(byte[] hash, int countBlocksCompactMax, int sizeBlocksCompactMax)
   {
     if (!ChainRoot.TryGetHeader(hash, out Header header)
-      || BlocksCompact.FindById(header.Height) is not BsonDocument documentAbove)
-      return null;
-
-    int index = 0;
-
-    if (!Parser.ParseHeader(documentAbove[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index).Hash.IsAllBytesEqual(hash))
+      || ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(header.Height) != header)
       return null;
 
     List<byte[]> blocksCompact = new();
     int countBytes = VarInt.GetBytes(countBlocksCompactMax).Length;
 
-    for (int height = header.Height - 1; blocksCompact.Count < countBlocksCompactMax; height--)
+    for (int height = header.Height + 1; blocksCompact.Count < countBlocksCompactMax; height++)
     {
       if (BlocksCompact.FindById(height) is not BsonDocument documentBlock)
         break;
