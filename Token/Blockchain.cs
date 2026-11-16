@@ -19,6 +19,8 @@ internal abstract partial class Blockchain
 
   internal ParserToken Parser;
 
+  internal readonly int CountLevelsBelowRoot;
+
   protected Chain ChainRoot;
 
   protected LiteDatabase LiteDatabase;
@@ -44,6 +46,9 @@ internal abstract partial class Blockchain
     SizeBlockMax = sizeBlockMax;
 
     Parser = parser;
+
+    if (blockchainParent != null)
+      CountLevelsBelowRoot = blockchainParent.CountLevelsBelowRoot + 1;
 
     SemaphoreBlockchain = semaphoreBlockchain;
 
@@ -132,7 +137,7 @@ internal abstract partial class Blockchain
   {
     int startIndex = Parser.ParseBlockHeader(block);
 
-    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.ParseAnchors(block.Buffer, ref startIndex));
+    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.ParseAnchors(block.Buffer, ref startIndex), CountLevelsBelowRoot);
   }
 
   protected BsonDocument CreateDocumentBlockCompact(Block block)
@@ -242,7 +247,7 @@ internal abstract partial class Blockchain
     };
 
     Parser.ParseBlock(block, verifySignatures: true);
-    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height));
+    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height), CountLevelsBelowRoot);
     chainAwaiting.BlocksQueued.Add(headerAwaited.Height, block);
 
     UpdateTipBlockchain(chainAwaiting);

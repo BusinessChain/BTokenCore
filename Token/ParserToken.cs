@@ -87,14 +87,19 @@ internal abstract partial class Blockchain
       return SHA256.HashData(anchors.SelectMany(a => a.IDToken.Concat(a.HashBlockReferenced).Concat(a.HashBlockPreviousReferenced)).ToArray());
     }
 
-    internal static void DrawAnchorsWinner(Header header, IEnumerable<TXOutputTokenAnchor> anchors)
+    internal static void DrawAnchorsWinner(Header header, IEnumerable<TXOutputTokenAnchor> anchors, int countLevelsBelowRoot)
     {
       Dictionary<byte[], byte[]> scoresAnchorWinner = new(new EqualityComparerByteArray());
 
       Header headerRoot = header;
 
-      while (headerRoot.HeaderParent != null)
+      for (int level = 0; level < countLevelsBelowRoot; level++)
+      {
         headerRoot = headerRoot.HeaderParent;
+
+        if (headerRoot == null)
+          return;
+      }
 
       foreach (TXOutputTokenAnchor tokenAnchor in anchors)
       {
