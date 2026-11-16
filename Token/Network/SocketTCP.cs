@@ -18,6 +18,7 @@ internal class SocketTCP : ISocketCommunication
   internal const int SIZE_COMMAND = 12;
   internal const int SIZE_CHECKSUM = 4;
   const int TIMEOUT_SEND_SECONDS = 1200;
+  const int TIMEOUT_CONNECT_SECONDS = 5;
 
   byte[] MagicBytes;
   byte[] MagicBytesRead = new byte[4];
@@ -52,7 +53,11 @@ internal class SocketTCP : ISocketCommunication
     MagicBytes = magicBytes;
 
     if (!TcpClient.Connected)
-      await TcpClient.ConnectAsync(IP, Port).ConfigureAwait(false);
+    {
+      using CancellationTokenSource cancellation = new(TimeSpan.FromSeconds(TIMEOUT_CONNECT_SECONDS));
+
+      await TcpClient.ConnectAsync(IP, Port, cancellation.Token).ConfigureAwait(false);
+    }
 
     NetworkStream = TcpClient.GetStream();
   }
