@@ -269,7 +269,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     Header header = ChainRoot.HeaderTip;
 
-    while (header != ChainRoot.HeaderRoot && header.HeaderParent == null)
+    while (header.HeaderParent == null && BlocksStored.FindById(header.Height) != null)
       header = header.HeaderPrevious;
 
     if (header.HeaderNext != null)
