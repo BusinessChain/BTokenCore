@@ -18,6 +18,7 @@ internal abstract partial class Network
   protected object LOCK_Peers = new();
   protected List<Peer> Peers = new();
   List<Peer> PeersHandshakeInbound = new();
+  HashSet<string> IPsHandshakeOutbound = new();
 
   HashSet<string> IPAddresses = new();
   const int COUNT_MAX_IP_ADDRESSES = 10_000;
@@ -87,8 +88,8 @@ internal abstract partial class Network
 
       lock (LOCK_Peers)
       {
-        countPeersOutbound = Peers.Count(p => p.Connection == Peer.ConnectionType.OUTBOUND);
-        iPsCandidate = IPAddresses.Except(Peers.Select(p => p.GetIP())).ToList();
+        countPeersOutbound = Peers.Count(p => p.Connection == Peer.ConnectionType.OUTBOUND) + IPsHandshakeOutbound.Count;
+        iPsCandidate = IPAddresses.Except(Peers.Select(p => p.GetIP())).Except(IPsHandshakeOutbound).ToList();
       }
 
       if (countPeersOutbound >= ConfigurationNetwork.CountMaxOutboundConnections)
@@ -118,32 +119,43 @@ internal abstract partial class Network
 
       string iP = iPsCandidate[Random.Shared.Next(iPsCandidate.Count)];
 
-      ISocketCommunication socketCommunication = null;
+      lock (LOCK_Peers)
+        IPsHandshakeOutbound.Add(iP);
 
-      try
-      {
-        socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
+      StartPeerOutbound(iP);
+    }
+  }
 
-        Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
+  async Task StartPeerOutbound(string iP)
+  {
+    ISocketCommunication socketCommunication = null;
 
-        using (CancellationStop.Token.Register(socketCommunication.Dispose))
-          await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
+    try
+    {
+      socketCommunication = Communication.GetSocketCommunication(ConfigurationNetwork.Port, iP);
 
-        lock (LOCK_Peers)
-          if (CancellationStop.IsCancellationRequested)
-            socketCommunication.Dispose();
-          else if (!peer.IsDisposed)
-            Peers.Add(peer);
-      }
-      catch
-      {
-        socketCommunication?.Dispose();
+      Peer peer = CreatePeer(socketCommunication, Peer.ConnectionType.OUTBOUND);
 
-        lock (LOCK_Peers)
-          IPAddresses.Remove(iP);
+      using (CancellationStop.Token.Register(socketCommunication.Dispose))
+        await peer.Start(await Blockchain.RunLocked(Blockchain.GetHeight));
 
-        await Task.Delay(1000).ConfigureAwait(false);
-      }
+      lock (LOCK_Peers)
+        if (CancellationStop.IsCancellationRequested)
+          socketCommunication.Dispose();
+        else if (!peer.IsDisposed)
+          Peers.Add(peer);
+    }
+    catch
+    {
+      socketCommunication?.Dispose();
+
+      lock (LOCK_Peers)
+        IPAddresses.Remove(iP);
+    }
+    finally
+    {
+      lock (LOCK_Peers)
+        IPsHandshakeOutbound.Remove(iP);
     }
   }
 
