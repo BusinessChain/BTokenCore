@@ -135,6 +135,11 @@ internal abstract partial class Blockchain
 
   protected virtual void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
+    ParseBlockCompact(block);
+  }
+
+  void ParseBlockCompact(Block block)
+  {
     int startIndex = Parser.ParseBlockHeader(block);
 
     ParserToken.DrawAnchorsWinner(block.Header, ParserToken.ParseAnchors(block.Buffer, ref startIndex), CountLevelsBelowRoot);
@@ -188,15 +193,18 @@ internal abstract partial class Blockchain
 
   internal virtual void Load()
   {
-    foreach (BsonDocument bsonDocumentBlock in GetBlocksLoaded().Find(Query.All(Query.Ascending)))
+    LoadTree();
+    AnnounceBlocksLoaded();
+  }
+
+  protected void LoadTree()
+  {
+    foreach (BsonDocument bsonDocumentBlock in BlocksCompact.Find(Query.All(Query.Ascending)))
       try
       {
         int index = 0;
         Header header = Parser.ParseHeader(bsonDocumentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index);
         header.Height = bsonDocumentBlock[NAME_FIELD_ID].AsInt32;
-
-        if (!TryParseBlockStored(header, bsonDocumentBlock, out Block blockLoad))
-          continue;
 
         if (header.HashPrevious.IsAllBytesEqual(ChainRoot.HeaderTipBlockchain.Hash))
           ChainRoot.AppendHeader(header);
@@ -204,13 +212,43 @@ internal abstract partial class Blockchain
           ChainRoot = new(header);
 
         ChainRoot.HeaderTipBlockchain = header;
-
-        OnBlockInserted.Announce(blockLoad);
       }
       catch
       {
         continue;
       }
+  }
+
+  protected void AnnounceBlocksLoaded()
+  {
+    List<Header> headersMainChain = new();
+
+    for (Header header = ChainRoot.HeaderTipBlockchain; header != ChainRoot.HeaderRoot.HeaderPrevious; header = header.HeaderPrevious)
+      headersMainChain.Add(header);
+
+    headersMainChain.Reverse();
+
+    foreach (Header header in headersMainChain)
+    {
+      if (BlocksCompact.FindById(header.Height) is not BsonDocument documentBlock)
+        continue;
+
+      Block block = new(documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary)
+      {
+        Header = header
+      };
+
+      try
+      {
+        ParseBlockCompact(block);
+      }
+      catch (ProtocolException)
+      {
+        continue;
+      }
+
+      OnBlockInserted.Announce(block);
+    }
   }
 
   protected int GetHeightBlockStoredOldest()

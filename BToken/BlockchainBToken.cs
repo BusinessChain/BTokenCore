@@ -31,7 +31,6 @@ internal partial class BlockchainBToken : Blockchain
   protected ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
   const string NAME_FIELD_LOCK_TIME_ANCHOR = "lockTimeAnchor";
-  const string NAME_FIELD_ANCHORS_WINNER = "anchorsWinner";
 
 
   internal BlockchainBToken(
@@ -223,12 +222,14 @@ internal partial class BlockchainBToken : Blockchain
 
   internal override void Load()
   {
-    base.Load();
+    LoadTree();
 
     Synchronizer.Load();
 
     BlockchainParent.Load();
     RollBackUnanchored();
+
+    AnnounceBlocksLoaded();
 
     ResyncWhenBehindWindowStored();
 
@@ -359,14 +360,6 @@ internal partial class BlockchainBToken : Blockchain
   protected override void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
     Parser.ParseBlock(block, verifySignatures: false);
-
-    if (documentBlock.TryGetValue(NAME_FIELD_ANCHORS_WINNER, out BsonValue anchorsWinner))
-    {
-      int index = 0;
-
-      foreach (TXOutputTokenAnchor anchor in ParserToken.ParseAnchors(anchorsWinner.AsBinary, ref index))
-        block.Header.AnchorsWinner.TryAdd(anchor.IDToken, anchor);
-    }
   }
 
   protected BsonDocument CreateDocumentBlockStored(Block block)
@@ -374,8 +367,7 @@ internal partial class BlockchainBToken : Blockchain
     return new BsonDocument
     {
       [NAME_FIELD_ID] = block.Header.Height,
-      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload],
-      [NAME_FIELD_ANCHORS_WINNER] = ParserToken.SerializeAnchors(block.Header.AnchorsWinner.Values)
+      [NAME_FIELD_BLOCK_BYTES] = block.Buffer[..block.LengthDataPayload]
     };
   }
 
