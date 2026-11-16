@@ -421,13 +421,13 @@ internal partial class BlockchainBToken : Blockchain
         InsertBlockAwaitingAnchor(blockParent.Header, documentBlockReferenced);
     }
 
+    ResyncWhenBehindWindowStored();
+
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
     if (isBlockParentTip)
     {
       MinerBlockchain.ScheduleReplacementAnchorsMissed(hasAnchorWinner && documentBlockReferenced == null);
-
-      ResyncWhenBehindWindowStored();
 
       BlocksStoredAwaitingAnchor.DeleteMany(
         Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
