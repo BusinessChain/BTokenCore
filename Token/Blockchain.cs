@@ -285,7 +285,6 @@ internal abstract partial class Blockchain
     };
 
     Parser.ParseBlock(block, verifySignatures: true);
-    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height), CountLevelsBelowRoot);
     chainAwaiting.BlocksQueued.Add(headerAwaited.Height, block);
 
     UpdateTipBlockchain(chainAwaiting);
@@ -310,6 +309,8 @@ internal abstract partial class Blockchain
   {
     while (ChainRoot.BlocksQueued.Remove(ChainRoot.HeaderTipBlockchain.Height + 1, out Block block))
     {
+      List<TXOutputTokenAnchor> anchors = ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height).ToList();
+
       try
       {
         LiteDatabase.RunTransaction(() =>
@@ -320,7 +321,7 @@ internal abstract partial class Blockchain
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
-          BlocksCompact.Upsert(CreateDocumentBlockCompact(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height)));
+          BlocksCompact.Upsert(CreateDocumentBlockCompact(block.Header, anchors));
         });
       }
       catch (ProtocolException ex)
@@ -328,6 +329,8 @@ internal abstract partial class Blockchain
         RejectBlock(block.Header, ex);
         continue;
       }
+
+      ParserToken.DrawAnchorsWinner(block.Header, anchors, CountLevelsBelowRoot);
 
       OnBlockInserted.Announce(block);
     }

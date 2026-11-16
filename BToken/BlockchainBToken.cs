@@ -364,8 +364,6 @@ internal partial class BlockchainBToken : Blockchain
     if (!TryParseBlockStored(headerPlaceholder, bsonDocumentBlock, out Block block))
       return;
 
-    ParserToken.DrawAnchorsWinner(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height), CountLevelsBelowRoot);
-
     if (chain.BlocksQueued.TryAdd(headerPlaceholder.Height, block))
       UpdateTipBlockchain(chain);
   }
