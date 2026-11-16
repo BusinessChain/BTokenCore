@@ -454,22 +454,70 @@ internal partial class BlockchainBToken : Blockchain
     UpdateTipBlockchain(ChainRoot);
   }
 
+  int GetHeightTargetBlocksCompact()
+  {
+    return ChainRoot.FindChainTallest().HeaderTip.Height - COUNT_MAX_BLOCKS_STORED;
+  }
+
+  bool IsBehindWindowStored()
+  {
+    return ChainRoot.HeaderTipBlockchain.Height < GetHeightTargetBlocksCompact();
+  }
+
   void ResyncWhenBehindWindowStored()
   {
-    Chain chainTallest = ChainRoot.FindChainTallest();
-
-    if (chainTallest.HeaderTip.Height - ChainRoot.HeaderTipBlockchain.Height <= COUNT_MAX_BLOCKS_STORED)
+    if (!IsBehindWindowStored())
       return;
 
     Synchronizer.Drop();
 
-    Reorg(chainTallest);
+    Reorg(ChainRoot.FindChainTallest());
 
     BlocksStored.DeleteAll();
 
-    Header headerRoot = ChainRoot.HeaderTip.GetHeaderAncestor(ChainRoot.HeaderTip.Height - COUNT_MAX_BLOCKS_STORED);
+    UpdateTipBlockchain(ChainRoot);
+  }
 
-    ChainRoot.ReRoot(headerRoot);
+  internal override Header FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
+  {
+    if (IsBehindWindowStored())
+      return null;
+
+    return base.FetchHeaderBlockMissingNext(canSupplierDeliverBlock);
+  }
+
+  internal Header FetchHeaderBlockCompactNext(Func<Header, bool> canSupplierDeliver)
+  {
+    if (!IsBehindWindowStored() || !canSupplierDeliver(ChainRoot.HeaderTipBlockchain))
+      return null;
+
+    return ChainRoot.HeaderTipBlockchain;
+  }
+
+  internal void InsertBlocksCompact(byte[] hashTip, List<(Header header, List<TXOutputTokenAnchor> anchors)> blocksCompact)
+  {
+    if (!ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(hashTip))
+      return;
+
+    int heightTarget = GetHeightTargetBlocksCompact();
+
+    foreach ((Header headerParsed, List<TXOutputTokenAnchor> anchors) in blocksCompact)
+    {
+      Header header = ChainRoot.HeaderTipBlockchain.HeaderNext;
+
+      if (header == null || header.Height > heightTarget)
+        break;
+
+      if (!headerParsed.Hash.IsAllBytesEqual(header.Hash))
+        throw new ProtocolException($"Compact block {headerParsed.Hash.ToHexString()} is not the anchored block {header.Hash.ToHexString()} at height {header.Height}.");
+
+      if (!((HeaderBToken)headerParsed).HashAnchors.IsAllBytesEqual(ParserToken.ComputeHashAnchors(anchors)))
+        throw new ProtocolException($"Anchors of compact block {header.Hash.ToHexString()} do not match its HashAnchors.");
+
+      headerParsed.CopyTo(header);
+
+      InsertBlockCompact(header, anchors);
+    }
 
     UpdateTipBlockchain(ChainRoot);
   }

@@ -214,16 +214,6 @@ internal partial class Blockchain
         AdvanceTipBlockchain();
     }
 
-    internal void ReRoot(Header headerRoot)
-    {
-      DropForksDeep(headerRoot.Height);
-      RemoveBlocksQueuedAndHeadersAwaitingBlock(h => h <= headerRoot.Height);
-
-      headerRoot.HeaderPrevious = null;
-      HeaderRoot = headerRoot;
-      HeaderTipBlockchain = headerRoot;
-    }
-
     void RemoveBlocksQueuedAndHeadersAwaitingBlock(Func<int, bool> isHeightRemoved)
     {
       foreach (int height in BlocksQueued.Keys.Where(isHeightRemoved).ToList())

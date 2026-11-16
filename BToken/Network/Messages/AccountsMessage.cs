@@ -28,7 +28,7 @@ internal partial class NetworkBToken : Network
 
     internal override async Task Run(Peer peer)
     {
-      Inventory inventoryRequested = ((PeerBToken)peer).InventoryAccountsRequested;
+      Inventory inventoryRequested = ((PeerBToken)peer).InventoryRequested;
 
       if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload || inventoryRequested.Type != Inventory.InventoryType.MSG_SEGMENT_SWEEP)
         throw new ProtocolException($"Received unrequested {CommandSegment} message.");
@@ -41,7 +41,7 @@ internal partial class NetworkBToken : Network
 
       BlockMessageBToken blockMessage = (BlockMessageBToken)peer.MessagesByCommand[BlockMessage.Command];
 
-      blockMessage.RefundAccountsReceived(inventoryRequested);
+      blockMessage.RefundInventoryTokenReceived(inventoryRequested);
 
       DOSMonitor.Decrement(1);
 

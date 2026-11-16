@@ -13,14 +13,14 @@ internal partial class NetworkBToken : Network
 
       Inventory inventory = Inventory.Parse(Payload, ref startIndex);
 
-      if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT_SWEEP)
+      if (inventory.Type == Inventory.InventoryType.MSG_SEGMENT_SWEEP || inventory.Type == Inventory.InventoryType.MSG_BLOCKS_COMPACT)
       {
-        if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload)
+        if (peer.StateCurrent != Peer.StateProtocol.AccountsDownload && peer.StateCurrent != Peer.StateProtocol.BlocksCompactDownload)
           return;
 
         DOSMonitor.Decrement(1);
 
-        peer.HashesSegmentRefused.Add(inventory.Hash);
+        peer.HashesRefused.Add(inventory.Hash);
 
         peer.StateCurrent = Peer.StateProtocol.Idle;
         return;

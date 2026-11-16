@@ -145,12 +145,12 @@ internal abstract partial class Blockchain
     ParserToken.DrawAnchorsWinner(block.Header, ParserToken.ParseAnchors(block.Buffer, ref startIndex), CountLevelsBelowRoot);
   }
 
-  protected BsonDocument CreateDocumentBlockCompact(Block block)
+  protected BsonDocument CreateDocumentBlockCompact(Header header, IEnumerable<TXOutputTokenAnchor> anchors)
   {
     return new BsonDocument
     {
-      [NAME_FIELD_ID] = block.Header.Height,
-      [NAME_FIELD_BLOCK_BYTES] = (byte[])[.. block.Header.Serialize(), .. ParserToken.SerializeAnchors(ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height))]
+      [NAME_FIELD_ID] = header.Height,
+      [NAME_FIELD_BLOCK_BYTES] = (byte[])[.. header.Serialize(), .. ParserToken.SerializeAnchors(anchors)]
     };
   }
 
@@ -320,7 +320,7 @@ internal abstract partial class Blockchain
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
-          BlocksCompact.Upsert(CreateDocumentBlockCompact(block));
+          BlocksCompact.Upsert(CreateDocumentBlockCompact(block.Header, ParserToken.EnumerateAnchorsEligible(block.TXs, block.Header.Height)));
         });
       }
       catch (ProtocolException ex)
@@ -331,6 +331,19 @@ internal abstract partial class Blockchain
 
       OnBlockInserted.Announce(block);
     }
+  }
+
+  protected void InsertBlockCompact(Header header, List<TXOutputTokenAnchor> anchors)
+  {
+    LiteDatabase.RunTransaction(() =>
+    {
+      BlocksCompact.Upsert(CreateDocumentBlockCompact(header, anchors));
+      ChainRoot.HeaderTipBlockchain = header;
+    });
+
+    ParserToken.DrawAnchorsWinner(header, anchors, CountLevelsBelowRoot);
+
+    OnBlockInserted.Announce(new Block(0) { Header = header });
   }
 
   protected void RejectBlock(Header header, ProtocolException exception)
@@ -433,7 +446,7 @@ internal abstract partial class Blockchain
     return headerLastInTree;
   }
 
-  internal Header FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
+  internal virtual Header FetchHeaderBlockMissingNext(Func<Header, bool> canSupplierDeliverBlock)
   {
     return ChainRoot.FindInTree(chain =>
       chain.HeaderTip.WorkAccumulated > ChainRoot.HeaderTipBlockchain.WorkAccumulated

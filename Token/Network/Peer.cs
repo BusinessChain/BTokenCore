@@ -22,7 +22,8 @@ internal partial class Network
       Idle,
       HeaderDownload,
       BlockDownload,
-      AccountsDownload
+      AccountsDownload,
+      BlocksCompactDownload
     }
 
     internal StateProtocol StateCurrent = StateProtocol.Handshake;
@@ -35,7 +36,7 @@ internal partial class Network
 
     internal SemaphoreSlim SemaphorePeer = new(1);
 
-    internal HashSet<byte[]> HashesSegmentRefused = new(new EqualityComparerByteArray());
+    internal HashSet<byte[]> HashesRefused = new(new EqualityComparerByteArray());
 
     internal Dictionary<byte[], (int countRefusals, DateTime timeRefusedLast)> HashesBlockRefused = new(new EqualityComparerByteArray());
 
@@ -177,7 +178,7 @@ internal partial class Network
           {
             BlockMessage blockMessage = (BlockMessage)MessagesByCommand[BlockMessage.Command];
 
-            if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.AccountsDownload)
+            if (blockMessage.BlockDownload.Header == null && StateCurrent != StateProtocol.AccountsDownload && StateCurrent != StateProtocol.BlocksCompactDownload)
             {
               if (StateCurrent == StateProtocol.Idle)
                 await blockMessage.RequestBlockNext(this);
