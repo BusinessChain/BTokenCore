@@ -30,7 +30,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void Start()
     {
-      if (!Blockchain.Accounts.Exists() && Blockchain.ChainRoot.HeaderRoot.Height == 0)
+      if (!Blockchain.Accounts.Exists() && Blockchain.ChainRoot.HeaderRoot.Height == 0 && !Blockchain.IsBehindWindowStored())
         InstallAccounts(Blockchain.ChainRoot.HeaderRoot, []);
 
       ReplayAccounts();
