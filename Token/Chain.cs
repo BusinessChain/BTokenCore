@@ -223,6 +223,16 @@ internal partial class Blockchain
         HeadersAwaitingBlock.Remove(hash);
     }
 
+    internal void DropBlocksQueuedOfForks()
+    {
+      foreach (Chain chainFork in ChainsFork)
+      {
+        chainFork.BlocksQueued.Clear();
+        chainFork.HeaderTipBlockchain = null;
+        chainFork.DropBlocksQueuedOfForks();
+      }
+    }
+
     internal void DropForksDeep(int heightBlockStoredOldest)
     {
       foreach (Chain chainFork in ChainsFork.Where(c => c.HeaderRoot.HeaderPrevious.Height < heightBlockStoredOldest).ToList())

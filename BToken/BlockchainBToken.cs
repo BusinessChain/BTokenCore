@@ -471,6 +471,7 @@ internal partial class BlockchainBToken : Blockchain
 
     Reorg(ChainRoot.FindChainTallest());
 
+    ChainRoot.DropBlocksQueuedOfForks();
     BlocksStored.DeleteAll();
 
     UpdateTipBlockchain(ChainRoot);
