@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.WebSockets;
 using System.Text.Json;
 
 namespace BTokenCore;
@@ -24,11 +23,11 @@ public class RPCServer
     {
       HttpListenerContext context = await HttpListener.GetContextAsync().ConfigureAwait(false);
 
-      if (context.Request.IsWebSocketRequest)
+      if (context.Request.HttpMethod == "POST")
         Serve(context);
       else
       {
-        context.Response.StatusCode = 400;
+        context.Response.StatusCode = 405;
         context.Response.Close();
       }
     }
@@ -36,50 +35,20 @@ public class RPCServer
 
   async Task Serve(HttpListenerContext context)
   {
-    WebSocket webSocket = null;
-
     try
     {
-      webSocket = (await context.AcceptWebSocketAsync(null).ConfigureAwait(false)).WebSocket;
+      using MemoryStream request = new();
+      await context.Request.InputStream.CopyToAsync(request).ConfigureAwait(false);
 
-      while (await ReceiveMessage(webSocket).ConfigureAwait(false) is byte[] message)
-        await webSocket.SendAsync(
-          new ArraySegment<byte>(await Respond(message).ConfigureAwait(false)),
-          WebSocketMessageType.Text,
-          endOfMessage: true,
-          CancellationToken.None).ConfigureAwait(false);
+      byte[] response = await Respond(request.ToArray()).ConfigureAwait(false);
+
+      context.Response.ContentType = "application/json";
+      context.Response.ContentLength64 = response.Length;
+      await context.Response.OutputStream.WriteAsync(response).ConfigureAwait(false);
+      context.Response.Close();
     }
-    catch (WebSocketException)
-    { }
     catch (HttpListenerException)
     { }
-    finally
-    {
-      webSocket?.Dispose();
-    }
-  }
-
-  static async Task<byte[]> ReceiveMessage(WebSocket webSocket)
-  {
-    using MemoryStream message = new();
-    byte[] buffer = new byte[4096];
-    WebSocketReceiveResult result;
-
-    do
-    {
-      result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None).ConfigureAwait(false);
-
-      if (result.MessageType == WebSocketMessageType.Close)
-      {
-        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None).ConfigureAwait(false);
-        return null;
-      }
-
-      message.Write(buffer, 0, result.Count);
-    }
-    while (!result.EndOfMessage);
-
-    return message.ToArray();
   }
 
   async Task<byte[]> Respond(byte[] message)
