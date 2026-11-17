@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
@@ -9,16 +8,12 @@ public class RPCServer
 {
   Node Node;
   HttpListener HttpListener = new();
-  ConcurrentDictionary<WebSocket, SemaphoreSlim> Connections = new();
 
 
   public RPCServer(Node node, int port)
   {
     Node = node;
     HttpListener.Prefixes.Add($"http://127.0.0.1:{port}/");
-
-    Node.BlockchainBToken.OnBlockInserted += block => Push("blockInserted", block);
-    Node.BlockchainBToken.OnBlockRolledBack += block => Push("blockRolledBack", block);
   }
 
   public async Task Start()
@@ -46,10 +41,13 @@ public class RPCServer
     try
     {
       webSocket = (await context.AcceptWebSocketAsync(null).ConfigureAwait(false)).WebSocket;
-      Connections[webSocket] = new SemaphoreSlim(1);
 
       while (await ReceiveMessage(webSocket).ConfigureAwait(false) is byte[] message)
-        await Send(webSocket, await Respond(message).ConfigureAwait(false)).ConfigureAwait(false);
+        await webSocket.SendAsync(
+          new ArraySegment<byte>(await Respond(message).ConfigureAwait(false)),
+          WebSocketMessageType.Text,
+          endOfMessage: true,
+          CancellationToken.None).ConfigureAwait(false);
     }
     catch (WebSocketException)
     { }
@@ -57,54 +55,7 @@ public class RPCServer
     { }
     finally
     {
-      if (webSocket != null)
-      {
-        Connections.TryRemove(webSocket, out _);
-        webSocket.Dispose();
-      }
-    }
-  }
-
-  void Push(string method, Block block)
-  {
-    byte[] notification = JsonSerializer.SerializeToUtf8Bytes(new Dictionary<string, object>
-    {
-      ["jsonrpc"] = "2.0",
-      ["method"] = method,
-      ["params"] = new Dictionary<string, object>
-      {
-        ["height"] = block.Header.Height,
-        ["hash"] = block.Header.Hash.ToHexString()
-      }
-    });
-
-    foreach (WebSocket webSocket in Connections.Keys)
-      Send(webSocket, notification);
-  }
-
-  async Task Send(WebSocket webSocket, byte[] message)
-  {
-    if (!Connections.TryGetValue(webSocket, out SemaphoreSlim semaphoreSend))
-      return;
-
-    await semaphoreSend.WaitAsync().ConfigureAwait(false);
-
-    try
-    {
-      await webSocket.SendAsync(
-        new ArraySegment<byte>(message),
-        WebSocketMessageType.Text,
-        endOfMessage: true,
-        CancellationToken.None).ConfigureAwait(false);
-    }
-    catch (Exception exception) when (exception is WebSocketException or ObjectDisposedException)
-    {
-      Connections.TryRemove(webSocket, out _);
-      webSocket.Abort();
-    }
-    finally
-    {
-      semaphoreSend.Release();
+      webSocket?.Dispose();
     }
   }
 
