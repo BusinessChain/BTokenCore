@@ -40,7 +40,7 @@ internal partial class Network
       Level = Math.Max(0, Level - amount);
     }
 
-    internal Dictionary<string, object> GetSnapshot()
+    internal Dictionary<string, object> GetSnapshotState()
     {
       return new() { ["level"] = GetLevelDrained(DateTime.UtcNow), ["levelMax"] = MaxLevel };
     }

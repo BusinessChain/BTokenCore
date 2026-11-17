@@ -442,6 +442,17 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTipBlockchain.Height;
   }
 
+  internal Dictionary<string, object> GetSnapshotState()
+  {
+    Header headerTip = ChainRoot.HeaderTipBlockchain;
+
+    return new Dictionary<string, object>
+    {
+      ["height"] = headerTip.Height,
+      ["hash"] = headerTip.Hash.ToHexString()
+    };
+  }
+
   internal Header InsertHeadersInTree(List<Header> headers)
   {
     ChainRoot.InsertHeadersInTree(headers, GetHeightBlockStoredOldest(), out Header headerLastInTree);

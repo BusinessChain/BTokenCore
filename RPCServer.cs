@@ -170,8 +170,16 @@ public class RPCServer
         case "getNetworks":
           result = new Dictionary<string, object>
           {
-            ["Bitcoin"] = Node.NetworkBitcoin.GetSnapshot(),
-            ["BToken"] = Node.NetworkBToken.GetSnapshot()
+            ["Bitcoin"] = Node.NetworkBitcoin.GetSnapshotState(),
+            ["BToken"] = Node.NetworkBToken.GetSnapshotState()
+          };
+          break;
+
+        case "getBlockchains":
+          result = new Dictionary<string, object>
+          {
+            ["Bitcoin"] = Node.BlockchainBitcoin.GetSnapshotState(),
+            ["BToken"] = Node.BlockchainBToken.GetSnapshotState()
           };
           break;
 

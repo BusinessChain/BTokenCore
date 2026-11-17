@@ -57,7 +57,7 @@ internal abstract partial class Network
     }
   }
 
-  internal List<Dictionary<string, object>> GetSnapshot()
+  internal List<Dictionary<string, object>> GetSnapshotState()
   {
     lock (LOCK_Peers)
       return Peers.Select(peer => new Dictionary<string, object>
@@ -67,7 +67,7 @@ internal abstract partial class Network
         ["stateCurrent"] = peer.StateCurrent.ToString(),
         ["isDisposed"] = peer.IsDisposed,
         ["timeConnected"] = peer.TimeConnected.ToString("o"),
-        ["messages"] = peer.MessagesByCommand.ToDictionary(m => m.Key, m => m.Value.DOSMonitor.GetSnapshot())
+        ["messages"] = peer.MessagesByCommand.ToDictionary(m => m.Key, m => m.Value.DOSMonitor.GetSnapshotState())
       }).ToList();
   }
 
