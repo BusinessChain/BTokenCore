@@ -4,7 +4,7 @@ internal partial class Network
 {
   class UnknownMessage : NetworkMessage
   {
-    internal const string Command = "commandUnknown";
+    internal const string Command = "unknown";
 
     const int SIZE_BUFFER_PAYLOAD = 10_000;
     const int MAX_LEVEL_DOS = 100;
