@@ -449,8 +449,18 @@ internal abstract partial class Blockchain
     for (Header header = ChainRoot.HeaderTipBlockchain; header != null && snapshotsHeader.Count < countBlocks; header = header.HeaderPrevious)
       snapshotsHeader.Add(header.GetSnapshotState());
 
-    return new Dictionary<string, object> { ["headers"] = snapshotsHeader };
+    return new Dictionary<string, object>
+    {
+      ["headers"] = snapshotsHeader,
+      ["wallet"] = new Dictionary<string, object>
+      {
+        ["addressReceiving"] = Wallet.AddressAccountReceiving,
+        ["balance"] = GetBalanceWallet()
+      }
+    };
   }
+
+  protected abstract long? GetBalanceWallet();
 
   internal Header InsertHeadersInTree(List<Header> headers)
   {

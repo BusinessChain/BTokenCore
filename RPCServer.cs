@@ -98,11 +98,7 @@ public class RPCServer
         case "getBlockchains":
           int countBlocks = parameters.GetProperty("countBlocks").GetInt32();
 
-          result = new Dictionary<string, object>
-          {
-            ["Bitcoin"] = Node.BlockchainBitcoin.GetSnapshotState(countBlocks),
-            ["BToken"] = Node.BlockchainBToken.GetSnapshotState(countBlocks)
-          };
+          result = await Node.GetSnapshotStateBlockchains(countBlocks).ConfigureAwait(false);
           break;
 
         default:

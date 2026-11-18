@@ -139,6 +139,12 @@ internal partial class BlockchainBitcoin : Blockchain
     }
   }
 
+  protected override long? GetBalanceWallet()
+  {
+    return OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0)).Sum(o => o.Value)
+      - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
+  }
+
   internal override int CountAnchorsReplaceable(long feeAnchor)
   {
     return EnumerateAnchorsReplaceable(LoadAnchorsUnconfirmed(), feeAnchor).Count();

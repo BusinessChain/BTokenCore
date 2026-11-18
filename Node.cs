@@ -60,6 +60,15 @@ public class Node
     await BlockchainBToken.RunLocked(BlockchainBToken.StopMining);
   }
 
+  internal async Task<Dictionary<string, object>> GetSnapshotStateBlockchains(int countBlocks)
+  {
+    return await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
+    {
+      ["Bitcoin"] = BlockchainBitcoin.GetSnapshotState(countBlocks),
+      ["BToken"] = BlockchainBToken.GetSnapshotState(countBlocks)
+    });
+  }
+
   internal async Task SubmitTXBToken(byte[] tXRaw)
   {
     await BlockchainBToken.RunLocked(() => BlockchainBToken.SubmitTX(tXRaw));

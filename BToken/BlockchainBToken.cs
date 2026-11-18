@@ -122,6 +122,14 @@ internal partial class BlockchainBToken : Blockchain
     return true;
   }
 
+  protected override long? GetBalanceWallet()
+  {
+    if (!Synchronizer.IsAccountsAtTip())
+      return null;
+
+    return Wallet.GetBalance(h => TXPool.LoadAccountPending(h)?.Balance ?? 0);
+  }
+
   internal override int CountAnchorsReplaceable(long feeAnchor)
   {
     return LoadAnchorsMissed().Count;
