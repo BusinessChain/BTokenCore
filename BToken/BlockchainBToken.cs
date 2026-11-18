@@ -132,6 +132,11 @@ internal partial class BlockchainBToken : Blockchain
     return Wallet.GetBalance(h => TXPool.LoadAccountPending(h)?.Balance ?? 0);
   }
 
+  internal override bool HasAnchorMissed()
+  {
+    return LoadAnchorsMissed().Count > 0;
+  }
+
   List<TXBToken> LoadAnchorsMissed()
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))

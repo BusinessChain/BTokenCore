@@ -15,12 +15,12 @@ internal partial class BlockchainBitcoin : Blockchain
   const int LENGTH_P2PKH_OUTPUT = 34;
   const int LENGTH_TX_OVERHEAD = 10;
   const int LENGTH_OUTPUT_OVERHEAD = 9;
-  const int LENGTH_ANCHOR = LENGTH_TX_OVERHEAD
+  internal const int LENGTH_ANCHOR = LENGTH_TX_OVERHEAD
     + LENGTH_P2PKH_INPUT
     + LENGTH_OUTPUT_OVERHEAD
     + TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN
     + LENGTH_P2PKH_OUTPUT;
-  const int LENGTH_OUTPUT_ANCHOR = LENGTH_OUTPUT_OVERHEAD + TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN;
+  internal const int LENGTH_OUTPUT_ANCHOR =LENGTH_OUTPUT_OVERHEAD + TXOutputTokenAnchor.LENGTH_SCRIPT_ANCHOR_TOKEN;
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
   internal const long FEE_SURCHARGE_REPLACEMENT_ANCHOR = FEE_PER_BYTE_INCREMENTAL_RELAY * LENGTH_ANCHOR;
@@ -139,6 +139,11 @@ internal partial class BlockchainBitcoin : Blockchain
         && outputReplaced.Value >= feeReplacement)
         yield return (anchorReplaced, outputReplaced, feeReplacement);
     }
+  }
+
+  internal override bool HasAnchorMissed()
+  {
+    return LoadAnchorsUnconfirmed().Any(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
   }
 
   protected override long? GetBalanceWallet()

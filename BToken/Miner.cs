@@ -15,6 +15,9 @@ internal partial class BlockchainBToken : Blockchain
     int HeightTipParentRound = -1;
     int CountAnchorsRound = 1;
     byte[] HashTipRound;
+    long FeeAnchor;
+    long FeeRound;
+    long Savings;
 
 
     internal Miner(BlockchainBToken blockchain)
@@ -39,6 +42,8 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"Budget {budget} must be at least {BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR} satoshis.");
 
       Budget = budget;
+      FeeAnchor = budget;
+      Savings = 0;
 
       if (TimerMining != null)
         return;
@@ -118,6 +123,38 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
+      long feeAnchor = FeeAnchor;
+      long feeRound = FeeRound;
+      long savings = Savings;
+      int countAnchorsRound = CountAnchorsRound;
+
+      if (Blockchain.BlockchainParent.GetHeight() != HeightTipParentRound)
+      {
+        countAnchorsRound = 1;
+        feeRound = feeAnchor;
+
+        if (HeightTipParentRound >= 0)
+          if (Blockchain.BlockchainParent.HasAnchorMissed())
+          {
+            feeAnchor = Budget;
+            feeRound = Budget + savings;
+            savings = 0;
+          }
+          else
+          {
+            savings += Budget - feeAnchor;
+            feeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, feeAnchor - Math.Max(1, feeAnchor / 10));
+            feeRound = feeAnchor;
+
+            if (savings >= feeAnchor * BlockchainBitcoin.LENGTH_OUTPUT_ANCHOR / BlockchainBitcoin.LENGTH_ANCHOR)
+            {
+              countAnchorsRound = 2;
+              feeRound = feeAnchor + savings;
+              savings = 0;
+            }
+          }
+      }
+
       Block block = new(Blockchain.SizeBlockMax);
 
       int countBytesTXsMax = block.Buffer.Length
@@ -153,7 +190,7 @@ internal partial class BlockchainBToken : Blockchain
       List<Block> blocksAnchored = [];
       List<TXOutputTokenAnchor> anchorsToken = [];
 
-      for (int i = 0; i < CountAnchorsRound; i++)
+      for (int i = 0; i < countAnchorsRound; i++)
       {
         Block blockAnchored = new(Blockchain.SizeBlockMax)
         {
@@ -181,12 +218,16 @@ internal partial class BlockchainBToken : Blockchain
         });
       }
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorsToken, Budget, out int lockTimeAnchor))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorsToken, feeRound, out int lockTimeAnchor))
       {
-        StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the budget {Budget}.";
+        StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.";
         return;
       }
 
+      FeeAnchor = feeAnchor;
+      FeeRound = feeRound;
+      Savings = savings;
+      CountAnchorsRound = countAnchorsRound;
       HeightTipParentRound = lockTimeAnchor;
       HashTipRound = header.HashPrevious;
 
