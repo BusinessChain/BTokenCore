@@ -447,11 +447,7 @@ internal abstract partial class Blockchain
     List<Dictionary<string, object>> blocks = new();
 
     for (Header header = ChainRoot.HeaderTipBlockchain; header != null && blocks.Count < countBlocks; header = header.HeaderPrevious)
-      blocks.Add(new Dictionary<string, object>
-      {
-        ["height"] = header.Height,
-        ["hash"] = header.Hash.ToHexString()
-      });
+      blocks.Add(header.GetSnapshotState());
 
     return blocks;
   }

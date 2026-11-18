@@ -77,6 +77,20 @@ public abstract class Header
     return header;
   }
 
+  internal virtual Dictionary<string, object> GetSnapshotState()
+  {
+    return new Dictionary<string, object>
+    {
+      ["hash"] = Hash.ToHexString(),
+      ["version"] = Version,
+      ["hashPrevious"] = HashPrevious.ToHexString(),
+      ["merkleRoot"] = MerkleRoot.ToHexString(),
+      ["nonce"] = Nonce,
+      ["height"] = Height,
+      ["workAccumulated"] = WorkAccumulated.ToString()
+    };
+  }
+
   internal virtual void CopyTo(Header header) { }
 
   internal void ComputeHash()
