@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal partial class Network
 {
-  class VersionMessage : NetworkMessage
+  protected class VersionMessage : NetworkMessage
   {
     internal const string Command = "version";
 

@@ -13,6 +13,7 @@ internal partial class NetworkBitcoin : Network
       ConnectionType connection)
       : base(network, socketCommunication, connection)
     {
+      MessagesByCommand[VersionMessage.Command] = new VersionMessageBitcoin();
       MessagesByCommand.Add(GetHeadersMessage.Command, new GetHeadersMessage());
       MessagesByCommand.Add(HeadersMessage.Command, new HeadersMessageBitcoin());
       MessagesByCommand.Add(InvMessage.Command, new InvMessageBitcoin());
