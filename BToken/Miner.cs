@@ -7,7 +7,7 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
 
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
-    const int DIVISOR_DECREASE_FEE_ANCHOR = 10;
+    const double FEE_PER_BYTE_DECREASE_ANCHOR = 0.5;
 
     Timer TimerMining;
     long Budget;
@@ -146,7 +146,7 @@ internal partial class BlockchainBToken : Blockchain
           else
           {
             savings += Budget - feeAnchor;
-            feeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, feeAnchor - Math.Max(1, feeAnchor / DIVISOR_DECREASE_FEE_ANCHOR));
+            feeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, feeAnchor - Math.Max(1, (long)(FEE_PER_BYTE_DECREASE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR)));
             feeRound = feeAnchor;
 
             if (savings >= feeAnchor * BlockchainBitcoin.LENGTH_OUTPUT_ANCHOR / BlockchainBitcoin.LENGTH_ANCHOR)
