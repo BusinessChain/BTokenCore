@@ -96,10 +96,12 @@ public class RPCServer
           break;
 
         case "getBlockchains":
+          int countBlocks = parameters.GetProperty("countBlocks").GetInt32();
+
           result = new Dictionary<string, object>
           {
-            ["Bitcoin"] = Node.BlockchainBitcoin.GetSnapshotState(),
-            ["BToken"] = Node.BlockchainBToken.GetSnapshotState()
+            ["Bitcoin"] = Node.BlockchainBitcoin.GetSnapshotState(countBlocks),
+            ["BToken"] = Node.BlockchainBToken.GetSnapshotState(countBlocks)
           };
           break;
 
