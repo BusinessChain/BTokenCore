@@ -125,6 +125,16 @@ internal class HeaderBitcoin : Header
     return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
   }
 
+  internal override Dictionary<string, object> GetSnapshotState()
+  {
+    Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+    snapshotState["nBits"] = NBits;
+    snapshotState["unixTimeSeconds"] = UnixTimeSeconds;
+
+    return snapshotState;
+  }
+
   internal override byte[] Serialize()
   {
     byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);

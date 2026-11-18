@@ -37,6 +37,16 @@ public class HeaderBToken : Header
     Nonce = buffer.Read<uint>(ref index);
   }
 
+  internal override Dictionary<string, object> GetSnapshotState()
+  {
+    Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+    snapshotState["hashAccounts"] = HashAccounts.ToHexString();
+    snapshotState["hashAnchors"] = HashAnchors.ToHexString();
+
+    return snapshotState;
+  }
+
   internal override byte[] Serialize()
   {
     byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);
