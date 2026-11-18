@@ -60,13 +60,21 @@ public class Node
     await BlockchainBToken.RunLocked(BlockchainBToken.StopMining);
   }
 
-  internal async Task<Dictionary<string, object>> GetSnapshotStateBlockchains(int countBlocks)
+  internal async Task<Dictionary<string, object>> GetSnapshotState(int countBlocks)
   {
-    return await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
+    return new Dictionary<string, object>
     {
-      ["Bitcoin"] = BlockchainBitcoin.GetSnapshotState(countBlocks),
-      ["BToken"] = BlockchainBToken.GetSnapshotState(countBlocks)
-    });
+      ["networks"] = new Dictionary<string, object>
+      {
+        ["Bitcoin"] = NetworkBitcoin.GetSnapshotState(),
+        ["BToken"] = NetworkBToken.GetSnapshotState()
+      },
+      ["blockchains"] = await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
+      {
+        ["Bitcoin"] = BlockchainBitcoin.GetSnapshotState(countBlocks),
+        ["BToken"] = BlockchainBToken.GetSnapshotState(countBlocks)
+      })
+    };
   }
 
   internal async Task SubmitTXBToken(byte[] tXRaw)

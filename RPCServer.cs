@@ -87,18 +87,8 @@ public class RPCServer
             Convert.FromHexString(parameters.GetProperty("tXRaw").GetString())).ConfigureAwait(false);
           break;
 
-        case "getNetworks":
-          result = new Dictionary<string, object>
-          {
-            ["Bitcoin"] = Node.NetworkBitcoin.GetSnapshotState(),
-            ["BToken"] = Node.NetworkBToken.GetSnapshotState()
-          };
-          break;
-
-        case "getBlockchains":
-          int countBlocks = parameters.GetProperty("countBlocks").GetInt32();
-
-          result = await Node.GetSnapshotStateBlockchains(countBlocks).ConfigureAwait(false);
+        case "getSnapshotState":
+          result = await Node.GetSnapshotState(parameters.GetProperty("countBlocks").GetInt32()).ConfigureAwait(false);
           break;
 
         default:
