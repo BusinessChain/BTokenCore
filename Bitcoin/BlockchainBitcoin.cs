@@ -22,6 +22,7 @@ internal partial class BlockchainBitcoin : Blockchain
     + LENGTH_P2PKH_OUTPUT;
 
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
+  internal const long FEE_SURCHARGE_REPLACEMENT_ANCHOR = FEE_PER_BYTE_INCREMENTAL_RELAY * LENGTH_ANCHOR;
 
   protected ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
@@ -131,7 +132,7 @@ internal partial class BlockchainBitcoin : Blockchain
     foreach (TXBitcoin anchorMissed in anchorsUnconfirmed.Where(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height))
     {
       TXInputBitcoin inputMissed = anchorMissed.Inputs[0];
-      long feeReplacement = Math.Max(feeAnchor, anchorMissed.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * LENGTH_ANCHOR);
+      long feeReplacement = Math.Max(feeAnchor, anchorMissed.Fee + FEE_SURCHARGE_REPLACEMENT_ANCHOR);
 
       if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(inputMissed.TXIDOutput, inputMissed.IndexOutput)) is TXOutputOwned outputMissed
         && outputMissed.Value >= feeReplacement)

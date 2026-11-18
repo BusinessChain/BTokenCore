@@ -9,7 +9,7 @@ internal partial class BlockchainBToken : Blockchain
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
 
     Timer TimerMining;
-    long FeeAnchor;
+    long Budget;
     uint NonceBlockNext;
     string StateRoundLast = "";
 
@@ -25,17 +25,17 @@ internal partial class BlockchainBToken : Blockchain
       return new Dictionary<string, object>
       {
         ["isMining"] = TimerMining != null,
-        ["feeAnchor"] = FeeAnchor,
+        ["budget"] = Budget,
         ["stateRoundLast"] = StateRoundLast
       };
     }
 
-    internal void StartMining(long feeAnchor)
+    internal void StartMining(long budget)
     {
-      if (feeAnchor < 1)
-        throw new ProtocolException($"feeAnchor {feeAnchor} must be at least one.");
+      if (budget < BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR)
+        throw new ProtocolException($"Budget {budget} must be at least {BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR} satoshis.");
 
-      FeeAnchor = feeAnchor;
+      Budget = budget;
 
       if (TimerMining != null)
         return;
@@ -148,9 +148,9 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, FeeAnchor, out int lockTimeAnchor))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, Budget, out int lockTimeAnchor))
       {
-        StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the anchor fee {FeeAnchor}.";
+        StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the budget {Budget}.";
         return;
       }
 

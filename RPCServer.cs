@@ -73,7 +73,7 @@ public class RPCServer
       switch (method)
       {
         case "startMining":
-          await Node.StartMining(parameters.GetProperty("feeAnchor").GetInt64()).ConfigureAwait(false);
+          await Node.StartMining(parameters.GetProperty("budget").GetInt64()).ConfigureAwait(false);
           break;
 
         case "stopMining":

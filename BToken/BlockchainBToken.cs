@@ -302,9 +302,9 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetFeePerByteMin();
   }
 
-  internal void StartMining(long feeAnchor)
+  internal void StartMining(long budget)
   {
-    MinerBlockchain.StartMining(feeAnchor);
+    MinerBlockchain.StartMining(budget);
   }
 
   internal void StopMining()
