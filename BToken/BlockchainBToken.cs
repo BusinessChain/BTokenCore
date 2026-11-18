@@ -309,6 +309,15 @@ internal partial class BlockchainBToken : Blockchain
     MinerBlockchain.StopMining();
   }
 
+  internal override Dictionary<string, object> GetSnapshotState(int countBlocks)
+  {
+    Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
+
+    snapshotState["miner"] = MinerBlockchain.GetSnapshotState();
+
+    return snapshotState;
+  }
+
   static long GetBlockReward(int height)
   {
     int countHalvings = height / PERIOD_HALVENING_BLOCK_REWARD;

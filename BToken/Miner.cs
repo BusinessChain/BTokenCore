@@ -15,6 +15,7 @@ internal partial class BlockchainBToken : Blockchain
     long FeeAnchor;
     uint NonceBlockNext;
     DateTime TimeWindowBlankEnd;
+    string StateRoundLast = "";
 
 
     internal Miner(BlockchainBToken blockchain)
@@ -23,8 +24,22 @@ internal partial class BlockchainBToken : Blockchain
       NonceBlockNext = (uint)Random.Shared.Next();
     }
 
+    internal Dictionary<string, object> GetSnapshotState()
+    {
+      return new Dictionary<string, object>
+      {
+        ["isMining"] = TimerMining != null,
+        ["countAnchorsPer10Minutes"] = CountAnchorsPer10Minutes,
+        ["feeAnchor"] = FeeAnchor,
+        ["stateRoundLast"] = StateRoundLast
+      };
+    }
+
     internal void StartMining(int countAnchorsPer10Minutes, long feeAnchor)
     {
+      if (countAnchorsPer10Minutes < 1 || feeAnchor < 1)
+        throw new ProtocolException($"countAnchorsPer10Minutes {countAnchorsPer10Minutes} and feeAnchor {feeAnchor} must both be at least one.");
+
       CountAnchorsPer10Minutes = countAnchorsPer10Minutes;
       FeeAnchor = feeAnchor;
 
@@ -78,7 +93,8 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (Exception exception)
       {
-        Console.WriteLine($"Warning: mining stopped after {exception.GetType().Name}: {exception.Message}");
+        StateRoundLast = $"Mining stopped after {exception.GetType().Name}: {exception.Message}";
+        Console.WriteLine($"Warning: {StateRoundLast}");
         StopMining();
       }
     }
@@ -122,12 +138,22 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void MineBlock()
     {
-      if (!Blockchain.Synchronizer.IsAccountsAtTip() || !Blockchain.BlockchainParent.IsBlockTipAtHeaderTip())
+      int height = Blockchain.ChainRoot.HeaderTipBlockchain.Height + 1;
+      string prefixSkip = $"Mining round at height {height} skipped: ";
+
+      if (!Blockchain.Synchronizer.IsAccountsAtTip())
+      {
+        StateRoundLast = prefixSkip + "the accounts are not at the tip.";
         return;
+      }
+
+      if (!Blockchain.BlockchainParent.IsBlockTipAtHeaderTip())
+      {
+        StateRoundLast = prefixSkip + "the Bitcoin blocks are not at the Bitcoin header tip.";
+        return;
+      }
 
       Block block = new(Blockchain.SizeBlockMax);
-
-      int height = Blockchain.ChainRoot.HeaderTipBlockchain.Height + 1;
 
       int countBytesTXsMax = block.Buffer.Length
         - HeaderBToken.COUNT_HEADER_BYTES
@@ -153,7 +179,8 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (ProtocolException exception)
       {
-        Console.WriteLine($"Mining round at height {height} skipped: {exception.Message}");
+        StateRoundLast = prefixSkip + exception.Message;
+        Console.WriteLine(StateRoundLast);
         return;
       }
 
@@ -167,11 +194,16 @@ internal partial class BlockchainBToken : Blockchain
       };
 
       if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, FeeAnchor, out int lockTimeAnchor))
+      {
+        StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the anchor fee {FeeAnchor}.";
         return;
+      }
 
       block.Serialize();
 
       Blockchain.StoreBlockAwaitingAnchor(block, lockTimeAnchor);
+
+      StateRoundLast = $"Block at height {height} awaits its anchor.";
     }
   }
 }

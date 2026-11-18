@@ -442,14 +442,14 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTipBlockchain.Height;
   }
 
-  internal List<Dictionary<string, object>> GetSnapshotState(int countBlocks)
+  internal virtual Dictionary<string, object> GetSnapshotState(int countBlocks)
   {
-    List<Dictionary<string, object>> blocks = new();
+    List<Dictionary<string, object>> snapshotsHeader = new();
 
-    for (Header header = ChainRoot.HeaderTipBlockchain; header != null && blocks.Count < countBlocks; header = header.HeaderPrevious)
-      blocks.Add(header.GetSnapshotState());
+    for (Header header = ChainRoot.HeaderTipBlockchain; header != null && snapshotsHeader.Count < countBlocks; header = header.HeaderPrevious)
+      snapshotsHeader.Add(header.GetSnapshotState());
 
-    return blocks;
+    return new Dictionary<string, object> { ["headers"] = snapshotsHeader };
   }
 
   internal Header InsertHeadersInTree(List<Header> headers)
