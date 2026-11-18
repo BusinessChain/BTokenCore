@@ -12,6 +12,8 @@ internal partial class BlockchainBToken : Blockchain
     long Budget;
     uint NonceBlockNext;
     string StateRoundLast = "";
+    int HeightTipParentRound = -1;
+    byte[] HashTipRound;
 
 
     internal Miner(BlockchainBToken blockchain)
@@ -56,6 +58,13 @@ internal partial class BlockchainBToken : Blockchain
     internal void ScheduleMining(bool isAnchorWinnerForeign)
     {
       TimerMining?.Change(isAnchorWinnerForeign ? MILLISECONDS_WINDOW_BLANK : 0, Timeout.Infinite);
+    }
+
+    internal void ScheduleReanchor()
+    {
+      if (Blockchain.BlockchainParent.GetHeight() == HeightTipParentRound
+        && !Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashTipRound))
+        TimerMining?.Change(0, Timeout.Infinite);
     }
 
     void RunTimer(Action action)
@@ -153,6 +162,9 @@ internal partial class BlockchainBToken : Blockchain
         StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the budget {Budget}.";
         return;
       }
+
+      HeightTipParentRound = lockTimeAnchor;
+      HashTipRound = block.Header.HashPrevious;
 
       block.Serialize();
 

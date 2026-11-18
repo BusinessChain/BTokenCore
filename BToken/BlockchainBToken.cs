@@ -351,6 +351,8 @@ internal partial class BlockchainBToken : Blockchain
   protected override void HandleTipUpdated()
   {
     Synchronizer.HandleTipUpdated();
+
+    MinerBlockchain.ScheduleReanchor();
   }
 
   protected void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)

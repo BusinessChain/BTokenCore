@@ -127,16 +127,16 @@ internal partial class BlockchainBitcoin : Blockchain
       .ToList();
   }
 
-  IEnumerable<(TXBitcoin anchorMissed, TXOutputOwned outputMissed, long feeReplacement)> EnumerateAnchorsReplaceable(List<TXBitcoin> anchorsUnconfirmed, long feeAnchor)
+  IEnumerable<(TXBitcoin anchorReplaced, TXOutputOwned outputReplaced, long feeReplacement)> EnumerateAnchorsReplaceable(List<TXBitcoin> anchorsUnconfirmed, long feeAnchor)
   {
-    foreach (TXBitcoin anchorMissed in anchorsUnconfirmed.Where(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height))
+    foreach (TXBitcoin anchorReplaced in anchorsUnconfirmed)
     {
-      TXInputBitcoin inputMissed = anchorMissed.Inputs[0];
-      long feeReplacement = Math.Max(feeAnchor, anchorMissed.Fee + FEE_SURCHARGE_REPLACEMENT_ANCHOR);
+      TXInputBitcoin inputReplaced = anchorReplaced.Inputs[0];
+      long feeReplacement = Math.Max(feeAnchor, anchorReplaced.Fee + FEE_SURCHARGE_REPLACEMENT_ANCHOR);
 
-      if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(inputMissed.TXIDOutput, inputMissed.IndexOutput)) is TXOutputOwned outputMissed
-        && outputMissed.Value >= feeReplacement)
-        yield return (anchorMissed, outputMissed, feeReplacement);
+      if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(inputReplaced.TXIDOutput, inputReplaced.IndexOutput)) is TXOutputOwned outputReplaced
+        && outputReplaced.Value >= feeReplacement)
+        yield return (anchorReplaced, outputReplaced, feeReplacement);
     }
   }
 
