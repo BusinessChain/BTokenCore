@@ -87,8 +87,6 @@ internal abstract partial class Blockchain
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime);
 
-  internal abstract int CountAnchorsReplaceable(long feeAnchor);
-
   internal virtual TX GetTX(byte[] hash)
   {
     if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED].AsInt32 == 0)

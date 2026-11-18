@@ -50,9 +50,9 @@ public class Node
     NetworkBToken.Start();
   }
 
-  internal async Task StartMining(int countAnchorsPer10Minutes, long feeAnchor)
+  internal async Task StartMining(long feeAnchor)
   {
-    await BlockchainBToken.RunLocked(() => BlockchainBToken.StartMining(countAnchorsPer10Minutes, feeAnchor));
+    await BlockchainBToken.RunLocked(() => BlockchainBToken.StartMining(feeAnchor));
   }
 
   internal async Task StopMining()

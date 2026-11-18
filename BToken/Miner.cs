@@ -6,15 +6,11 @@ internal partial class BlockchainBToken : Blockchain
   {
     BlockchainBToken Blockchain;
 
-    const int MILLISECONDS_PER_10_MINUTES = 600_000;
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
 
     Timer TimerMining;
-    Timer TimerReplacementAnchorsMissed;
-    int CountAnchorsPer10Minutes;
     long FeeAnchor;
     uint NonceBlockNext;
-    DateTime TimeWindowBlankEnd;
     string StateRoundLast = "";
 
 
@@ -29,33 +25,25 @@ internal partial class BlockchainBToken : Blockchain
       return new Dictionary<string, object>
       {
         ["isMining"] = TimerMining != null,
-        ["countAnchorsPer10Minutes"] = CountAnchorsPer10Minutes,
         ["feeAnchor"] = FeeAnchor,
         ["stateRoundLast"] = StateRoundLast
       };
     }
 
-    internal void StartMining(int countAnchorsPer10Minutes, long feeAnchor)
+    internal void StartMining(long feeAnchor)
     {
-      if (countAnchorsPer10Minutes < 1 || feeAnchor < 1)
-        throw new ProtocolException($"countAnchorsPer10Minutes {countAnchorsPer10Minutes} and feeAnchor {feeAnchor} must both be at least one.");
+      if (feeAnchor < 1)
+        throw new ProtocolException($"feeAnchor {feeAnchor} must be at least one.");
 
-      CountAnchorsPer10Minutes = countAnchorsPer10Minutes;
       FeeAnchor = feeAnchor;
 
       if (TimerMining != null)
         return;
 
       TimerMining = new Timer(
-        _ => Blockchain.RunLocked(() => RunTimer(Tick)),
+        _ => Blockchain.RunLocked(() => RunTimer(MineBlock)),
         null,
-        MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes,
-        Timeout.Infinite);
-
-      TimerReplacementAnchorsMissed = new Timer(
-        _ => Blockchain.RunLocked(() => RunTimer(ReplaceAnchorsMissed)),
-        null,
-        Timeout.Infinite,
+        0,
         Timeout.Infinite);
     }
 
@@ -63,23 +51,11 @@ internal partial class BlockchainBToken : Blockchain
     {
       TimerMining?.Dispose();
       TimerMining = null;
-
-      TimerReplacementAnchorsMissed?.Dispose();
-      TimerReplacementAnchorsMissed = null;
     }
 
-    internal void ScheduleReplacementAnchorsMissed(bool isAnchorWinnerForeign)
+    internal void ScheduleMining(bool isAnchorWinnerForeign)
     {
-      if (TimerMining == null)
-        return;
-
-      if (isAnchorWinnerForeign)
-      {
-        TimeWindowBlankEnd = DateTime.UtcNow.AddMilliseconds(MILLISECONDS_WINDOW_BLANK);
-        TimerReplacementAnchorsMissed.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
-      }
-      else
-        TimerReplacementAnchorsMissed.Change(0, Timeout.Infinite);
+      TimerMining?.Change(isAnchorWinnerForeign ? MILLISECONDS_WINDOW_BLANK : 0, Timeout.Infinite);
     }
 
     void RunTimer(Action action)
@@ -97,27 +73,6 @@ internal partial class BlockchainBToken : Blockchain
         Console.WriteLine($"Warning: {StateRoundLast}");
         StopMining();
       }
-    }
-
-    internal void ReplaceAnchorsMissed()
-    {
-      int countAnchorsReplaceable = Blockchain.BlockchainParent.CountAnchorsReplaceable(FeeAnchor);
-
-      for (int i = 0; i < countAnchorsReplaceable; i++)
-        MineBlock();
-    }
-
-    void Tick()
-    {
-      if (DateTime.UtcNow < TimeWindowBlankEnd)
-      {
-        TimerMining.Change(MILLISECONDS_WINDOW_BLANK, Timeout.Infinite);
-        return;
-      }
-
-      MineBlock();
-
-      TimerMining.Change(MILLISECONDS_PER_10_MINUTES / CountAnchorsPer10Minutes, Timeout.Infinite);
     }
 
     TXBToken CreateTXCoinbase(int height, long fees, long rent)

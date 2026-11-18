@@ -145,11 +145,6 @@ internal partial class BlockchainBitcoin : Blockchain
       - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
   }
 
-  internal override int CountAnchorsReplaceable(long feeAnchor)
-  {
-    return EnumerateAnchorsReplaceable(LoadAnchorsUnconfirmed(), feeAnchor).Count();
-  }
-
   internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
