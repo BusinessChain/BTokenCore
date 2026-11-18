@@ -43,6 +43,7 @@ public class HeaderBToken : Header
 
     snapshotState["hashAccounts"] = HashAccounts.ToHexString();
     snapshotState["hashAnchors"] = HashAnchors.ToHexString();
+    snapshotState["heightParent"] = HeaderParent.Height;
 
     return snapshotState;
   }
