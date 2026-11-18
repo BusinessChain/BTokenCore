@@ -13,6 +13,7 @@ internal partial class BlockchainBToken : Blockchain
     uint NonceBlockNext;
     string StateRoundLast = "";
     int HeightTipParentRound = -1;
+    int CountAnchorsRound = 1;
     byte[] HashTipRound;
 
 
@@ -128,18 +129,19 @@ internal partial class BlockchainBToken : Blockchain
 
       block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee), Blockchain.Accounts.LoadRentSweep(height)));
 
-      block.Header = new HeaderBToken()
+      HeaderBToken header = new()
       {
         Height = height,
         HashPrevious = Blockchain.ChainRoot.HeaderTipBlockchain.Hash,
         MerkleRoot = block.ComputeMerkleRoot(),
-        HashAnchors = ParserToken.ComputeHashAnchors(ParserToken.EnumerateAnchorsEligible(block.TXs, height)),
-        Nonce = NonceBlockNext++
+        HashAnchors = ParserToken.ComputeHashAnchors(ParserToken.EnumerateAnchorsEligible(block.TXs, height))
       };
+
+      block.Header = header;
 
       try
       {
-        ((HeaderBToken)block.Header).HashAccounts = Blockchain.Accounts.ComputeHash(block);
+        header.HashAccounts = Blockchain.Accounts.ComputeHash(block);
       }
       catch (ProtocolException exception)
       {
@@ -148,29 +150,53 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      block.Header.ComputeHash();
+      List<Block> blocksAnchored = [];
+      List<TXOutputTokenAnchor> anchorsToken = [];
 
-      TXOutputTokenAnchor anchorToken = new()
+      for (int i = 0; i < CountAnchorsRound; i++)
       {
-        IDToken = Blockchain.IDToken,
-        HashBlockPreviousReferenced = block.Header.HashPrevious,
-        HashBlockReferenced = block.Header.Hash
-      };
+        Block blockAnchored = new(Blockchain.SizeBlockMax)
+        {
+          TXs = block.TXs,
+          Header = new HeaderBToken()
+          {
+            Height = height,
+            HashPrevious = header.HashPrevious,
+            MerkleRoot = header.MerkleRoot,
+            HashAnchors = header.HashAnchors,
+            HashAccounts = header.HashAccounts,
+            Nonce = NonceBlockNext++
+          }
+        };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, Budget, out int lockTimeAnchor))
+        blockAnchored.Header.ComputeHash();
+
+        blocksAnchored.Add(blockAnchored);
+
+        anchorsToken.Add(new()
+        {
+          IDToken = Blockchain.IDToken,
+          HashBlockPreviousReferenced = header.HashPrevious,
+          HashBlockReferenced = blockAnchored.Header.Hash
+        });
+      }
+
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorsToken, Budget, out int lockTimeAnchor))
       {
         StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the budget {Budget}.";
         return;
       }
 
       HeightTipParentRound = lockTimeAnchor;
-      HashTipRound = block.Header.HashPrevious;
+      HashTipRound = header.HashPrevious;
 
-      block.Serialize();
+      foreach (Block blockAnchored in blocksAnchored)
+      {
+        blockAnchored.Serialize();
+        Blockchain.StoreBlockAwaitingAnchor(blockAnchored, lockTimeAnchor);
+      }
 
-      Blockchain.StoreBlockAwaitingAnchor(block, lockTimeAnchor);
-
-      StateRoundLast = $"Block at height {height} awaits its anchor.";
+      StateRoundLast = $"{blocksAnchored.Count} blocks at height {height} await their anchors.";
     }
   }
 }

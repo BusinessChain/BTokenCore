@@ -80,7 +80,7 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime)
+  internal override bool TryCreateTXAnchor(List<TXOutputTokenAnchor> tokenAnchors, long feeAnchor, out int lockTime)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
     lockTime = heightTip;
@@ -92,8 +92,6 @@ internal partial class BlockchainBToken : Blockchain
 
     Account account = TXPool.LoadAccountPending(hash160Funding);
 
-    tokenAnchor.Serialize();
-
     TXBToken tXAnchor = new()
     {
       KeyPublic = Wallet.GetKeyPublic(hash160Funding),
@@ -103,7 +101,11 @@ internal partial class BlockchainBToken : Blockchain
       LockTime = heightTip
     };
 
-    tXAnchor.TXOutputs.Add(tokenAnchor);
+    foreach (TXOutputTokenAnchor tokenAnchor in tokenAnchors)
+    {
+      tokenAnchor.Serialize();
+      tXAnchor.TXOutputs.Add(tokenAnchor);
+    }
 
     tXAnchor.Serialize(Wallet, IDToken);
 
