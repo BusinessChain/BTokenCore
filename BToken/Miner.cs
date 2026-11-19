@@ -15,7 +15,6 @@ internal partial class BlockchainBToken : Blockchain
     uint NonceBlockNext;
     string StateRoundLast = "";
     int HeightTipParentRound = -1;
-    int CountAnchorsRound = 1;
     byte[] HashTipRound;
     long FeeAnchor;
     long FeeRound;
@@ -130,11 +129,9 @@ internal partial class BlockchainBToken : Blockchain
       long feeAnchor = FeeAnchor;
       long feeRound = FeeRound;
       long savings = Savings;
-      int countAnchorsRound = CountAnchorsRound;
 
       if (Blockchain.BlockchainParent.GetHeight() != HeightTipParentRound)
       {
-        countAnchorsRound = 1;
         feeRound = feeAnchor;
 
         if (HeightTipParentRound >= 0)
@@ -148,13 +145,6 @@ internal partial class BlockchainBToken : Blockchain
             savings += Budget - feeAnchor;
             feeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, feeAnchor - Math.Max(1, (long)(FEE_PER_BYTE_DECREASE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR)));
             feeRound = feeAnchor;
-
-            if (savings >= feeAnchor * BlockchainBitcoin.LENGTH_OUTPUT_ANCHOR / BlockchainBitcoin.LENGTH_ANCHOR)
-            {
-              countAnchorsRound = 2;
-              feeRound = feeAnchor + savings;
-              savings = 0;
-            }
           }
       }
 
@@ -190,38 +180,17 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      List<Block> blocksAnchored = [];
-      List<TXOutputTokenAnchor> anchorsToken = [];
+      header.Nonce = NonceBlockNext++;
+      header.ComputeHash();
 
-      for (int i = 0; i < countAnchorsRound; i++)
+      TXOutputTokenAnchor anchorToken = new()
       {
-        Block blockAnchored = new(Blockchain.SizeBlockMax)
-        {
-          TXs = block.TXs,
-          Header = new HeaderBToken()
-          {
-            Height = height,
-            HashPrevious = header.HashPrevious,
-            MerkleRoot = header.MerkleRoot,
-            HashAnchors = header.HashAnchors,
-            HashAccounts = header.HashAccounts,
-            Nonce = NonceBlockNext++
-          }
-        };
+        IDToken = Blockchain.IDToken,
+        HashBlockPreviousReferenced = header.HashPrevious,
+        HashBlockReferenced = header.Hash
+      };
 
-        blockAnchored.Header.ComputeHash();
-
-        blocksAnchored.Add(blockAnchored);
-
-        anchorsToken.Add(new()
-        {
-          IDToken = Blockchain.IDToken,
-          HashBlockPreviousReferenced = header.HashPrevious,
-          HashBlockReferenced = blockAnchored.Header.Hash
-        });
-      }
-
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorsToken, feeRound, out int lockTimeAnchor))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, feeRound, out int lockTimeAnchor))
       {
         StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.";
         return;
@@ -230,17 +199,13 @@ internal partial class BlockchainBToken : Blockchain
       FeeAnchor = feeAnchor;
       FeeRound = feeRound;
       Savings = savings;
-      CountAnchorsRound = countAnchorsRound;
       HeightTipParentRound = lockTimeAnchor;
       HashTipRound = header.HashPrevious;
 
-      foreach (Block blockAnchored in blocksAnchored)
-      {
-        blockAnchored.Serialize();
-        Blockchain.StoreBlockAwaitingAnchor(blockAnchored, lockTimeAnchor);
-      }
+      block.Serialize();
+      Blockchain.StoreBlockAwaitingAnchor(block, lockTimeAnchor);
 
-      StateRoundLast = $"{blocksAnchored.Count} blocks at height {height} await their anchors.";
+      StateRoundLast = $"The block at height {height} awaits its anchor.";
     }
   }
 }
