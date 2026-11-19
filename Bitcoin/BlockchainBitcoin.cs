@@ -158,21 +158,31 @@ internal partial class BlockchainBitcoin : Blockchain
 
     List<TXBitcoin> anchorsUnconfirmed = LoadAnchorsUnconfirmed();
 
-    (TXBitcoin anchorReplaced, TXOutputOwned outputSpent, long feeTX) = EnumerateAnchorsReplaceable(anchorsUnconfirmed, feeAnchor)
+    List<TXBitcoin> anchorsReplaceable = anchorsUnconfirmed
+      .Where(t => t.LockTime != heightTip
+        || !t.TXOutputs.OfType<TXOutputTokenAnchor>().Single().HashBlockPreviousReferenced.IsAllBytesEqual(tokenAnchor.HashBlockPreviousReferenced))
+      .ToList();
+
+    (TXBitcoin anchorReplaced, TXOutputOwned outputSpent, long feeTX) = EnumerateAnchorsReplaceable(anchorsReplaceable, feeAnchor)
       .FirstOrDefault((null, null, feeAnchor));
+
+    HashSet<byte[]> iDsOutputOccupied = new(
+      anchorsUnconfirmed.Where(t => t != anchorReplaced).SelectMany(t => t.Inputs).Select(i => TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)),
+      new EqualityComparerByteArray());
+
+    List<TXOutputOwned> outputsFree = OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
+      .Where(o => !iDsOutputOccupied.Contains(o.ID))
+      .ToList();
 
     if (outputSpent == null)
     {
-      HashSet<byte[]> iDsOutputOccupied = new(
-        anchorsUnconfirmed.SelectMany(t => t.Inputs).Select(i => TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)),
-        new EqualityComparerByteArray());
-
-      outputSpent = OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
-        .FirstOrDefault(o => o.Value >= feeTX && !iDsOutputOccupied.Contains(o.ID));
+      outputSpent = outputsFree.FirstOrDefault(o => o.Value >= feeTX);
 
       if (outputSpent == null)
         return false;
     }
+
+    bool isOutputSpareMissing = !outputsFree.Any(o => !o.ID.IsAllBytesEqual(outputSpent.ID));
 
     TXBitcoin tXAnchor = new()
     {
@@ -188,9 +198,16 @@ internal partial class BlockchainBitcoin : Blockchain
     tokenAnchor.Serialize();
     tXAnchor.TXOutputs.Add(tokenAnchor);
 
+    long valueChangeMin = feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR;
+    long valueChangeSplit = outputSpent.Value - feeTX * (LENGTH_ANCHOR + LENGTH_P2PKH_OUTPUT) / LENGTH_ANCHOR;
     long valueChange = outputSpent.Value - feeTX;
 
-    if (valueChange >= feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR)
+    if (isOutputSpareMissing && valueChangeSplit / 2 >= valueChangeMin)
+    {
+      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChangeSplit / 2, Wallet.Hash160KeyPublicReceiving));
+      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChangeSplit - valueChangeSplit / 2, Wallet.Hash160KeyPublicReceiving));
+    }
+    else if (valueChange >= valueChangeMin)
       tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
 
     tXAnchor.Serialize(Wallet, outputSpent.IDAccount);
