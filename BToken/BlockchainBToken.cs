@@ -436,7 +436,10 @@ internal partial class BlockchainBToken : Blockchain
       ChainRoot.InsertHeaderPlaceholder(headerPlaceholder, GetHeightBlockStoredOldest());
 
       if (documentBlockReferenced != null)
+      {
+        Console.WriteLine($"Own anchor won Bitcoin block {blockParent.Header.Height} for BToken block {anchor.HashBlockReferenced.ToHexString()}.");
         InsertBlockAwaitingAnchor(blockParent.Header, documentBlockReferenced);
+      }
     }
 
     ResyncWhenBehindWindowStored();

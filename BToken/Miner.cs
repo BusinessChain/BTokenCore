@@ -90,10 +90,15 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (Exception exception)
       {
-        StateRoundLast = $"Mining stopped after {exception.GetType().Name}: {exception.Message}";
-        Console.WriteLine($"Warning: {StateRoundLast}");
+        ReportRound($"Mining stopped after {exception.GetType().Name}: {exception.Message}");
         StopMining();
       }
+    }
+
+    void ReportRound(string state)
+    {
+      StateRoundLast = state;
+      Console.WriteLine(state);
     }
 
     TXBToken CreateTXCoinbase(int height, long fees, long rent)
@@ -119,26 +124,27 @@ internal partial class BlockchainBToken : Blockchain
 
       if (!Blockchain.Synchronizer.IsAccountsAtTip())
       {
-        StateRoundLast = prefixSkip + "the accounts are not at the tip.";
+        ReportRound(prefixSkip + "the accounts are not at the tip.");
         return;
       }
 
       if (!Blockchain.BlockchainParent.IsBlockTipAtHeaderTip())
       {
-        StateRoundLast = prefixSkip + "the Bitcoin blocks are not at the Bitcoin header tip.";
+        ReportRound(prefixSkip + "the Bitcoin blocks are not at the Bitcoin header tip.");
         return;
       }
 
       if (Blockchain.BlockchainParent.GetHeight() == HeightTipParentRound
         && Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashTipRound))
       {
-        StateRoundLast = prefixSkip + "the anchors of this round await the next Bitcoin block.";
+        ReportRound(prefixSkip + "the anchors of this round await the next Bitcoin block.");
         return;
       }
 
       long feeAnchor = FeeAnchor;
       long feeRound = FeeRound;
       long savings = Savings;
+      string outcomeAnchorsLast = "";
 
       if (Blockchain.BlockchainParent.GetHeight() != HeightTipParentRound)
       {
@@ -147,11 +153,13 @@ internal partial class BlockchainBToken : Blockchain
         if (HeightTipParentRound >= 0)
           if (Blockchain.BlockchainParent.HasAnchorMissed())
           {
+            outcomeAnchorsLast = ", after a missed anchor";
             feeAnchor = Math.Min(Budget, feeAnchor + (long)(FEE_PER_BYTE_RAISE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR));
             feeRound = feeAnchor;
           }
           else
           {
+            outcomeAnchorsLast = ", after the last anchors were mined";
             savings += Budget - feeAnchor;
             feeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, feeAnchor - Math.Max(1, (long)(FEE_PER_BYTE_DECREASE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR)));
             feeRound = feeAnchor;
@@ -185,14 +193,13 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (ProtocolException exception)
       {
-        StateRoundLast = prefixSkip + exception.Message;
-        Console.WriteLine(StateRoundLast);
+        ReportRound(prefixSkip + exception.Message);
         return;
       }
 
       if (!TryAnchorBlock(block, feeRound, out int lockTimeAnchor))
       {
-        StateRoundLast = prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.";
+        ReportRound(prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.");
         return;
       }
 
@@ -210,7 +217,7 @@ internal partial class BlockchainBToken : Blockchain
       HeightTipParentRound = lockTimeAnchor;
       HashTipRound = header.HashPrevious;
 
-      StateRoundLast = $"{countAnchors} blocks at height {height} await their anchors.";
+      ReportRound($"{countAnchors} blocks at height {height} await their anchors at Bitcoin height {lockTimeAnchor}, anchor fee {feeAnchor}, savings {savings}{outcomeAnchorsLast}.");
     }
 
     bool TryAnchorBlock(Block block, long fee, out int lockTimeAnchor)

@@ -367,6 +367,8 @@ internal abstract partial class Blockchain
       {
         documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED] = block.Header.Height;
         TXsOwnedStored.Update(documentTXOwned);
+
+        Console.WriteLine($"Own TX {documentTXOwned[NAME_FIELD_ID].AsBinary.ToHexString()} confirmed in {GetType().Name} at height {block.Header.Height}.");
       }
   }
 

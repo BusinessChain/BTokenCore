@@ -224,6 +224,10 @@ internal partial class BlockchainBitcoin : Blockchain
 
     InsertTXOwned(tXAnchor);
 
+    Console.WriteLine(
+      $"Anchor TX {tXAnchor.Hash.ToHexString()} with fee {tXAnchor.Fee} referencing BToken block {tokenAnchor.HashBlockReferenced.ToHexString()} spends output {outputSpent.Index} of {outputSpent.TXID.ToHexString()}" +
+      (anchorReplaced != null ? $" and replaces anchor TX {anchorReplaced.Hash.ToHexString()}." : "."));
+
     return true;
   }
 }
