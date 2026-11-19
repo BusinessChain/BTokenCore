@@ -16,6 +16,7 @@ internal partial class BlockchainBToken : Blockchain
     string StateRoundLast = "";
     int HeightTipParentRound = -1;
     byte[] HashTipRound;
+    int CountAnchorsRound;
     long FeeAnchor;
     long FeeRound;
     long Savings;
@@ -145,8 +146,9 @@ internal partial class BlockchainBToken : Blockchain
       long feeRound = FeeRound;
       long savings = Savings;
       string outcomeAnchorsLast = "";
+      bool isReanchor = Blockchain.BlockchainParent.GetHeight() == HeightTipParentRound;
 
-      if (Blockchain.BlockchainParent.GetHeight() != HeightTipParentRound)
+      if (!isReanchor)
       {
         feeRound = feeAnchor;
 
@@ -205,11 +207,21 @@ internal partial class BlockchainBToken : Blockchain
 
       int countAnchors = 1;
 
-      if (savings >= feeAnchor && TryAnchorBlock(block, feeAnchor, out _))
+      if (isReanchor ? CountAnchorsRound == 2 : savings >= feeAnchor)
       {
-        savings -= feeAnchor;
-        countAnchors = 2;
+        if (TryAnchorBlock(block, feeAnchor, out _))
+        {
+          countAnchors = 2;
+
+          if (!isReanchor)
+            savings -= feeAnchor;
+        }
+        else if (isReanchor)
+          outcomeAnchorsLast = ", the second anchor of the round stays on the old parent";
       }
+
+      if (!isReanchor)
+        CountAnchorsRound = countAnchors;
 
       FeeAnchor = feeAnchor;
       FeeRound = feeRound;
