@@ -7,7 +7,8 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
 
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
-    const double FEE_PER_BYTE_DECREASE_ANCHOR = 0.5;
+    const double FEE_PER_BYTE_RAISE_ANCHOR = 1;
+    const double FEE_PER_BYTE_DECREASE_ANCHOR = 0.1;
 
     Timer TimerMining;
     long Budget;
@@ -139,9 +140,8 @@ internal partial class BlockchainBToken : Blockchain
         if (HeightTipParentRound >= 0)
           if (Blockchain.BlockchainParent.HasAnchorMissed())
           {
-            feeAnchor = Budget;
-            feeRound = Budget + savings;
-            savings = 0;
+            feeAnchor = Math.Min(Budget, feeAnchor + (long)(FEE_PER_BYTE_RAISE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR));
+            feeRound = feeAnchor;
           }
           else
           {
