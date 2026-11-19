@@ -140,6 +140,11 @@ internal partial class BlockchainBitcoin : Blockchain
     }
   }
 
+  internal long GetSecondsAgeHeaderTip()
+  {
+    return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTip).UnixTimeSeconds;
+  }
+
   internal override bool HasAnchorMissed()
   {
     return LoadAnchorsUnconfirmed().Any(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
