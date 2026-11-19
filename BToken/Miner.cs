@@ -232,7 +232,7 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, out lockTimeAnchor))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, out lockTimeAnchor, out _))
         return false;
 
       block.Serialize();
