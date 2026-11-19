@@ -199,22 +199,23 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      if (!TryAnchorBlock(block, feeRound, out int lockTimeAnchor))
+      if (!TryAnchorBlock(block, feeRound, out int lockTimeAnchor, out long feeAdded))
       {
         ReportRound(prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.");
         return;
       }
 
+      if (isReanchor)
+        savings -= feeAdded;
+
       int countAnchors = 1;
 
       if (isReanchor ? CountAnchorsRound == 2 : savings >= feeAnchor)
       {
-        if (TryAnchorBlock(block, feeAnchor, out _))
+        if (TryAnchorBlock(block, feeAnchor, out _, out feeAdded))
         {
           countAnchors = 2;
-
-          if (!isReanchor)
-            savings -= feeAnchor;
+          savings -= isReanchor ? feeAdded : feeAnchor;
         }
         else if (isReanchor)
           outcomeAnchorsLast = ", the second anchor of the round stays on the old parent";
@@ -232,7 +233,7 @@ internal partial class BlockchainBToken : Blockchain
       ReportRound($"{countAnchors} blocks at height {height} await their anchors at Bitcoin height {lockTimeAnchor}, anchor fee {feeAnchor}, savings {savings}{outcomeAnchorsLast}.");
     }
 
-    bool TryAnchorBlock(Block block, long fee, out int lockTimeAnchor)
+    bool TryAnchorBlock(Block block, long fee, out int lockTimeAnchor, out long feeAdded)
     {
       block.Header.Nonce = NonceBlockNext++;
       block.Header.ComputeHash();
@@ -244,7 +245,7 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, out lockTimeAnchor, out _))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, out lockTimeAnchor, out feeAdded))
         return false;
 
       block.Serialize();
