@@ -129,6 +129,13 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
+      if (Blockchain.BlockchainParent.GetHeight() == HeightTipParentRound
+        && Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashTipRound))
+      {
+        StateRoundLast = prefixSkip + "the anchors of this round await the next Bitcoin block.";
+        return;
+      }
+
       long feeAnchor = FeeAnchor;
       long feeRound = FeeRound;
       long savings = Savings;
