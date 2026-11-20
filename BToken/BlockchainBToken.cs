@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
-  byte[] IDToken;
+  internal byte[] IDToken;
 
   const int SIZE_BLOCK_MAX = 1 << 20;
 
@@ -26,7 +26,6 @@ internal partial class BlockchainBToken : Blockchain
 
   PoolTXBToken TXPool;
 
-  protected Miner MinerBlockchain;
   protected ILiteCollection<BsonDocument> BlocksStored;
   protected ILiteCollection<BsonDocument> BlocksStoredAwaitingAnchor;
   const string NAME_FIELD_HEIGHT = "height";
@@ -60,8 +59,6 @@ internal partial class BlockchainBToken : Blockchain
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
-
-    MinerBlockchain = new Miner(this);
 
     Accounts.Load(LiteDatabase);
   }
@@ -312,22 +309,11 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetFeePerByteMin();
   }
 
-  internal void StartMining(long budget)
-  {
-    MinerBlockchain.StartMining(budget);
-  }
-
-  internal void StopMining()
-  {
-    MinerBlockchain.StopMining();
-  }
-
   internal override Dictionary<string, object> GetSnapshotState(int countBlocks)
   {
     Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
 
     snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
-    snapshotState["miner"] = MinerBlockchain.GetSnapshotState();
 
     return snapshotState;
   }
@@ -413,7 +399,7 @@ internal partial class BlockchainBToken : Blockchain
     Synchronizer.HandleTipUpdated();
   }
 
-  protected void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)
+  internal void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)
   {
     BsonDocument documentBlock = new()
     {

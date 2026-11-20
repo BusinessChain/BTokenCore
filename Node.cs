@@ -8,6 +8,7 @@ public class Node
   internal BlockchainBToken BlockchainBToken;
   internal NetworkBitcoin NetworkBitcoin;
   internal NetworkBToken NetworkBToken;
+  internal Miner Miner;
 
 
   public Node(ICommunication communication)
@@ -26,6 +27,8 @@ public class Node
       port: 8777,
       // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
       seedAddresses: ["83.229.86.158"]);
+
+    Miner = new(BlockchainBToken, BlockchainBitcoin);
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
@@ -52,12 +55,12 @@ public class Node
 
   internal async Task StartMining(long budget)
   {
-    await BlockchainBToken.RunLocked(() => BlockchainBToken.StartMining(budget));
+    await BlockchainBToken.RunLocked(() => Miner.StartMining(budget));
   }
 
   internal async Task StopMining()
   {
-    await BlockchainBToken.RunLocked(BlockchainBToken.StopMining);
+    await BlockchainBToken.RunLocked(Miner.StopMining);
   }
 
   internal async Task<Dictionary<string, object>> GetSnapshotState(int countBlocks)
@@ -69,10 +72,16 @@ public class Node
         ["Bitcoin"] = NetworkBitcoin.GetSnapshotState(),
         ["BToken"] = NetworkBToken.GetSnapshotState()
       },
-      ["blockchains"] = await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
+      ["blockchains"] = await BlockchainBToken.RunLocked(() =>
       {
-        ["Bitcoin"] = BlockchainBitcoin.GetSnapshotState(countBlocks),
-        ["BToken"] = BlockchainBToken.GetSnapshotState(countBlocks)
+        Dictionary<string, object> snapshotBToken = BlockchainBToken.GetSnapshotState(countBlocks);
+        snapshotBToken["miner"] = Miner.GetSnapshotState();
+
+        return new Dictionary<string, object>
+        {
+          ["Bitcoin"] = BlockchainBitcoin.GetSnapshotState(countBlocks),
+          ["BToken"] = snapshotBToken
+        };
       })
     };
   }
