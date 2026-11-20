@@ -326,6 +326,7 @@ internal partial class BlockchainBToken : Blockchain
   {
     Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
 
+    snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
     snapshotState["miner"] = MinerBlockchain.GetSnapshotState();
 
     return snapshotState;

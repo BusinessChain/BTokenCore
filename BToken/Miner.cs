@@ -40,7 +40,6 @@ internal partial class BlockchainBToken : Blockchain
         ["budget"] = Budget,
         ["feeAnchor"] = FeeAnchor,
         ["stateRoundLast"] = StateRoundLast,
-        ["isAccountsAtTip"] = Blockchain.Synchronizer.IsAccountsAtTip(),
         ["isBlockTipAtHeaderTip"] = Blockchain.BlockchainParent.IsBlockTipAtHeaderTip(),
         ["secondsAgeTipBitcoin"] = ((BlockchainBitcoin)Blockchain.BlockchainParent).GetSecondsAgeHeaderTip()
       };
