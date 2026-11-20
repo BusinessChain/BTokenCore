@@ -88,6 +88,6 @@ public class Node
 
   internal async Task SubmitTXBToken(byte[] tXRaw)
   {
-    await BlockchainBToken.RunLocked(() => BlockchainBToken.SubmitTX(tXRaw));
+    await BlockchainBToken.RunLocked(() => NetworkBToken.SendTX(tXRaw));
   }
 }

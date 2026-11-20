@@ -249,7 +249,7 @@ internal partial class BlockchainBToken : Blockchain
     TXPool.AddTX(tX);
   }
 
-  internal void SubmitTX(byte[] tXRaw)
+  void SubmitTX(byte[] tXRaw)
   {
     int index = 0;
 
@@ -294,9 +294,14 @@ internal partial class BlockchainBToken : Blockchain
     return base.GetTX(hash);
   }
 
+  internal bool IsTXInPool(byte[] hash)
+  {
+    return TXPool.TXsByHash.ContainsKey(hash);
+  }
+
   internal List<byte[]> GetHashesTXNotInPool(List<byte[]> hashes)
   {
-    return hashes.Where(h => !TXPool.TXsByHash.ContainsKey(h)).ToList();
+    return hashes.Where(h => !IsTXInPool(h)).ToList();
   }
 
   internal List<TXBToken> GetTXsRanked(HashSet<byte[]> hashes)

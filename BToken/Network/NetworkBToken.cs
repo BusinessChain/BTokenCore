@@ -28,6 +28,18 @@ internal partial class NetworkBToken : Network
     BlockchainBToken = blockchain;
   }
 
+  internal void SendTX(byte[] tXRaw)
+  {
+    int index = 0;
+
+    TX tX = BlockchainBToken.Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
+
+    if (!BlockchainBToken.IsTXInPool(tX.Hash))
+      BlockchainBToken.AddTX(tX);
+
+    QueueTXForRelay(tX);
+  }
+
   void QueueTXForRelay(TX tX)
   {
     lock (LOCK_Peers)
