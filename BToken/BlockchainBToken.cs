@@ -222,7 +222,7 @@ internal partial class BlockchainBToken : Blockchain
     if (TXPool.TXsByHash.TryGetValue(hash, out (TXBToken tX, int sequenceNumberTX) tXsByHashItem))
       return tXsByHashItem.tX;
 
-    return base.GetTX(hash);
+    return null;
   }
 
   internal bool IsTXInPool(byte[] hash)

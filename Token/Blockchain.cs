@@ -90,9 +90,6 @@ internal abstract partial class Blockchain
 
   internal virtual TX GetTX(byte[] hash)
   {
-    if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED].AsInt32 == 0)
-      return ParseTXOwned(documentTXOwned);
-
     return null;
   }
 
@@ -112,11 +109,6 @@ internal abstract partial class Blockchain
   internal bool IsBlockTipAtHeaderTip()
   {
     return ChainRoot.HeaderTipBlockchain == ChainRoot.HeaderTip;
-  }
-
-  internal virtual List<byte[]> GetHashesTXOwnedUnconfirmed()
-  {
-    return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).Select(d => d[NAME_FIELD_ID].AsBinary).ToList();
   }
 
   protected void InsertTXOwned(TX tX)

@@ -120,17 +120,6 @@ internal partial class BlockchainBitcoin : Blockchain
       .ToList();
   }
 
-  internal override List<byte[]> GetHashesTXOwnedUnconfirmed()
-  {
-    if (!IsBlockTipAtHeaderTip())
-      return [];
-
-    return LoadAnchorsUnconfirmed()
-      .Where(t => t.LockTime == ChainRoot.HeaderTipBlockchain.Height)
-      .Select(t => t.Hash)
-      .ToList();
-  }
-
   (TXBitcoin anchorReplaced, List<TXOutputOwned> outputsReplaced) FindAnchorReplaced(List<TXBitcoin> anchorsUnconfirmed, TXOutputTokenAnchor tokenAnchor, int heightTip)
   {
     foreach (TXBitcoin anchor in anchorsUnconfirmed

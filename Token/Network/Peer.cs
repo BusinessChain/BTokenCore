@@ -42,8 +42,6 @@ internal partial class Network
 
     internal TaskCompletionSource HandshakeCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    HashSet<byte[]> HashesTXOwnedAnnounced = new(new EqualityComparerByteArray());
-
 
     protected Peer(
       Network network,
@@ -77,19 +75,7 @@ internal partial class Network
     }
 
     protected virtual async Task RelayTXs()
-    {
-      List<byte[]> hashesTXOwnedUnconfirmed = await Network.Blockchain.RunLocked(Network.Blockchain.GetHashesTXOwnedUnconfirmed);
-
-      List<Inventory> inventoriesTXOwnedNew = hashesTXOwnedUnconfirmed
-        .Where(h => !HashesTXOwnedAnnounced.Contains(h))
-        .Select(h => new Inventory(Inventory.InventoryType.MSG_TX, h))
-        .ToList();
-
-      if (inventoriesTXOwnedNew.Count > 0)
-        await NetworkMessage.SendInventories(this, InvMessage.Command, inventoriesTXOwnedNew);
-
-      HashesTXOwnedAnnounced = new(hashesTXOwnedUnconfirmed, new EqualityComparerByteArray());
-    }
+    { }
 
     internal async Task Start(int heightBlockchainTip)
     {
