@@ -124,32 +124,10 @@ internal partial class BlockchainBToken : Blockchain
       Console.WriteLine(state);
     }
 
-    TXBToken CreateTXCoinbase(int height, long fees, long rent)
-    {
-      TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, Blockchain.Wallet.GetHash160KeyReceiving(Blockchain.TXPool.CanReceive));
-
-      TXBToken tXCoinbase = new()
-      {
-        HeightAccountCreated = height
-      };
-
-      tXCoinbase.TXOutputs.Add(outputCoinbase);
-
-      tXCoinbase.SerializeUnsigned();
-
-      return tXCoinbase;
-    }
-
     void MineBlock(int countAnchorsMissed)
     {
-      int height = Blockchain.ChainRoot.HeaderTipBlockchain.Height + 1;
+      int height = Blockchain.GetHeight() + 1;
       string prefixSkip = $"Mining round at height {height} skipped: ";
-
-      if (!Blockchain.Synchronizer.IsAccountsAtTip())
-      {
-        ReportRound(prefixSkip + "the accounts are not at the tip.");
-        return;
-      }
 
       if (!Blockchain.BlockchainParent.IsBlockTipAtHeaderTip())
       {
@@ -157,44 +135,27 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      int heightParent = Blockchain.BlockchainParent.GetHeight();
-
-      if (heightParent != HeightTipParentRound)
-        CountAnchorsRound = 0;
-
-      bool isReanchor = CountAnchorsRound > 0 && !Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashTipRound);
-      int countAnchors = isReanchor ? CountAnchorsRound : Math.Max(1, countAnchorsMissed);
-
-      Block block = new(Blockchain.SizeBlockMax);
-
-      int countBytesTXsMax = block.Buffer.Length
-        - HeaderBToken.COUNT_HEADER_BYTES
-        - VarInt.GetBytes(int.MaxValue).Length
-        - TXBToken.LENGTH_TX_COINBASE;
-
-      block.TXs = Blockchain.TXPool.GetTXs(countBytesTXsMax);
-
-      block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee), Blockchain.Accounts.LoadRentSweep(height)));
-
-      HeaderBToken header = new()
-      {
-        Height = height,
-        HashPrevious = Blockchain.ChainRoot.HeaderTipBlockchain.Hash,
-        MerkleRoot = block.ComputeMerkleRoot(),
-        HashAnchors = ParserToken.ComputeHashAnchors(ParserToken.EnumerateAnchorsEligible(block.TXs, height))
-      };
-
-      block.Header = header;
+      Block block;
 
       try
       {
-        header.HashAccounts = Blockchain.Accounts.ComputeHash(block);
+        block = Blockchain.CreateBlockNext();
       }
       catch (ProtocolException exception)
       {
         ReportRound(prefixSkip + exception.Message);
         return;
       }
+
+      Header header = block.Header;
+
+      int heightParent = Blockchain.BlockchainParent.GetHeight();
+
+      if (heightParent != HeightTipParentRound)
+        CountAnchorsRound = 0;
+
+      bool isReanchor = CountAnchorsRound > 0 && !header.HashPrevious.IsAllBytesEqual(HashTipRound);
+      int countAnchors = isReanchor ? CountAnchorsRound : Math.Max(1, countAnchorsMissed);
 
       int countAnchorsSent = 0;
 
