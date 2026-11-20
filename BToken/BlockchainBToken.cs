@@ -122,7 +122,7 @@ internal partial class BlockchainBToken : Blockchain
     return true;
   }
 
-  protected override long? GetBalanceWallet()
+  long? GetBalanceWallet()
   {
     if (!Synchronizer.IsAccountsAtTip())
       return null;
@@ -323,6 +323,7 @@ internal partial class BlockchainBToken : Blockchain
     Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
 
     snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
+    snapshotState["balanceWallet"] = GetBalanceWallet();
 
     return snapshotState;
   }

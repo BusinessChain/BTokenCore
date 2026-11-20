@@ -472,13 +472,10 @@ internal abstract partial class Blockchain
       ["headers"] = snapshotsHeader,
       ["wallet"] = new Dictionary<string, object>
       {
-        ["addressReceiving"] = Wallet.AddressAccountReceiving,
-        ["balance"] = GetBalanceWallet()
+        ["addressReceiving"] = Wallet.AddressAccountReceiving
       }
     };
   }
-
-  protected abstract long? GetBalanceWallet();
 
   internal Header InsertHeadersInTree(List<Header> headers)
   {

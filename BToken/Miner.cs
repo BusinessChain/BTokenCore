@@ -42,6 +42,7 @@ internal class Miner
       ["budget"] = Budget,
       ["feeAnchor"] = FeeAnchor,
       ["stateRoundLast"] = StateRoundLast,
+      ["funds"] = ((BlockchainBitcoin)BlockchainParent).GetFunds(),
       ["isBlockTipAtHeaderTip"] = BlockchainParent.IsBlockTipAtHeaderTip(),
       ["secondsAgeTipBitcoin"] = ((BlockchainBitcoin)BlockchainParent).GetSecondsAgeHeaderTip()
     };

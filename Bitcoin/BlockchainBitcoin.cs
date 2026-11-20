@@ -203,7 +203,7 @@ internal partial class BlockchainBitcoin : Blockchain
       .Count(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
   }
 
-  protected override long? GetBalanceWallet()
+  internal long GetFunds()
   {
     return OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0)).Sum(o => o.Value)
       - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
