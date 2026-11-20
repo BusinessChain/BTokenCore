@@ -142,17 +142,16 @@ internal class Miner
     int height = Blockchain.GetHeight() + 1;
     string prefixSkip = $"Mining round at height {height} skipped: ";
 
+    string nameTokenParent = BlockchainParent.NameToken;
+
     if (!BlockchainParent.IsBlockTipAtHeaderTip())
     {
-      ReportRound(prefixSkip + "the Bitcoin blocks are not at the Bitcoin header tip.");
+      ReportRound(prefixSkip + $"the {nameTokenParent} blocks are not at the {nameTokenParent} header tip.");
       return;
     }
 
     if (!NetworkParent.IsPeerConnected())
-    {
-      ReportRound(prefixSkip + "no Bitcoin peer is connected.");
       return;
-    }
 
     Block block;
 
@@ -183,7 +182,7 @@ internal class Miner
 
     if (countAnchorsSent == 0)
     {
-      ReportRound(prefixSkip + $"no Bitcoin wallet output funds the anchor fee {FeeAnchor}.");
+      ReportRound(prefixSkip + $"too few funds for the anchor fee {FeeAnchor}.");
       return;
     }
 
@@ -192,15 +191,15 @@ internal class Miner
 
     if (isReanchor)
     {
-      ReportRound($"{countAnchorsSent} of {countAnchors} anchors of Bitcoin round {heightParent} moved to the new tip at height {height}, anchor fee {FeeAnchor}.");
+      ReportRound($"{countAnchorsSent} of {countAnchors} anchors of {nameTokenParent} round {heightParent} moved to the new tip at height {height}, anchor fee {FeeAnchor}.");
       return;
     }
 
     CountAnchorsRound += countAnchorsSent;
 
     ReportRound(countAnchorsMissed > 0
-      ? $"{countAnchorsSent} of {countAnchorsMissed} missed anchors replaced by anchors of Bitcoin round {heightParent} for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}."
-      : $"Anchor {CountAnchorsRound} of Bitcoin round {heightParent} sent for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}.");
+      ? $"{countAnchorsSent} of {countAnchorsMissed} missed anchors replaced by anchors of {nameTokenParent} round {heightParent} for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}."
+      : $"Anchor {CountAnchorsRound} of {nameTokenParent} round {heightParent} sent for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}.");
 
     OutcomeAnchorsLast = "";
   }
