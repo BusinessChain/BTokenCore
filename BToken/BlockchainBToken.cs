@@ -448,7 +448,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (isBlockParentTip)
     {
-      MinerBlockchain.ScheduleMining(hasAnchorWinner && documentBlockReferenced == null);
+      MinerBlockchain.ScheduleMining(hasAnchorWinner && documentBlockReferenced == null, blockParent.Header.Height);
 
       BlocksStoredAwaitingAnchor.DeleteMany(
         Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
