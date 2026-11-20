@@ -40,7 +40,7 @@ internal partial class BlockchainBitcoin : Blockchain
     }
 
 
-    internal void Serialize(Wallet wallet, byte[] iDAccountOutput)
+    internal void Serialize(Wallet wallet, List<byte[]> iDsAccountInput)
     {
       List<byte> tXRaw = new();
 
@@ -61,23 +61,23 @@ internal partial class BlockchainBitcoin : Blockchain
       tXRaw.AddRange(BitConverter.GetBytes(LockTime));
       tXRaw.AddRange([0x01, 0x00, 0x00, 0x00]); // sighash
 
-      SignTX(tXRaw, wallet, iDAccountOutput);
+      SignTX(tXRaw, wallet, iDsAccountInput);
 
       TXRaw = tXRaw.ToArray();
 
       Hash = Crypto.ComputeHash256(TXRaw);
     }
 
-    void SignTX(List<byte> tXRaw, Wallet wallet, byte[] iDAccountOutput)
+    void SignTX(List<byte> tXRaw, Wallet wallet, List<byte[]> iDsAccountInput)
     {
       List<List<byte>> signaturesPerInput = new();
       int indexFirstInput = 5;
 
-      byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(iDAccountOutput).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
-      byte[] keyPublic = wallet.GetKeyPublic(iDAccountOutput);
-
       for (int i = 0; i < Inputs.Count; i++)
       {
+        byte[] publicScript = TXOutputP2PKH.PREFIX_P2PKH.Concat(iDsAccountInput[i]).Concat(TXOutputP2PKH.POSTFIX_P2PKH).ToArray();
+        byte[] keyPublic = wallet.GetKeyPublic(iDsAccountInput[i]);
+
         List<byte> tXRawSign = tXRaw.ToList();
         int indexRawSign = indexFirstInput + 36 * (i + 1) + 5 * i;
 
@@ -86,7 +86,7 @@ internal partial class BlockchainBitcoin : Blockchain
 
         byte[] message = SHA256.HashData(tXRawSign.ToArray());
 
-        byte[] signature = wallet.GetSignature(iDAccountOutput, message);
+        byte[] signature = wallet.GetSignature(iDsAccountInput[i], message);
 
         List<byte> scriptSig = new();
 

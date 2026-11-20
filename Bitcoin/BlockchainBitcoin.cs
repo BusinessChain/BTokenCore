@@ -26,6 +26,8 @@ internal partial class BlockchainBitcoin : Blockchain
 
   const long VALUE_DUST_P2PKH = 546;
 
+  const int COUNT_INPUTS_MAX = 252;
+
   protected ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
 
@@ -223,17 +225,19 @@ internal partial class BlockchainBitcoin : Blockchain
     long valueChangeMin = Math.Max(VALUE_DUST_P2PKH, feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR);
     long valueSpent = outputsSpent.Sum(o => o.Value);
 
-    if (anchorReplaced == null || valueSpent < GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, 1) + valueChangeMin)
-    {
-      TXOutputOwned outputAdded = outputsFree.FirstOrDefault(o => valueSpent + o.Value >= GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count + 1, 1));
+    List<TXOutputOwned> outputsCandidate = outputsFree.OrderBy(o => o.Value).ToList();
 
-      if (outputAdded != null)
-      {
-        outputsSpent.Add(outputAdded);
-        valueSpent += outputAdded.Value;
-      }
-      else if (anchorReplaced == null || valueSpent < GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, 1))
+    while (valueSpent < GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, 0))
+    {
+      if (outputsCandidate.Count == 0 || outputsSpent.Count == COUNT_INPUTS_MAX)
         return false;
+
+      TXOutputOwned outputAdded = outputsCandidate.FirstOrDefault(o => valueSpent + o.Value >= GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count + 1, 0))
+        ?? outputsCandidate[0];
+
+      outputsCandidate.Remove(outputAdded);
+      outputsSpent.Add(outputAdded);
+      valueSpent += outputAdded.Value;
     }
 
     TXBitcoin tXAnchor = new()
@@ -258,7 +262,7 @@ internal partial class BlockchainBitcoin : Blockchain
       isOutputSpareMissing: outputsFree.All(outputsSpent.Contains),
       countOutputsChange => GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, countOutputsChange));
 
-    tXAnchor.Serialize(Wallet, outputsSpent[0].IDAccount);
+    tXAnchor.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
 
     tXAnchor.Fee = valueSpent - tXAnchor.GetValueOutputs();
 
