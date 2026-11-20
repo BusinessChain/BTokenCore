@@ -174,17 +174,14 @@ internal partial class BlockchainBitcoin : Blockchain
       anchorReplaced.Fee + FEE_PER_BYTE_INCREMENTAL_RELAY * lengthAnchor);
   }
 
-  void AddOutputsChange(TXBitcoin tXAnchor, long valueSpent, long valueChangeMin, bool isOutputSpareMissing, Func<int, long> getFee)
+  void AddOutputsChange(TXBitcoin tXAnchor, long valueSpent, long valueChangeMin, int countOutputsSmall, long valueOutputSmall, Func<int, long> getFee)
   {
-    long valueChangeSplit = valueSpent - getFee(2);
-    long valueChange = valueSpent - getFee(1);
+    for (int i = 0; i < countOutputsSmall; i++)
+      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueOutputSmall, Wallet.Hash160KeyPublicReceiving));
 
-    if (isOutputSpareMissing && valueChangeSplit / 2 >= valueChangeMin)
-    {
-      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChangeSplit / 2, Wallet.Hash160KeyPublicReceiving));
-      tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChangeSplit - valueChangeSplit / 2, Wallet.Hash160KeyPublicReceiving));
-    }
-    else if (valueChange >= valueChangeMin)
+    long valueChange = valueSpent - countOutputsSmall * valueOutputSmall - getFee(countOutputsSmall + 1);
+
+    if (valueChange >= valueChangeMin)
       tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
   }
 
@@ -204,10 +201,9 @@ internal partial class BlockchainBitcoin : Blockchain
       - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, out int lockTime, out long feeAdded)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out long feeAdded)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
-    lockTime = heightTip;
     feeAdded = 0;
 
     List<TXBitcoin> anchorsUnconfirmed = LoadAnchorsUnconfirmed();
@@ -225,7 +221,18 @@ internal partial class BlockchainBitcoin : Blockchain
     long valueChangeMin = Math.Max(VALUE_DUST_P2PKH, feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR);
     long valueSpent = outputsSpent.Sum(o => o.Value);
 
+    long valueOutputSmall = Math.Max(VALUE_DUST_P2PKH, GetFeeAnchor(feeAnchor, null, 1, 0));
+    TXOutputOwned outputReserve = outputsFree.MaxBy(o => o.Value);
+    int countOutputsSmallMissing = Math.Max(0, (int)(3 * budget / valueOutputSmall) - (outputsFree.Count - (outputReserve == null ? 0 : 1)));
+
     List<TXOutputOwned> outputsCandidate = outputsFree.OrderBy(o => o.Value).ToList();
+
+    if (anchorReplaced == null && countOutputsSmallMissing > 0 && outputReserve != null)
+    {
+      outputsCandidate.Remove(outputReserve);
+      outputsSpent.Add(outputReserve);
+      valueSpent += outputReserve.Value;
+    }
 
     while (valueSpent < GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, 0))
     {
@@ -255,11 +262,18 @@ internal partial class BlockchainBitcoin : Blockchain
     tokenAnchor.Serialize();
     tXAnchor.TXOutputs.Add(tokenAnchor);
 
+    int countOutputsSmall = 0;
+
+    while (countOutputsSmall < countOutputsSmallMissing
+      && valueSpent - (countOutputsSmall + 1) * valueOutputSmall - GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, countOutputsSmall + 2) >= valueChangeMin)
+      countOutputsSmall++;
+
     AddOutputsChange(
       tXAnchor,
       valueSpent,
       valueChangeMin,
-      isOutputSpareMissing: outputsFree.All(outputsSpent.Contains),
+      countOutputsSmall,
+      valueOutputSmall,
       countOutputsChange => GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, countOutputsChange));
 
     tXAnchor.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());

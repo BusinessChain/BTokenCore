@@ -199,7 +199,7 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      if (!TryAnchorBlock(block, feeRound, out int lockTimeAnchor, out long feeAdded))
+      if (!TryAnchorBlock(block, feeRound, out long feeAdded))
       {
         ReportRound(prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.");
         return;
@@ -212,7 +212,7 @@ internal partial class BlockchainBToken : Blockchain
 
       if (isReanchor ? CountAnchorsRound == 2 : savings >= feeAnchor)
       {
-        if (TryAnchorBlock(block, feeAnchor, out _, out feeAdded))
+        if (TryAnchorBlock(block, feeAnchor, out feeAdded))
         {
           countAnchors = 2;
           savings -= isReanchor ? feeAdded : feeAnchor;
@@ -227,13 +227,13 @@ internal partial class BlockchainBToken : Blockchain
       FeeAnchor = feeAnchor;
       FeeRound = feeRound;
       Savings = savings;
-      HeightTipParentRound = lockTimeAnchor;
+      HeightTipParentRound = Blockchain.BlockchainParent.GetHeight();
       HashTipRound = header.HashPrevious;
 
-      ReportRound($"{countAnchors} blocks at height {height} await their anchors at Bitcoin height {lockTimeAnchor}, anchor fee {feeAnchor}, savings {savings}{outcomeAnchorsLast}.");
+      ReportRound($"{countAnchors} blocks at height {height} await their anchors at Bitcoin height {HeightTipParentRound}, anchor fee {feeAnchor}, savings {savings}{outcomeAnchorsLast}.");
     }
 
-    bool TryAnchorBlock(Block block, long fee, out int lockTimeAnchor, out long feeAdded)
+    bool TryAnchorBlock(Block block, long fee, out long feeAdded)
     {
       block.Header.Nonce = NonceBlockNext++;
       block.Header.ComputeHash();
@@ -245,11 +245,11 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, out lockTimeAnchor, out feeAdded))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, Budget, out feeAdded))
         return false;
 
       block.Serialize();
-      Blockchain.StoreBlockAwaitingAnchor(block, lockTimeAnchor);
+      Blockchain.StoreBlockAwaitingAnchor(block, Blockchain.BlockchainParent.GetHeight());
 
       return true;
     }
