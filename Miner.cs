@@ -6,8 +6,8 @@ namespace BTokenCore;
 internal class Miner
 {
   BlockchainBToken Blockchain;
-  BlockchainBitcoin BlockchainParent;
-  NetworkBitcoin NetworkParent;
+  Blockchain BlockchainParent;
+  Network NetworkParent;
   Anchorer AnchorerParent;
 
   const int SECONDS_PERIOD_BUDGET = 600;
@@ -24,7 +24,7 @@ internal class Miner
   long FeeAnchor;
 
 
-  internal Miner(BlockchainBToken blockchain, BlockchainBitcoin blockchainParent, NetworkBitcoin networkParent, Anchorer anchorer)
+  internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent, Anchorer anchorer)
   {
     Blockchain = blockchain;
     BlockchainParent = blockchainParent;
