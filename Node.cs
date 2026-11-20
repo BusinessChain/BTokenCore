@@ -30,7 +30,7 @@ public class Node
       // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
       seedAddresses: ["83.229.86.158"]);
 
-    Miner = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin);
+    Miner = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, new BlockchainBitcoin.AnchorerBitcoin(BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin));
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
