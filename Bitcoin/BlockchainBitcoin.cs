@@ -7,7 +7,7 @@ internal partial class BlockchainBitcoin : Blockchain
 {
   const int SIZE_BLOCK_MAX = 1 << 20; // 1 MB
 
-  internal const string NAME_TOKEN = "TokenBitcoin";
+  internal const string NAME_TOKEN = "Bitcoin";
 
 
   internal BlockchainBitcoin(LiteDatabase liteDatabase, SemaphoreSlim semaphoreBlockchain)

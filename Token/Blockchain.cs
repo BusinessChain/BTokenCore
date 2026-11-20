@@ -12,6 +12,8 @@ internal abstract partial class Blockchain
 
   internal Wallet Wallet;
 
+  internal readonly string NameToken;
+
   internal readonly int SizeBlockMax;
 
   internal ParserToken Parser;
@@ -40,6 +42,8 @@ internal abstract partial class Blockchain
     SemaphoreSlim semaphoreBlockchain)
   {
     Wallet = new Wallet($"Wallet{nameToken}/wallet");
+
+    NameToken = nameToken;
 
     SizeBlockMax = sizeBlockMax;
 

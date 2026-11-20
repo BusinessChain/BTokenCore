@@ -15,7 +15,7 @@ public class Node
   {
     SemaphoreSlim semaphoreBlockchain = new(1);
 
-    const string NAME_TOKEN_BTOKEN = "TokenBToken";
+    const string NAME_TOKEN_BTOKEN = "BToken";
 
     LiteDatabase liteDatabaseBitcoin = OpenDatabase(BlockchainBitcoin.NAME_TOKEN);
 
