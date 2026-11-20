@@ -49,7 +49,7 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"Budget {budget} must be at least {BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR} satoshis.");
 
       Budget = budget;
-      FeeAnchor = budget;
+      FeeAnchor = BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR;
       Savings = 0;
 
       if (TimerMining != null)
