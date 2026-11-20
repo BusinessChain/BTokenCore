@@ -79,7 +79,7 @@ internal class Miner
       ["stateRoundLast"] = StateRoundLast,
       ["funds"] = GetFunds(),
       ["isBlockTipAtHeaderTip"] = BlockchainParent.IsBlockTipAtHeaderTip(),
-      ["secondsAgeTipBitcoin"] = BlockchainParent.GetSecondsAgeHeaderTip()
+      ["secondsAgeTipBitcoin"] = BlockchainParent.GetSecondsAgeHeader(BlockchainParent.GetHeightHeaderTip())
     };
   }
 

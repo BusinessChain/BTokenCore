@@ -30,8 +30,8 @@ internal partial class BlockchainBitcoin : Blockchain
     return header;
   }
 
-  internal long GetSecondsAgeHeaderTip()
+  internal override long GetSecondsAgeHeader(int height)
   {
-    return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTip).UnixTimeSeconds;
+    return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTip.GetHeaderAncestor(height)).UnixTimeSeconds;
   }
 }

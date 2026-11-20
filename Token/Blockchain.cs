@@ -82,6 +82,8 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderRoot();
 
+  internal abstract long GetSecondsAgeHeader(int height);
+
   internal virtual TX GetTX(byte[] hash)
   {
     return null;
@@ -380,6 +382,11 @@ internal abstract partial class Blockchain
   internal int GetHeight()
   {
     return ChainRoot.HeaderTipBlockchain.Height;
+  }
+
+  internal int GetHeightHeaderTip()
+  {
+    return ChainRoot.HeaderTip.Height;
   }
 
   internal virtual Dictionary<string, object> GetSnapshotState(int countBlocks)
