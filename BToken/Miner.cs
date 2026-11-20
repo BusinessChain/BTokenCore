@@ -54,7 +54,7 @@ internal partial class BlockchainBToken : Blockchain
         return;
 
       TimerMining = new Timer(
-        _ => Blockchain.RunLocked(() => RunTimer(MineBlock)),
+        _ => Blockchain.RunLocked(() => RunTimer(() => MineBlock(0))),
         null,
         0,
         Timeout.Infinite);
@@ -66,13 +66,13 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining = null;
     }
 
-    internal void AdjustFeeAnchor(int heightParentTip)
+    internal void HandleParentTip(int heightParentTip)
     {
       if (TimerMining == null)
         return;
 
       if (HeightTipParentRound == heightParentTip - 1)
-        if (Blockchain.BlockchainParent.HasAnchorMissed(DateTime.UtcNow.AddSeconds(-SECONDS_TEMPLATE_REFRESH)))
+        if (Blockchain.BlockchainParent.CountAnchorsMissed(DateTime.UtcNow.AddSeconds(-SECONDS_TEMPLATE_REFRESH)) > 0)
         {
           OutcomeAnchorsLast = ", after a missed anchor";
           FeeAnchor = Math.Min(Budget, FeeAnchor + (long)(FEE_PER_BYTE_RAISE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR));
@@ -82,6 +82,11 @@ internal partial class BlockchainBToken : Blockchain
           OutcomeAnchorsLast = ", after the last anchors were mined";
           FeeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, FeeAnchor - Math.Max(1, (long)(FEE_PER_BYTE_DECREASE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR)));
         }
+
+      int countAnchorsMissed = Blockchain.BlockchainParent.CountAnchorsMissed(DateTime.MaxValue);
+
+      if (countAnchorsMissed > 0)
+        RunTimer(() => MineBlock(countAnchorsMissed));
     }
 
     internal void ScheduleReanchor()
@@ -135,7 +140,7 @@ internal partial class BlockchainBToken : Blockchain
       return tXCoinbase;
     }
 
-    internal void MineBlock()
+    void MineBlock(int countAnchorsMissed)
     {
       int height = Blockchain.ChainRoot.HeaderTipBlockchain.Height + 1;
       string prefixSkip = $"Mining round at height {height} skipped: ";
@@ -158,7 +163,7 @@ internal partial class BlockchainBToken : Blockchain
         CountAnchorsRound = 0;
 
       bool isReanchor = CountAnchorsRound > 0 && !Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashTipRound);
-      int countAnchors = isReanchor ? CountAnchorsRound : 1;
+      int countAnchors = isReanchor ? CountAnchorsRound : Math.Max(1, countAnchorsMissed);
 
       Block block = new(Blockchain.SizeBlockMax);
 
@@ -211,9 +216,11 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      CountAnchorsRound++;
+      CountAnchorsRound += countAnchorsSent;
 
-      ReportRound($"Anchor {CountAnchorsRound} of Bitcoin round {heightParent} sent for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}.");
+      ReportRound(countAnchorsMissed > 0
+        ? $"{countAnchorsSent} of {countAnchorsMissed} missed anchors replaced by anchors of Bitcoin round {heightParent} for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}."
+        : $"Anchor {CountAnchorsRound} of Bitcoin round {heightParent} sent for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}.");
 
       OutcomeAnchorsLast = "";
     }

@@ -195,12 +195,12 @@ internal partial class BlockchainBitcoin : Blockchain
     return Math.Max(VALUE_DUST_P2PKH, GetFeeAnchor(feeAnchor, null, 1, 0));
   }
 
-  internal override bool HasAnchorMissed(DateTime timeSentLatest)
+  internal override int CountAnchorsMissed(DateTime timeSentLatest)
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
       .Where(d => IsTXOwnedSentUntil(d, timeSentLatest))
       .Select(ParseTXOwned)
-      .Any(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
+      .Count(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
   }
 
   protected override long? GetBalanceWallet()

@@ -86,7 +86,7 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderRoot();
 
-  internal abstract bool HasAnchorMissed(DateTime timeSentLatest);
+  internal abstract int CountAnchorsMissed(DateTime timeSentLatest);
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget);
 
