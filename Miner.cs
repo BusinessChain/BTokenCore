@@ -5,7 +5,7 @@ using TXInputBitcoin = BTokenCore.BlockchainBitcoin.TXInputBitcoin;
 
 namespace BTokenCore;
 
-internal class Miner
+internal partial class Miner
 {
   BlockchainBToken Blockchain;
   BlockchainBitcoin BlockchainParent;

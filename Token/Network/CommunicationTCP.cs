@@ -3,7 +3,7 @@ using System.Net.Sockets;
 
 namespace BTokenCore;
 
-public class CommunicationTCP : ICommunication
+public partial class CommunicationTCP : ICommunication
 {
   TcpListener TcpListener;
 

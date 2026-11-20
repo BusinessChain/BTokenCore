@@ -2,149 +2,152 @@
 
 namespace BTokenCore;
 
-internal class HeaderBitcoin : Header
+internal partial class BlockchainBitcoin : Blockchain
 {
-  internal const int COUNT_HEADER_BYTES = 80;
-
-  internal uint NBits;
-
-  internal uint UnixTimeSeconds;
-
-  const int RETARGETING_BLOCK_INTERVAL = 2016;
-  const ulong RETARGETING_TIMESPAN_INTERVAL_SECONDS = 14 * 24 * 60 * 60;
-
-  static readonly UInt256 DIFFICULTY_1_TARGET = new UInt256(
-    "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
-
-
-  internal HeaderBitcoin(
-    byte[] headerHash,
-    uint version,
-    byte[] hashPrevious,
-    byte[] merkleRootHash,
-    uint unixTimeSeconds,
-    uint nBits,
-    uint nonce)
+  class HeaderBitcoin : Header
   {
-    Hash = headerHash;
-    Version = version;
-    HashPrevious = hashPrevious;
-    MerkleRoot = merkleRootHash;
-    UnixTimeSeconds = unixTimeSeconds;
-    NBits = nBits;
-    Nonce = nonce;
-  }
+    internal const int COUNT_HEADER_BYTES = 80;
 
-  internal HeaderBitcoin(byte[] buffer, ref int index)
-    : base(buffer, ref index, COUNT_HEADER_BYTES)
-  {
-    UnixTimeSeconds = buffer.Read<uint>(ref index);
+    internal uint NBits;
 
-    bool isBlockTimePremature = UnixTimeSeconds >
-      (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
+    internal uint UnixTimeSeconds;
 
-    if (isBlockTimePremature)
-      throw new ProtocolException($"Timestamp premature {DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds)}.");
+    const int RETARGETING_BLOCK_INTERVAL = 2016;
+    const ulong RETARGETING_TIMESPAN_INTERVAL_SECONDS = 14 * 24 * 60 * 60;
 
-    NBits = buffer.Read<uint>(ref index);
+    static readonly UInt256 DIFFICULTY_1_TARGET = new UInt256(
+      "00000000FFFF0000000000000000000000000000000000000000000000000000".ToBinary());
 
-    if (new UInt256(Hash).IsGreaterThan(UInt256.ParseFromCompact(NBits)))
-      throw new ProtocolException($"Header hash {Hash.ToHexString()} greater than NBits {NBits}.");
 
-    Nonce = buffer.Read<uint>(ref index);
-  }
-
-  internal override void AppendToHeader(Header headerPrevious)
-  {
-    uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
-
-    if (UnixTimeSeconds < medianTimePastSeconds)
-      throw new ProtocolException(
-        $"Header {this} with unix time {DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds)} " +
-        $"is older than median time past {DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)}.");
-
-    uint targetBitsNew = GetNextTarget((HeaderBitcoin)headerPrevious);
-
-    if (NBits != targetBitsNew)
-      throw new ProtocolException(
-        $"nBits {NBits} not equal to target nBits {targetBitsNew} in header {this}.");
-
-    base.AppendToHeader(headerPrevious);
-  }
-
-  protected override BigInteger GetWork()
-  {
-    return UInt256.ParseFromCompact(NBits).ComputeWork();
-  }
-
-  static uint GetMedianTimePastSeconds(HeaderBitcoin header)
-  {
-    const int MEDIAN_TIME_PAST = 11;
-
-    List<uint> timestampsPast = new();
-
-    int depth = 0;
-    while (depth < MEDIAN_TIME_PAST)
+    internal HeaderBitcoin(
+      byte[] headerHash,
+      uint version,
+      byte[] hashPrevious,
+      byte[] merkleRootHash,
+      uint unixTimeSeconds,
+      uint nBits,
+      uint nonce)
     {
-      timestampsPast.Add(header.UnixTimeSeconds);
-
-      if (header.HeaderPrevious == null)
-        break;
-
-      header = header.HeaderPrevious as HeaderBitcoin;
-      depth++;
+      Hash = headerHash;
+      Version = version;
+      HashPrevious = hashPrevious;
+      MerkleRoot = merkleRootHash;
+      UnixTimeSeconds = unixTimeSeconds;
+      NBits = nBits;
+      Nonce = nonce;
     }
 
-    timestampsPast.Sort();
+    internal HeaderBitcoin(byte[] buffer, ref int index)
+      : base(buffer, ref index, COUNT_HEADER_BYTES)
+    {
+      UnixTimeSeconds = buffer.Read<uint>(ref index);
 
-    return timestampsPast[timestampsPast.Count / 2];
-  }
+      bool isBlockTimePremature = UnixTimeSeconds >
+        (DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 2 * 60 * 60);
 
-  static uint GetNextTarget(HeaderBitcoin header)
-  {
-    if (((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
-      return header.NBits;
+      if (isBlockTimePremature)
+        throw new ProtocolException($"Timestamp premature {DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds)}.");
 
-    HeaderBitcoin headerIntervalStart = header;
-    int depth = RETARGETING_BLOCK_INTERVAL;
+      NBits = buffer.Read<uint>(ref index);
 
-    while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
-      headerIntervalStart = headerIntervalStart.HeaderPrevious as HeaderBitcoin;
+      if (new UInt256(Hash).IsGreaterThan(UInt256.ParseFromCompact(NBits)))
+        throw new ProtocolException($"Header hash {Hash.ToHexString()} greater than NBits {NBits}.");
 
-    ulong actualTimespan = (ulong)Math.Clamp(
-      (long)header.UnixTimeSeconds - headerIntervalStart.UnixTimeSeconds,
-      (long)RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4,
-      (long)RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4);
+      Nonce = buffer.Read<uint>(ref index);
+    }
 
-    UInt256 targetOld = UInt256.ParseFromCompact(header.NBits);
+    internal override void AppendToHeader(Header headerPrevious)
+    {
+      uint medianTimePastSeconds = GetMedianTimePastSeconds(headerPrevious as HeaderBitcoin);
 
-    UInt256 targetNew = targetOld
-      .MultiplyBy(actualTimespan)
-      .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
+      if (UnixTimeSeconds < medianTimePastSeconds)
+        throw new ProtocolException(
+          $"Header {this} with unix time {DateTimeOffset.FromUnixTimeSeconds(UnixTimeSeconds)} " +
+          $"is older than median time past {DateTimeOffset.FromUnixTimeSeconds(medianTimePastSeconds)}.");
 
-    return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
-  }
+      uint targetBitsNew = GetNextTarget((HeaderBitcoin)headerPrevious);
 
-  internal override Dictionary<string, object> GetSnapshotState()
-  {
-    Dictionary<string, object> snapshotState = base.GetSnapshotState();
+      if (NBits != targetBitsNew)
+        throw new ProtocolException(
+          $"nBits {NBits} not equal to target nBits {targetBitsNew} in header {this}.");
 
-    snapshotState["nBits"] = NBits;
-    snapshotState["unixTimeSeconds"] = UnixTimeSeconds;
+      base.AppendToHeader(headerPrevious);
+    }
 
-    return snapshotState;
-  }
+    protected override BigInteger GetWork()
+    {
+      return UInt256.ParseFromCompact(NBits).ComputeWork();
+    }
 
-  internal override byte[] Serialize()
-  {
-    byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);
+    static uint GetMedianTimePastSeconds(HeaderBitcoin header)
+    {
+      const int MEDIAN_TIME_PAST = 11;
 
-    BitConverter.GetBytes(UnixTimeSeconds).CopyTo(buffer, 68);
+      List<uint> timestampsPast = new();
 
-    BitConverter.GetBytes(NBits).CopyTo(buffer, 72);
+      int depth = 0;
+      while (depth < MEDIAN_TIME_PAST)
+      {
+        timestampsPast.Add(header.UnixTimeSeconds);
 
-    BitConverter.GetBytes(Nonce).CopyTo(buffer, 76);
+        if (header.HeaderPrevious == null)
+          break;
 
-    return buffer;
+        header = header.HeaderPrevious as HeaderBitcoin;
+        depth++;
+      }
+
+      timestampsPast.Sort();
+
+      return timestampsPast[timestampsPast.Count / 2];
+    }
+
+    static uint GetNextTarget(HeaderBitcoin header)
+    {
+      if (((header.Height + 1) % RETARGETING_BLOCK_INTERVAL) != 0)
+        return header.NBits;
+
+      HeaderBitcoin headerIntervalStart = header;
+      int depth = RETARGETING_BLOCK_INTERVAL;
+
+      while (--depth > 0 && headerIntervalStart.HeaderPrevious != null)
+        headerIntervalStart = headerIntervalStart.HeaderPrevious as HeaderBitcoin;
+
+      ulong actualTimespan = (ulong)Math.Clamp(
+        (long)header.UnixTimeSeconds - headerIntervalStart.UnixTimeSeconds,
+        (long)RETARGETING_TIMESPAN_INTERVAL_SECONDS / 4,
+        (long)RETARGETING_TIMESPAN_INTERVAL_SECONDS * 4);
+
+      UInt256 targetOld = UInt256.ParseFromCompact(header.NBits);
+
+      UInt256 targetNew = targetOld
+        .MultiplyBy(actualTimespan)
+        .DivideBy(RETARGETING_TIMESPAN_INTERVAL_SECONDS);
+
+      return UInt256.Min(DIFFICULTY_1_TARGET, targetNew).GetCompact();
+    }
+
+    internal override Dictionary<string, object> GetSnapshotState()
+    {
+      Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+      snapshotState["nBits"] = NBits;
+      snapshotState["unixTimeSeconds"] = UnixTimeSeconds;
+
+      return snapshotState;
+    }
+
+    internal override byte[] Serialize()
+    {
+      byte[] buffer = SerializePrefix(COUNT_HEADER_BYTES);
+
+      BitConverter.GetBytes(UnixTimeSeconds).CopyTo(buffer, 68);
+
+      BitConverter.GetBytes(NBits).CopyTo(buffer, 72);
+
+      BitConverter.GetBytes(Nonce).CopyTo(buffer, 76);
+
+      return buffer;
+    }
   }
 }
