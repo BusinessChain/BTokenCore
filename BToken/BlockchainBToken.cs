@@ -115,7 +115,7 @@ internal partial class BlockchainBToken : Blockchain
       return false;
     }
 
-    if (LoadAnchorsMissed().FirstOrDefault() is TXBToken anchorReplaced)
+    if (LoadAnchorsMissed(DateTime.MaxValue).FirstOrDefault() is TXBToken anchorReplaced)
       TXsOwnedStored.Delete(anchorReplaced.Hash);
 
     return true;
@@ -129,14 +129,15 @@ internal partial class BlockchainBToken : Blockchain
     return Wallet.GetBalance(h => TXPool.LoadAccountPending(h)?.Balance ?? 0);
   }
 
-  internal override bool HasAnchorMissed()
+  internal override bool HasAnchorMissed(DateTime timeSentLatest)
   {
-    return LoadAnchorsMissed().Count > 0;
+    return LoadAnchorsMissed(timeSentLatest).Count > 0;
   }
 
-  List<TXBToken> LoadAnchorsMissed()
+  List<TXBToken> LoadAnchorsMissed(DateTime timeSentLatest)
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
+      .Where(d => IsTXOwnedSentUntil(d, timeSentLatest))
       .Select(d => (TXBToken)ParseTXOwned(d))
       .Where(t => !t.IsLockTimeValid(ChainRoot.HeaderTipBlockchain.Height + 1))
       .ToList();

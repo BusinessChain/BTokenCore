@@ -7,6 +7,7 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
 
     const int MILLISECONDS_WINDOW_BLANK = 5_000;
+    const int SECONDS_TEMPLATE_REFRESH = 30;
     const double FEE_PER_BYTE_RAISE_ANCHOR = 1;
     const double FEE_PER_BYTE_DECREASE_ANCHOR = 0.1;
 
@@ -75,7 +76,7 @@ internal partial class BlockchainBToken : Blockchain
         return;
 
       if (HeightTipParentRound == heightParentTip - 1)
-        if (Blockchain.BlockchainParent.HasAnchorMissed())
+        if (Blockchain.BlockchainParent.HasAnchorMissed(DateTime.UtcNow.AddSeconds(-SECONDS_TEMPLATE_REFRESH)))
         {
           OutcomeAnchorsLast = ", after a missed anchor";
           FeeAnchor = Math.Min(Budget, FeeAnchor + (long)(FEE_PER_BYTE_RAISE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR));

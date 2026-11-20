@@ -10,6 +10,7 @@ internal abstract partial class Blockchain
   protected const string NAME_FIELD_HEIGHT_CONFIRMED = "heightConfirmed";
   const string NAME_FIELD_TX_RAW = "tXRaw";
   const string NAME_FIELD_FEE = "fee";
+  const string NAME_FIELD_TIME_SENT = "timeSent";
   const int SECONDS_DELAY_REQUEST_HEDGED = 5;
   protected const int BITCOIN_REORG_MARGIN = 6;
 
@@ -85,7 +86,7 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderRoot();
 
-  internal abstract bool HasAnchorMissed();
+  internal abstract bool HasAnchorMissed(DateTime timeSentLatest);
 
   internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out long feeAdded);
 
@@ -127,8 +128,15 @@ internal abstract partial class Blockchain
       [NAME_FIELD_ID] = tX.Hash,
       [NAME_FIELD_TX_RAW] = tX.TXRaw,
       [NAME_FIELD_FEE] = tX.Fee,
-      [NAME_FIELD_HEIGHT_CONFIRMED] = 0
+      [NAME_FIELD_HEIGHT_CONFIRMED] = 0,
+      [NAME_FIELD_TIME_SENT] = DateTime.UtcNow.Ticks
     });
+  }
+
+  protected static bool IsTXOwnedSentUntil(BsonDocument documentTXOwned, DateTime timeSentLatest)
+  {
+    return !documentTXOwned.ContainsKey(NAME_FIELD_TIME_SENT)
+      || documentTXOwned[NAME_FIELD_TIME_SENT].AsInt64 <= timeSentLatest.Ticks;
   }
 
   protected abstract bool IsTXOwnedConfirmed(TX tX, Block block);

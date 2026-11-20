@@ -190,9 +190,12 @@ internal partial class BlockchainBitcoin : Blockchain
     return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTip).UnixTimeSeconds;
   }
 
-  internal override bool HasAnchorMissed()
+  internal override bool HasAnchorMissed(DateTime timeSentLatest)
   {
-    return LoadAnchorsUnconfirmed().Any(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
+    return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
+      .Where(d => IsTXOwnedSentUntil(d, timeSentLatest))
+      .Select(ParseTXOwned)
+      .Any(t => t.LockTime < ChainRoot.HeaderTipBlockchain.Height);
   }
 
   protected override long? GetBalanceWallet()
