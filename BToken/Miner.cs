@@ -20,8 +20,6 @@ internal partial class BlockchainBToken : Blockchain
     byte[] HashTipRound;
     int CountAnchorsRound;
     long FeeAnchor;
-    long FeeRound;
-    long Savings;
 
 
     internal Miner(BlockchainBToken blockchain)
@@ -37,7 +35,6 @@ internal partial class BlockchainBToken : Blockchain
         ["isMining"] = TimerMining != null,
         ["budget"] = Budget,
         ["feeAnchor"] = FeeAnchor,
-        ["savings"] = Savings,
         ["stateRoundLast"] = StateRoundLast,
         ["isAccountsAtTip"] = Blockchain.Synchronizer.IsAccountsAtTip(),
         ["isBlockTipAtHeaderTip"] = Blockchain.BlockchainParent.IsBlockTipAtHeaderTip(),
@@ -52,7 +49,6 @@ internal partial class BlockchainBToken : Blockchain
 
       Budget = budget;
       FeeAnchor = BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR;
-      Savings = 0;
 
       if (TimerMining != null)
         return;
@@ -84,7 +80,6 @@ internal partial class BlockchainBToken : Blockchain
         else
         {
           OutcomeAnchorsLast = ", after the last anchors were mined";
-          Savings += Budget - FeeAnchor;
           FeeAnchor = Math.Max(BlockchainBitcoin.FEE_SURCHARGE_REPLACEMENT_ANCHOR, FeeAnchor - Math.Max(1, (long)(FEE_PER_BYTE_DECREASE_ANCHOR * BlockchainBitcoin.LENGTH_ANCHOR)));
         }
 
@@ -160,10 +155,6 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      bool isReanchor = Blockchain.BlockchainParent.GetHeight() == HeightTipParentRound;
-      long feeRound = isReanchor ? FeeRound : FeeAnchor;
-      long savings = Savings;
-      string outcomeAnchorsLast = OutcomeAnchorsLast;
 
       Block block = new(Blockchain.SizeBlockMax);
 
@@ -196,41 +187,22 @@ internal partial class BlockchainBToken : Blockchain
         return;
       }
 
-      if (!TryAnchorBlock(block, feeRound, out long feeAdded))
+      if (!TryAnchorBlock(block, FeeAnchor))
       {
-        ReportRound(prefixSkip + $"no Bitcoin wallet output funds the anchor fee {feeRound}.");
+        ReportRound(prefixSkip + $"no Bitcoin wallet output funds the anchor fee {FeeAnchor}.");
         return;
       }
 
-      if (isReanchor)
-        savings -= feeAdded;
-
-      int countAnchors = 1;
-
-      if (isReanchor ? CountAnchorsRound == 2 : savings >= FeeAnchor)
-      {
-        if (TryAnchorBlock(block, FeeAnchor, out feeAdded))
-        {
-          countAnchors = 2;
-          savings -= isReanchor ? feeAdded : FeeAnchor;
-        }
-        else if (isReanchor)
-          outcomeAnchorsLast = ", the second anchor of the round stays on the old parent";
-      }
-
-      if (!isReanchor)
-        CountAnchorsRound = countAnchors;
-
-      FeeRound = feeRound;
-      Savings = savings;
+      CountAnchorsRound = 1;
       HeightTipParentRound = Blockchain.BlockchainParent.GetHeight();
       HashTipRound = header.HashPrevious;
-      OutcomeAnchorsLast = "";
 
-      ReportRound($"{countAnchors} blocks at height {height} await their anchors at Bitcoin height {HeightTipParentRound}, anchor fee {FeeAnchor}, savings {savings}{outcomeAnchorsLast}.");
+      ReportRound($"1 block at height {height} awaits its anchor at Bitcoin height {HeightTipParentRound}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}.");
+
+      OutcomeAnchorsLast = "";
     }
 
-    bool TryAnchorBlock(Block block, long fee, out long feeAdded)
+    bool TryAnchorBlock(Block block, long fee)
     {
       block.Header.Nonce = NonceBlockNext++;
       block.Header.ComputeHash();
@@ -242,7 +214,7 @@ internal partial class BlockchainBToken : Blockchain
         HashBlockReferenced = block.Header.Hash
       };
 
-      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, Budget, out feeAdded))
+      if (!Blockchain.BlockchainParent.TryCreateTXAnchor(anchorToken, fee, Budget))
         return false;
 
       block.Serialize();

@@ -80,10 +80,9 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out long feeAdded)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
-    feeAdded = feeAnchor;
 
     byte[] hash160Funding = Wallet.FindHash160KeyFunding(h => TXPool.LoadAccountPending(h)?.Balance >= feeAnchor);
 

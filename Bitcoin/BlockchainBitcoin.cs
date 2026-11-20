@@ -204,10 +204,9 @@ internal partial class BlockchainBitcoin : Blockchain
       - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out long feeAdded)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget)
   {
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
-    feeAdded = 0;
 
     List<TXBitcoin> anchorsUnconfirmed = LoadAnchorsUnconfirmed();
 
@@ -282,8 +281,6 @@ internal partial class BlockchainBitcoin : Blockchain
     tXAnchor.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
 
     tXAnchor.Fee = valueSpent - tXAnchor.GetValueOutputs();
-
-    feeAdded = tXAnchor.Fee - (anchorReplaced?.Fee ?? 0);
 
     if (anchorReplaced != null)
       TXsOwnedStored.Delete(anchorReplaced.Hash);
