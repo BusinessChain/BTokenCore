@@ -78,75 +78,12 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out byte[] tXRaw)
-  {
-    tXRaw = null;
-
-    int heightTip = ChainRoot.HeaderTipBlockchain.Height;
-
-    byte[] hash160Funding = Wallet.FindHash160KeyFunding(h => TXPool.LoadAccountPending(h)?.Balance >= feeAnchor);
-
-    if (hash160Funding == null)
-      return false;
-
-    Account account = TXPool.LoadAccountPending(hash160Funding);
-
-    TXBToken tXAnchor = new()
-    {
-      KeyPublic = Wallet.GetKeyPublic(hash160Funding),
-      HeightAccountCreated = account.HeightAccountCreated,
-      Nonce = account.Nonce,
-      Fee = feeAnchor,
-      LockTime = heightTip
-    };
-
-    tokenAnchor.Serialize();
-    tXAnchor.TXOutputs.Add(tokenAnchor);
-
-    tXAnchor.Serialize(Wallet, IDToken);
-
-    try
-    {
-      SubmitTX(tXAnchor.TXRaw);
-    }
-    catch (ProtocolException)
-    {
-      return false;
-    }
-
-    if (LoadAnchorsMissed(DateTime.MaxValue).FirstOrDefault() is TXBToken anchorReplaced)
-      TXsOwnedStored.Delete(anchorReplaced.Hash);
-
-    tXRaw = tXAnchor.TXRaw;
-
-    return true;
-  }
-
   long? GetBalanceWallet()
   {
     if (!Synchronizer.IsAccountsAtTip())
       return null;
 
     return Wallet.GetBalance(h => TXPool.LoadAccountPending(h)?.Balance ?? 0);
-  }
-
-  internal override long GetCostAnchor(long feeAnchor)
-  {
-    return feeAnchor;
-  }
-
-  internal override int CountAnchorsMissed(DateTime timeSentLatest)
-  {
-    return LoadAnchorsMissed(timeSentLatest).Count;
-  }
-
-  List<TXBToken> LoadAnchorsMissed(DateTime timeSentLatest)
-  {
-    return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
-      .Where(d => IsTXOwnedSentUntil(d, timeSentLatest))
-      .Select(d => (TXBToken)ParseTXOwned(d))
-      .Where(t => !t.IsLockTimeValid(ChainRoot.HeaderTipBlockchain.Height + 1))
-      .ToList();
   }
 
   protected override void InsertBlock(Block block)
@@ -251,16 +188,6 @@ internal partial class BlockchainBToken : Blockchain
       throw new ProtocolException($"TX {tX.Hash.ToHexString()} cannot be verified without account database.");
 
     TXPool.AddTX(tX);
-  }
-
-  void SubmitTX(byte[] tXRaw)
-  {
-    int index = 0;
-
-    TX tX = Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: true);
-
-    AddTX(tX);
-    InsertTXOwned(tX);
   }
 
   internal override void Load()

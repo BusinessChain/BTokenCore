@@ -3,8 +3,8 @@
 internal class Miner
 {
   BlockchainBToken Blockchain;
-  Blockchain BlockchainParent;
-  Network NetworkParent;
+  BlockchainBitcoin BlockchainParent;
+  NetworkBitcoin NetworkParent;
 
   const int SECONDS_PERIOD_BUDGET = 600;
   const int SECONDS_TEMPLATE_REFRESH = 30;
@@ -22,7 +22,7 @@ internal class Miner
   long FeeAnchor;
 
 
-  internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent)
+  internal Miner(BlockchainBToken blockchain, BlockchainBitcoin blockchainParent, NetworkBitcoin networkParent)
   {
     Blockchain = blockchain;
     BlockchainParent = blockchainParent;
@@ -42,9 +42,9 @@ internal class Miner
       ["budget"] = Budget,
       ["feeAnchor"] = FeeAnchor,
       ["stateRoundLast"] = StateRoundLast,
-      ["funds"] = ((BlockchainBitcoin)BlockchainParent).GetFunds(),
+      ["funds"] = BlockchainParent.GetFunds(),
       ["isBlockTipAtHeaderTip"] = BlockchainParent.IsBlockTipAtHeaderTip(),
-      ["secondsAgeTipBitcoin"] = ((BlockchainBitcoin)BlockchainParent).GetSecondsAgeHeaderTip()
+      ["secondsAgeTipBitcoin"] = BlockchainParent.GetSecondsAgeHeaderTip()
     };
   }
 

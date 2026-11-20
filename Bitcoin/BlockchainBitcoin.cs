@@ -190,12 +190,12 @@ internal partial class BlockchainBitcoin : Blockchain
     return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTip).UnixTimeSeconds;
   }
 
-  internal override long GetCostAnchor(long feeAnchor)
+  internal long GetCostAnchor(long feeAnchor)
   {
     return Math.Max(VALUE_DUST_P2PKH, GetFeeAnchor(feeAnchor, null, 1, 0));
   }
 
-  internal override int CountAnchorsMissed(DateTime timeSentLatest)
+  internal int CountAnchorsMissed(DateTime timeSentLatest)
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
       .Where(d => IsTXOwnedSentUntil(d, timeSentLatest))
@@ -209,7 +209,7 @@ internal partial class BlockchainBitcoin : Blockchain
       - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out byte[] tXRaw)
+  internal bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out byte[] tXRaw)
   {
     tXRaw = null;
 

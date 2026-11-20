@@ -88,12 +88,6 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderRoot();
 
-  internal abstract int CountAnchorsMissed(DateTime timeSentLatest);
-
-  internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out byte[] tXRaw);
-
-  internal abstract long GetCostAnchor(long feeAnchor);
-
   internal virtual TX GetTX(byte[] hash)
   {
     if (TXsOwnedStored.FindById(hash) is BsonDocument documentTXOwned && documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED].AsInt32 == 0)
