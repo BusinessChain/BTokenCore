@@ -32,6 +32,8 @@ internal abstract partial class Blockchain
 
   internal event Action<Block> OnBlockInserted;
   internal event Action<Block> OnBlockRolledBack;
+  internal event Action<Block> OnBlockInsertedInTransaction;
+  internal event Action<Block> OnBlockRolledBackInTransaction;
 
 
   protected Blockchain(
@@ -329,6 +331,8 @@ internal abstract partial class Blockchain
 
           MarkTXsOwnedConfirmed(block);
 
+          OnBlockInsertedInTransaction?.Invoke(block);
+
           ChainRoot.HeaderTipBlockchain = block.Header;
 
           BlocksCompact.Upsert(CreateDocumentBlockCompact(block.Header, anchors));
@@ -418,6 +422,8 @@ internal abstract partial class Blockchain
           RollBackBlock(block);
 
           ReopenTXsOwned(header.Height);
+
+          OnBlockRolledBackInTransaction?.Invoke(block);
 
           BlocksCompact.Delete(header.Height);
         });
