@@ -90,7 +90,7 @@ internal abstract partial class Blockchain
 
   internal abstract int CountAnchorsMissed(DateTime timeSentLatest);
 
-  internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget);
+  internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out byte[] tXRaw);
 
   internal abstract long GetCostAnchor(long feeAnchor);
 

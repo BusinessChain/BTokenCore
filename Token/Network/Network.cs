@@ -57,6 +57,14 @@ internal abstract partial class Network
     }
   }
 
+  internal abstract void SendTX(byte[] tXRaw);
+
+  internal bool IsPeerConnected()
+  {
+    lock (LOCK_Peers)
+      return Peers.Count > 0;
+  }
+
   internal List<Dictionary<string, object>> GetSnapshotState()
   {
     lock (LOCK_Peers)

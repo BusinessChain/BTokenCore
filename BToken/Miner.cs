@@ -4,6 +4,7 @@ internal class Miner
 {
   BlockchainBToken Blockchain;
   Blockchain BlockchainParent;
+  Network NetworkParent;
 
   const int SECONDS_PERIOD_BUDGET = 600;
   const int SECONDS_TEMPLATE_REFRESH = 30;
@@ -21,10 +22,11 @@ internal class Miner
   long FeeAnchor;
 
 
-  internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent)
+  internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent)
   {
     Blockchain = blockchain;
     BlockchainParent = blockchainParent;
+    NetworkParent = networkParent;
     NonceBlockNext = (uint)Random.Shared.Next();
 
     blockchainParent.OnBlockInserted += HandleParentTip;
@@ -140,6 +142,12 @@ internal class Miner
       return;
     }
 
+    if (!NetworkParent.IsPeerConnected())
+    {
+      ReportRound(prefixSkip + "no Bitcoin peer is connected.");
+      return;
+    }
+
     Block block;
 
     try
@@ -203,8 +211,10 @@ internal class Miner
       HashBlockReferenced = block.Header.Hash
     };
 
-    if (!BlockchainParent.TryCreateTXAnchor(anchorToken, fee, Budget))
+    if (!BlockchainParent.TryCreateTXAnchor(anchorToken, fee, Budget, out byte[] tXRaw))
       return false;
+
+    NetworkParent.SendTX(tXRaw);
 
     block.Serialize();
     Blockchain.StoreBlockAwaitingAnchor(block, BlockchainParent.GetHeight());

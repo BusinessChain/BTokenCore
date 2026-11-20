@@ -28,7 +28,7 @@ internal partial class NetworkBToken : Network
     BlockchainBToken = blockchain;
   }
 
-  internal void SendTX(byte[] tXRaw)
+  internal override void SendTX(byte[] tXRaw)
   {
     int index = 0;
 

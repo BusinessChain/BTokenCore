@@ -78,8 +78,10 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
-  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget)
+  internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget, out byte[] tXRaw)
   {
+    tXRaw = null;
+
     int heightTip = ChainRoot.HeaderTipBlockchain.Height;
 
     byte[] hash160Funding = Wallet.FindHash160KeyFunding(h => TXPool.LoadAccountPending(h)?.Balance >= feeAnchor);
@@ -114,6 +116,8 @@ internal partial class BlockchainBToken : Blockchain
 
     if (LoadAnchorsMissed(DateTime.MaxValue).FirstOrDefault() is TXBToken anchorReplaced)
       TXsOwnedStored.Delete(anchorReplaced.Hash);
+
+    tXRaw = tXAnchor.TXRaw;
 
     return true;
   }

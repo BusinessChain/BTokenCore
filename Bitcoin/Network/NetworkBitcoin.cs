@@ -25,6 +25,13 @@ internal partial class NetworkBitcoin : Network
       })
   { }
 
+  internal override void SendTX(byte[] tXRaw)
+  {
+    lock (LOCK_Peers)
+      foreach (Peer peer in Peers)
+        peer.SocketCommunication.SendMessage(TXMessage.Command, tXRaw.Length, tXRaw);
+  }
+
   protected override Peer CreatePeer(
     ISocketCommunication socketCommunication,
     Peer.ConnectionType connection)
