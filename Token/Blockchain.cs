@@ -5,14 +5,10 @@ namespace BTokenCore;
 
 internal abstract partial class Blockchain
 {
-  protected const string NAME_FIELD_ID = "_id";
+  internal const string NAME_FIELD_ID = "_id";
   protected const string NAME_FIELD_BLOCK_BYTES = "blockBytes";
-  protected const string NAME_FIELD_HEIGHT_CONFIRMED = "heightConfirmed";
-  const string NAME_FIELD_TX_RAW = "tXRaw";
-  const string NAME_FIELD_FEE = "fee";
-  const string NAME_FIELD_TIME_SENT = "timeSent";
   const int SECONDS_DELAY_REQUEST_HEDGED = 5;
-  protected const int BITCOIN_REORG_MARGIN = 6;
+  internal const int BITCOIN_REORG_MARGIN = 6;
 
   internal Wallet Wallet;
 
@@ -26,7 +22,6 @@ internal abstract partial class Blockchain
 
   protected LiteDatabase LiteDatabase;
   protected ILiteCollection<BsonDocument> BlocksCompact;
-  protected ILiteCollection<BsonDocument> TXsOwnedStored;
 
   SemaphoreSlim SemaphoreBlockchain;
 
@@ -60,7 +55,6 @@ internal abstract partial class Blockchain
 
     LiteDatabase = liteDatabase;
     BlocksCompact = LiteDatabase.GetCollection<BsonDocument>("blocksCompact");
-    TXsOwnedStored = LiteDatabase.GetCollection<BsonDocument>("tXsOwned");
   }
 
   internal async Task<T> RunLocked<T>(Func<T> function)
@@ -93,43 +87,10 @@ internal abstract partial class Blockchain
     return null;
   }
 
-  protected TX ParseTXOwned(BsonDocument documentTXOwned)
-  {
-    byte[] tXRaw = documentTXOwned[NAME_FIELD_TX_RAW].AsBinary;
-    int index = 0;
-
-    TX tX = Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: false);
-
-    tX.TXRaw = tXRaw;
-    tX.Fee = documentTXOwned[NAME_FIELD_FEE].AsInt64;
-
-    return tX;
-  }
-
   internal bool IsBlockTipAtHeaderTip()
   {
     return ChainRoot.HeaderTipBlockchain == ChainRoot.HeaderTip;
   }
-
-  protected void InsertTXOwned(TX tX)
-  {
-    TXsOwnedStored.Insert(new BsonDocument
-    {
-      [NAME_FIELD_ID] = tX.Hash,
-      [NAME_FIELD_TX_RAW] = tX.TXRaw,
-      [NAME_FIELD_FEE] = tX.Fee,
-      [NAME_FIELD_HEIGHT_CONFIRMED] = 0,
-      [NAME_FIELD_TIME_SENT] = DateTime.UtcNow.Ticks
-    });
-  }
-
-  protected static bool IsTXOwnedSentUntil(BsonDocument documentTXOwned, DateTime timeSentLatest)
-  {
-    return !documentTXOwned.ContainsKey(NAME_FIELD_TIME_SENT)
-      || documentTXOwned[NAME_FIELD_TIME_SENT].AsInt64 <= timeSentLatest.Ticks;
-  }
-
-  protected abstract bool IsTXOwnedConfirmed(TX tX, Block block);
 
   protected virtual void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
@@ -259,7 +220,7 @@ internal abstract partial class Blockchain
     return bsonDocumentBlockOldest[NAME_FIELD_ID].AsInt32;
   }
 
-  protected abstract void InsertBlock(Block block);
+  protected virtual void InsertBlock(Block block) { }
 
   protected virtual void RollBackBlock(Block block) { }
 
@@ -315,8 +276,6 @@ internal abstract partial class Blockchain
         {
           InsertBlock(block);
 
-          MarkTXsOwnedConfirmed(block);
-
           OnBlockInsertedInTransaction?.Invoke(block);
 
           ChainRoot.HeaderTipBlockchain = block.Header;
@@ -360,18 +319,6 @@ internal abstract partial class Blockchain
     ChainRoot.CutOff(header);
   }
 
-  void MarkTXsOwnedConfirmed(Block block)
-  {
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
-      if (IsTXOwnedConfirmed(ParseTXOwned(documentTXOwned), block))
-      {
-        documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED] = block.Header.Height;
-        TXsOwnedStored.Update(documentTXOwned);
-
-        Console.WriteLine($"Own TX {documentTXOwned[NAME_FIELD_ID].AsBinary.ToHexString()} confirmed in {GetType().Name} at height {block.Header.Height}.");
-      }
-  }
-
   bool TryReorgToForkStrongest()
   {
     if (ChainRoot.FindForkStrongest() is not Chain chainForkStrongest
@@ -407,8 +354,6 @@ internal abstract partial class Blockchain
         {
           RollBackBlock(block);
 
-          ReopenTXsOwned(header.Height);
-
           OnBlockRolledBackInTransaction?.Invoke(block);
 
           BlocksCompact.Delete(header.Height);
@@ -429,15 +374,6 @@ internal abstract partial class Blockchain
         $"the local database is corrupt and the operator must delete it: {exception}");
 
       throw;
-    }
-  }
-
-  void ReopenTXsOwned(int heightFirst)
-  {
-    foreach (BsonDocument documentTXOwned in TXsOwnedStored.Find(Query.GTE(NAME_FIELD_HEIGHT_CONFIRMED, heightFirst)).ToList())
-    {
-      documentTXOwned[NAME_FIELD_HEIGHT_CONFIRMED] = 0;
-      TXsOwnedStored.Update(documentTXOwned);
     }
   }
 

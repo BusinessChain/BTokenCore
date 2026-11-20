@@ -214,8 +214,6 @@ internal partial class BlockchainBToken : Blockchain
       HeaderAccountsReplayed = null;
 
       Blockchain.UpdateTipBlockchain(Blockchain.ChainRoot);
-
-      Blockchain.LoadTXsOwnedUnconfirmed();
     }
   }
 }

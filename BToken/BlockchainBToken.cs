@@ -88,8 +88,6 @@ internal partial class BlockchainBToken : Blockchain
 
   protected override void InsertBlock(Block block)
   {
-    TXsOwnedStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, block.Header.Height - COUNT_MAX_BLOCKS_STORED));
-
     BlocksStoredAwaitingAnchor.Delete(block.Header.Hash);
 
     BlocksStored.Upsert(CreateDocumentBlockStored(block));
@@ -112,16 +110,6 @@ internal partial class BlockchainBToken : Blockchain
     Synchronizer.RollBack(block.Header);
 
     BlocksStored.Delete(block.Header.Height);
-  }
-
-  protected override bool IsTXOwnedConfirmed(TX tX, Block block)
-  {
-    TXBToken tXOwned = (TXBToken)tX;
-
-    return block.TXs.Skip(1).Cast<TXBToken>().Any(t =>
-      t.IDAccountSource.IsAllBytesEqual(tXOwned.IDAccountSource)
-      && t.HeightAccountCreated == tXOwned.HeightAccountCreated
-      && t.Nonce == tXOwned.Nonce);
   }
 
   internal byte[] GetSegmentSweptByBlock(byte[] hashBlock)
@@ -166,20 +154,6 @@ internal partial class BlockchainBToken : Blockchain
   internal void AddSegmentDownload(byte[] hashBlock, byte[] buffer, int length)
   {
     Synchronizer.AddSegmentDownload(hashBlock, buffer, length);
-  }
-
-  void LoadTXsOwnedUnconfirmed()
-  {
-    if (!Synchronizer.IsAccountsAtTip())
-      return;
-
-    foreach (TXBToken tXOwned in TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).Select(ParseTXOwned).Cast<TXBToken>().OrderBy(t => t.Nonce).ToList())
-      try
-      {
-        TXPool.AddTX(tXOwned);
-      }
-      catch (ProtocolException)
-      { }
   }
 
   internal void AddTX(TX tX)

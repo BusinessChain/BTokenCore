@@ -17,7 +17,9 @@ public class Node
 
     const string NAME_TOKEN_BTOKEN = "TokenBToken";
 
-    BlockchainBitcoin = new(OpenDatabase(BlockchainBitcoin.NAME_TOKEN), semaphoreBlockchain);
+    LiteDatabase liteDatabaseBitcoin = OpenDatabase(BlockchainBitcoin.NAME_TOKEN);
+
+    BlockchainBitcoin = new(liteDatabaseBitcoin, semaphoreBlockchain);
     NetworkBitcoin = new(BlockchainBitcoin, communication);
 
     BlockchainBToken = new(NAME_TOKEN_BTOKEN, OpenDatabase(NAME_TOKEN_BTOKEN), "BTK", BlockchainBitcoin, semaphoreBlockchain);
@@ -28,7 +30,7 @@ public class Node
       // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
       seedAddresses: ["83.229.86.158"]);
 
-    Miner = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin);
+    Miner = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin);
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
