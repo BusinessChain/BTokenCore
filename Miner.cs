@@ -5,7 +5,7 @@ using TXInputBitcoin = BTokenCore.BlockchainBitcoin.TXInputBitcoin;
 
 namespace BTokenCore;
 
-internal partial class Miner
+internal class Miner
 {
   BlockchainBToken Blockchain;
   BlockchainBitcoin BlockchainParent;
@@ -521,5 +521,35 @@ internal partial class Miner
       (anchorReplaced != null ? $" and replaces anchor TX {anchorReplaced.Hash.ToHexString()}." : "."));
 
     return true;
+  }
+
+  class TXOutputOwned
+  {
+    [BsonId]
+    internal byte[] ID;
+
+    [BsonField]
+    internal byte[] TXID;
+
+    [BsonField]
+    internal int Index;
+
+    [BsonField]
+    internal byte[] IDAccount;
+
+    [BsonField]
+    internal long Value;
+
+    [BsonField]
+    internal int HeightCreated;
+
+    [BsonField]
+    internal int HeightSpent;
+
+
+    internal static byte[] CreateID(byte[] tXID, int index)
+    {
+      return [.. tXID, .. BitConverter.GetBytes(index)];
+    }
   }
 }
