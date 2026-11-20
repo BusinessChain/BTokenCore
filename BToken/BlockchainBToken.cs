@@ -128,6 +128,11 @@ internal partial class BlockchainBToken : Blockchain
     return Wallet.GetBalance(h => TXPool.LoadAccountPending(h)?.Balance ?? 0);
   }
 
+  internal override long GetCostAnchor(long feeAnchor)
+  {
+    return feeAnchor;
+  }
+
   internal override bool HasAnchorMissed(DateTime timeSentLatest)
   {
     return LoadAnchorsMissed(timeSentLatest).Count > 0;
@@ -448,7 +453,7 @@ internal partial class BlockchainBToken : Blockchain
 
     if (isBlockParentTip)
     {
-      MinerBlockchain.ScheduleMining(hasAnchorWinner && documentBlockReferenced == null, blockParent.Header.Height);
+      MinerBlockchain.AdjustFeeAnchor(blockParent.Header.Height);
 
       BlocksStoredAwaitingAnchor.DeleteMany(
         Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));

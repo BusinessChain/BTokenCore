@@ -190,6 +190,11 @@ internal partial class BlockchainBitcoin : Blockchain
     return DateTimeOffset.UtcNow.ToUnixTimeSeconds() - ((HeaderBitcoin)ChainRoot.HeaderTip).UnixTimeSeconds;
   }
 
+  internal override long GetCostAnchor(long feeAnchor)
+  {
+    return Math.Max(VALUE_DUST_P2PKH, GetFeeAnchor(feeAnchor, null, 1, 0));
+  }
+
   internal override bool HasAnchorMissed(DateTime timeSentLatest)
   {
     return TXsOwnedStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
@@ -223,7 +228,7 @@ internal partial class BlockchainBitcoin : Blockchain
     long valueChangeMin = Math.Max(VALUE_DUST_P2PKH, feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR);
     long valueSpent = outputsSpent.Sum(o => o.Value);
 
-    long valueOutputSmall = Math.Max(VALUE_DUST_P2PKH, GetFeeAnchor(feeAnchor, null, 1, 0));
+    long valueOutputSmall = GetCostAnchor(feeAnchor);
     TXOutputOwned outputReserve = outputsFree.MaxBy(o => o.Value);
     int countOutputsSmallMissing = Math.Max(0, (int)(3 * budget / valueOutputSmall) - (outputsFree.Count - (outputReserve == null ? 0 : 1)));
 
