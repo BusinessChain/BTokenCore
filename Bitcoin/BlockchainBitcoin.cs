@@ -24,6 +24,8 @@ internal partial class BlockchainBitcoin : Blockchain
   const long FEE_PER_BYTE_INCREMENTAL_RELAY = 1;
   internal const long FEE_SURCHARGE_REPLACEMENT_ANCHOR = FEE_PER_BYTE_INCREMENTAL_RELAY * LENGTH_ANCHOR;
 
+  const long VALUE_DUST_P2PKH = 546;
+
   protected ILiteCollection<TXOutputOwned> OutputsOwnedStored;
 
 
@@ -218,7 +220,7 @@ internal partial class BlockchainBitcoin : Blockchain
       .Where(o => !iDsOutputOccupied.Contains(o.ID))
       .ToList();
 
-    long valueChangeMin = feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR;
+    long valueChangeMin = Math.Max(VALUE_DUST_P2PKH, feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR);
     long valueSpent = outputsSpent.Sum(o => o.Value);
 
     if (anchorReplaced == null || valueSpent < GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, 1) + valueChangeMin)
