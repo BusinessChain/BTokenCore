@@ -26,6 +26,10 @@ internal partial class BlockchainBToken : Blockchain
     {
       Blockchain = blockchain;
       NonceBlockNext = (uint)Random.Shared.Next();
+
+      blockchain.BlockchainParent.OnBlockInserted += HandleParentTip;
+      blockchain.OnBlockInserted += block => ScheduleReanchor(block.Header.Hash);
+      blockchain.OnBlockRolledBack += block => ScheduleReanchor(block.Header.HashPrevious);
     }
 
     internal Dictionary<string, object> GetSnapshotState()
@@ -66,10 +70,12 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining = null;
     }
 
-    internal void HandleParentTip(int heightParentTip)
+    void HandleParentTip(Block blockParent)
     {
-      if (TimerMining == null)
+      if (TimerMining == null || blockParent.Header.HeaderNext != null)
         return;
+
+      int heightParentTip = blockParent.Header.Height;
 
       if (HeightTipParentRound == heightParentTip - 1)
         if (Blockchain.BlockchainParent.CountAnchorsMissed(DateTime.UtcNow.AddSeconds(-SECONDS_TEMPLATE_REFRESH)) > 0)
@@ -89,10 +95,10 @@ internal partial class BlockchainBToken : Blockchain
         RunTimer(() => MineBlock(countAnchorsMissed));
     }
 
-    internal void ScheduleReanchor()
+    void ScheduleReanchor(byte[] hashTip)
     {
       if (Blockchain.BlockchainParent.GetHeight() == HeightTipParentRound
-        && !Blockchain.ChainRoot.HeaderTipBlockchain.Hash.IsAllBytesEqual(HashTipRound))
+        && !hashTip.IsAllBytesEqual(HashTipRound))
         TimerMining?.Change(0, Timeout.Infinite);
     }
 

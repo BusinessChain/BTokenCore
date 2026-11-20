@@ -49,7 +49,6 @@ internal partial class BlockchainBToken : Blockchain
     BlocksStoredAwaitingAnchor = LiteDatabase.GetCollection<BsonDocument>("blocksAwaitingAnchor");
 
     TXPool = new PoolTXBToken(Accounts, COUNT_BYTES_MAX_POOL);
-    MinerBlockchain = new Miner(this);
     Synchronizer = new SynchronizerAccounts(this);
 
     OnBlockInserted += TXPool.RemoveTXs;
@@ -61,6 +60,8 @@ internal partial class BlockchainBToken : Blockchain
 
     blockchainParent.OnBlockInserted += HandleBlockParentInserted;
     blockchainParent.OnBlockRolledBack += RemoveHeaderPlaceholder;
+
+    MinerBlockchain = new Miner(this);
 
     Accounts.Load(LiteDatabase);
   }
@@ -409,8 +410,6 @@ internal partial class BlockchainBToken : Blockchain
   protected override void HandleTipUpdated()
   {
     Synchronizer.HandleTipUpdated();
-
-    MinerBlockchain.ScheduleReanchor();
   }
 
   protected void StoreBlockAwaitingAnchor(Block block, int? lockTimeAnchor)
@@ -501,12 +500,8 @@ internal partial class BlockchainBToken : Blockchain
     bool isBlockParentTip = blockParent.Header.HeaderNext == null;
 
     if (isBlockParentTip)
-    {
-      MinerBlockchain.HandleParentTip(blockParent.Header.Height);
-
       BlocksStoredAwaitingAnchor.DeleteMany(
         Query.Between(NAME_FIELD_LOCK_TIME_ANCHOR, 0, blockParent.Header.Height - BITCOIN_REORG_MARGIN));
-    }
   }
 
   void RemoveHeaderPlaceholder(Block blockParent)
