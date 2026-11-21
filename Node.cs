@@ -104,6 +104,15 @@ public class Node
     };
   }
 
+  internal async Task<Dictionary<string, object>> GetKeysMiner()
+  {
+    return await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
+    {
+      ["bitcoin"] = BlockchainBitcoin.Wallet.GetKeysPrivate(),
+      ["bToken"] = BlockchainBToken.Wallet.GetKeysPrivate()
+    });
+  }
+
   internal async Task<Dictionary<string, object>> GetAccount(string address)
   {
     byte[] iDAccount = address.Base58CheckToBinary();
