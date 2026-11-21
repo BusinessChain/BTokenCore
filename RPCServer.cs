@@ -95,6 +95,10 @@ public class RPCServer
             Convert.FromHexString(parameters.GetProperty("signature").GetString())).ConfigureAwait(false);
           break;
 
+        case "getAccount":
+          result = await Node.GetAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
+          break;
+
         case "getBalanceAccount":
           result = await Node.GetBalanceAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
           break;

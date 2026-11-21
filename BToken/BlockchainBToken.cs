@@ -98,6 +98,14 @@ internal partial class BlockchainBToken : Blockchain
     return tX;
   }
 
+  internal Account GetAccount(byte[] iDAccount)
+  {
+    if (!Synchronizer.IsAccountsAtTip())
+      return null;
+
+    return Accounts.LoadAccountNext(iDAccount);
+  }
+
   internal long? GetBalanceAccount(byte[] iDAccount)
   {
     if (!Synchronizer.IsAccountsAtTip())

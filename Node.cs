@@ -104,6 +104,20 @@ public class Node
     };
   }
 
+  internal async Task<Dictionary<string, object>> GetAccount(string address)
+  {
+    byte[] iDAccount = address.Base58CheckToBinary();
+
+    if (await BlockchainBToken.RunLocked(() => BlockchainBToken.GetAccount(iDAccount)) is not BlockchainBToken.Account account)
+      return null;
+
+    return new Dictionary<string, object>
+    {
+      ["heightAccountCreated"] = account.HeightAccountCreated,
+      ["nonce"] = account.Nonce
+    };
+  }
+
   internal async Task<long?> GetBalanceAccount(string address)
   {
     byte[] iDAccount = address.Base58CheckToBinary();
