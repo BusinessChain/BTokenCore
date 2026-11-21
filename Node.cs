@@ -101,6 +101,13 @@ public class Node
     };
   }
 
+  internal async Task<long?> GetBalanceAccount(string address)
+  {
+    byte[] iDAccount = address.Base58CheckToBinary();
+
+    return await BlockchainBToken.RunLocked(() => BlockchainBToken.GetBalanceAccount(iDAccount));
+  }
+
   internal async Task SubmitTXBTokenSigned(byte[] tXUnsigned, byte[] signature)
   {
     byte[] tXRaw = [.. tXUnsigned, (byte)signature.Length, .. signature];
