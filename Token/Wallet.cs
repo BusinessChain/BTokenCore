@@ -67,11 +67,6 @@ internal class Wallet
     return Keys.Keys.FirstOrDefault(canFund);
   }
 
-  internal long GetBalance(Func<byte[], long> getBalanceAccount)
-  {
-    return Keys.Keys.Sum(getBalanceAccount);
-  }
-
   internal byte[] GetKeyPublic(byte[] hash160)
   {
     return Keys[hash160].keyPublic;

@@ -106,14 +106,6 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.LoadAccountPending(iDAccount)?.Balance ?? 0;
   }
 
-  long? GetBalanceWallet()
-  {
-    if (!Synchronizer.IsAccountsAtTip())
-      return null;
-
-    return Wallet.GetBalance(h => TXPool.LoadAccountPending(h)?.Balance ?? 0);
-  }
-
   protected override void InsertBlock(Block block)
   {
     BlocksStoredAwaitingAnchor.Delete(block.Header.Hash);
@@ -256,7 +248,6 @@ internal partial class BlockchainBToken : Blockchain
       ["addressReceiving"] = Wallet.AddressAccountReceiving
     };
     snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
-    snapshotState["balanceWallet"] = GetBalanceWallet();
 
     return snapshotState;
   }
