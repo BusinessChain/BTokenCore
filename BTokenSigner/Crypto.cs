@@ -16,6 +16,9 @@ public static class Crypto
   public const int LENGTH_HASH256 = 32;
   public const int LENGTH_HASH160 = 20;
 
+  const string ALPHABET_BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const int LENGTH_CHECKSUM_BASE58 = 4;
+
   static readonly X9ECParameters CURVE_SECP256K1 = SecNamedCurves.GetByName("secp256k1");
 
   static readonly ECDomainParameters DOMAIN_SECP256K1 = new(
@@ -111,5 +114,64 @@ public static class Crypto
   public static byte[] ComputeHash256(ReadOnlySpan<byte> data)
   {
     return SHA256.HashData(SHA256.HashData(data));
+  }
+
+  public static string BinaryToBase58Check(this byte[] byteArray)
+  {
+    List<byte> pubKey = byteArray.ToList();
+    pubKey.Insert(0, 0x00);
+
+    byte[] checksum = ComputeHash256(pubKey.ToArray());
+
+    pubKey.AddRange(checksum.Take(LENGTH_CHECKSUM_BASE58));
+
+    byte[] ba = pubKey.ToArray();
+
+    BigInteger addrremain = new(1, ba);
+    BigInteger big0 = new("0");
+    BigInteger big58 = new("58");
+
+    string rv = "";
+
+    while (addrremain.CompareTo(big0) > 0)
+    {
+      int d = Convert.ToInt32(addrremain.Mod(big58).ToString());
+      addrremain = addrremain.Divide(big58);
+      rv = ALPHABET_BASE58.Substring(d, 1) + rv;
+    }
+
+    foreach (byte b in ba)
+    {
+      if (b != 0) break;
+      rv = "1" + rv;
+    }
+
+    return rv;
+  }
+
+  public static byte[] Base58CheckToBinary(this string address)
+  {
+    System.Numerics.BigInteger value = 0;
+
+    foreach (char character in address)
+    {
+      int digit = ALPHABET_BASE58.IndexOf(character);
+
+      if (digit < 0)
+        throw new FormatException($"Address {address} contains the character '{character}', which is not Base58.");
+
+      value = value * 58 + digit;
+    }
+
+    byte[] bytes = [.. new byte[address.TakeWhile(c => c == ALPHABET_BASE58[0]).Count()], .. value.ToByteArray(isUnsigned: true, isBigEndian: true)];
+
+    int lengthPayload = 1 + LENGTH_HASH160;
+
+    if (bytes.Length != lengthPayload + LENGTH_CHECKSUM_BASE58
+      || bytes[0] != 0x00
+      || !ComputeHash256(bytes.AsSpan(0, lengthPayload)).AsSpan(0, LENGTH_CHECKSUM_BASE58).SequenceEqual(bytes.AsSpan(lengthPayload)))
+      throw new FormatException($"Address {address} is not a valid Base58Check address.");
+
+    return bytes[1..lengthPayload];
   }
 }
