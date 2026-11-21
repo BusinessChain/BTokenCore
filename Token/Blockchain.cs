@@ -10,8 +10,6 @@ internal abstract partial class Blockchain
   const int SECONDS_DELAY_REQUEST_HEDGED = 5;
   internal const int BITCOIN_REORG_MARGIN = 6;
 
-  internal Wallet Wallet;
-
   internal readonly string NameToken;
 
   internal readonly int SizeBlockMax;
@@ -41,8 +39,6 @@ internal abstract partial class Blockchain
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
-    Wallet = new Wallet(nameToken);
-
     NameToken = nameToken;
 
     SizeBlockMax = sizeBlockMax;

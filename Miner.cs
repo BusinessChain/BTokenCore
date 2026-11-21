@@ -1,14 +1,11 @@
-﻿using LiteDB;
-
-
-namespace BTokenCore;
+﻿namespace BTokenCore;
 
 internal class Miner
 {
   BlockchainBToken Blockchain;
   Blockchain BlockchainParent;
   Network NetworkParent;
-  Anchorer AnchorerParent;
+  Blockchain.Anchorer AnchorerParent;
   internal Wallet Wallet;
 
   const int SECONDS_PERIOD_BUDGET = 600;
@@ -25,7 +22,7 @@ internal class Miner
   long FeeAnchor;
 
 
-  internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent, Anchorer anchorer)
+  internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent, Blockchain.Anchorer anchorer)
   {
     Blockchain = blockchain;
     BlockchainParent = blockchainParent;
@@ -48,7 +45,7 @@ internal class Miner
       ["feeAnchor"] = FeeAnchor,
       ["stateRoundLast"] = StateRoundLast,
       ["funds"] = AnchorerParent.GetFunds(),
-      ["addressFunding"] = BlockchainParent.Wallet.AddressAccountReceiving,
+      ["addressFunding"] = AnchorerParent.Wallet.AddressAccountReceiving,
       ["nameTokenParent"] = BlockchainParent.NameToken,
       ["isBlockTipAtHeaderTip"] = BlockchainParent.IsBlockTipAtHeaderTip(),
       ["isPeerConnected"] = NetworkParent.IsPeerConnected()
@@ -245,119 +242,5 @@ internal class Miner
     Blockchain.StoreBlockAwaitingAnchor(block, BlockchainParent.GetHeight());
 
     return true;
-  }
-
-  internal abstract class Anchorer
-  {
-    protected Blockchain BlockchainParent;
-    protected Network NetworkParent;
-
-    protected ILiteCollection<BsonDocument> AnchorsStored;
-
-    const string NAME_FIELD_TX_RAW = "tXRaw";
-    const string NAME_FIELD_FEE = "fee";
-    const string NAME_FIELD_HEIGHT_CONFIRMED = "heightConfirmed";
-    const string NAME_FIELD_TIME_SENT = "timeSent";
-
-
-    protected Anchorer(Blockchain blockchainParent, Network networkParent, LiteDatabase liteDatabase)
-    {
-      BlockchainParent = blockchainParent;
-      NetworkParent = networkParent;
-
-      AnchorsStored = liteDatabase.GetCollection<BsonDocument>("anchors");
-
-      blockchainParent.OnBlockInsertedInTransaction += InsertBlockParent;
-      blockchainParent.OnBlockRolledBackInTransaction += RollBackBlockParent;
-    }
-
-    internal abstract bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget);
-
-    internal abstract long GetCostAnchor(long feeAnchor);
-
-    internal abstract long GetFunds();
-
-    internal abstract long GetFeeAnchorMin();
-
-    internal abstract long GetStepFeeRaise();
-
-    internal abstract long GetStepFeeDecrease();
-
-    protected abstract bool IsAnchorConfirmed(TX anchor, int height);
-
-    protected abstract bool IsAnchorMissed(TX anchor);
-
-    protected abstract void InsertBlockParentFunds(Block block);
-
-    protected abstract void RollBackBlockParentFunds(Block block);
-
-    void InsertBlockParent(Block block)
-    {
-      int height = block.Header.Height;
-
-      InsertBlockParentFunds(block);
-
-      foreach (BsonDocument documentAnchor in AnchorsStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
-        if (IsAnchorConfirmed(ParseAnchor(documentAnchor), height))
-        {
-          documentAnchor[NAME_FIELD_HEIGHT_CONFIRMED] = height;
-          AnchorsStored.Update(documentAnchor);
-
-          Console.WriteLine($"Anchor TX {documentAnchor[BTokenCore.Blockchain.NAME_FIELD_ID].AsBinary.ToHexString()} confirmed at {BlockchainParent.NameToken} height {height}.");
-        }
-
-      AnchorsStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, height - BTokenCore.Blockchain.BITCOIN_REORG_MARGIN));
-    }
-
-    void RollBackBlockParent(Block block)
-    {
-      RollBackBlockParentFunds(block);
-
-      foreach (BsonDocument documentAnchor in AnchorsStored.Find(Query.GTE(NAME_FIELD_HEIGHT_CONFIRMED, block.Header.Height)).ToList())
-      {
-        documentAnchor[NAME_FIELD_HEIGHT_CONFIRMED] = 0;
-        AnchorsStored.Update(documentAnchor);
-      }
-    }
-
-    protected TX ParseAnchor(BsonDocument documentAnchor)
-    {
-      byte[] tXRaw = documentAnchor[NAME_FIELD_TX_RAW].AsBinary;
-      int index = 0;
-
-      TX tX = BlockchainParent.Parser.ParseTX(tXRaw, ref index, isCoinbase: false, verifySignatures: false);
-
-      tX.TXRaw = tXRaw;
-      tX.Fee = documentAnchor[NAME_FIELD_FEE].AsInt64;
-
-      return tX;
-    }
-
-    protected void InsertAnchor(TX tXAnchor)
-    {
-      AnchorsStored.Insert(new BsonDocument
-      {
-        [BTokenCore.Blockchain.NAME_FIELD_ID] = tXAnchor.Hash,
-        [NAME_FIELD_TX_RAW] = tXAnchor.TXRaw,
-        [NAME_FIELD_FEE] = tXAnchor.Fee,
-        [NAME_FIELD_HEIGHT_CONFIRMED] = 0,
-        [NAME_FIELD_TIME_SENT] = DateTime.UtcNow.Ticks
-      });
-    }
-
-    protected List<TX> LoadAnchorsUnconfirmed()
-    {
-      return AnchorsStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
-        .Select(ParseAnchor)
-        .ToList();
-    }
-
-    internal int CountAnchorsMissed(DateTime timeSentLatest)
-    {
-      return AnchorsStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0))
-        .Where(d => d[NAME_FIELD_TIME_SENT].AsInt64 <= timeSentLatest.Ticks)
-        .Select(ParseAnchor)
-        .Count(IsAnchorMissed);
-    }
   }
 }

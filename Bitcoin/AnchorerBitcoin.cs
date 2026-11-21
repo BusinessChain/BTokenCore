@@ -5,7 +5,7 @@ namespace BTokenCore;
 
 internal partial class BlockchainBitcoin
 {
-  internal class AnchorerBitcoin : Miner.Anchorer
+  internal class AnchorerBitcoin : Anchorer
   {
     const double FEE_PER_BYTE_RAISE_ANCHOR = 1;
     const double FEE_PER_BYTE_DECREASE_ANCHOR = 0.1;
@@ -50,7 +50,7 @@ internal partial class BlockchainBitcoin
           }
 
         for (int i = 0; i < tX.TXOutputs.Count; i++)
-          if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput && BlockchainParent.Wallet.IsKeyOwned(tXOutput.IDAccount))
+          if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput && Wallet.IsKeyOwned(tXOutput.IDAccount))
             OutputsOwnedStored.Insert(new TXOutputOwned
             {
               ID = TXOutputOwned.CreateID(tX.Hash, i),
@@ -95,7 +95,7 @@ internal partial class BlockchainBitcoin
 
     protected override bool IsAnchorMissed(TX anchor)
     {
-      return anchor.LockTime < BlockchainParent.GetHeight();
+      return anchor.LockTime < Blockchain.GetHeight();
     }
 
     internal override long GetFunds()
@@ -165,12 +165,12 @@ internal partial class BlockchainBitcoin
     void AddOutputsChange(TXBitcoin tXAnchor, long valueSpent, long valueChangeMin, int countOutputsSmall, long valueOutputSmall, Func<int, long> getFee)
     {
       for (int i = 0; i < countOutputsSmall; i++)
-        tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueOutputSmall, BlockchainParent.Wallet.Hash160KeyPublicReceiving));
+        tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueOutputSmall, Wallet.Hash160KeyPublicReceiving));
 
       long valueChange = valueSpent - countOutputsSmall * valueOutputSmall - getFee(countOutputsSmall + 1);
 
       if (valueChange >= valueChangeMin)
-        tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, BlockchainParent.Wallet.Hash160KeyPublicReceiving));
+        tXAnchor.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
     }
 
     internal override long GetCostAnchor(long feeAnchor)
@@ -180,7 +180,7 @@ internal partial class BlockchainBitcoin
 
     internal override bool TryCreateTXAnchor(TXOutputTokenAnchor tokenAnchor, long feeAnchor, long budget)
     {
-      int heightTip = BlockchainParent.GetHeight();
+      int heightTip = Blockchain.GetHeight();
 
       List<TXBitcoin> anchorsUnconfirmed = LoadAnchorsUnconfirmed().Cast<TXBitcoin>().ToList();
 
@@ -252,11 +252,11 @@ internal partial class BlockchainBitcoin
         valueOutputSmall,
         countOutputsChange => GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, countOutputsChange));
 
-      tXAnchor.Serialize(BlockchainParent.Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
+      tXAnchor.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
 
       tXAnchor.Fee = valueSpent - tXAnchor.GetValueOutputs();
 
-      NetworkParent.SendTX(tXAnchor.TXRaw);
+      Network.SendTX(tXAnchor.TXRaw);
 
       if (anchorReplaced != null)
         AnchorsStored.Delete(anchorReplaced.Hash);

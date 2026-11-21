@@ -8,6 +8,7 @@ public class Node
   internal BlockchainBToken BlockchainBToken;
   internal NetworkBitcoin NetworkBitcoin;
   internal NetworkBToken NetworkBToken;
+  internal BlockchainBitcoin.AnchorerBitcoin AnchorerBitcoin;
   internal Miner MinerBToken;
 
 
@@ -30,7 +31,8 @@ public class Node
       // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
       seedAddresses: ["83.229.86.158"]);
 
-    MinerBToken = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, new BlockchainBitcoin.AnchorerBitcoin(BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin));
+    AnchorerBitcoin = new(BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin);
+    MinerBToken = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, AnchorerBitcoin);
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
@@ -108,7 +110,7 @@ public class Node
   {
     return await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
     {
-      ["bitcoin"] = BlockchainBitcoin.Wallet.GetKeysPrivate(),
+      ["bitcoin"] = AnchorerBitcoin.Wallet.GetKeysPrivate(),
       ["bToken"] = MinerBToken.Wallet.GetKeysPrivate()
     });
   }
@@ -135,7 +137,7 @@ public class Node
   {
     await BlockchainBToken.RunLocked(() =>
     {
-      keysBitcoin.ForEach(BlockchainBitcoin.Wallet.AddKey);
+      keysBitcoin.ForEach(AnchorerBitcoin.Wallet.AddKey);
       keysBToken.ForEach(MinerBToken.Wallet.AddKey);
     });
   }
