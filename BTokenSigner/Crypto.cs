@@ -9,12 +9,12 @@ using Org.BouncyCastle.Asn1.X9;
 using System.Security.Cryptography;
 
 
-namespace BTokenCore;
+namespace BTokenSigner;
 
 public static class Crypto
 {
-  internal const int LENGTH_HASH256 = 32;
-  internal const int LENGTH_HASH160 = 20;
+  public const int LENGTH_HASH256 = 32;
+  public const int LENGTH_HASH160 = 20;
 
   static readonly X9ECParameters CURVE_SECP256K1 = SecNamedCurves.GetByName("secp256k1");
 

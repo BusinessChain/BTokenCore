@@ -23,12 +23,19 @@
     <Compile Remove="Hosts\**" />
     <EmbeddedResource Remove="Hosts\**" />
     <None Remove="Hosts\**" />
+    <Compile Remove="BTokenSigner\**" />
+    <EmbeddedResource Remove="BTokenSigner\**" />
+    <None Remove="BTokenSigner\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.NetCore" Version="2.2.1" />
     <PackageReference Include="LiteDB" Version="5.0.21" />
 	<InternalsVisibleTo Include="BTokenCore_Testbench" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="BTokenSigner\BTokenSigner.csproj" />
+    <Using Include="BTokenSigner" />
   </ItemGroup>
 
 </Project>
