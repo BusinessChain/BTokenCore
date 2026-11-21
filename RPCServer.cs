@@ -91,7 +91,8 @@ public class RPCServer
 
         case "submitTXBTokenSigned":
           await Node.SubmitTXBTokenSigned(
-            Convert.FromHexString(parameters.GetProperty("tXRaw").GetString())).ConfigureAwait(false);
+            Convert.FromHexString(parameters.GetProperty("tXUnsigned").GetString()),
+            Convert.FromHexString(parameters.GetProperty("signature").GetString())).ConfigureAwait(false);
           break;
 
         case "getSnapshotState":

@@ -101,8 +101,10 @@ public class Node
     };
   }
 
-  internal async Task SubmitTXBTokenSigned(byte[] tXRaw)
+  internal async Task SubmitTXBTokenSigned(byte[] tXUnsigned, byte[] signature)
   {
+    byte[] tXRaw = [.. tXUnsigned, (byte)signature.Length, .. signature];
+
     await BlockchainBToken.RunLocked(() => NetworkBToken.SendTX(tXRaw));
   }
 }
