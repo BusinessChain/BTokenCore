@@ -148,34 +148,18 @@ internal partial class BlockchainBitcoin
       Network.SendTX(tX.TXRaw);
     }
 
-    internal TXBitcoin CreateTXWithdrawal(byte[] iDAccountTarget, long value, long fee)
+    internal TXBitcoin CreateTXWithdrawal(byte[] iDAccountTarget, long fee)
     {
+      List<TXOutputOwned> outputsSpent = LoadOutputsFree(LoadAnchorsUnconfirmed().Cast<TXBitcoin>().ToList()).OrderByDescending(o => o.Value).Take(COUNT_INPUTS_MAX).ToList();
+
+      long value = outputsSpent.Sum(o => o.Value) - fee;
+
       if (value < VALUE_DUST_P2PKH)
-        throw new ProtocolException($"Value {value} must be at least {VALUE_DUST_P2PKH} satoshis.", "value");
-
-      List<TXOutputOwned> outputsSpent = [];
-      long valueSpent = 0;
-
-      foreach (TXOutputOwned output in LoadOutputsFree(LoadAnchorsUnconfirmed().Cast<TXBitcoin>().ToList()).OrderByDescending(o => o.Value).Take(COUNT_INPUTS_MAX))
-      {
-        if (valueSpent >= value + fee)
-          break;
-
-        outputsSpent.Add(output);
-        valueSpent += output.Value;
-      }
-
-      if (valueSpent < value + fee)
-        throw new ProtocolException($"The free funds do not reach the value {value} plus the fee {fee}.", "value", "fee");
+        throw new ProtocolException($"The free funds minus the fee {fee} do not reach the dust limit of {VALUE_DUST_P2PKH} satoshis.", "fee");
 
       TXBitcoin tXWithdrawal = CreateTX(outputsSpent, 0);
 
       tXWithdrawal.TXOutputs.Add(new TXOutputP2PKH(value, iDAccountTarget));
-
-      long valueChange = valueSpent - value - fee;
-
-      if (valueChange >= VALUE_DUST_P2PKH)
-        tXWithdrawal.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
 
       SendTX(tXWithdrawal, outputsSpent);
 

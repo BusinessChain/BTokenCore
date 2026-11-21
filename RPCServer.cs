@@ -110,7 +110,6 @@ public partial class Node
           case "withdrawBitcoin":
             result = await WithdrawBitcoin(
               ReadIDAccount(parameters, "address"),
-              ReadInt64(parameters, "value"),
               ReadInt64(parameters, "fee")).ConfigureAwait(false);
             break;
 
@@ -327,14 +326,18 @@ public partial class Node
       });
     }
 
-    async Task<Dictionary<string, object>> WithdrawBitcoin(byte[] iDAccount, long value, long fee)
+    async Task<Dictionary<string, object>> WithdrawBitcoin(byte[] iDAccount, long fee)
     {
-      BlockchainBitcoin.TXBitcoin tX = await Node.BlockchainBToken.RunLocked(() => Node.AnchorerBitcoin.CreateTXWithdrawal(iDAccount, value, fee));
+      BlockchainBitcoin.TXBitcoin tX = await Node.BlockchainBToken.RunLocked(() =>
+      {
+        Node.MinerBToken.StopMining();
+        return Node.AnchorerBitcoin.CreateTXWithdrawal(iDAccount, fee);
+      });
 
       return new Dictionary<string, object>
       {
         ["hash"] = tX.Hash.ToHexString(),
-        ["value"] = value,
+        ["value"] = tX.GetValueOutputs(),
         ["fee"] = tX.Fee
       };
     }
