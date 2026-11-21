@@ -107,6 +107,13 @@ public partial class Node
               parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
             break;
 
+          case "withdrawBitcoin":
+            result = await WithdrawBitcoin(
+              parameters.GetProperty("address").GetString(),
+              parameters.GetProperty("value").GetInt64(),
+              parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
+            break;
+
           case "importKeysMiner":
             await ImportKeysMiner(
               parameters.GetProperty("bitcoin").EnumerateArray().Select(k => k.GetString()).ToList(),
@@ -219,6 +226,20 @@ public partial class Node
           ["value"] = tXs.Sum(t => t.TXOutputs.OfType<TXOutputP2PKH>().Sum(o => o.Value))
         };
       });
+    }
+
+    async Task<Dictionary<string, object>> WithdrawBitcoin(string address, long value, long fee)
+    {
+      byte[] iDAccount = address.Base58CheckToBinary();
+
+      BlockchainBitcoin.TXBitcoin tX = await Node.BlockchainBToken.RunLocked(() => Node.AnchorerBitcoin.CreateTXWithdrawal(iDAccount, value, fee));
+
+      return new Dictionary<string, object>
+      {
+        ["hash"] = tX.Hash.ToHexString(),
+        ["value"] = value,
+        ["fee"] = tX.Fee
+      };
     }
 
     async Task ImportKeysMiner(List<string> keysBitcoin, List<string> keysBToken)

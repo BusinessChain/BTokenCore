@@ -28,6 +28,7 @@ internal partial class BlockchainBitcoin
     const int COUNT_INPUTS_MAX = 252;
 
     ILiteCollection<TXOutputOwned> OutputsOwnedStored;
+    HashSet<byte[]> IDsOutputWithdrawn = new(new EqualityComparerByteArray());
 
 
     internal AnchorerBitcoin(BlockchainBitcoin blockchain, NetworkBitcoin network, LiteDatabase liteDatabase)
@@ -47,6 +48,7 @@ internal partial class BlockchainBitcoin
           {
             outputSpent.HeightSpent = height;
             OutputsOwnedStored.Update(outputSpent);
+            IDsOutputWithdrawn.Remove(outputSpent.ID);
           }
 
         for (int i = 0; i < tX.TXOutputs.Count; i++)
@@ -100,8 +102,85 @@ internal partial class BlockchainBitcoin
 
     internal override long GetFunds()
     {
-      return OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0)).Sum(o => o.Value)
+      return OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0)).Where(o => !IDsOutputWithdrawn.Contains(o.ID)).Sum(o => o.Value)
         - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
+    }
+
+    List<TXOutputOwned> LoadOutputsFree(List<TXBitcoin> anchorsUnconfirmed)
+    {
+      HashSet<byte[]> iDsOutputOccupied = new(
+        anchorsUnconfirmed.SelectMany(t => t.Inputs).Select(i => TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)),
+        new EqualityComparerByteArray());
+
+      iDsOutputOccupied.UnionWith(IDsOutputWithdrawn);
+
+      return OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
+        .Where(o => !iDsOutputOccupied.Contains(o.ID))
+        .ToList();
+    }
+
+    static TXBitcoin CreateTX(List<TXOutputOwned> outputsSpent, int lockTime)
+    {
+      TXBitcoin tX = new()
+      {
+        LockTime = lockTime
+      };
+
+      foreach (TXOutputOwned outputSpent in outputsSpent)
+        tX.Inputs.Add(new TXInputBitcoin
+        {
+          TXIDOutput = outputSpent.TXID,
+          IndexOutput = outputSpent.Index
+        });
+
+      return tX;
+    }
+
+    void SendTX(TXBitcoin tX, List<TXOutputOwned> outputsSpent)
+    {
+      tX.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
+
+      tX.Fee = outputsSpent.Sum(o => o.Value) - tX.GetValueOutputs();
+
+      Network.SendTX(tX.TXRaw);
+    }
+
+    internal TXBitcoin CreateTXWithdrawal(byte[] iDAccountTarget, long value, long fee)
+    {
+      if (value < VALUE_DUST_P2PKH)
+        throw new ProtocolException($"Value {value} must be at least {VALUE_DUST_P2PKH} satoshis.");
+
+      List<TXOutputOwned> outputsSpent = [];
+      long valueSpent = 0;
+
+      foreach (TXOutputOwned output in LoadOutputsFree(LoadAnchorsUnconfirmed().Cast<TXBitcoin>().ToList()).OrderByDescending(o => o.Value).Take(COUNT_INPUTS_MAX))
+      {
+        if (valueSpent >= value + fee)
+          break;
+
+        outputsSpent.Add(output);
+        valueSpent += output.Value;
+      }
+
+      if (valueSpent < value + fee)
+        throw new ProtocolException($"The free funds do not reach the value {value} plus the fee {fee}.");
+
+      TXBitcoin tXWithdrawal = CreateTX(outputsSpent, 0);
+
+      tXWithdrawal.TXOutputs.Add(new TXOutputP2PKH(value, iDAccountTarget));
+
+      long valueChange = valueSpent - value - fee;
+
+      if (valueChange >= VALUE_DUST_P2PKH)
+        tXWithdrawal.TXOutputs.Add(new TXOutputP2PKH(valueChange, Wallet.Hash160KeyPublicReceiving));
+
+      SendTX(tXWithdrawal, outputsSpent);
+
+      outputsSpent.ForEach(o => IDsOutputWithdrawn.Add(o.ID));
+
+      Console.WriteLine($"Withdrawal TX {tXWithdrawal.Hash.ToHexString()} with fee {tXWithdrawal.Fee} sends {value} to {iDAccountTarget.BinaryToBase58Check()}.");
+
+      return tXWithdrawal;
     }
 
     internal override long GetFeeAnchorMin()
@@ -186,13 +265,7 @@ internal partial class BlockchainBitcoin
 
       (TXBitcoin anchorReplaced, List<TXOutputOwned> outputsSpent) = FindAnchorReplaced(anchorsUnconfirmed, tokenAnchor, heightTip);
 
-      HashSet<byte[]> iDsOutputOccupied = new(
-        anchorsUnconfirmed.SelectMany(t => t.Inputs).Select(i => TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)),
-        new EqualityComparerByteArray());
-
-      List<TXOutputOwned> outputsFree = OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0))
-        .Where(o => !iDsOutputOccupied.Contains(o.ID))
-        .ToList();
+      List<TXOutputOwned> outputsFree = LoadOutputsFree(anchorsUnconfirmed);
 
       long valueChangeMin = Math.Max(VALUE_DUST_P2PKH, feeAnchor * LENGTH_P2PKH_INPUT / LENGTH_ANCHOR);
       long valueSpent = outputsSpent.Sum(o => o.Value);
@@ -223,17 +296,7 @@ internal partial class BlockchainBitcoin
         valueSpent += outputAdded.Value;
       }
 
-      TXBitcoin tXAnchor = new()
-      {
-        LockTime = heightTip
-      };
-
-      foreach (TXOutputOwned outputSpent in outputsSpent)
-        tXAnchor.Inputs.Add(new TXInputBitcoin
-        {
-          TXIDOutput = outputSpent.TXID,
-          IndexOutput = outputSpent.Index
-        });
+      TXBitcoin tXAnchor = CreateTX(outputsSpent, heightTip);
 
       tokenAnchor.Serialize();
       tXAnchor.TXOutputs.Add(tokenAnchor);
@@ -252,11 +315,7 @@ internal partial class BlockchainBitcoin
         valueOutputSmall,
         countOutputsChange => GetFeeAnchor(feeAnchor, anchorReplaced, outputsSpent.Count, countOutputsChange));
 
-      tXAnchor.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
-
-      tXAnchor.Fee = valueSpent - tXAnchor.GetValueOutputs();
-
-      Network.SendTX(tXAnchor.TXRaw);
+      SendTX(tXAnchor, outputsSpent);
 
       if (anchorReplaced != null)
         AnchorsStored.Delete(anchorReplaced.Hash);
