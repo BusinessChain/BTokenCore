@@ -106,6 +106,21 @@ internal partial class BlockchainBToken : Blockchain
     return Accounts.LoadAccountNext(iDAccount);
   }
 
+  internal Block GetBlockTXsAccount(byte[] iDAccount, int height)
+  {
+    if (height > ChainRoot.HeaderTipBlockchain.Height
+      || GetBlock(ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(height).Hash) is not Block block)
+      return null;
+
+    Parser.ParseBlock(block, verifySignatures: false);
+
+    block.TXs = block.TXs.Cast<TXBToken>()
+      .Where(t => t.IDAccountSource.IsAllBytesEqual(iDAccount) || t.TXOutputs.OfType<TXOutputP2PKH>().Any(o => o.IDAccount.IsAllBytesEqual(iDAccount)))
+      .ToList<TX>();
+
+    return block;
+  }
+
   internal long? GetBalanceAccount(byte[] iDAccount)
   {
     if (!Synchronizer.IsAccountsAtTip())

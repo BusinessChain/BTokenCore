@@ -99,6 +99,12 @@ public class RPCServer
           result = await Node.GetAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
           break;
 
+        case "getTXsAccount":
+          result = await Node.GetTXsAccount(
+            parameters.GetProperty("address").GetString(),
+            parameters.GetProperty("height").GetInt32()).ConfigureAwait(false);
+          break;
+
         case "getBalanceAccount":
           result = await Node.GetBalanceAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
           break;

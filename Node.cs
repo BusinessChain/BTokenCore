@@ -118,6 +118,30 @@ public class Node
     };
   }
 
+  internal async Task<Dictionary<string, object>> GetTXsAccount(string address, int height)
+  {
+    byte[] iDAccount = address.Base58CheckToBinary();
+
+    if (await BlockchainBToken.RunLocked(() => BlockchainBToken.GetBlockTXsAccount(iDAccount, height)) is not Block block)
+      return null;
+
+    return new Dictionary<string, object>
+    {
+      ["hashBlock"] = Convert.ToHexString(block.Header.Hash),
+      ["tXs"] = block.TXs.Cast<BlockchainBToken.TXBToken>().Select(t => new Dictionary<string, object>
+      {
+        ["hash"] = Convert.ToHexString(t.Hash),
+        ["addressSource"] = t.IDAccountSource.BinaryToBase58Check(),
+        ["fee"] = t.Fee,
+        ["outputs"] = t.TXOutputs.OfType<TXOutputP2PKH>().Select(o => new Dictionary<string, object>
+        {
+          ["address"] = o.IDAccount.BinaryToBase58Check(),
+          ["value"] = o.Value
+        }).ToList()
+      }).ToList()
+    };
+  }
+
   internal async Task<long?> GetBalanceAccount(string address)
   {
     byte[] iDAccount = address.Base58CheckToBinary();
