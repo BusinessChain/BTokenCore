@@ -78,16 +78,6 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
-  internal override long GetSecondsAgeHeader(int height)
-  {
-    Header header = ChainRoot.HeaderTip.GetHeaderAncestor(height);
-
-    while (header.HeaderParent == null)
-      header = header.HeaderPrevious;
-
-    return BlockchainParent.GetSecondsAgeHeader(header.HeaderParent.Height);
-  }
-
   long? GetBalanceWallet()
   {
     if (!Synchronizer.IsAccountsAtTip())

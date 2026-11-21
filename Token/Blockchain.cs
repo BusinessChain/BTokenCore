@@ -86,8 +86,6 @@ internal abstract partial class Blockchain
 
   protected abstract Header CreateHeaderRoot();
 
-  internal abstract long GetSecondsAgeHeader(int height);
-
   internal virtual TX GetTX(byte[] hash)
   {
     return null;
