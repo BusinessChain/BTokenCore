@@ -88,13 +88,11 @@ internal partial class BlockchainBToken : Blockchain
 
     internal void StartMining(long budget)
     {
-      long feeAnchorMin = AnchorerParent.GetFeeAnchorMin();
-
-      if (budget < feeAnchorMin)
-        throw new ProtocolException($"Budget {budget} must be at least {feeAnchorMin} satoshis.", "budget");
+      if (budget <= 0)
+        throw new ProtocolException($"Budget {budget} must be above zero.", "budget");
 
       Budget = budget;
-      FeeAnchor = feeAnchorMin;
+      FeeAnchor = AnchorerParent.GetFeeAnchorMin();
 
       if (TimerMining != null)
         return;
@@ -123,7 +121,7 @@ internal partial class BlockchainBToken : Blockchain
         if (AnchorerParent.CountAnchorsMissed(DateTime.UtcNow.AddSeconds(-SECONDS_TEMPLATE_REFRESH)) > 0)
         {
           OutcomeAnchorsLast = ", after a missed anchor";
-          FeeAnchor = Math.Min(Budget, FeeAnchor + AnchorerParent.GetStepFeeRaise());
+          FeeAnchor += AnchorerParent.GetStepFeeRaise();
         }
         else
         {
