@@ -86,7 +86,7 @@ public partial class Node
             result = await CreateTXBTokenUnsigned(
               ReadBytesHex(parameters, "keyPublic"),
               ReadInt64(parameters, "fee"),
-              ReadParameter("outputs", () => parameters.GetProperty("outputs").EnumerateArray().ToList())
+              ReadArray(parameters, "outputs")
                 .Select((o, i) => (ReadIDAccount(o, "address", $"outputs[{i}]."), ReadInt64(o, "value", $"outputs[{i}].")))
                 .ToList()).ConfigureAwait(false);
             break;
@@ -157,61 +157,100 @@ public partial class Node
       return JsonSerializer.SerializeToUtf8Bytes(response);
     }
 
-    static T ReadParameter<T>(string name, Func<T> read)
+    static JsonElement GetParameter(JsonElement element, string property, string name)
     {
-      try
-      {
-        return read();
-      }
-      catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or FormatException)
-      {
-        throw new ProtocolException(exception.Message, name);
-      }
+      if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(property, out JsonElement parameter))
+        throw new ProtocolException($"The parameter {name} is missing.", name);
+
+      if (parameter.ValueKind == JsonValueKind.Null)
+        throw new ProtocolException($"The parameter {name} is empty.", name);
+
+      return parameter;
     }
 
     static long ReadInt64(JsonElement element, string property, string prefix = "")
     {
-      return ReadParameter(prefix + property, () => element.GetProperty(property).GetInt64());
+      string name = prefix + property;
+      JsonElement parameter = GetParameter(element, property, name);
+
+      if (parameter.ValueKind != JsonValueKind.Number || !parameter.TryGetInt64(out long value))
+        throw new ProtocolException($"The parameter {name} must be an integer.", name);
+
+      return value;
     }
 
     static int ReadInt32(JsonElement element, string property)
     {
-      return ReadParameter(property, () => element.GetProperty(property).GetInt32());
+      long value = ReadInt64(element, property);
+
+      if (value < int.MinValue || value > int.MaxValue)
+        throw new ProtocolException($"The parameter {property} is out of range.", property);
+
+      return (int)value;
     }
 
     static string ReadString(JsonElement element, string property, string prefix = "")
     {
       string name = prefix + property;
-      string value = ReadParameter(name, () => element.GetProperty(property).GetString());
+      JsonElement parameter = GetParameter(element, property, name);
 
-      if (string.IsNullOrEmpty(value))
+      if (parameter.ValueKind != JsonValueKind.String)
+        throw new ProtocolException($"The parameter {name} must be a text.", name);
+
+      string value = parameter.GetString();
+
+      if (value.Length == 0)
         throw new ProtocolException($"The parameter {name} is empty.", name);
 
       return value;
     }
 
+    static List<JsonElement> ReadArray(JsonElement element, string property)
+    {
+      JsonElement parameter = GetParameter(element, property, property);
+
+      if (parameter.ValueKind != JsonValueKind.Array)
+        throw new ProtocolException($"The parameter {property} must be a list.", property);
+
+      return parameter.EnumerateArray().ToList();
+    }
+
     static List<string> ReadStrings(JsonElement element, string property)
     {
-      List<string> values = ReadParameter(property, () => element.GetProperty(property).EnumerateArray().Select(k => k.GetString()).ToList());
+      List<JsonElement> entries = ReadArray(element, property);
 
-      if (values.Any(string.IsNullOrEmpty))
-        throw new ProtocolException($"The parameter {property} contains an empty entry.", property);
+      if (entries.Any(k => k.ValueKind != JsonValueKind.String || k.GetString().Length == 0))
+        throw new ProtocolException($"The parameter {property} contains an entry that is empty or not a text.", property);
 
-      return values;
+      return entries.Select(k => k.GetString()).ToList();
     }
 
     static byte[] ReadBytesHex(JsonElement element, string property)
     {
       string hex = ReadString(element, property);
 
-      return ReadParameter(property, () => Convert.FromHexString(hex));
+      try
+      {
+        return Convert.FromHexString(hex);
+      }
+      catch (FormatException)
+      {
+        throw new ProtocolException($"The parameter {property} is not hexadecimal.", property);
+      }
     }
 
     static byte[] ReadIDAccount(JsonElement element, string property, string prefix = "")
     {
       string address = ReadString(element, property, prefix);
 
-      return ReadParameter(prefix + property, () => address.Base58CheckToBinary());
+      try
+      {
+        return address.Base58CheckToBinary();
+      }
+      catch (FormatException exception)
+      {
+        throw new ProtocolException(exception.Message, prefix + property);
+      }
     }
 
     async Task StartMining(long budget)
