@@ -138,9 +138,12 @@ internal partial class BlockchainBitcoin
 
     void SendTX(TXBitcoin tX, List<TXOutputOwned> outputsSpent)
     {
-      tX.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
-
       tX.Fee = outputsSpent.Sum(o => o.Value) - tX.GetValueOutputs();
+
+      if (tX.Fee < 0)
+        throw new ProtocolException($"The outputs of the transaction exceed its inputs by {-tX.Fee} satoshis.");
+
+      tX.Serialize(Wallet, outputsSpent.Select(o => o.IDAccount).ToList());
 
       Network.SendTX(tX.TXRaw);
     }
