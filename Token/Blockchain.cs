@@ -400,11 +400,7 @@ internal abstract partial class Blockchain
 
     return new Dictionary<string, object>
     {
-      ["headers"] = snapshotsHeader,
-      ["wallet"] = new Dictionary<string, object>
-      {
-        ["addressReceiving"] = Wallet.AddressAccountReceiving
-      }
+      ["headers"] = snapshotsHeader
     };
   }
 

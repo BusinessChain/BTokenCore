@@ -223,6 +223,10 @@ internal partial class BlockchainBToken : Blockchain
   {
     Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
 
+    snapshotState["wallet"] = new Dictionary<string, object>
+    {
+      ["addressReceiving"] = Wallet.AddressAccountReceiving
+    };
     snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
     snapshotState["balanceWallet"] = GetBalanceWallet();
 

@@ -46,6 +46,7 @@ internal class Miner
       ["feeAnchor"] = FeeAnchor,
       ["stateRoundLast"] = StateRoundLast,
       ["funds"] = AnchorerParent.GetFunds(),
+      ["addressFunding"] = BlockchainParent.Wallet.AddressAccountReceiving,
       ["nameTokenParent"] = BlockchainParent.NameToken,
       ["isBlockTipAtHeaderTip"] = BlockchainParent.IsBlockTipAtHeaderTip(),
       ["isPeerConnected"] = NetworkParent.IsPeerConnected()
