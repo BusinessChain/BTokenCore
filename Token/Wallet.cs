@@ -55,6 +55,11 @@ internal class Wallet
     Keys[Hash160KeyPublicReceiving] = (keyPrivateDecimal, KeyPublicReceiving);
   }
 
+  internal List<byte[]> GetHash160sKey()
+  {
+    return Keys.Keys.ToList();
+  }
+
   internal List<string> GetKeysPrivate()
   {
     return Keys.Values.Select(k => k.keyPrivateDecimal).ToList();

@@ -113,6 +113,24 @@ public class Node
     });
   }
 
+  internal async Task<Dictionary<string, object>> TransferRevenueMiner(string address, long fee)
+  {
+    byte[] iDAccount = address.Base58CheckToBinary();
+
+    return await BlockchainBToken.RunLocked(() =>
+    {
+      List<BlockchainBToken.TXBToken> tXs = BlockchainBToken.CreateTXsRevenueMiner(iDAccount, fee);
+
+      tXs.ForEach(t => NetworkBToken.SendTX(t.TXRaw));
+
+      return new Dictionary<string, object>
+      {
+        ["countPayments"] = tXs.Count,
+        ["value"] = tXs.Sum(t => t.TXOutputs.OfType<TXOutputP2PKH>().Sum(o => o.Value))
+      };
+    });
+  }
+
   internal async Task ImportKeysMiner(List<string> keysBitcoin, List<string> keysBToken)
   {
     await BlockchainBToken.RunLocked(() =>

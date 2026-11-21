@@ -99,6 +99,12 @@ public class RPCServer
           result = await Node.GetKeysMiner().ConfigureAwait(false);
           break;
 
+        case "transferRevenueMiner":
+          result = await Node.TransferRevenueMiner(
+            parameters.GetProperty("address").GetString(),
+            parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
+          break;
+
         case "importKeysMiner":
           await Node.ImportKeysMiner(
             parameters.GetProperty("bitcoin").EnumerateArray().Select(k => k.GetString()).ToList(),

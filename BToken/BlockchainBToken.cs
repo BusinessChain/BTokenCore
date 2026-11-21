@@ -98,6 +98,24 @@ internal partial class BlockchainBToken : Blockchain
     return tX;
   }
 
+  internal List<TXBToken> CreateTXsRevenueMiner(byte[] iDAccountTarget, long fee)
+  {
+    List<TXBToken> tXs = [];
+
+    foreach (byte[] hash160 in Wallet.GetHash160sKey())
+    {
+      if (TXPool.LoadAccountPending(hash160) is not Account account || account.Balance <= fee)
+        continue;
+
+      TXBToken tX = CreateTXBTokenUnsigned(Wallet.GetKeyPublic(hash160), fee, [new TXOutputP2PKH(account.Balance - fee, iDAccountTarget)]);
+      tX.Serialize(Wallet, IDToken);
+
+      tXs.Add(tX);
+    }
+
+    return tXs;
+  }
+
   internal Account GetAccount(byte[] iDAccount)
   {
     if (!Synchronizer.IsAccountsAtTip())
