@@ -148,8 +148,8 @@ public partial class Node
       {
         Dictionary<string, object> error = new() { ["code"] = -32000, ["message"] = exception.Message };
 
-        if (exception is ParameterException exceptionParameter)
-          error["data"] = new Dictionary<string, object> { ["parameters"] = exceptionParameter.Parameters };
+        if (exception is ProtocolException exceptionProtocol && exceptionProtocol.Parameters.Count > 0)
+          error["data"] = new Dictionary<string, object> { ["parameters"] = exceptionProtocol.Parameters };
 
         response["error"] = error;
       }
@@ -165,7 +165,7 @@ public partial class Node
       }
       catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or FormatException)
       {
-        throw new ParameterException(exception.Message, name);
+        throw new ProtocolException(exception.Message, name);
       }
     }
 
@@ -185,7 +185,7 @@ public partial class Node
       string value = ReadParameter(name, () => element.GetProperty(property).GetString());
 
       if (string.IsNullOrEmpty(value))
-        throw new ParameterException($"The parameter {name} is empty.", name);
+        throw new ProtocolException($"The parameter {name} is empty.", name);
 
       return value;
     }
@@ -195,7 +195,7 @@ public partial class Node
       List<string> values = ReadParameter(property, () => element.GetProperty(property).EnumerateArray().Select(k => k.GetString()).ToList());
 
       if (values.Any(string.IsNullOrEmpty))
-        throw new ParameterException($"The parameter {property} contains an empty entry.", property);
+        throw new ProtocolException($"The parameter {property} contains an empty entry.", property);
 
       return values;
     }
@@ -304,8 +304,15 @@ public partial class Node
     {
       await Node.BlockchainBToken.RunLocked(() =>
       {
-        Node.AnchorerBitcoin.Wallet.AddKeys(keysBitcoin);
-        Node.MinerBToken.Wallet.AddKeys(keysBToken);
+        foreach ((Wallet wallet, List<string> keys, string name) in new[] { (Node.AnchorerBitcoin.Wallet, keysBitcoin, "bitcoin"), (Node.MinerBToken.Wallet, keysBToken, "bToken") })
+          try
+          {
+            wallet.AddKeys(keys);
+          }
+          catch (FormatException exception)
+          {
+            throw new ProtocolException(exception.Message, name);
+          }
       });
     }
 
@@ -352,7 +359,14 @@ public partial class Node
     {
       byte[] tXRaw = [.. tXUnsigned, (byte)signature.Length, .. signature];
 
-      await Node.BlockchainBToken.RunLocked(() => Node.NetworkBToken.SendTX(tXRaw));
+      try
+      {
+        await Node.BlockchainBToken.RunLocked(() => Node.NetworkBToken.SendTX(tXRaw));
+      }
+      catch (ProtocolException exception)
+      {
+        throw new ProtocolException(exception.Message, "tXUnsigned", "signature");
+      }
     }
   }
 }

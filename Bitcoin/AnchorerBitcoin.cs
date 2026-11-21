@@ -148,7 +148,7 @@ internal partial class BlockchainBitcoin
     internal TXBitcoin CreateTXWithdrawal(byte[] iDAccountTarget, long value, long fee)
     {
       if (value < VALUE_DUST_P2PKH)
-        throw new ProtocolException($"Value {value} must be at least {VALUE_DUST_P2PKH} satoshis.");
+        throw new ProtocolException($"Value {value} must be at least {VALUE_DUST_P2PKH} satoshis.", "value");
 
       List<TXOutputOwned> outputsSpent = [];
       long valueSpent = 0;
@@ -163,7 +163,7 @@ internal partial class BlockchainBitcoin
       }
 
       if (valueSpent < value + fee)
-        throw new ProtocolException($"The free funds do not reach the value {value} plus the fee {fee}.");
+        throw new ProtocolException($"The free funds do not reach the value {value} plus the fee {fee}.", "value", "fee");
 
       TXBitcoin tXWithdrawal = CreateTX(outputsSpent, 0);
 

@@ -81,7 +81,7 @@ internal partial class BlockchainBToken : Blockchain
   internal TXBToken CreateTXBTokenUnsigned(byte[] keyPublic, long fee, List<TXOutputP2PKH> tXOutputs)
   {
     if (TXPool.LoadAccountPending(Crypto.ComputeHash160(keyPublic)) is not Account account)
-      throw new InvalidOperationException($"The account of the key {Convert.ToHexString(keyPublic)} does not exist.");
+      throw new ProtocolException($"The account of the key {Convert.ToHexString(keyPublic)} does not exist.", "keyPublic");
 
     TXBToken tX = new()
     {

@@ -91,7 +91,7 @@ internal partial class BlockchainBToken : Blockchain
       long feeAnchorMin = AnchorerParent.GetFeeAnchorMin();
 
       if (budget < feeAnchorMin)
-        throw new ProtocolException($"Budget {budget} must be at least {feeAnchorMin} satoshis.");
+        throw new ProtocolException($"Budget {budget} must be at least {feeAnchorMin} satoshis.", "budget");
 
       Budget = budget;
       FeeAnchor = feeAnchorMin;
