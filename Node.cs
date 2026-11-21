@@ -113,6 +113,15 @@ public class Node
     });
   }
 
+  internal async Task ImportKeysMiner(List<string> keysBitcoin, List<string> keysBToken)
+  {
+    await BlockchainBToken.RunLocked(() =>
+    {
+      keysBitcoin.ForEach(BlockchainBitcoin.Wallet.AddKey);
+      keysBToken.ForEach(BlockchainBToken.Wallet.AddKey);
+    });
+  }
+
   internal async Task<Dictionary<string, object>> GetAccount(string address)
   {
     byte[] iDAccount = address.Base58CheckToBinary();

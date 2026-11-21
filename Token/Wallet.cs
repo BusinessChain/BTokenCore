@@ -28,7 +28,13 @@ internal class Wallet
 
   void AddKeyGenerated()
   {
-    string keyPrivateDecimal = Crypto.GenerateKeyPrivate();
+    AddKey(Crypto.GenerateKeyPrivate());
+  }
+
+  internal void AddKey(string keyPrivateDecimal)
+  {
+    if (IsKeyOwned(Crypto.ComputeHash160(Crypto.GetKeyPublic(keyPrivateDecimal))))
+      return;
 
     SetKey(keyPrivateDecimal);
 
