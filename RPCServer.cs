@@ -80,8 +80,17 @@ public class RPCServer
           await Node.StopMining().ConfigureAwait(false);
           break;
 
-        case "submitTXBToken":
-          await Node.SubmitTXBToken(
+        case "createTXBTokenUnsigned":
+          result = await Node.CreateTXBTokenUnsigned(
+            Convert.FromHexString(parameters.GetProperty("keyPublic").GetString()),
+            parameters.GetProperty("fee").GetInt64(),
+            parameters.GetProperty("outputs").EnumerateArray()
+              .Select(o => (o.GetProperty("address").GetString(), o.GetProperty("value").GetInt64()))
+              .ToList()).ConfigureAwait(false);
+          break;
+
+        case "submitTXBTokenSigned":
+          await Node.SubmitTXBTokenSigned(
             Convert.FromHexString(parameters.GetProperty("tXRaw").GetString())).ConfigureAwait(false);
           break;
 

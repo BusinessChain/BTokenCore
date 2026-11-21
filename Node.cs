@@ -88,7 +88,20 @@ public class Node
     };
   }
 
-  internal async Task SubmitTXBToken(byte[] tXRaw)
+  internal async Task<Dictionary<string, object>> CreateTXBTokenUnsigned(byte[] keyPublic, long fee, List<(string address, long value)> outputs)
+  {
+    List<TXOutputP2PKH> tXOutputs = outputs.Select(o => new TXOutputP2PKH(o.value, o.address.Base58CheckToBinary())).ToList();
+
+    BlockchainBToken.TXBToken tX = await BlockchainBToken.RunLocked(() => BlockchainBToken.CreateTXBTokenUnsigned(keyPublic, fee, tXOutputs));
+
+    return new Dictionary<string, object>
+    {
+      ["tXUnsigned"] = Convert.ToHexString(tX.TXRaw),
+      ["dataToBeSigned"] = Convert.ToHexString([.. BlockchainBToken.IDToken, .. tX.TXRaw])
+    };
+  }
+
+  internal async Task SubmitTXBTokenSigned(byte[] tXRaw)
   {
     await BlockchainBToken.RunLocked(() => NetworkBToken.SendTX(tXRaw));
   }

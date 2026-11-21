@@ -6,6 +6,10 @@ namespace BTokenCore;
 
 public static class ByteArrayExtensionMethods
 {
+  const string ALPHABET_BASE58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const int LENGTH_CHECKSUM_BASE58 = 4;
+
+
   public static string ToHexString(this byte[] array)
   {
     return Convert.ToHexString(array.Reverse().ToArray());
@@ -23,7 +27,7 @@ public static class ByteArrayExtensionMethods
 
     byte[] checksum = Crypto.ComputeHash256(pubKey.ToArray());
 
-    pubKey.AddRange(checksum.Take(4));
+    pubKey.AddRange(checksum.Take(LENGTH_CHECKSUM_BASE58));
 
     byte[] ba = pubKey.ToArray();
 
@@ -31,15 +35,13 @@ public static class ByteArrayExtensionMethods
     Org.BouncyCastle.Math.BigInteger big0 = new("0");
     Org.BouncyCastle.Math.BigInteger big58 = new("58");
 
-    string b58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-
     string rv = "";
 
     while (addrremain.CompareTo(big0) > 0)
     {
       int d = Convert.ToInt32(addrremain.Mod(big58).ToString());
       addrremain = addrremain.Divide(big58);
-      rv = b58.Substring(d, 1) + rv;
+      rv = ALPHABET_BASE58.Substring(d, 1) + rv;
     }
 
     foreach (byte b in ba)
@@ -49,6 +51,32 @@ public static class ByteArrayExtensionMethods
     }
 
     return rv;
+  }
+
+  public static byte[] Base58CheckToBinary(this string address)
+  {
+    System.Numerics.BigInteger value = 0;
+
+    foreach (char character in address)
+    {
+      int digit = ALPHABET_BASE58.IndexOf(character);
+
+      if (digit < 0)
+        throw new FormatException($"Address {address} contains the character '{character}', which is not Base58.");
+
+      value = value * 58 + digit;
+    }
+
+    byte[] bytes = [.. new byte[address.TakeWhile(c => c == ALPHABET_BASE58[0]).Count()], .. value.ToByteArray(isUnsigned: true, isBigEndian: true)];
+
+    int lengthPayload = 1 + Crypto.LENGTH_HASH160;
+
+    if (bytes.Length != lengthPayload + LENGTH_CHECKSUM_BASE58
+      || bytes[0] != 0x00
+      || !Crypto.ComputeHash256(bytes.AsSpan(0, lengthPayload)).AsSpan(0, LENGTH_CHECKSUM_BASE58).SequenceEqual(bytes.AsSpan(lengthPayload)))
+      throw new FormatException($"Address {address} is not a valid Base58Check address.");
+
+    return bytes[1..lengthPayload];
   }
 
   public static bool IsAllBytesEqual(this byte[] arr1, byte[] arr2, int startIndex2 = 0)

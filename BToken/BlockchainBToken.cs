@@ -78,6 +78,26 @@ internal partial class BlockchainBToken : Blockchain
     return header;
   }
 
+  internal TXBToken CreateTXBTokenUnsigned(byte[] keyPublic, long fee, List<TXOutputP2PKH> tXOutputs)
+  {
+    if (TXPool.LoadAccountPending(Crypto.ComputeHash160(keyPublic)) is not Account account)
+      throw new InvalidOperationException($"The account of the key {Convert.ToHexString(keyPublic)} does not exist.");
+
+    TXBToken tX = new()
+    {
+      KeyPublic = keyPublic,
+      HeightAccountCreated = account.HeightAccountCreated,
+      Nonce = account.Nonce,
+      Fee = fee
+    };
+
+    tX.TXOutputs.AddRange(tXOutputs);
+
+    tX.SerializeUnsigned();
+
+    return tX;
+  }
+
   long? GetBalanceWallet()
   {
     if (!Synchronizer.IsAccountsAtTip())
