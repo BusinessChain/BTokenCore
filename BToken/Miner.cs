@@ -22,6 +22,7 @@ internal partial class BlockchainBToken : Blockchain
     byte[] HashTipRound;
     int CountAnchorsRound;
     long FeeAnchor;
+    long? Revenue;
 
 
     internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent, Blockchain.Anchorer anchorer)
@@ -35,8 +36,16 @@ internal partial class BlockchainBToken : Blockchain
       NonceBlockNext = (uint)Random.Shared.Next();
 
       blockchainParent.OnBlockInserted += HandleParentTip;
-      blockchain.OnBlockInserted += block => ScheduleReanchor(block.Header.Hash);
-      blockchain.OnBlockRolledBack += block => ScheduleReanchor(block.Header.HashPrevious);
+      blockchain.OnBlockInserted += block =>
+      {
+        Revenue = null;
+        ScheduleReanchor(block.Header.Hash);
+      };
+      blockchain.OnBlockRolledBack += block =>
+      {
+        Revenue = null;
+        ScheduleReanchor(block.Header.HashPrevious);
+      };
     }
 
     List<string> CreateKeysCoveringSegments()
@@ -57,6 +66,8 @@ internal partial class BlockchainBToken : Blockchain
 
     internal Dictionary<string, object> GetSnapshotState()
     {
+      Revenue ??= Wallet.GetHash160sKey().Aggregate((long?)0, (sum, hash160) => sum + Blockchain.GetBalanceAccount(hash160));
+
       return new Dictionary<string, object>
       {
         ["isMining"] = TimerMining != null,
@@ -64,12 +75,15 @@ internal partial class BlockchainBToken : Blockchain
         ["feeAnchor"] = FeeAnchor,
         ["stateRoundLast"] = StateRoundLast,
         ["funds"] = AnchorerParent.GetFunds(),
-        ["addressFunding"] = AnchorerParent.Wallet.AddressAccountReceiving
+        ["addressFunding"] = AnchorerParent.Wallet.AddressAccountReceiving,
+        ["revenue"] = Revenue
       };
     }
 
     internal List<TXBToken> CreateTXsRevenue(byte[] iDAccountTarget, long fee)
     {
+      Revenue = null;
+
       List<TXBToken> tXs = [];
 
       foreach (byte[] hash160 in Wallet.GetHash160sKey())
