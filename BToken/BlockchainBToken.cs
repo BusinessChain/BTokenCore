@@ -273,9 +273,6 @@ internal partial class BlockchainBToken : Blockchain
 
   internal Block CreateBlockNext(byte[] iDAccountCoinbase)
   {
-    if (!Synchronizer.IsAccountsAtTip())
-      throw new ProtocolException("the accounts are not at the tip.");
-
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
 
     Block block = new(SizeBlockMax);

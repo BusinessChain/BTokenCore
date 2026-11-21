@@ -168,7 +168,7 @@ internal partial class BlockchainBToken : Blockchain
       return IsAccountExistingNext(iDAccount) || IsSegmentOpen(DatabaseAccounts.GetIndexSegment(iDAccount), 1);
     }
 
-    bool IsAccountExistingNext(byte[] iDAccount)
+    internal bool IsAccountExistingNext(byte[] iDAccount)
     {
       return CountTXsPayingByID.ContainsKey(iDAccount) || Accounts.LoadAccountNext(iDAccount) != null;
     }

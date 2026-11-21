@@ -71,17 +71,9 @@ internal class Wallet
     return Keys.ContainsKey(hash160);
   }
 
-  internal byte[] GetHash160KeyReceiving(Func<byte[], bool> canReceive)
+  internal byte[] FindHash160Key(Func<byte[], bool> predicate)
   {
-    while (!canReceive(Hash160KeyPublicReceiving))
-      AddKeys([Crypto.GenerateKeyPrivate()]);
-
-    return Hash160KeyPublicReceiving;
-  }
-
-  internal byte[] FindHash160KeyFunding(Func<byte[], bool> canFund)
-  {
-    return Keys.Keys.FirstOrDefault(canFund);
+    return Keys.Keys.FirstOrDefault(predicate);
   }
 
   internal byte[] GetKeyPublic(byte[] hash160)

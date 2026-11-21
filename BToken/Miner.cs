@@ -191,11 +191,23 @@ internal partial class BlockchainBToken : Blockchain
       if (!NetworkParent.IsPeerConnected())
         return;
 
+      if (!Blockchain.Synchronizer.IsAccountsAtTip())
+      {
+        ReportRound(prefixSkip + "the accounts are not at the tip.");
+        return;
+      }
+
+      if ((Wallet.FindHash160Key(Blockchain.TXPool.IsAccountExistingNext) ?? Wallet.FindHash160Key(Blockchain.TXPool.CanReceive)) is not byte[] iDAccountCoinbase)
+      {
+        ReportRound(prefixSkip + "no key of the Miner's Wallet can receive the coinbase.");
+        return;
+      }
+
       Block block;
 
       try
       {
-        block = Blockchain.CreateBlockNext(Wallet.GetHash160KeyReceiving(Blockchain.TXPool.CanReceive));
+        block = Blockchain.CreateBlockNext(iDAccountCoinbase);
       }
       catch (ProtocolException exception)
       {
