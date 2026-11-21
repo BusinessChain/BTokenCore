@@ -97,7 +97,10 @@ public class Node
     return new Dictionary<string, object>
     {
       ["tXUnsigned"] = Convert.ToHexString(tX.TXRaw),
-      ["dataToBeSigned"] = Convert.ToHexString([.. BlockchainBToken.IDToken, .. tX.TXRaw])
+      ["dataToBeSigned"] = Convert.ToHexString([.. BlockchainBToken.IDToken, .. tX.TXRaw]),
+      ["hash"] = Convert.ToHexString(tX.Hash),
+      ["nonce"] = tX.Nonce,
+      ["heightAccountCreated"] = tX.HeightAccountCreated
     };
   }
 
