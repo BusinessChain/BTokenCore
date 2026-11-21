@@ -75,7 +75,7 @@ public partial class Node
         switch (method)
         {
           case "startMining":
-            await StartMining(parameters.GetProperty("budget").GetInt64()).ConfigureAwait(false);
+            await StartMining(ReadInt64(parameters, "budget")).ConfigureAwait(false);
             break;
 
           case "stopMining":
@@ -84,17 +84,17 @@ public partial class Node
 
           case "createTXBTokenUnsigned":
             result = await CreateTXBTokenUnsigned(
-              Convert.FromHexString(parameters.GetProperty("keyPublic").GetString()),
-              parameters.GetProperty("fee").GetInt64(),
-              parameters.GetProperty("outputs").EnumerateArray()
-                .Select(o => (o.GetProperty("address").GetString(), o.GetProperty("value").GetInt64()))
+              ReadBytesHex(parameters, "keyPublic"),
+              ReadInt64(parameters, "fee"),
+              ReadParameter("outputs", () => parameters.GetProperty("outputs").EnumerateArray().ToList())
+                .Select((o, i) => (ReadIDAccount(o, "address", $"outputs[{i}]."), ReadInt64(o, "value", $"outputs[{i}].")))
                 .ToList()).ConfigureAwait(false);
             break;
 
           case "submitTXBTokenSigned":
             await SubmitTXBTokenSigned(
-              Convert.FromHexString(parameters.GetProperty("tXUnsigned").GetString()),
-              Convert.FromHexString(parameters.GetProperty("signature").GetString())).ConfigureAwait(false);
+              ReadBytesHex(parameters, "tXUnsigned"),
+              ReadBytesHex(parameters, "signature")).ConfigureAwait(false);
             break;
 
           case "getKeysMiner":
@@ -103,39 +103,39 @@ public partial class Node
 
           case "withdrawRevenueMiner":
             result = await WithdrawRevenueMiner(
-              parameters.GetProperty("address").GetString(),
-              parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
+              ReadIDAccount(parameters, "address"),
+              ReadInt64(parameters, "fee")).ConfigureAwait(false);
             break;
 
           case "withdrawBitcoin":
             result = await WithdrawBitcoin(
-              parameters.GetProperty("address").GetString(),
-              parameters.GetProperty("value").GetInt64(),
-              parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
+              ReadIDAccount(parameters, "address"),
+              ReadInt64(parameters, "value"),
+              ReadInt64(parameters, "fee")).ConfigureAwait(false);
             break;
 
           case "importKeysMiner":
             await ImportKeysMiner(
-              parameters.GetProperty("bitcoin").EnumerateArray().Select(k => k.GetString()).ToList(),
-              parameters.GetProperty("bToken").EnumerateArray().Select(k => k.GetString()).ToList()).ConfigureAwait(false);
+              ReadStrings(parameters, "bitcoin"),
+              ReadStrings(parameters, "bToken")).ConfigureAwait(false);
             break;
 
           case "getAccount":
-            result = await GetAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
+            result = await GetAccount(ReadIDAccount(parameters, "address")).ConfigureAwait(false);
             break;
 
           case "getTXsAccount":
             result = await GetTXsAccount(
-              parameters.GetProperty("address").GetString(),
-              parameters.GetProperty("height").GetInt32()).ConfigureAwait(false);
+              ReadIDAccount(parameters, "address"),
+              ReadInt32(parameters, "height")).ConfigureAwait(false);
             break;
 
           case "getBalanceAccount":
-            result = await GetBalanceAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
+            result = await GetBalanceAccount(ReadIDAccount(parameters, "address")).ConfigureAwait(false);
             break;
 
           case "getSnapshotState":
-            result = await GetSnapshotState(parameters.GetProperty("countBlocks").GetInt32()).ConfigureAwait(false);
+            result = await GetSnapshotState(ReadInt32(parameters, "countBlocks")).ConfigureAwait(false);
             break;
 
           default:
@@ -146,10 +146,72 @@ public partial class Node
       }
       catch (Exception exception)
       {
-        response["error"] = new Dictionary<string, object> { ["code"] = -32000, ["message"] = exception.Message };
+        Dictionary<string, object> error = new() { ["code"] = -32000, ["message"] = exception.Message };
+
+        if (exception is ParameterException exceptionParameter)
+          error["data"] = new Dictionary<string, object> { ["parameters"] = exceptionParameter.Parameters };
+
+        response["error"] = error;
       }
 
       return JsonSerializer.SerializeToUtf8Bytes(response);
+    }
+
+    static T ReadParameter<T>(string name, Func<T> read)
+    {
+      try
+      {
+        return read();
+      }
+      catch (Exception exception) when (exception is KeyNotFoundException or InvalidOperationException or FormatException)
+      {
+        throw new ParameterException(exception.Message, name);
+      }
+    }
+
+    static long ReadInt64(JsonElement element, string property, string prefix = "")
+    {
+      return ReadParameter(prefix + property, () => element.GetProperty(property).GetInt64());
+    }
+
+    static int ReadInt32(JsonElement element, string property)
+    {
+      return ReadParameter(property, () => element.GetProperty(property).GetInt32());
+    }
+
+    static string ReadString(JsonElement element, string property, string prefix = "")
+    {
+      string name = prefix + property;
+      string value = ReadParameter(name, () => element.GetProperty(property).GetString());
+
+      if (string.IsNullOrEmpty(value))
+        throw new ParameterException($"The parameter {name} is empty.", name);
+
+      return value;
+    }
+
+    static List<string> ReadStrings(JsonElement element, string property)
+    {
+      List<string> values = ReadParameter(property, () => element.GetProperty(property).EnumerateArray().Select(k => k.GetString()).ToList());
+
+      if (values.Any(string.IsNullOrEmpty))
+        throw new ParameterException($"The parameter {property} contains an empty entry.", property);
+
+      return values;
+    }
+
+    static byte[] ReadBytesHex(JsonElement element, string property)
+    {
+      string hex = ReadString(element, property);
+
+      return ReadParameter(property, () => Convert.FromHexString(hex));
+    }
+
+    static byte[] ReadIDAccount(JsonElement element, string property, string prefix = "")
+    {
+      string address = ReadString(element, property, prefix);
+
+      return ReadParameter(prefix + property, () => address.Base58CheckToBinary());
     }
 
     async Task StartMining(long budget)
@@ -185,9 +247,9 @@ public partial class Node
       };
     }
 
-    async Task<Dictionary<string, object>> CreateTXBTokenUnsigned(byte[] keyPublic, long fee, List<(string address, long value)> outputs)
+    async Task<Dictionary<string, object>> CreateTXBTokenUnsigned(byte[] keyPublic, long fee, List<(byte[] iDAccount, long value)> outputs)
     {
-      List<TXOutputP2PKH> tXOutputs = outputs.Select(o => new TXOutputP2PKH(o.value, o.address.Base58CheckToBinary())).ToList();
+      List<TXOutputP2PKH> tXOutputs = outputs.Select(o => new TXOutputP2PKH(o.value, o.iDAccount)).ToList();
 
       BlockchainBToken.TXBToken tX = await Node.BlockchainBToken.RunLocked(() => Node.BlockchainBToken.CreateTXBTokenUnsigned(keyPublic, fee, tXOutputs));
 
@@ -210,10 +272,8 @@ public partial class Node
       });
     }
 
-    async Task<Dictionary<string, object>> WithdrawRevenueMiner(string address, long fee)
+    async Task<Dictionary<string, object>> WithdrawRevenueMiner(byte[] iDAccount, long fee)
     {
-      byte[] iDAccount = address.Base58CheckToBinary();
-
       return await Node.BlockchainBToken.RunLocked(() =>
       {
         List<BlockchainBToken.TXBToken> tXs = Node.MinerBToken.CreateTXsRevenue(iDAccount, fee);
@@ -228,10 +288,8 @@ public partial class Node
       });
     }
 
-    async Task<Dictionary<string, object>> WithdrawBitcoin(string address, long value, long fee)
+    async Task<Dictionary<string, object>> WithdrawBitcoin(byte[] iDAccount, long value, long fee)
     {
-      byte[] iDAccount = address.Base58CheckToBinary();
-
       BlockchainBitcoin.TXBitcoin tX = await Node.BlockchainBToken.RunLocked(() => Node.AnchorerBitcoin.CreateTXWithdrawal(iDAccount, value, fee));
 
       return new Dictionary<string, object>
@@ -251,10 +309,8 @@ public partial class Node
       });
     }
 
-    async Task<Dictionary<string, object>> GetAccount(string address)
+    async Task<Dictionary<string, object>> GetAccount(byte[] iDAccount)
     {
-      byte[] iDAccount = address.Base58CheckToBinary();
-
       if (await Node.BlockchainBToken.RunLocked(() => Node.BlockchainBToken.GetAccount(iDAccount)) is not BlockchainBToken.Account account)
         return null;
 
@@ -265,10 +321,8 @@ public partial class Node
       };
     }
 
-    async Task<Dictionary<string, object>> GetTXsAccount(string address, int height)
+    async Task<Dictionary<string, object>> GetTXsAccount(byte[] iDAccount, int height)
     {
-      byte[] iDAccount = address.Base58CheckToBinary();
-
       if (await Node.BlockchainBToken.RunLocked(() => Node.BlockchainBToken.GetBlockTXsAccount(iDAccount, height)) is not Block block)
         return null;
 
@@ -289,10 +343,8 @@ public partial class Node
       };
     }
 
-    async Task<long?> GetBalanceAccount(string address)
+    async Task<long?> GetBalanceAccount(byte[] iDAccount)
     {
-      byte[] iDAccount = address.Base58CheckToBinary();
-
       return await Node.BlockchainBToken.RunLocked(() => Node.BlockchainBToken.GetBalanceAccount(iDAccount));
     }
 
