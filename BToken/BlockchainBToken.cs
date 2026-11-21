@@ -262,15 +262,6 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.GetFeePerByteMin();
   }
 
-  internal override Dictionary<string, object> GetSnapshotState(int countBlocks)
-  {
-    Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
-
-    snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
-
-    return snapshotState;
-  }
-
   internal Block CreateBlockNext(byte[] iDAccountCoinbase)
   {
     int height = ChainRoot.HeaderTipBlockchain.Height + 1;
