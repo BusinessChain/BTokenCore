@@ -271,7 +271,7 @@ internal partial class BlockchainBToken : Blockchain
     return snapshotState;
   }
 
-  internal Block CreateBlockNext(Wallet wallet)
+  internal Block CreateBlockNext(byte[] iDAccountCoinbase)
   {
     if (!Synchronizer.IsAccountsAtTip())
       throw new ProtocolException("the accounts are not at the tip.");
@@ -287,7 +287,7 @@ internal partial class BlockchainBToken : Blockchain
 
     block.TXs = TXPool.GetTXs(countBytesTXsMax);
 
-    block.TXs.Insert(0, CreateTXCoinbase(wallet, height, block.TXs.Sum(t => t.Fee), Accounts.LoadRentSweep(height)));
+    block.TXs.Insert(0, CreateTXCoinbase(iDAccountCoinbase, height, block.TXs.Sum(t => t.Fee), Accounts.LoadRentSweep(height)));
 
     HeaderBToken header = new()
     {
@@ -304,9 +304,9 @@ internal partial class BlockchainBToken : Blockchain
     return block;
   }
 
-  TXBToken CreateTXCoinbase(Wallet wallet, int height, long fees, long rent)
+  TXBToken CreateTXCoinbase(byte[] iDAccountCoinbase, int height, long fees, long rent)
   {
-    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, wallet.GetHash160KeyReceiving(TXPool.CanReceive));
+    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, iDAccountCoinbase);
 
     TXBToken tXCoinbase = new()
     {

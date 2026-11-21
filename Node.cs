@@ -9,7 +9,7 @@ public partial class Node
   internal NetworkBitcoin NetworkBitcoin;
   internal NetworkBToken NetworkBToken;
   internal BlockchainBitcoin.AnchorerBitcoin AnchorerBitcoin;
-  internal Miner MinerBToken;
+  internal BlockchainBToken.Miner MinerBToken;
 
 
   public Node(ICommunication communication)

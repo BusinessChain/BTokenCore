@@ -98,6 +98,11 @@ public static class Crypto
     return keyPublic.ToArray();
   }
 
+  public static byte[] GetHash160KeyPublic(string keyPrivate)
+  {
+    return ComputeHash160(GetKeyPublic(keyPrivate));
+  }
+
   public static byte[] ComputeHash160(byte[] data)
   {
     byte[] hash160 = new byte[LENGTH_HASH160];

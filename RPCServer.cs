@@ -225,8 +225,8 @@ public partial class Node
     {
       await Node.BlockchainBToken.RunLocked(() =>
       {
-        keysBitcoin.ForEach(Node.AnchorerBitcoin.Wallet.AddKey);
-        keysBToken.ForEach(Node.MinerBToken.Wallet.AddKey);
+        Node.AnchorerBitcoin.Wallet.AddKeys(keysBitcoin);
+        Node.MinerBToken.Wallet.AddKeys(keysBToken);
       });
     }
 
