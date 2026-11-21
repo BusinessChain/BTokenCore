@@ -2,7 +2,7 @@ using LiteDB;
 
 namespace BTokenCore;
 
-public class Node
+public partial class Node
 {
   internal BlockchainBitcoin BlockchainBitcoin;
   internal BlockchainBToken BlockchainBToken;
@@ -48,13 +48,15 @@ public class Node
     return liteDatabase;
   }
 
-  public async Task Start()
+  public async Task Start(int portRPC)
   {
     await BlockchainBToken.RunLocked(BlockchainBToken.Load);
 
     NetworkBitcoin.Start();
 
     NetworkBToken.Start();
+
+    await new RPCServer(this, portRPC).Start();
   }
 
   internal async Task StartMining(long budget)

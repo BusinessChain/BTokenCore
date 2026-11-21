@@ -3,143 +3,146 @@ using System.Text.Json;
 
 namespace BTokenCore;
 
-public class RPCServer
+public partial class Node
 {
-  Node Node;
-  HttpListener HttpListener = new();
-
-
-  public RPCServer(Node node, int port)
+  class RPCServer
   {
-    Node = node;
-    HttpListener.Prefixes.Add($"http://127.0.0.1:{port}/");
-  }
+    Node Node;
+    HttpListener HttpListener = new();
 
-  public async Task Start()
-  {
-    HttpListener.Start();
 
-    while (true)
+    public RPCServer(Node node, int port)
     {
-      HttpListenerContext context = await HttpListener.GetContextAsync().ConfigureAwait(false);
+      Node = node;
+      HttpListener.Prefixes.Add($"http://127.0.0.1:{port}/");
+    }
 
-      if (context.Request.HttpMethod == "POST")
-        Serve(context);
-      else
+    public async Task Start()
+    {
+      HttpListener.Start();
+
+      while (true)
       {
-        context.Response.StatusCode = 405;
+        HttpListenerContext context = await HttpListener.GetContextAsync().ConfigureAwait(false);
+
+        if (context.Request.HttpMethod == "POST")
+          Serve(context);
+        else
+        {
+          context.Response.StatusCode = 405;
+          context.Response.Close();
+        }
+      }
+    }
+
+    async Task Serve(HttpListenerContext context)
+    {
+      try
+      {
+        using MemoryStream request = new();
+        await context.Request.InputStream.CopyToAsync(request).ConfigureAwait(false);
+
+        byte[] response = await Respond(request.ToArray()).ConfigureAwait(false);
+
+        context.Response.ContentType = "application/json";
+        context.Response.ContentLength64 = response.Length;
+        await context.Response.OutputStream.WriteAsync(response).ConfigureAwait(false);
         context.Response.Close();
       }
+      catch (HttpListenerException)
+      { }
     }
-  }
 
-  async Task Serve(HttpListenerContext context)
-  {
-    try
+    async Task<byte[]> Respond(byte[] message)
     {
-      using MemoryStream request = new();
-      await context.Request.InputStream.CopyToAsync(request).ConfigureAwait(false);
+      Dictionary<string, object> response = new() { ["jsonrpc"] = "2.0", ["id"] = null };
 
-      byte[] response = await Respond(request.ToArray()).ConfigureAwait(false);
-
-      context.Response.ContentType = "application/json";
-      context.Response.ContentLength64 = response.Length;
-      await context.Response.OutputStream.WriteAsync(response).ConfigureAwait(false);
-      context.Response.Close();
-    }
-    catch (HttpListenerException)
-    { }
-  }
-
-  async Task<byte[]> Respond(byte[] message)
-  {
-    Dictionary<string, object> response = new() { ["jsonrpc"] = "2.0", ["id"] = null };
-
-    try
-    {
-      using JsonDocument request = JsonDocument.Parse(message);
-
-      JsonElement root = request.RootElement;
-
-      if (root.TryGetProperty("id", out JsonElement id))
-        response["id"] = id.Clone();
-
-      root.TryGetProperty("params", out JsonElement parameters);
-
-      string method = root.GetProperty("method").GetString();
-
-      object result = null;
-
-      switch (method)
+      try
       {
-        case "startMining":
-          await Node.StartMining(parameters.GetProperty("budget").GetInt64()).ConfigureAwait(false);
-          break;
+        using JsonDocument request = JsonDocument.Parse(message);
 
-        case "stopMining":
-          await Node.StopMining().ConfigureAwait(false);
-          break;
+        JsonElement root = request.RootElement;
 
-        case "createTXBTokenUnsigned":
-          result = await Node.CreateTXBTokenUnsigned(
-            Convert.FromHexString(parameters.GetProperty("keyPublic").GetString()),
-            parameters.GetProperty("fee").GetInt64(),
-            parameters.GetProperty("outputs").EnumerateArray()
-              .Select(o => (o.GetProperty("address").GetString(), o.GetProperty("value").GetInt64()))
-              .ToList()).ConfigureAwait(false);
-          break;
+        if (root.TryGetProperty("id", out JsonElement id))
+          response["id"] = id.Clone();
 
-        case "submitTXBTokenSigned":
-          await Node.SubmitTXBTokenSigned(
-            Convert.FromHexString(parameters.GetProperty("tXUnsigned").GetString()),
-            Convert.FromHexString(parameters.GetProperty("signature").GetString())).ConfigureAwait(false);
-          break;
+        root.TryGetProperty("params", out JsonElement parameters);
 
-        case "getKeysMiner":
-          result = await Node.GetKeysMiner().ConfigureAwait(false);
-          break;
+        string method = root.GetProperty("method").GetString();
 
-        case "withdrawRevenueMiner":
-          result = await Node.WithdrawRevenueMiner(
-            parameters.GetProperty("address").GetString(),
-            parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
-          break;
+        object result = null;
 
-        case "importKeysMiner":
-          await Node.ImportKeysMiner(
-            parameters.GetProperty("bitcoin").EnumerateArray().Select(k => k.GetString()).ToList(),
-            parameters.GetProperty("bToken").EnumerateArray().Select(k => k.GetString()).ToList()).ConfigureAwait(false);
-          break;
+        switch (method)
+        {
+          case "startMining":
+            await Node.StartMining(parameters.GetProperty("budget").GetInt64()).ConfigureAwait(false);
+            break;
 
-        case "getAccount":
-          result = await Node.GetAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
-          break;
+          case "stopMining":
+            await Node.StopMining().ConfigureAwait(false);
+            break;
 
-        case "getTXsAccount":
-          result = await Node.GetTXsAccount(
-            parameters.GetProperty("address").GetString(),
-            parameters.GetProperty("height").GetInt32()).ConfigureAwait(false);
-          break;
+          case "createTXBTokenUnsigned":
+            result = await Node.CreateTXBTokenUnsigned(
+              Convert.FromHexString(parameters.GetProperty("keyPublic").GetString()),
+              parameters.GetProperty("fee").GetInt64(),
+              parameters.GetProperty("outputs").EnumerateArray()
+                .Select(o => (o.GetProperty("address").GetString(), o.GetProperty("value").GetInt64()))
+                .ToList()).ConfigureAwait(false);
+            break;
 
-        case "getBalanceAccount":
-          result = await Node.GetBalanceAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
-          break;
+          case "submitTXBTokenSigned":
+            await Node.SubmitTXBTokenSigned(
+              Convert.FromHexString(parameters.GetProperty("tXUnsigned").GetString()),
+              Convert.FromHexString(parameters.GetProperty("signature").GetString())).ConfigureAwait(false);
+            break;
 
-        case "getSnapshotState":
-          result = await Node.GetSnapshotState(parameters.GetProperty("countBlocks").GetInt32()).ConfigureAwait(false);
-          break;
+          case "getKeysMiner":
+            result = await Node.GetKeysMiner().ConfigureAwait(false);
+            break;
 
-        default:
-          throw new ProtocolException($"Method {method} not found.");
+          case "withdrawRevenueMiner":
+            result = await Node.WithdrawRevenueMiner(
+              parameters.GetProperty("address").GetString(),
+              parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
+            break;
+
+          case "importKeysMiner":
+            await Node.ImportKeysMiner(
+              parameters.GetProperty("bitcoin").EnumerateArray().Select(k => k.GetString()).ToList(),
+              parameters.GetProperty("bToken").EnumerateArray().Select(k => k.GetString()).ToList()).ConfigureAwait(false);
+            break;
+
+          case "getAccount":
+            result = await Node.GetAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
+            break;
+
+          case "getTXsAccount":
+            result = await Node.GetTXsAccount(
+              parameters.GetProperty("address").GetString(),
+              parameters.GetProperty("height").GetInt32()).ConfigureAwait(false);
+            break;
+
+          case "getBalanceAccount":
+            result = await Node.GetBalanceAccount(parameters.GetProperty("address").GetString()).ConfigureAwait(false);
+            break;
+
+          case "getSnapshotState":
+            result = await Node.GetSnapshotState(parameters.GetProperty("countBlocks").GetInt32()).ConfigureAwait(false);
+            break;
+
+          default:
+            throw new ProtocolException($"Method {method} not found.");
+        }
+
+        response["result"] = result;
+      }
+      catch (Exception exception)
+      {
+        response["error"] = new Dictionary<string, object> { ["code"] = -32000, ["message"] = exception.Message };
       }
 
-      response["result"] = result;
+      return JsonSerializer.SerializeToUtf8Bytes(response);
     }
-    catch (Exception exception)
-    {
-      response["error"] = new Dictionary<string, object> { ["code"] = -32000, ["message"] = exception.Message };
-    }
-
-    return JsonSerializer.SerializeToUtf8Bytes(response);
   }
 }
