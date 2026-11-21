@@ -41,7 +41,7 @@ internal abstract partial class Blockchain
     Blockchain blockchainParent,
     SemaphoreSlim semaphoreBlockchain)
   {
-    Wallet = new Wallet($"Wallet{nameToken}/wallet");
+    Wallet = new Wallet(nameToken);
 
     NameToken = nameToken;
 

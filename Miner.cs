@@ -9,6 +9,7 @@ internal class Miner
   Blockchain BlockchainParent;
   Network NetworkParent;
   Anchorer AnchorerParent;
+  internal Wallet Wallet;
 
   const int SECONDS_PERIOD_BUDGET = 600;
   const int SECONDS_TEMPLATE_REFRESH = 30;
@@ -30,6 +31,7 @@ internal class Miner
     BlockchainParent = blockchainParent;
     NetworkParent = networkParent;
     AnchorerParent = anchorer;
+    Wallet = new Wallet(blockchain.NameToken);
     NonceBlockNext = (uint)Random.Shared.Next();
 
     blockchainParent.OnBlockInserted += HandleParentTip;
@@ -51,6 +53,24 @@ internal class Miner
       ["isBlockTipAtHeaderTip"] = BlockchainParent.IsBlockTipAtHeaderTip(),
       ["isPeerConnected"] = NetworkParent.IsPeerConnected()
     };
+  }
+
+  internal List<BlockchainBToken.TXBToken> CreateTXsRevenue(byte[] iDAccountTarget, long fee)
+  {
+    List<BlockchainBToken.TXBToken> tXs = [];
+
+    foreach (byte[] hash160 in Wallet.GetHash160sKey())
+    {
+      if (Blockchain.GetBalanceAccount(hash160) is not long balance || balance <= fee)
+        continue;
+
+      BlockchainBToken.TXBToken tX = Blockchain.CreateTXBTokenUnsigned(Wallet.GetKeyPublic(hash160), fee, [new TXOutputP2PKH(balance - fee, iDAccountTarget)]);
+      tX.Serialize(Wallet, Blockchain.IDToken);
+
+      tXs.Add(tX);
+    }
+
+    return tXs;
   }
 
   internal void StartMining(long budget)
@@ -159,7 +179,7 @@ internal class Miner
 
     try
     {
-      block = Blockchain.CreateBlockNext();
+      block = Blockchain.CreateBlockNext(Wallet);
     }
     catch (ProtocolException exception)
     {

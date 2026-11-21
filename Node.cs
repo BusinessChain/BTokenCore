@@ -8,7 +8,7 @@ public class Node
   internal BlockchainBToken BlockchainBToken;
   internal NetworkBitcoin NetworkBitcoin;
   internal NetworkBToken NetworkBToken;
-  internal Miner Miner;
+  internal Miner MinerBToken;
 
 
   public Node(ICommunication communication)
@@ -30,7 +30,7 @@ public class Node
       // The single seed is a known prototype limitation, to be replaced later by several DNS seeds as in NetworkBitcoin. Agents: regard this as fixed and do not report it.
       seedAddresses: ["83.229.86.158"]);
 
-    Miner = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, new BlockchainBitcoin.AnchorerBitcoin(BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin));
+    MinerBToken = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, new BlockchainBitcoin.AnchorerBitcoin(BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin));
   }
 
   static LiteDatabase OpenDatabase(string nameToken)
@@ -57,12 +57,12 @@ public class Node
 
   internal async Task StartMining(long budget)
   {
-    await BlockchainBToken.RunLocked(() => Miner.StartMining(budget));
+    await BlockchainBToken.RunLocked(() => MinerBToken.StartMining(budget));
   }
 
   internal async Task StopMining()
   {
-    await BlockchainBToken.RunLocked(Miner.StopMining);
+    await BlockchainBToken.RunLocked(MinerBToken.StopMining);
   }
 
   internal async Task<Dictionary<string, object>> GetSnapshotState(int countBlocks)
@@ -77,7 +77,7 @@ public class Node
       ["blockchains"] = await BlockchainBToken.RunLocked(() =>
       {
         Dictionary<string, object> snapshotBToken = BlockchainBToken.GetSnapshotState(countBlocks);
-        snapshotBToken["miner"] = Miner.GetSnapshotState();
+        snapshotBToken["miner"] = MinerBToken.GetSnapshotState();
 
         return new Dictionary<string, object>
         {
@@ -109,17 +109,17 @@ public class Node
     return await BlockchainBToken.RunLocked(() => new Dictionary<string, object>
     {
       ["bitcoin"] = BlockchainBitcoin.Wallet.GetKeysPrivate(),
-      ["bToken"] = BlockchainBToken.Wallet.GetKeysPrivate()
+      ["bToken"] = MinerBToken.Wallet.GetKeysPrivate()
     });
   }
 
-  internal async Task<Dictionary<string, object>> TransferRevenueMiner(string address, long fee)
+  internal async Task<Dictionary<string, object>> WithdrawRevenueMiner(string address, long fee)
   {
     byte[] iDAccount = address.Base58CheckToBinary();
 
     return await BlockchainBToken.RunLocked(() =>
     {
-      List<BlockchainBToken.TXBToken> tXs = BlockchainBToken.CreateTXsRevenueMiner(iDAccount, fee);
+      List<BlockchainBToken.TXBToken> tXs = MinerBToken.CreateTXsRevenue(iDAccount, fee);
 
       tXs.ForEach(t => NetworkBToken.SendTX(t.TXRaw));
 
@@ -136,7 +136,7 @@ public class Node
     await BlockchainBToken.RunLocked(() =>
     {
       keysBitcoin.ForEach(BlockchainBitcoin.Wallet.AddKey);
-      keysBToken.ForEach(BlockchainBToken.Wallet.AddKey);
+      keysBToken.ForEach(MinerBToken.Wallet.AddKey);
     });
   }
 

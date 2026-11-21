@@ -10,9 +10,9 @@ internal class Wallet
   internal string AddressAccountReceiving;
 
 
-  internal Wallet(string pathFile)
+  internal Wallet(string nameToken)
   {
-    PathFile = pathFile;
+    PathFile = $"Wallet{nameToken}/wallet";
 
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(PathFile)));
 

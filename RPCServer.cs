@@ -99,8 +99,8 @@ public class RPCServer
           result = await Node.GetKeysMiner().ConfigureAwait(false);
           break;
 
-        case "transferRevenueMiner":
-          result = await Node.TransferRevenueMiner(
+        case "withdrawRevenueMiner":
+          result = await Node.WithdrawRevenueMiner(
             parameters.GetProperty("address").GetString(),
             parameters.GetProperty("fee").GetInt64()).ConfigureAwait(false);
           break;

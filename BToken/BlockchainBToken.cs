@@ -98,24 +98,6 @@ internal partial class BlockchainBToken : Blockchain
     return tX;
   }
 
-  internal List<TXBToken> CreateTXsRevenueMiner(byte[] iDAccountTarget, long fee)
-  {
-    List<TXBToken> tXs = [];
-
-    foreach (byte[] hash160 in Wallet.GetHash160sKey())
-    {
-      if (TXPool.LoadAccountPending(hash160) is not Account account || account.Balance <= fee)
-        continue;
-
-      TXBToken tX = CreateTXBTokenUnsigned(Wallet.GetKeyPublic(hash160), fee, [new TXOutputP2PKH(account.Balance - fee, iDAccountTarget)]);
-      tX.Serialize(Wallet, IDToken);
-
-      tXs.Add(tX);
-    }
-
-    return tXs;
-  }
-
   internal Account GetAccount(byte[] iDAccount)
   {
     if (!Synchronizer.IsAccountsAtTip())
@@ -284,16 +266,12 @@ internal partial class BlockchainBToken : Blockchain
   {
     Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
 
-    snapshotState["wallet"] = new Dictionary<string, object>
-    {
-      ["addressReceiving"] = Wallet.AddressAccountReceiving
-    };
     snapshotState["isAccountsAtTip"] = Synchronizer.IsAccountsAtTip();
 
     return snapshotState;
   }
 
-  internal Block CreateBlockNext()
+  internal Block CreateBlockNext(Wallet wallet)
   {
     if (!Synchronizer.IsAccountsAtTip())
       throw new ProtocolException("the accounts are not at the tip.");
@@ -309,7 +287,7 @@ internal partial class BlockchainBToken : Blockchain
 
     block.TXs = TXPool.GetTXs(countBytesTXsMax);
 
-    block.TXs.Insert(0, CreateTXCoinbase(height, block.TXs.Sum(t => t.Fee), Accounts.LoadRentSweep(height)));
+    block.TXs.Insert(0, CreateTXCoinbase(wallet, height, block.TXs.Sum(t => t.Fee), Accounts.LoadRentSweep(height)));
 
     HeaderBToken header = new()
     {
@@ -326,9 +304,9 @@ internal partial class BlockchainBToken : Blockchain
     return block;
   }
 
-  TXBToken CreateTXCoinbase(int height, long fees, long rent)
+  TXBToken CreateTXCoinbase(Wallet wallet, int height, long fees, long rent)
   {
-    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, Wallet.GetHash160KeyReceiving(TXPool.CanReceive));
+    TXOutputP2PKH outputCoinbase = new(GetBlockReward(height) + fees + rent, wallet.GetHash160KeyReceiving(TXPool.CanReceive));
 
     TXBToken tXCoinbase = new()
     {
