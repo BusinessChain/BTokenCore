@@ -1,4 +1,7 @@
-﻿namespace BTokenCore;
+﻿using LiteDB;
+
+
+namespace BTokenCore;
 
 internal partial class BlockchainBToken : Blockchain
 {
@@ -24,6 +27,13 @@ internal partial class BlockchainBToken : Blockchain
     long FeeAnchor;
     long? Revenue;
 
+    const string ID_WITHDRAWAL_AUTO = "withdrawalAuto";
+
+    ILiteCollection<BsonDocument> SettingsStored;
+    byte[] IDAccountWithdrawalAuto;
+    long FeeWithdrawalAuto;
+    long? LevelWithdrawalAuto;
+
 
     internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent, Blockchain.Anchorer anchorer)
     {
@@ -34,6 +44,15 @@ internal partial class BlockchainBToken : Blockchain
       Wallet = new Wallet(blockchain.NameToken);
       Wallet.AddKeys(CreateKeysCoveringSegments());
       NonceBlockNext = (uint)Random.Shared.Next();
+
+      SettingsStored = blockchain.LiteDatabase.GetCollection<BsonDocument>("settingsMiner");
+
+      if (SettingsStored.FindById(ID_WITHDRAWAL_AUTO) is BsonDocument withdrawalAuto)
+      {
+        IDAccountWithdrawalAuto = withdrawalAuto["address"].AsString.Base58CheckToBinary();
+        FeeWithdrawalAuto = withdrawalAuto["fee"].AsInt64;
+        LevelWithdrawalAuto = withdrawalAuto["level"].AsInt64;
+      }
 
       blockchainParent.OnBlockInserted += HandleParentTip;
       blockchain.OnBlockInserted += block =>
@@ -74,7 +93,8 @@ internal partial class BlockchainBToken : Blockchain
         ["budget"] = Budget,
         ["feeAnchor"] = FeeAnchor,
         ["stateMiner"] = StateMiner,
-        ["revenue"] = Revenue
+        ["revenue"] = Revenue,
+        ["levelWithdrawalAuto"] = LevelWithdrawalAuto
       };
     }
 
@@ -120,6 +140,33 @@ internal partial class BlockchainBToken : Blockchain
     {
       TimerMining?.Dispose();
       TimerMining = null;
+    }
+
+    internal void SetWithdrawalAuto(byte[] iDAccountTarget, long fee, long level)
+    {
+      if (level <= 0)
+        throw new ProtocolException($"Level {level} must be above zero.", "level");
+
+      if (fee < 0)
+        throw new ProtocolException($"Fee {fee} must not be negative.", "fee");
+
+      IDAccountWithdrawalAuto = iDAccountTarget;
+      FeeWithdrawalAuto = fee;
+      LevelWithdrawalAuto = level;
+
+      SettingsStored.Upsert(new BsonDocument
+      {
+        ["_id"] = ID_WITHDRAWAL_AUTO,
+        ["address"] = iDAccountTarget.BinaryToBase58Check(),
+        ["fee"] = fee,
+        ["level"] = level
+      });
+    }
+
+    internal void StopWithdrawalAuto()
+    {
+      LevelWithdrawalAuto = null;
+      SettingsStored.Delete(ID_WITHDRAWAL_AUTO);
     }
 
     void HandleParentTip(Block blockParent)

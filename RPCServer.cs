@@ -82,6 +82,17 @@ public partial class Node
             await StopMining().ConfigureAwait(false);
             break;
 
+          case "setWithdrawalAutoMiner":
+            await SetWithdrawalAutoMiner(
+              ReadIDAccount(parameters, "address"),
+              ReadInt64(parameters, "fee"),
+              ReadInt64(parameters, "level")).ConfigureAwait(false);
+            break;
+
+          case "stopWithdrawalAutoMiner":
+            await StopWithdrawalAutoMiner().ConfigureAwait(false);
+            break;
+
           case "createTXBTokenUnsigned":
             result = await CreateTXBTokenUnsigned(
               ReadBytesHex(parameters, "keyPublic"),
@@ -260,6 +271,16 @@ public partial class Node
     async Task StopMining()
     {
       await Node.BlockchainBToken.RunLocked(Node.MinerBToken.StopMining);
+    }
+
+    async Task SetWithdrawalAutoMiner(byte[] iDAccount, long fee, long level)
+    {
+      await Node.BlockchainBToken.RunLocked(() => Node.MinerBToken.SetWithdrawalAuto(iDAccount, fee, level));
+    }
+
+    async Task StopWithdrawalAutoMiner()
+    {
+      await Node.BlockchainBToken.RunLocked(Node.MinerBToken.StopWithdrawalAuto);
     }
 
     async Task<Dictionary<string, object>> GetSnapshotState(int countBlocks)
