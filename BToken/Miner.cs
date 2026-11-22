@@ -7,7 +7,7 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
     Blockchain BlockchainParent;
     Network NetworkParent;
-    Blockchain.Anchorer AnchorerParent;
+    Anchorer AnchorerParent;
     internal Wallet Wallet;
 
     const int SECONDS_PERIOD_BUDGET = 600;
