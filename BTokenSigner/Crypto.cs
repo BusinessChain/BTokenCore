@@ -68,7 +68,7 @@ public static class Crypto
 
   public static string GenerateKeyPrivate()
   {
-    Org.BouncyCastle.Security.SecureRandom random = new();
+    SecureRandom random = new();
 
     while (true)
     {
