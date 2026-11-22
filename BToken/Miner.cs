@@ -16,7 +16,7 @@ internal partial class BlockchainBToken : Blockchain
     Timer TimerMining;
     long Budget;
     uint NonceBlockNext;
-    string StateRoundLast = "";
+    string StateMiner = "";
     string OutcomeAnchorsLast = "";
     int HeightTipParentRound = -1;
     byte[] HashTipRound;
@@ -73,7 +73,7 @@ internal partial class BlockchainBToken : Blockchain
         ["isMining"] = TimerMining != null,
         ["budget"] = Budget,
         ["feeAnchor"] = FeeAnchor,
-        ["stateRoundLast"] = StateRoundLast,
+        ["stateMiner"] = StateMiner,
         ["funds"] = AnchorerParent.GetFunds(),
         ["addressFunding"] = AnchorerParent.Wallet.AddressAccountReceiving,
         ["revenue"] = Revenue
@@ -167,7 +167,7 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (Exception exception)
       {
-        ReportRound($"Mining stopped after {exception.GetType().Name}: {exception.Message}");
+        ReportState($"Mining stopped after {exception.GetType().Name}: {exception.Message}");
         StopMining();
         return;
       }
@@ -178,9 +178,9 @@ internal partial class BlockchainBToken : Blockchain
       TimerMining?.Change((long)Math.Min(millisecondsDelay, uint.MaxValue - 1), Timeout.Infinite);
     }
 
-    void ReportRound(string state)
+    void ReportState(string state)
     {
-      StateRoundLast = state;
+      StateMiner = state;
       Console.WriteLine(state);
     }
 
@@ -193,7 +193,7 @@ internal partial class BlockchainBToken : Blockchain
 
       if (!BlockchainParent.IsBlockTipAtHeaderTip())
       {
-        ReportRound(prefixSkip + $"the {nameTokenParent} blocks are not at the {nameTokenParent} header tip.");
+        ReportState(prefixSkip + $"the {nameTokenParent} blocks are not at the {nameTokenParent} header tip.");
         return;
       }
 
@@ -202,13 +202,13 @@ internal partial class BlockchainBToken : Blockchain
 
       if (!Blockchain.Synchronizer.IsAccountsAtTip())
       {
-        ReportRound(prefixSkip + "the accounts are not at the tip.");
+        ReportState(prefixSkip + "the accounts are not at the tip.");
         return;
       }
 
       if ((Wallet.FindHash160Key(Blockchain.TXPool.IsAccountExistingNext) ?? Wallet.FindHash160Key(Blockchain.TXPool.CanReceive)) is not byte[] iDAccountCoinbase)
       {
-        ReportRound(prefixSkip + "no key of the Miner's Wallet can receive the coinbase.");
+        ReportState(prefixSkip + "no key of the Miner's Wallet can receive the coinbase.");
         return;
       }
 
@@ -220,7 +220,7 @@ internal partial class BlockchainBToken : Blockchain
       }
       catch (ProtocolException exception)
       {
-        ReportRound(prefixSkip + exception.Message);
+        ReportState(prefixSkip + exception.Message);
         return;
       }
 
@@ -241,7 +241,7 @@ internal partial class BlockchainBToken : Blockchain
 
       if (countAnchorsSent == 0)
       {
-        ReportRound(prefixSkip + $"too few funds for the anchor fee {FeeAnchor}.");
+        ReportState(prefixSkip + $"too few funds for the anchor fee {FeeAnchor}.");
         return;
       }
 
@@ -250,13 +250,13 @@ internal partial class BlockchainBToken : Blockchain
 
       if (isReanchor)
       {
-        ReportRound($"{countAnchorsSent} of {countAnchors} anchors of {nameTokenParent} round {heightParent} moved to the new tip at height {height}, anchor fee {FeeAnchor}.");
+        ReportState($"{countAnchorsSent} of {countAnchors} anchors of {nameTokenParent} round {heightParent} moved to the new tip at height {height}, anchor fee {FeeAnchor}.");
         return;
       }
 
       CountAnchorsRound += countAnchorsSent;
 
-      ReportRound(countAnchorsMissed > 0
+      ReportState(countAnchorsMissed > 0
         ? $"{countAnchorsSent} of {countAnchorsMissed} missed anchors replaced by anchors of {nameTokenParent} round {heightParent} for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}."
         : $"Anchor {CountAnchorsRound} of {nameTokenParent} round {heightParent} sent for height {height}, anchor fee {FeeAnchor}{OutcomeAnchorsLast}.");
 
