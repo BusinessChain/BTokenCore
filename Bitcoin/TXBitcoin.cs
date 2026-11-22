@@ -39,6 +39,19 @@ internal partial class BlockchainBitcoin : Blockchain
       Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
     }
 
+    internal override Dictionary<string, object> GetSnapshotState()
+    {
+      Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+      snapshotState["inputs"] = Inputs.Select(i => new Dictionary<string, object>
+      {
+        ["tXIDOutput"] = i.TXIDOutput.ToHexString(),
+        ["indexOutput"] = i.IndexOutput
+      }).ToList();
+
+      return snapshotState;
+    }
+
 
     internal void Serialize(Wallet wallet, List<byte[]> iDsAccountInput)
     {

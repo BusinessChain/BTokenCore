@@ -27,4 +27,14 @@ public class TXOutputP2PKH : TXOutput
 
     Array.Copy(buffer, indexScript + PREFIX_P2PKH.Length, IDAccount, 0, Crypto.LENGTH_HASH160);
   }
+
+  internal override Dictionary<string, object> GetSnapshotState()
+  {
+    Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+    snapshotState["value"] = Value;
+    snapshotState["address"] = IDAccount.BinaryToBase58Check();
+
+    return snapshotState;
+  }
 }

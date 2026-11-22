@@ -35,4 +35,15 @@ public class TXOutputTokenAnchor : TXOutput
   {
     Script = [.. PREFIX_ANCHOR_TOKEN, .. IDToken, .. HashBlockReferenced, .. HashBlockPreviousReferenced];
   }
+
+  internal override Dictionary<string, object> GetSnapshotState()
+  {
+    Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+    snapshotState["iDToken"] = IDToken.ToHexString();
+    snapshotState["hashBlockReferenced"] = HashBlockReferenced.ToHexString();
+    snapshotState["hashBlockPreviousReferenced"] = HashBlockPreviousReferenced.ToHexString();
+
+    return snapshotState;
+  }
 }

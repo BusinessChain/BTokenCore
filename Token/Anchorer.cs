@@ -42,7 +42,14 @@ internal abstract partial class Blockchain
       return new Dictionary<string, object>
       {
         ["funds"] = GetFunds(),
-        ["addressFunding"] = Wallet.AddressAccountReceiving
+        ["addressFunding"] = Wallet.AddressAccountReceiving,
+        ["anchors"] = LoadAnchorsUnconfirmed().Select(t =>
+        {
+          Dictionary<string, object> snapshotAnchor = t.GetSnapshotState();
+          snapshotAnchor["isMissed"] = IsAnchorMissed(t);
+
+          return snapshotAnchor;
+        }).ToList()
       };
     }
 

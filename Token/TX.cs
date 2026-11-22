@@ -65,4 +65,15 @@ public abstract class TX
   {
     return TXOutputs.OfType<TXOutputP2PKH>().Sum(t => t.Value);
   }
+
+  internal virtual Dictionary<string, object> GetSnapshotState()
+  {
+    return new Dictionary<string, object>
+    {
+      ["hash"] = Hash.ToHexString(),
+      ["fee"] = Fee,
+      ["lockTime"] = LockTime,
+      ["outputs"] = TXOutputs.Select(o => o.GetSnapshotState()).ToList()
+    };
+  }
 }
