@@ -52,7 +52,7 @@ internal partial class BlockchainBToken : Blockchain
       return a.SequenceNumberTX.CompareTo(b.SequenceNumberTX);
     }));
 
-    Dictionary<byte[], int> CountTXsPayingByID = new(new EqualityComparerByteArray());
+    Dictionary<byte[], long> ValuePendingByIDPaid = new(new EqualityComparerByteArray());
 
     HashSet<byte[]> IDsCreatedPending = new(new EqualityComparerByteArray());
 
@@ -124,6 +124,11 @@ internal partial class BlockchainBToken : Blockchain
       return Accounts.LoadAccountNext(iDAccount);
     }
 
+    internal long GetValueIncomingPending(byte[] iDAccount)
+    {
+      return ValuePendingByIDPaid.GetValueOrDefault(iDAccount);
+    }
+
     internal void ReturnTXs(Block block)
     {
       for (int i = block.TXs.Count - 1; i > 0; i--)
@@ -135,7 +140,7 @@ internal partial class BlockchainBToken : Blockchain
 
       ReverifyAccounts(TXsByIDAccountSource.Keys.ToList());
 
-      RetestCreations(CountTXsPayingByID.Keys.ToList());
+      RetestCreations(ValuePendingByIDPaid.Keys.ToList());
 
       EvictTXsOverCap();
     }
@@ -145,7 +150,7 @@ internal partial class BlockchainBToken : Blockchain
       TXsByHash.Clear();
       TXsByIDAccountSource.Clear();
       TXBundlesSortedByFee.Clear();
-      CountTXsPayingByID.Clear();
+      ValuePendingByIDPaid.Clear();
       IDsCreatedPending.Clear();
       CountsCreatedPending = new int[COUNT_SEGMENTS];
       CountsAccountNext = null;
@@ -154,11 +159,16 @@ internal partial class BlockchainBToken : Blockchain
       SequenceNumberTXLowest = 0;
     }
 
-    static IEnumerable<byte[]> GetIDsPaid(TXBToken tX)
+    static IEnumerable<TXOutputP2PKH> GetOutputsPaid(TXBToken tX)
     {
       return tX.TXOutputs
         .OfType<TXOutputP2PKH>()
-        .Where(o => o.Value > 0)
+        .Where(o => o.Value > 0);
+    }
+
+    static IEnumerable<byte[]> GetIDsPaid(TXBToken tX)
+    {
+      return GetOutputsPaid(tX)
         .Select(o => o.IDAccount)
         .Distinct(new EqualityComparerByteArray());
     }
@@ -170,7 +180,7 @@ internal partial class BlockchainBToken : Blockchain
 
     internal bool IsAccountExistingNext(byte[] iDAccount)
     {
-      return CountTXsPayingByID.ContainsKey(iDAccount) || Accounts.LoadAccountNext(iDAccount) != null;
+      return ValuePendingByIDPaid.ContainsKey(iDAccount) || Accounts.LoadAccountNext(iDAccount) != null;
     }
 
     bool IsSegmentOpen(int indexSegment, int countAccountsCreated)
@@ -194,7 +204,7 @@ internal partial class BlockchainBToken : Blockchain
 
     void RetestCreations(IEnumerable<byte[]> iDsAccount)
     {
-      foreach (byte[] iDAccount in iDsAccount.Where(CountTXsPayingByID.ContainsKey))
+      foreach (byte[] iDAccount in iDsAccount.Where(ValuePendingByIDPaid.ContainsKey))
         SetCreationPending(iDAccount, Accounts.LoadAccountNext(iDAccount) == null);
 
       if (IDsCreatedPending.Count == 0)
@@ -265,8 +275,8 @@ internal partial class BlockchainBToken : Blockchain
     {
       CountBytesTXs += tX.CountBytes;
 
-      foreach (byte[] iDPaid in GetIDsPaid(tX))
-        CountTXsPayingByID[iDPaid] = CountTXsPayingByID.GetValueOrDefault(iDPaid) + 1;
+      foreach (TXOutputP2PKH tXOutput in GetOutputsPaid(tX))
+        ValuePendingByIDPaid[tXOutput.IDAccount] = ValuePendingByIDPaid.GetValueOrDefault(tXOutput.IDAccount) + tXOutput.Value;
 
       if (!isFromBlockRolledBack)
       {
@@ -313,7 +323,7 @@ internal partial class BlockchainBToken : Blockchain
 
       RetestCreations(IDsCreatedPending
         .Concat(iDsAccountReverified)
-        .Concat(CountTXsPayingByID.Keys.Where(isInSweepNext))
+        .Concat(ValuePendingByIDPaid.Keys.Where(isInSweepNext))
         .ToList());
     }
 
@@ -372,11 +382,11 @@ internal partial class BlockchainBToken : Blockchain
 
       CountBytesTXs -= tX.CountBytes;
 
-      foreach (byte[] iDPaid in GetIDsPaid(tX))
-        if (--CountTXsPayingByID[iDPaid] == 0)
+      foreach (TXOutputP2PKH tXOutput in GetOutputsPaid(tX))
+        if ((ValuePendingByIDPaid[tXOutput.IDAccount] -= tXOutput.Value) == 0)
         {
-          CountTXsPayingByID.Remove(iDPaid);
-          SetCreationPending(iDPaid, isCreationPending: false);
+          ValuePendingByIDPaid.Remove(tXOutput.IDAccount);
+          SetCreationPending(tXOutput.IDAccount, isCreationPending: false);
         }
     }
 

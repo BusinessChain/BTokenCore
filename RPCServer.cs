@@ -416,9 +416,19 @@ public partial class Node
       };
     }
 
-    async Task<long?> GetBalanceAccount(byte[] iDAccount)
+    async Task<Dictionary<string, object>> GetBalanceAccount(byte[] iDAccount)
     {
-      return await Node.BlockchainBToken.RunLocked(() => Node.BlockchainBToken.GetBalanceAccount(iDAccount));
+      return await Node.BlockchainBToken.RunLocked(() =>
+      {
+        if (Node.BlockchainBToken.GetBalanceAccount(iDAccount) is not long balance)
+          return null;
+
+        return new Dictionary<string, object>
+        {
+          ["balance"] = balance,
+          ["valueIncomingPending"] = Node.BlockchainBToken.GetValueIncomingPending(iDAccount)
+        };
+      });
     }
 
     async Task SubmitTXBTokenSigned(byte[] tXUnsigned, byte[] signature)

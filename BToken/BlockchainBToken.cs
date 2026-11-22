@@ -129,6 +129,11 @@ internal partial class BlockchainBToken : Blockchain
     return TXPool.LoadAccountPending(iDAccount)?.Balance ?? 0;
   }
 
+  internal long GetValueIncomingPending(byte[] iDAccount)
+  {
+    return TXPool.GetValueIncomingPending(iDAccount);
+  }
+
   protected override void InsertBlock(Block block)
   {
     BlocksStoredAwaitingAnchor.Delete(block.Header.Hash);
