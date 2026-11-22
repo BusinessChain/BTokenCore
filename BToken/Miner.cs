@@ -29,6 +29,7 @@ internal partial class BlockchainBToken : Blockchain
     long? Revenue;
 
     const string ID_WITHDRAWAL_AUTO = "withdrawalAuto";
+    const string ID_BUDGET = "budget";
 
     ILiteCollection<BsonDocument> SettingsStored;
     byte[] IDAccountWithdrawalAuto;
@@ -55,6 +56,9 @@ internal partial class BlockchainBToken : Blockchain
         FeeWithdrawalAuto = withdrawalAuto["fee"].AsInt64;
         LevelWithdrawalAuto = withdrawalAuto["level"].AsInt64;
       }
+
+      if (SettingsStored.FindById(ID_BUDGET) is BsonDocument budget)
+        Budget = budget["budget"].AsInt64;
 
       blockchainParent.OnBlockInserted += HandleParentTip;
       blockchain.OnBlockInserted += block =>
@@ -130,6 +134,13 @@ internal partial class BlockchainBToken : Blockchain
         throw new ProtocolException($"Budget {budget} must be above zero.", "budget");
 
       Budget = budget;
+
+      SettingsStored.Upsert(new BsonDocument
+      {
+        ["_id"] = ID_BUDGET,
+        ["budget"] = budget
+      });
+
       FeeAnchor = AnchorerParent.GetFeeAnchorMin();
 
       if (TimerMining != null)
