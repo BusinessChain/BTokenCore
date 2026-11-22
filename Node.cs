@@ -32,7 +32,7 @@ public partial class Node
       seedAddresses: ["83.229.86.158"]);
 
     AnchorerBitcoin = new(BlockchainBitcoin, NetworkBitcoin, liteDatabaseBitcoin);
-    MinerBToken = new(BlockchainBToken, BlockchainBitcoin, NetworkBitcoin, AnchorerBitcoin);
+    MinerBToken = new(BlockchainBToken, NetworkBToken, BlockchainBitcoin, NetworkBitcoin, AnchorerBitcoin);
   }
 
   static LiteDatabase OpenDatabase(string nameToken)

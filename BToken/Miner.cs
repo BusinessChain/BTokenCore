@@ -10,6 +10,7 @@ internal partial class BlockchainBToken : Blockchain
     BlockchainBToken Blockchain;
     Blockchain BlockchainParent;
     Network NetworkParent;
+    NetworkBToken NetworkBToken;
     Anchorer AnchorerParent;
     internal Wallet Wallet;
 
@@ -35,9 +36,10 @@ internal partial class BlockchainBToken : Blockchain
     long? LevelWithdrawalAuto;
 
 
-    internal Miner(BlockchainBToken blockchain, Blockchain blockchainParent, Network networkParent, Blockchain.Anchorer anchorer)
+    internal Miner(BlockchainBToken blockchain, NetworkBToken networkBToken, Blockchain blockchainParent, Network networkParent, Blockchain.Anchorer anchorer)
     {
       Blockchain = blockchain;
+      NetworkBToken = networkBToken;
       BlockchainParent = blockchainParent;
       NetworkParent = networkParent;
       AnchorerParent = anchorer;
@@ -58,6 +60,7 @@ internal partial class BlockchainBToken : Blockchain
       blockchain.OnBlockInserted += block =>
       {
         Revenue = null;
+        TryWithdrawAuto();
         ScheduleReanchor(block.Header.Hash);
       };
       blockchain.OnBlockRolledBack += block =>
@@ -83,17 +86,20 @@ internal partial class BlockchainBToken : Blockchain
       return keysNew;
     }
 
+    long? GetRevenue()
+    {
+      return Revenue ??= Wallet.GetHash160sKey().Aggregate((long?)0, (sum, hash160) => sum + Blockchain.GetBalanceAccount(hash160));
+    }
+
     internal Dictionary<string, object> GetSnapshotState()
     {
-      Revenue ??= Wallet.GetHash160sKey().Aggregate((long?)0, (sum, hash160) => sum + Blockchain.GetBalanceAccount(hash160));
-
       return new Dictionary<string, object>
       {
         ["isMining"] = TimerMining != null,
         ["budget"] = Budget,
         ["feeAnchor"] = FeeAnchor,
         ["stateMiner"] = StateMiner,
-        ["revenue"] = Revenue,
+        ["revenue"] = GetRevenue(),
         ["levelWithdrawalAuto"] = LevelWithdrawalAuto
       };
     }
@@ -167,6 +173,25 @@ internal partial class BlockchainBToken : Blockchain
     {
       LevelWithdrawalAuto = null;
       SettingsStored.Delete(ID_WITHDRAWAL_AUTO);
+    }
+
+    void TryWithdrawAuto()
+    {
+      if (LevelWithdrawalAuto is not long level || GetRevenue() is not long revenue || revenue < level)
+        return;
+
+      try
+      {
+        List<TXBToken> tXs = CreateTXsRevenue(IDAccountWithdrawalAuto, FeeWithdrawalAuto);
+
+        tXs.ForEach(t => NetworkBToken.SendTX(t.TXRaw));
+
+        ReportState($"Withdrew {tXs.Count} payments of {tXs.Sum(t => t.TXOutputs.OfType<TXOutputP2PKH>().Sum(o => o.Value))} in total automatically.");
+      }
+      catch (Exception exception)
+      {
+        ReportState($"Automatic withdrawal failed with {exception.GetType().Name}: {exception.Message}");
+      }
     }
 
     void HandleParentTip(Block blockParent)
