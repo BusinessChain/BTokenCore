@@ -273,12 +273,15 @@ public partial class Node
         },
         ["blockchains"] = await Node.BlockchainBToken.RunLocked(() =>
         {
+          Dictionary<string, object> snapshotBitcoin = Node.BlockchainBitcoin.GetSnapshotState(countBlocks);
+          snapshotBitcoin["anchorer"] = Node.AnchorerBitcoin.GetSnapshotState();
+
           Dictionary<string, object> snapshotBToken = Node.BlockchainBToken.GetSnapshotState(countBlocks);
           snapshotBToken["miner"] = Node.MinerBToken.GetSnapshotState();
 
           return new Dictionary<string, object>
           {
-            ["Bitcoin"] = Node.BlockchainBitcoin.GetSnapshotState(countBlocks),
+            ["Bitcoin"] = snapshotBitcoin,
             ["BToken"] = snapshotBToken
           };
         })

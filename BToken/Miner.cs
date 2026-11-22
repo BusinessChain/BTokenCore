@@ -74,8 +74,6 @@ internal partial class BlockchainBToken : Blockchain
         ["budget"] = Budget,
         ["feeAnchor"] = FeeAnchor,
         ["stateMiner"] = StateMiner,
-        ["funds"] = AnchorerParent.GetFunds(),
-        ["addressFunding"] = AnchorerParent.Wallet.AddressAccountReceiving,
         ["revenue"] = Revenue
       };
     }

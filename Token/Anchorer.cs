@@ -37,6 +37,15 @@ internal abstract partial class Blockchain
 
     internal abstract long GetFunds();
 
+    internal Dictionary<string, object> GetSnapshotState()
+    {
+      return new Dictionary<string, object>
+      {
+        ["funds"] = GetFunds(),
+        ["addressFunding"] = Wallet.AddressAccountReceiving
+      };
+    }
+
     internal abstract long GetFeeAnchorMin();
 
     internal abstract long GetStepFeeRaise();
