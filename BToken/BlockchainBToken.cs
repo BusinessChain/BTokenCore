@@ -366,15 +366,7 @@ internal partial class BlockchainBToken : Blockchain
 
     snapshotState["blocksAwaitingAnchor"] = BlocksStoredAwaitingAnchor.FindAll()
       .OrderBy(documentBlock => documentBlock[NAME_FIELD_HEIGHT].AsInt32)
-      .Select(documentBlock =>
-      {
-        Dictionary<string, object> snapshotBlock = ParseHeaderAwaitingAnchor(documentBlock).GetSnapshotState();
-
-        if (documentBlock.TryGetValue(NAME_FIELD_LOCK_TIME_ANCHOR, out BsonValue lockTimeAnchor))
-          snapshotBlock[NAME_FIELD_LOCK_TIME_ANCHOR] = lockTimeAnchor.AsInt32;
-
-        return snapshotBlock;
-      })
+      .Select(documentBlock => ParseHeaderAwaitingAnchor(documentBlock).GetSnapshotState())
       .ToList();
 
     return snapshotState;
