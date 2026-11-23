@@ -63,7 +63,7 @@ internal abstract partial class Blockchain
 
     internal abstract long GetStepFeeDecrease();
 
-    protected abstract bool IsAnchorConfirmed(TX anchor, int height);
+    protected abstract bool IsAnchorConflicting(TX anchor, int height);
 
     protected abstract bool IsAnchorMissed(TX anchor);
 
@@ -77,14 +77,26 @@ internal abstract partial class Blockchain
 
       InsertBlockParentFunds(block);
 
+      HashSet<byte[]> hashesTX = new(block.TXs.Select(t => t.Hash), new EqualityComparerByteArray());
+
       foreach (BsonDocument documentAnchor in AnchorsStored.Find(Query.EQ(NAME_FIELD_HEIGHT_CONFIRMED, 0)).ToList())
-        if (IsAnchorConfirmed(ParseAnchor(documentAnchor), height))
+      {
+        TX anchor = ParseAnchor(documentAnchor);
+
+        if (hashesTX.Contains(anchor.Hash))
         {
           documentAnchor[NAME_FIELD_HEIGHT_CONFIRMED] = height;
           AnchorsStored.Update(documentAnchor);
 
           Console.WriteLine($"Anchor TX {documentAnchor[NAME_FIELD_ID].AsBinary.ToHexString()} confirmed at {Blockchain.NameToken} height {height}.");
         }
+        else if (IsAnchorConflicting(anchor, height))
+        {
+          AnchorsStored.Delete(documentAnchor[NAME_FIELD_ID]);
+
+          Console.WriteLine($"Anchor TX {documentAnchor[NAME_FIELD_ID].AsBinary.ToHexString()} evicted by a conflicting TX at {Blockchain.NameToken} height {height}.");
+        }
+      }
 
       AnchorsStored.DeleteMany(Query.Between(NAME_FIELD_HEIGHT_CONFIRMED, 1, height - BITCOIN_REORG_MARGIN));
     }

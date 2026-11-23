@@ -67,7 +67,7 @@ internal partial class BlockchainBitcoin
       OutputsOwnedStored.DeleteMany(Query.Between(nameof(TXOutputOwned.HeightSpent), 1, height - BITCOIN_REORG_MARGIN));
     }
 
-    protected override bool IsAnchorConfirmed(TX anchor, int height)
+    protected override bool IsAnchorConflicting(TX anchor, int height)
     {
       return ((TXBitcoin)anchor).Inputs.Any(i =>
         OutputsOwnedStored.FindById(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput)) is TXOutputOwned output
