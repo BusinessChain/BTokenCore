@@ -29,6 +29,7 @@ internal partial class BlockchainBitcoin
 
     ILiteCollection<TXOutputOwned> OutputsOwnedStored;
     HashSet<byte[]> IDsOutputWithdrawn = new(new EqualityComparerByteArray());
+    int HeightSpentDeleted;
 
 
     internal AnchorerBitcoin(BlockchainBitcoin blockchain, NetworkBitcoin network, LiteDatabase liteDatabase)
@@ -71,12 +72,26 @@ internal partial class BlockchainBitcoin
 
         if (isTXWallet)
         {
-          tX.TXRaw = block.Buffer[tX.IndexBuffer..(tX.IndexBuffer + tX.CountBytes)];
+          tX.TXRaw ??= block.Buffer[tX.IndexBuffer..(tX.IndexBuffer + tX.CountBytes)];
           block.TXsWallet.Add(tX);
         }
       }
 
       OutputsOwnedStored.DeleteMany(Query.Between(nameof(TXOutputOwned.HeightSpent), 1, height - BITCOIN_REORG_MARGIN));
+      HeightSpentDeleted = Math.Max(HeightSpentDeleted, height - BITCOIN_REORG_MARGIN);
+    }
+
+    internal void RebuildFunds(int heightMax)
+    {
+      OutputsOwnedStored.DeleteAll();
+      HeightSpentDeleted = 0;
+
+      foreach (Block blockCompact in Blockchain.LoadBlocksCompactMainChain().TakeWhile(b => b.Header.Height <= heightMax))
+        InsertBlockParentFunds(new Block(0)
+        {
+          Header = blockCompact.Header,
+          TXs = blockCompact.TXsWallet
+        });
     }
 
     protected override bool IsAnchorConflicting(TX anchor, int height)
@@ -97,6 +112,12 @@ internal partial class BlockchainBitcoin
       foreach (TXBitcoin anchor in LoadAnchorsUnconfirmed().Cast<TXBitcoin>())
         if (anchor.Inputs.Any(i => iDsOutputCreated.Contains(TXOutputOwned.CreateID(i.TXIDOutput, i.IndexOutput))))
           AnchorsStored.Delete(anchor.Hash);
+
+      if (height <= HeightSpentDeleted)
+      {
+        RebuildFunds(height - 1);
+        return;
+      }
 
       OutputsOwnedStored.DeleteMany(Query.EQ(nameof(TXOutputOwned.HeightCreated), height));
 

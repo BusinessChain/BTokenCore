@@ -112,7 +112,12 @@ internal abstract partial class Blockchain
     int countTXs = VarInt.GetInt(bytesTXsWallet, ref index);
 
     for (int i = 0; i < countTXs; i++)
-      block.TXsWallet.Add(Parser.ParseTX(bytesTXsWallet, ref index, isCoinbase: false, verifySignatures: false));
+    {
+      TX tX = Parser.ParseTX(bytesTXsWallet, ref index, isCoinbase: false, verifySignatures: false);
+      tX.TXRaw = bytesTXsWallet[tX.IndexBuffer..index];
+
+      block.TXsWallet.Add(tX);
+    }
   }
 
   protected BsonDocument CreateDocumentBlockCompact(Header header, IEnumerable<TXOutputTokenAnchor> anchors, List<TX> tXsWallet)
@@ -196,6 +201,12 @@ internal abstract partial class Blockchain
 
   protected void AnnounceBlocksLoaded()
   {
+    foreach (Block block in LoadBlocksCompactMainChain())
+      OnBlockInserted.Announce(block);
+  }
+
+  internal IEnumerable<Block> LoadBlocksCompactMainChain()
+  {
     List<Header> headersMainChain = new();
 
     for (Header header = ChainRoot.HeaderTipBlockchain; header != ChainRoot.HeaderRoot.HeaderPrevious; header = header.HeaderPrevious)
@@ -222,7 +233,7 @@ internal abstract partial class Blockchain
         continue;
       }
 
-      OnBlockInserted.Announce(block);
+      yield return block;
     }
   }
 
