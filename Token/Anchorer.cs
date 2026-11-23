@@ -51,10 +51,20 @@ internal abstract partial class Blockchain
           Dictionary<string, object> snapshotAnchor = anchor.GetSnapshotState();
           snapshotAnchor["heightConfirmed"] = heightConfirmed;
           snapshotAnchor["isMissed"] = heightConfirmed == 0 && IsAnchorMissed(anchor);
+          snapshotAnchor["isWinner"] = heightConfirmed > 0 && IsAnchorWinner(anchor, heightConfirmed);
 
           return snapshotAnchor;
         }).ToList()
       };
+    }
+
+    bool IsAnchorWinner(TX anchor, int heightConfirmed)
+    {
+      TXOutputTokenAnchor tokenAnchor = anchor.TXOutputs.OfType<TXOutputTokenAnchor>().Single();
+      Header header = Blockchain.ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(heightConfirmed);
+
+      return header.AnchorsWinner.TryGetValue(tokenAnchor.IDToken, out TXOutputTokenAnchor tokenAnchorWinner)
+        && tokenAnchorWinner.HashBlockReferenced.IsAllBytesEqual(tokenAnchor.HashBlockReferenced);
     }
 
     internal abstract long GetFeeAnchorMin();
