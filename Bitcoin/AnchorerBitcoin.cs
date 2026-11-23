@@ -43,16 +43,20 @@ internal partial class BlockchainBitcoin
 
       foreach (TXBitcoin tX in block.TXs)
       {
+        bool isTXWallet = false;
+
         foreach (TXInputBitcoin tXInput in tX.Inputs)
           if (OutputsOwnedStored.FindById(TXOutputOwned.CreateID(tXInput.TXIDOutput, tXInput.IndexOutput)) is TXOutputOwned outputSpent)
           {
             outputSpent.HeightSpent = height;
             OutputsOwnedStored.Update(outputSpent);
             IDsOutputWithdrawn.Remove(outputSpent.ID);
+            isTXWallet = true;
           }
 
         for (int i = 0; i < tX.TXOutputs.Count; i++)
           if (tX.TXOutputs[i] is TXOutputP2PKH tXOutput && Wallet.IsKeyOwned(tXOutput.IDAccount))
+          {
             OutputsOwnedStored.Insert(new TXOutputOwned
             {
               ID = TXOutputOwned.CreateID(tX.Hash, i),
@@ -62,6 +66,14 @@ internal partial class BlockchainBitcoin
               Value = tXOutput.Value,
               HeightCreated = height
             });
+            isTXWallet = true;
+          }
+
+        if (isTXWallet)
+        {
+          tX.TXRaw = block.Buffer[tX.IndexBuffer..(tX.IndexBuffer + tX.CountBytes)];
+          block.TXsWallet.Add(tX);
+        }
       }
 
       OutputsOwnedStored.DeleteMany(Query.Between(nameof(TXOutputOwned.HeightSpent), 1, height - BITCOIN_REORG_MARGIN));

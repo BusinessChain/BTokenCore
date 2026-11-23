@@ -4,6 +4,7 @@ public class Block
 {
   internal Header Header;
   internal List<TX> TXs = new();
+  internal List<TX> TXsWallet = new();
 
   internal byte[] Buffer;
   internal int LengthDataPayload;

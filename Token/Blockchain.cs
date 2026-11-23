@@ -7,6 +7,7 @@ internal abstract partial class Blockchain
 {
   internal const string NAME_FIELD_ID = "_id";
   protected const string NAME_FIELD_BLOCK_BYTES = "blockBytes";
+  const string NAME_FIELD_TXS_WALLET = "tXsWallet";
   const int SECONDS_DELAY_REQUEST_HEDGED = 5;
   internal const int BITCOIN_REORG_MARGIN = 6;
 
@@ -94,23 +95,38 @@ internal abstract partial class Blockchain
 
   protected virtual void ParseBlockStored(Block block, BsonDocument documentBlock)
   {
-    ParseBlockCompact(block);
+    ParseBlockCompact(block, documentBlock);
   }
 
-  void ParseBlockCompact(Block block)
+  void ParseBlockCompact(Block block, BsonDocument documentBlock)
   {
     int startIndex = Parser.ParseBlockHeader(block);
 
     ParserToken.DrawAnchorsWinner(block.Header, ParserToken.ParseAnchors(block.Buffer, ref startIndex), CountLevelsBelowRoot);
+
+    if (!documentBlock.TryGetValue(NAME_FIELD_TXS_WALLET, out BsonValue tXsWallet))
+      return;
+
+    byte[] bytesTXsWallet = tXsWallet.AsBinary;
+    int index = 0;
+    int countTXs = VarInt.GetInt(bytesTXsWallet, ref index);
+
+    for (int i = 0; i < countTXs; i++)
+      block.TXsWallet.Add(Parser.ParseTX(bytesTXsWallet, ref index, isCoinbase: false, verifySignatures: false));
   }
 
-  protected BsonDocument CreateDocumentBlockCompact(Header header, IEnumerable<TXOutputTokenAnchor> anchors)
+  protected BsonDocument CreateDocumentBlockCompact(Header header, IEnumerable<TXOutputTokenAnchor> anchors, List<TX> tXsWallet)
   {
-    return new BsonDocument
+    BsonDocument documentBlock = new()
     {
       [NAME_FIELD_ID] = header.Height,
       [NAME_FIELD_BLOCK_BYTES] = (byte[])[.. header.Serialize(), .. ParserToken.SerializeAnchors(anchors)]
     };
+
+    if (tXsWallet.Count > 0)
+      documentBlock[NAME_FIELD_TXS_WALLET] = (byte[])[.. VarInt.GetBytes(tXsWallet.Count), .. tXsWallet.SelectMany(t => t.TXRaw)];
+
+    return documentBlock;
   }
 
   protected virtual ILiteCollection<BsonDocument> GetBlocksLoaded()
@@ -199,7 +215,7 @@ internal abstract partial class Blockchain
 
       try
       {
-        ParseBlockCompact(block);
+        ParseBlockCompact(block, documentBlock);
       }
       catch (ProtocolException)
       {
@@ -280,7 +296,7 @@ internal abstract partial class Blockchain
 
           ChainRoot.HeaderTipBlockchain = block.Header;
 
-          BlocksCompact.Upsert(CreateDocumentBlockCompact(block.Header, anchors));
+          BlocksCompact.Upsert(CreateDocumentBlockCompact(block.Header, anchors, block.TXsWallet));
         });
       }
       catch (ProtocolException ex)
@@ -299,7 +315,7 @@ internal abstract partial class Blockchain
   {
     LiteDatabase.RunTransaction(() =>
     {
-      BlocksCompact.Upsert(CreateDocumentBlockCompact(header, anchors));
+      BlocksCompact.Upsert(CreateDocumentBlockCompact(header, anchors, []));
       ChainRoot.HeaderTipBlockchain = header;
     });
 

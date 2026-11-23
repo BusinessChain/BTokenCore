@@ -36,6 +36,9 @@ internal partial class BlockchainBitcoin : Blockchain
 
       LockTime = buffer.Read<int>(ref index);
 
+      IndexBuffer = indexTxStart;
+      CountBytes = index - indexTxStart;
+
       Hash = Crypto.ComputeHash256(buffer.AsSpan(indexTxStart, index - indexTxStart));
     }
 

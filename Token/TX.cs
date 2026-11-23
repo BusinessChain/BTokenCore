@@ -6,6 +6,8 @@ public abstract class TX
 
   internal int CountBytes;
 
+  internal int IndexBuffer;
+
   internal long Fee;
 
   internal int LockTime;
