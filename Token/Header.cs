@@ -79,7 +79,7 @@ public abstract class Header
 
   internal virtual Dictionary<string, object> GetSnapshotState()
   {
-    return new Dictionary<string, object>
+    Dictionary<string, object> snapshotState = new()
     {
       ["hash"] = Hash.ToHexString(),
       ["version"] = Version,
@@ -89,6 +89,11 @@ public abstract class Header
       ["height"] = Height,
       ["anchorsWinner"] = AnchorsWinner.Values.Select(a => a.GetSnapshotState()).ToList()
     };
+
+    if (HeaderParent != null)
+      snapshotState["heightParent"] = HeaderParent.Height;
+
+    return snapshotState;
   }
 
   internal virtual void CopyTo(Header header) { }
