@@ -43,10 +43,14 @@ internal abstract partial class Blockchain
       {
         ["funds"] = GetFunds(),
         ["addressFunding"] = Wallet.AddressAccountReceiving,
-        ["anchors"] = LoadAnchorsUnconfirmed().Select(t =>
+        ["anchors"] = AnchorsStored.FindAll().Select(documentAnchor =>
         {
-          Dictionary<string, object> snapshotAnchor = t.GetSnapshotState();
-          snapshotAnchor["isMissed"] = IsAnchorMissed(t);
+          TX anchor = ParseAnchor(documentAnchor);
+          int heightConfirmed = documentAnchor[NAME_FIELD_HEIGHT_CONFIRMED].AsInt32;
+
+          Dictionary<string, object> snapshotAnchor = anchor.GetSnapshotState();
+          snapshotAnchor["heightConfirmed"] = heightConfirmed;
+          snapshotAnchor["isMissed"] = heightConfirmed == 0 && IsAnchorMissed(anchor);
 
           return snapshotAnchor;
         }).ToList()
