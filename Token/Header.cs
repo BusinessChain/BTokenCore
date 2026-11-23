@@ -86,7 +86,8 @@ public abstract class Header
       ["hashPrevious"] = HashPrevious.ToHexString(),
       ["merkleRoot"] = MerkleRoot.ToHexString(),
       ["nonce"] = Nonce,
-      ["height"] = Height
+      ["height"] = Height,
+      ["anchorsWinner"] = AnchorsWinner.Values.Select(a => a.GetSnapshotState()).ToList()
     };
   }
 
