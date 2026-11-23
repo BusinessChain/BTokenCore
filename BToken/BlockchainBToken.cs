@@ -360,6 +360,30 @@ internal partial class BlockchainBToken : Blockchain
     BlocksStoredAwaitingAnchor.Upsert(documentBlock);
   }
    
+  internal override Dictionary<string, object> GetSnapshotState(int countBlocks)
+  {
+    Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
+
+    snapshotState["blocksAwaitingAnchor"] = BlocksStoredAwaitingAnchor.FindAll()
+      .OrderBy(documentBlock => documentBlock[NAME_FIELD_HEIGHT].AsInt32)
+      .Select(documentBlock =>
+      {
+        int index = 0;
+        Header header = Parser.ParseHeader(documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index);
+        header.Height = documentBlock[NAME_FIELD_HEIGHT].AsInt32;
+
+        Dictionary<string, object> snapshotBlock = header.GetSnapshotState();
+
+        if (documentBlock.TryGetValue(NAME_FIELD_LOCK_TIME_ANCHOR, out BsonValue lockTimeAnchor))
+          snapshotBlock[NAME_FIELD_LOCK_TIME_ANCHOR] = lockTimeAnchor.AsInt32;
+
+        return snapshotBlock;
+      })
+      .ToList();
+
+    return snapshotState;
+  }
+
   void InsertBlockAwaitingAnchor(Header headerParent, BsonDocument bsonDocumentBlock)
   {
     if (!ChainRoot.TryGetHeaderPlaceholder(headerParent, out Header headerPlaceholder, out Chain chain))

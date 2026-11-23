@@ -45,7 +45,8 @@ internal partial class BlockchainBToken : Blockchain
 
       snapshotState["hashAccounts"] = HashAccounts.ToHexString();
       snapshotState["hashAnchors"] = HashAnchors.ToHexString();
-      snapshotState["heightParent"] = HeaderParent.Height;
+      if (HeaderParent != null)
+        snapshotState["heightParent"] = HeaderParent.Height;
 
       return snapshotState;
     }
