@@ -368,11 +368,7 @@ internal partial class BlockchainBToken : Blockchain
       .OrderBy(documentBlock => documentBlock[NAME_FIELD_HEIGHT].AsInt32)
       .Select(documentBlock =>
       {
-        int index = 0;
-        Header header = Parser.ParseHeader(documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index);
-        header.Height = documentBlock[NAME_FIELD_HEIGHT].AsInt32;
-
-        Dictionary<string, object> snapshotBlock = header.GetSnapshotState();
+        Dictionary<string, object> snapshotBlock = ParseHeaderAwaitingAnchor(documentBlock).GetSnapshotState();
 
         if (documentBlock.TryGetValue(NAME_FIELD_LOCK_TIME_ANCHOR, out BsonValue lockTimeAnchor))
           snapshotBlock[NAME_FIELD_LOCK_TIME_ANCHOR] = lockTimeAnchor.AsInt32;
@@ -382,6 +378,26 @@ internal partial class BlockchainBToken : Blockchain
       .ToList();
 
     return snapshotState;
+  }
+
+  internal override Block GetBlockStoredParsed(byte[] hash)
+  {
+    if (BlocksStoredAwaitingAnchor.FindById(hash) is not BsonDocument documentBlock)
+      return base.GetBlockStoredParsed(hash);
+
+    if (!TryParseBlockStored(ParseHeaderAwaitingAnchor(documentBlock), documentBlock, out Block block))
+      return null;
+
+    return block;
+  }
+
+  Header ParseHeaderAwaitingAnchor(BsonDocument documentBlock)
+  {
+    int index = 0;
+    Header header = Parser.ParseHeader(documentBlock[NAME_FIELD_BLOCK_BYTES].AsBinary, ref index);
+    header.Height = documentBlock[NAME_FIELD_HEIGHT].AsInt32;
+
+    return header;
   }
 
   void InsertBlockAwaitingAnchor(Header headerParent, BsonDocument bsonDocumentBlock)

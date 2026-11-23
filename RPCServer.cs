@@ -148,6 +148,12 @@ public partial class Node
             result = await GetSnapshotState(ReadInt32(parameters, "countBlocks")).ConfigureAwait(false);
             break;
 
+          case "getTXsBlock":
+            result = await GetTXsBlock(
+              ReadString(parameters, "blockchain"),
+              ReadString(parameters, "hash")).ConfigureAwait(false);
+            break;
+
           default:
             throw new ProtocolException($"Method {method} not found.");
         }
@@ -307,6 +313,32 @@ public partial class Node
           };
         })
       };
+    }
+
+    async Task<List<Dictionary<string, object>>> GetTXsBlock(string nameBlockchain, string hash)
+    {
+      Blockchain blockchain = nameBlockchain switch
+      {
+        "Bitcoin" => Node.BlockchainBitcoin,
+        "BToken" => Node.BlockchainBToken,
+        _ => throw new ProtocolException($"The blockchain {nameBlockchain} does not exist.", "blockchain")
+      };
+
+      byte[] hashBlock;
+
+      try
+      {
+        hashBlock = hash.ToBinary();
+      }
+      catch (FormatException)
+      {
+        throw new ProtocolException("The parameter hash is not hexadecimal.", "hash");
+      }
+
+      return await Node.BlockchainBToken.RunLocked(() =>
+        blockchain.GetBlockStoredParsed(hashBlock) is Block block
+          ? block.TXs.Concat(block.TXsWallet).Select(t => t.GetSnapshotState()).ToList()
+          : null);
     }
 
     async Task<Dictionary<string, object>> CreateTXBTokenUnsigned(byte[] keyPublic, long fee, List<(byte[] iDAccount, long value)> outputs)

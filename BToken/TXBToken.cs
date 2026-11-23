@@ -37,6 +37,16 @@ internal partial class BlockchainBToken : Blockchain
     internal TXBToken()
     { }
 
+    internal override Dictionary<string, object> GetSnapshotState()
+    {
+      Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+      if (KeyPublic.Any(b => b != 0))
+        snapshotState["addressSource"] = IDAccountSource.BinaryToBase58Check();
+
+      return snapshotState;
+    }
+
     internal TXBToken(byte[] buffer, ref int index, bool isCoinbase, bool verifySignatures, byte[] iDToken)
     {
       int indexTxStart = index;

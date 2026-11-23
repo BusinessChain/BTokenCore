@@ -172,6 +172,17 @@ internal abstract partial class Blockchain
     return null;
   }
 
+  internal virtual Block GetBlockStoredParsed(byte[] hash)
+  {
+    if (!ChainRoot.TryGetHeader(hash, out Header header)
+      || ChainRoot.HeaderTipBlockchain.GetHeaderAncestor(header.Height) != header
+      || GetBlocksLoaded().FindById(header.Height) is not BsonDocument documentBlock
+      || !TryParseBlockStored(header, documentBlock, out Block block))
+      return null;
+
+    return block;
+  }
+
   internal virtual void Load()
   {
     LoadTree();
