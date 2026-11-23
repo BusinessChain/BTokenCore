@@ -86,8 +86,7 @@ public abstract class Header
       ["hashPrevious"] = HashPrevious.ToHexString(),
       ["merkleRoot"] = MerkleRoot.ToHexString(),
       ["nonce"] = Nonce,
-      ["height"] = Height,
-      ["workAccumulated"] = WorkAccumulated.ToString()
+      ["height"] = Height
     };
   }
 
