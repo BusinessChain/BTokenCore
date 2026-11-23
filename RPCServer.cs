@@ -434,6 +434,7 @@ public partial class Node
       return new Dictionary<string, object>
       {
         ["hashBlock"] = Convert.ToHexString(block.Header.Hash),
+        ["hashPrevious"] = Convert.ToHexString(block.Header.HashPrevious),
         ["tXs"] = block.TXs.Cast<BlockchainBToken.TXBToken>().Select(t => new Dictionary<string, object>
         {
           ["hash"] = Convert.ToHexString(t.Hash),
