@@ -36,6 +36,9 @@ internal partial class BlockchainBitcoin
       : base(blockchain, network, liteDatabase)
     {
       OutputsOwnedStored = liteDatabase.GetCollection<TXOutputOwned>("outputsOwned");
+      OutputsOwnedStored.DeleteAll();
+
+      blockchain.OnBlockLoaded += ReplayBlockCompact;
     }
 
     protected override void InsertBlockParentFunds(Block block)
@@ -87,11 +90,16 @@ internal partial class BlockchainBitcoin
       HeightSpentDeleted = 0;
 
       foreach (Block blockCompact in Blockchain.LoadBlocksCompactMainChain().TakeWhile(b => b.Header.Height <= heightMax))
-        InsertBlockParentFunds(new Block(0)
-        {
-          Header = blockCompact.Header,
-          TXs = blockCompact.TXsWallet
-        });
+        ReplayBlockCompact(blockCompact);
+    }
+
+    void ReplayBlockCompact(Block blockCompact)
+    {
+      InsertBlockParentFunds(new Block(0)
+      {
+        Header = blockCompact.Header,
+        TXs = blockCompact.TXsWallet
+      });
     }
 
     protected override bool IsAnchorConflicting(TX anchor, int height)

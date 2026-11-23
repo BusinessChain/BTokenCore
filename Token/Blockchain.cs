@@ -30,6 +30,7 @@ internal abstract partial class Blockchain
   internal event Action<Block> OnBlockRolledBack;
   internal event Action<Block> OnBlockInsertedInTransaction;
   internal event Action<Block> OnBlockRolledBackInTransaction;
+  internal event Action<Block> OnBlockLoaded;
 
 
   protected Blockchain(
@@ -202,7 +203,10 @@ internal abstract partial class Blockchain
   protected void AnnounceBlocksLoaded()
   {
     foreach (Block block in LoadBlocksCompactMainChain())
+    {
+      OnBlockLoaded?.Invoke(block);
       OnBlockInserted.Announce(block);
+    }
   }
 
   internal IEnumerable<Block> LoadBlocksCompactMainChain()

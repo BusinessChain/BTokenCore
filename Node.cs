@@ -50,11 +50,7 @@ public partial class Node
 
   public async Task Start(int portRPC)
   {
-    await BlockchainBToken.RunLocked(() =>
-    {
-      BlockchainBToken.Load();
-      AnchorerBitcoin.RebuildFunds(BlockchainBitcoin.GetHeight());
-    });
+    await BlockchainBToken.RunLocked(BlockchainBToken.Load);
 
     NetworkBitcoin.Start();
 
