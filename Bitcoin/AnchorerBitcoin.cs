@@ -68,7 +68,8 @@ internal partial class BlockchainBitcoin
               Index = i,
               IDAccount = tXOutput.IDAccount,
               Value = tXOutput.Value,
-              HeightCreated = height
+              HeightCreated = height,
+              HashBlockCreated = block.Header.Hash
             });
             isTXWallet = true;
           }
@@ -145,6 +146,23 @@ internal partial class BlockchainBitcoin
     {
       return OutputsOwnedStored.Find(Query.EQ(nameof(TXOutputOwned.HeightSpent), 0)).Where(o => !IDsOutputWithdrawn.Contains(o.ID)).Sum(o => o.Value)
         - LoadAnchorsUnconfirmed().Sum(t => t.Fee);
+    }
+
+    internal override Dictionary<string, object> GetSnapshotState()
+    {
+      Dictionary<string, object> snapshotState = base.GetSnapshotState();
+
+      snapshotState["outputsSpendable"] = LoadOutputsFree(LoadAnchorsUnconfirmed().Cast<TXBitcoin>().ToList())
+        .Select(o => new Dictionary<string, object>
+        {
+          ["hashTX"] = o.TXID.ToHexString(),
+          ["index"] = o.Index,
+          ["value"] = o.Value,
+          ["hashBlock"] = o.HashBlockCreated.ToHexString()
+        })
+        .ToList();
+
+      return snapshotState;
     }
 
     List<TXOutputOwned> LoadOutputsFree(List<TXBitcoin> anchorsUnconfirmed)
@@ -379,6 +397,9 @@ internal partial class BlockchainBitcoin
 
       [BsonField]
       internal int HeightSpent;
+
+      [BsonField]
+      internal byte[] HashBlockCreated;
 
 
       internal static byte[] CreateID(byte[] tXID, int index)

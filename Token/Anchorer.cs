@@ -37,7 +37,7 @@ internal abstract partial class Blockchain
 
     internal abstract long GetFunds();
 
-    internal Dictionary<string, object> GetSnapshotState()
+    internal virtual Dictionary<string, object> GetSnapshotState()
     {
       return new Dictionary<string, object>
       {
