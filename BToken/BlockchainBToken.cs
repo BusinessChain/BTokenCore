@@ -372,6 +372,11 @@ internal partial class BlockchainBToken : Blockchain
     return snapshotState;
   }
 
+  internal List<Dictionary<string, object>> GetSnapshotTXPool(int countTXs)
+  {
+    return TXPool.GetTXsRanked().Take(countTXs).Select(t => t.GetSnapshotState()).ToList();
+  }
+
   internal override Block GetBlockStoredParsed(byte[] hash)
   {
     if (BlocksStoredAwaitingAnchor.FindById(hash) is not BsonDocument documentBlock)
