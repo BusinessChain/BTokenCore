@@ -74,6 +74,11 @@ internal partial class BlockchainBitcoin : Blockchain
       base.AppendToHeader(headerPrevious);
     }
 
+    internal override uint GetUnixTimeSeconds()
+    {
+      return UnixTimeSeconds;
+    }
+
     protected override BigInteger GetWork()
     {
       return UInt256.ParseFromCompact(NBits).ComputeWork();

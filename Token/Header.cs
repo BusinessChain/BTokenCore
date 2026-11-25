@@ -67,6 +67,11 @@ public abstract class Header
     return HeaderParent != null && HeaderParent.HeaderNext == null;
   }
 
+  internal virtual uint GetUnixTimeSeconds()
+  {
+    return HeaderParent.GetUnixTimeSeconds();
+  }
+
   internal Header GetHeaderAncestor(int height)
   {
     Header header = this;
@@ -91,7 +96,10 @@ public abstract class Header
     };
 
     if (HeaderParent != null)
+    {
       snapshotState["heightParent"] = HeaderParent.Height;
+      snapshotState["unixTimeSeconds"] = GetUnixTimeSeconds();
+    }
 
     return snapshotState;
   }
