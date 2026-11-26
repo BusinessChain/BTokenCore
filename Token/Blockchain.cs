@@ -429,11 +429,12 @@ internal abstract partial class Blockchain
     return ChainRoot.HeaderTip.Height;
   }
 
-  internal virtual Dictionary<string, object> GetSnapshotState(int countBlocks)
+  internal virtual Dictionary<string, object> GetSnapshotState(int secondsAgeMax)
   {
     List<Dictionary<string, object>> snapshotsHeader = new();
+    long timeNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-    for (Header header = ChainRoot.HeaderTipBlockchain; header != null && snapshotsHeader.Count < countBlocks; header = header.HeaderPrevious)
+    for (Header header = ChainRoot.HeaderTipBlockchain; header != null && (snapshotsHeader.Count == 0 || timeNow - header.GetUnixTimeSeconds() < secondsAgeMax); header = header.HeaderPrevious)
       snapshotsHeader.Add(header.GetSnapshotState());
 
     return new Dictionary<string, object>

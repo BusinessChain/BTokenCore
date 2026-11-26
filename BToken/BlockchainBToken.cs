@@ -360,9 +360,9 @@ internal partial class BlockchainBToken : Blockchain
     BlocksStoredAwaitingAnchor.Upsert(documentBlock);
   }
    
-  internal override Dictionary<string, object> GetSnapshotState(int countBlocks)
+  internal override Dictionary<string, object> GetSnapshotState(int secondsAgeMax)
   {
-    Dictionary<string, object> snapshotState = base.GetSnapshotState(countBlocks);
+    Dictionary<string, object> snapshotState = base.GetSnapshotState(secondsAgeMax);
 
     snapshotState["blocksAwaitingAnchor"] = BlocksStoredAwaitingAnchor.FindAll()
       .OrderBy(documentBlock => documentBlock[NAME_FIELD_HEIGHT].AsInt32)

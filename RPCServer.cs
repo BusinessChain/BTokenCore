@@ -146,7 +146,7 @@ public partial class Node
 
           case "getSnapshotState":
             result = await GetSnapshotState(
-              ReadInt32(parameters, "countBlocks"),
+              ReadInt32(parameters, "secondsAgeMax"),
               ReadInt32(parameters, "countTXsPool")).ConfigureAwait(false);
             break;
 
@@ -291,7 +291,7 @@ public partial class Node
       await Node.BlockchainBToken.RunLocked(Node.MinerBToken.StopWithdrawalAuto);
     }
 
-    async Task<Dictionary<string, object>> GetSnapshotState(int countBlocks, int countTXsPool)
+    async Task<Dictionary<string, object>> GetSnapshotState(int secondsAgeMax, int countTXsPool)
     {
       return new Dictionary<string, object>
       {
@@ -302,10 +302,10 @@ public partial class Node
         },
         ["blockchains"] = await Node.BlockchainBToken.RunLocked(() =>
         {
-          Dictionary<string, object> snapshotBitcoin = Node.BlockchainBitcoin.GetSnapshotState(countBlocks);
+          Dictionary<string, object> snapshotBitcoin = Node.BlockchainBitcoin.GetSnapshotState(secondsAgeMax);
           snapshotBitcoin["anchorer"] = Node.AnchorerBitcoin.GetSnapshotState();
 
-          Dictionary<string, object> snapshotBToken = Node.BlockchainBToken.GetSnapshotState(countBlocks);
+          Dictionary<string, object> snapshotBToken = Node.BlockchainBToken.GetSnapshotState(secondsAgeMax);
           snapshotBToken["miner"] = Node.MinerBToken.GetSnapshotState();
           snapshotBToken["tXPool"] = Node.BlockchainBToken.GetSnapshotTXPool(countTXsPool);
 
