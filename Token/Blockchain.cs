@@ -434,11 +434,16 @@ internal abstract partial class Blockchain
     List<Dictionary<string, object>> snapshotsHeader = new();
     long timeNow = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-    for (Header header = ChainRoot.HeaderTipBlockchain; header != null && (snapshotsHeader.Count == 0 || timeNow - header.GetUnixTimeSeconds() < secondsAgeMax); header = header.HeaderPrevious)
+    for (Header header = ChainRoot.HeaderTipBlockchain; header != null && timeNow - header.GetUnixTimeSeconds() < secondsAgeMax; header = header.HeaderPrevious)
       snapshotsHeader.Add(header.GetSnapshotState());
 
     return new Dictionary<string, object>
     {
+      ["tip"] = new Dictionary<string, object>
+      {
+        ["hash"] = ChainRoot.HeaderTipBlockchain.Hash.ToHexString(),
+        ["height"] = ChainRoot.HeaderTipBlockchain.Height
+      },
       ["headers"] = snapshotsHeader
     };
   }
