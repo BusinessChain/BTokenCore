@@ -50,7 +50,7 @@ internal abstract partial class Blockchain
 
           Dictionary<string, object> snapshotAnchor = anchor.GetSnapshotState();
           snapshotAnchor["heightConfirmed"] = heightConfirmed;
-          snapshotAnchor["isMissed"] = heightConfirmed == 0 && IsAnchorMissed(anchor);
+          snapshotAnchor["isMissed"] = heightConfirmed == 0 ? IsAnchorMissed(anchor) : heightConfirmed != anchor.LockTime + 1;
 
           return snapshotAnchor;
         }).ToList()
